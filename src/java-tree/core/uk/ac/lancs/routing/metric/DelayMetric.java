@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.metric;
 
 /**
  * Represents a metric that accumulates by addition, with lower values

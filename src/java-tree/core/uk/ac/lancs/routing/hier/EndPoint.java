@@ -36,10 +36,23 @@
 package uk.ac.lancs.routing.hier;
 
 /**
- * 
+ * Identifies the terminus of a connection.
  * 
  * @author simpsons
  */
 public interface EndPoint {
+    /**
+     * Get the containing port of the end point.
+     * 
+     * @return the end point's containing port
+     */
     Port getPort();
+
+    /**
+     * Get the label that subdivides the port to identify the
+     * connection.
+     * 
+     * @return the end-point label
+     */
+    short getLabel();
 }

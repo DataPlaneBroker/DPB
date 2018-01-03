@@ -33,41 +33,36 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.metric;
 
 /**
- * Represents a metric that is accumulated by multiplication, with
- * higher values being better.
+ * Holds the name and units of a metric. This serves as a convenience
+ * for building actual metric classes.
  * 
  * @author simpsons
  */
-public final class ReliabilityMetric extends UnitNamedMetric {
+public abstract class UnitNamedMetric implements Metric {
+    private final String name, units;
+
     /**
-     * Create a reliability-like metric with a given name and units.
+     * Create a metric with a given name and units.
      * 
      * @param name the metric's name
      * 
      * @param units the metric's units
      */
-    public ReliabilityMetric(String name, String units) {
-        super(name, units);
+    public UnitNamedMetric(String name, String units) {
+        this.name = name;
+        this.units = units;
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @return the product of the two arguments
-     */
     @Override
-    public double accumulate(double v1, double v2) {
-        return v1 * v2;
+    public String name() {
+        return name;
     }
 
-    /**
-     * {@inheritDoc} Higher values are considered better.
-     */
     @Override
-    public int compare(double v1, double v2) {
-        return Double.compare(v1, v2);
+    public String units() {
+        return units;
     }
 }

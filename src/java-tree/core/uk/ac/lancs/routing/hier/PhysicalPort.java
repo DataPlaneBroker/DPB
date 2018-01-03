@@ -36,7 +36,7 @@
 package uk.ac.lancs.routing.hier;
 
 /**
- * 
+ * Models the physical port of a switch.
  * 
  * @author simpsons
  */

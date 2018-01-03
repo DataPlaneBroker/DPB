@@ -33,38 +33,38 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.metric;
 
 /**
- * Represents a metric that accumulates by choosing the smaller value,
- * with larger values being better.
+ * Represents a metric that is accumulated by multiplication, with
+ * higher values being better.
  * 
  * @author simpsons
  */
-public final class BandwidthMetric extends UnitNamedMetric {
+public final class ReliabilityMetric extends UnitNamedMetric {
     /**
-     * Create a bandwidth-like metric with a given name and units.
+     * Create a reliability-like metric with a given name and units.
      * 
      * @param name the metric's name
      * 
      * @param units the metric's units
      */
-    public BandwidthMetric(String name, String units) {
+    public ReliabilityMetric(String name, String units) {
         super(name, units);
     }
 
     /**
      * {@inheritDoc}
      * 
-     * @return the minimum of the two arguments
+     * @return the product of the two arguments
      */
     @Override
     public double accumulate(double v1, double v2) {
-        return Math.min(v1, v2);
+        return v1 * v2;
     }
 
     /**
-     * {@inheritDoc} Larger values are considered better.
+     * {@inheritDoc} Higher values are considered better.
      */
     @Override
     public int compare(double v1, double v2) {

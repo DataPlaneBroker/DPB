@@ -36,9 +36,35 @@
 package uk.ac.lancs.routing.hier;
 
 /**
- * 
+ * Models the end of a trunk capable of carrying connections.
  * 
  * @author simpsons
  */
 public interface Port {
+    /**
+     * Get the containing port of this virtual port.
+     * 
+     * @return the containing port, or {@code null} if this port is
+     * physical
+     */
+    Port containingPort();
+
+    /**
+     * Get the end point for a given label applied to traffic through
+     * this port.
+     * 
+     * @param label the label subdividing traffic on this port
+     * 
+     * @return the end point for the given label
+     */
+    EndPoint getEndPoint(short label);
+
+    /**
+     * Get a virtual port by tagging this port.
+     * 
+     * @param label the label used to tag the inner traffic
+     * 
+     * @return a port tagged within this one
+     */
+    Port tag(short label);
 }

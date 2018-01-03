@@ -33,36 +33,41 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.metric;
 
 /**
- * Holds the name and units of a metric. This serves as a convenience
- * for building actual metric classes.
+ * Represents a metric that accumulates by choosing the smaller value,
+ * with larger values being better.
  * 
  * @author simpsons
  */
-public abstract class UnitNamedMetric implements Metric {
-    private final String name, units;
-
+public final class BandwidthMetric extends UnitNamedMetric {
     /**
-     * Create a metric with a given name and units.
+     * Create a bandwidth-like metric with a given name and units.
      * 
      * @param name the metric's name
      * 
      * @param units the metric's units
      */
-    public UnitNamedMetric(String name, String units) {
-        this.name = name;
-        this.units = units;
+    public BandwidthMetric(String name, String units) {
+        super(name, units);
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @return the minimum of the two arguments
+     */
     @Override
-    public String name() {
-        return name;
+    public double accumulate(double v1, double v2) {
+        return Math.min(v1, v2);
     }
 
+    /**
+     * {@inheritDoc} Larger values are considered better.
+     */
     @Override
-    public String units() {
-        return units;
+    public int compare(double v1, double v2) {
+        return Double.compare(v1, v2);
     }
 }

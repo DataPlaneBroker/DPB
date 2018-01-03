@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.metric;
 
 import java.util.Arrays;
 import java.util.List;

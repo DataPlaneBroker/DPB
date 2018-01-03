@@ -35,9 +35,21 @@
  */
 package uk.ac.lancs.routing.hier;
 
-import java.util.Collection;
-
+/**
+ * Accepts an allocated connection upon creation.
+ * 
+ * @author simpsons
+ */
 public interface ConnectionResponse {
-    void ready(Connection conn, Collection<LinkUpdate> updates);
+    /**
+     * Provide the newly allocated connection.
+     * 
+     * @param conn the new connection
+     */
+    void ready(Connection conn);
+
+    /**
+     * Inform that the connection allocation failed.
+     */
     void failed();
 }
