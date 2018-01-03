@@ -36,11 +36,20 @@
 package uk.ac.lancs.routing.hier;
 
 /**
- * 
+ * Represents a physical link with a fixed delay and a remaining
+ * bandwidth connecting two ports. Bandwidth can be allocated and
+ * released. Tunnels within the trunk can be allocated and released.
  * 
  * @author simpsons
  */
 public interface Trunk {
+    /**
+     * Get the ports at either end of this trunk.
+     * 
+     * @return the ports of the trunk
+     */
+    Port[] getPorts();
+
     /**
      * Get the bandwidth remaining available on this trunk.
      * 
@@ -120,7 +129,9 @@ public interface Trunk {
     int getAvailableTunnelCount();
 
     /**
-     * Allocate a tunnel through this trunk.
+     * Allocate a tunnel through this trunk. If successful, only one end
+     * of the tunnel is returned. The other can be obtained with
+     * {@link #getPeer(EndPoint)}.
      * 
      * @return the end point at the start of the tunnel, or {@code null}
      * if no further resource remains

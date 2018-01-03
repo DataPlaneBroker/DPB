@@ -41,6 +41,5 @@ package uk.ac.lancs.routing.hier;
  * @author simpsons
  */
 public interface PhysicalPort extends Port {
-    Switch getSwitch();
     String getName();
 }

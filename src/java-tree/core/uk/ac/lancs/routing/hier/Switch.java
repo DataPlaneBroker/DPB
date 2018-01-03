@@ -55,13 +55,13 @@ public interface Switch {
     EndPoint findEndPoint(String id);
 
     /**
-     * Attempt to allocate a connection.
+     * Initiate allocation of a connection.
      * 
      * @param request a description of the required connection
      * 
      * @param response an object to be invoked on allocation completion
      */
-    void connect(ConnectionRequest request, ConnectionResponse response);
+    void connect(ConnectionRequest request, ConnectionListener response);
 
     /**
      * Get a model of port connections given a bandwidth requirement.
@@ -69,7 +69,8 @@ public interface Switch {
      * @param minimumBandwidth the threshold below which internal links
      * shall not be included in computing the model
      * 
-     * @return
+     * @return a mesh of weighted edges between this switch's external
+     * ports summarizing the internal connectivity of the switch
      */
     Map<Edge<Port>, Double> getModel(double minimumBandwidth);
 }

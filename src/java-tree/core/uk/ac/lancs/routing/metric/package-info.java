@@ -35,7 +35,12 @@
  */
 
 /**
- * Models complex metric combinations.
+ * Models complex metric combinations. Each
+ * {@link uk.ac.lancs.routing.metric.Metric} defines how measurements
+ * are combined (accumulated) and compared. A
+ * {@link uk.ac.lancs.routing.metric.MetricCombination} takes a set of
+ * distinct metrics, and defines {@link java.util.Comparator}s to
+ * compare them in any order.
  * 
  * @author simpsons
  */

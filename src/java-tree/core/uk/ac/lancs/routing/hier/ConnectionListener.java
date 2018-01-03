@@ -40,7 +40,7 @@ package uk.ac.lancs.routing.hier;
  * 
  * @author simpsons
  */
-public interface ConnectionResponse {
+public interface ConnectionListener {
     /**
      * Provide the newly allocated connection.
      * 

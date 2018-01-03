@@ -47,7 +47,14 @@ public interface Port {
      * @return the containing port, or {@code null} if this port is
      * physical
      */
-    Port containingPort();
+    Port getContainingPort();
+
+    /**
+     * Get the switch directly owning this port.
+     * 
+     * @return the owning switch of the port
+     */
+    Switch getSwitch();
 
     /**
      * Get the end point for a given label applied to traffic through

@@ -35,7 +35,8 @@
  */
 
 /**
- * 
+ * Contains classes for managing hierarchical out-of-band connection
+ * management.
  * 
  * @author simpsons
  */

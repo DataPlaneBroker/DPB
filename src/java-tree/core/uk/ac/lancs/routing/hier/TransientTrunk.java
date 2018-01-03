@@ -43,13 +43,11 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Represents a physical link with a fixed delay and a remaining
- * bandwidth connecting two ports. Bandwidth can be allocated and
- * released. Tunnels within the trunk can be allocated and released.
+ * Represents a physical link with no persistent state.
  * 
  * @author simpsons
  */
-public final class BasicTrunk implements Trunk {
+public final class TransientTrunk implements Trunk {
     private final Port start, end;
     private final double delay;
     private double bandwidth;
@@ -66,7 +64,8 @@ public final class BasicTrunk implements Trunk {
      * 
      * @param bandwidth the initial available bandwidth
      */
-    public BasicTrunk(Port start, Port end, double delay, double bandwidth) {
+    public TransientTrunk(Port start, Port end, double delay,
+                          double bandwidth) {
         this.start = start;
         this.end = end;
         this.delay = delay;
@@ -83,7 +82,7 @@ public final class BasicTrunk implements Trunk {
      * 
      * @param delay the fixed delay of the trunk
      */
-    public BasicTrunk(Port start, Port end, double delay) {
+    public TransientTrunk(Port start, Port end, double delay) {
         this(start, end, delay, 0.0);
     }
 
@@ -203,5 +202,10 @@ public final class BasicTrunk implements Trunk {
     @Override
     public double getDelay() {
         return delay;
+    }
+
+    @Override
+    public Port[] getPorts() {
+        return new Port[] { start, end };
     }
 }

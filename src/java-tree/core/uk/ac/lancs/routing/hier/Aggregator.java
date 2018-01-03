@@ -36,6 +36,10 @@
 package uk.ac.lancs.routing.hier;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Map;
+
+import uk.ac.lancs.routing.span.Edge;
 
 /**
  * Implements a virtual switch hierarchically configuring inferior
@@ -45,19 +49,45 @@ import java.util.Collection;
  * 
  * @author simpsons
  */
-public class Aggregator {
+public class Aggregator implements Switch {
+    private final Collection<Switch> inferiors = new HashSet<>();
+    private final Collection<Trunk> trunks = new HashSet<>();
+
     /**
-     * Create an aggregator consisting of a set of external end points
-     * (in terms of the inferior switches that possess them) and links
-     * between end points of inferior switches.
+     * Make a trunk available for creating connections by this
+     * aggregator.
      * 
-     * @param externalEndPoints the set of external end points
-     * 
-     * @param links the set of static links from which connections can
-     * be built
+     * @param trunk the trunk to be used
      */
-    public Aggregator(Collection<? extends EndPoint> externalEndPoints,
-                      Collection<? extends LinkDescription> links) {
+    public void addTrunk(Trunk trunk) {
+        trunks.add(trunk);
+        Port[] ports = trunk.getPorts();
+        inferiors.add(ports[0].getSwitch());
+        inferiors.add(ports[1].getSwitch());
+    }
+
+    /**
+     * Make a port available to users attempting to form connections.
+     * 
+     * @param port the port to make available
+     */
+    public void exposePort(Port port) {
+
+    }
+
+    @Override
+    public EndPoint findEndPoint(String id) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public void connect(ConnectionRequest request,
+                        ConnectionListener response) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }
