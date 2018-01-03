@@ -12,7 +12,7 @@ jars += $(SELECTED_JARS)
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 
-roots_core += uk.ac.lancs.treespan.Spans
+roots_core += uk.ac.lancs.routing.span.Spans
 
 JARDEPS_OUTDIR=out
 JARDEPS_SRCDIR=src/java-tree

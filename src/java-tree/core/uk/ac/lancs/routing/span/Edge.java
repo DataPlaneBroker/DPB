@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treespan;
+package uk.ac.lancs.routing.span;
 
 /**
  * Describes an undirected edge between two vertices.

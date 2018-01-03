@@ -39,4 +39,4 @@
  * 
  * @author simpsons
  */
-package uk.ac.lancs.treespan;
+package uk.ac.lancs.routing.span;
