@@ -33,14 +33,43 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treeroute;
+package uk.ac.lancs.routing.hier;
+
+import java.util.Map;
+
+import uk.ac.lancs.routing.span.Edge;
 
 /**
- * 
+ * Represents a physical or virtual switch.
  * 
  * @author simpsons
  */
-public interface PhysicalPort extends Port {
-    Switch getSwitch();
-    String getName();
+public interface Switch {
+    /**
+     * Find the end point of this switch with the given identifier.
+     * 
+     * @param id the end-point identifier
+     * 
+     * @return the identified end point, or {@code null} if not found
+     */
+    EndPoint findEndPoint(String id);
+
+    /**
+     * Attempt to allocate a connection.
+     * 
+     * @param request a description of the required connection
+     * 
+     * @param response an object to be invoked on allocation completion
+     */
+    void connect(ConnectionRequest request, ConnectionResponse response);
+
+    /**
+     * Get a model of port connections given a bandwidth requirement.
+     * 
+     * @param minimumBandwidth the threshold below which internal links
+     * shall not be included in computing the model
+     * 
+     * @return
+     */
+    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
 }

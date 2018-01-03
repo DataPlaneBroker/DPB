@@ -75,7 +75,7 @@ import java.util.stream.Collectors;
  * For bandwidth-aware routing, one would start with edges that have
  * remaining bandwidths as well as weights. Begin by eliminating edges
  * that have insufficient bandwidth for the amount specified by the
- * user. (Bandwidth attribute can then be discarded.) Then call
+ * user. (The bandwidth attribute can then be discarded.) Then call
  * {@link #prune(Collection, Collection)} to eliminate spurs that do not
  * reach the terminals. Then call {@link #route(Collection, Map)},
  * {@link #flatten(Map)} and {@link #span(Collection, Map)} as above.
@@ -317,7 +317,8 @@ public final class Spans {
      * @param <V> the vertex type
      * 
      * @return a set of links that form a tree connecting all the
-     * essential vertices
+     * essential vertices, or {@code null} if no spanning tree could be
+     * formed connecting all terminals
      */
     public static <V> Collection<Edge<V>>
         span(Collection<? extends V> terminals,
@@ -335,10 +336,12 @@ public final class Spans {
         Collection<Edge<V>> available = new HashSet<>(links.keySet());
         Collection<Edge<V>> result = new HashSet<>();
 
-        /* Start by adding one of the terminals. */
+        /* Start by choosing one of the terminal vertices to be
+         * added. */
         V adding = terminals.iterator().next();
+
         for (;;) {
-            /* Add this vertex. */
+            /* Make reachable all edges from the vertex to be added. */
             for (Iterator<Edge<V>> iter = available.iterator(); iter
                 .hasNext();) {
                 Edge<V> rem = iter.next();
@@ -350,9 +353,14 @@ public final class Spans {
                     iter.remove();
                 }
             }
+
+            /* Add the chosen vertex, and indicate that it has been
+             * reached, stopping if we've now reached all terminals.
+             * Abort if there are no more options. */
             reached.add(adding);
             required.remove(adding);
             if (required.isEmpty()) break;
+            if (reachable.isEmpty()) return null;
 
             /* Choose another vertex, the nearest to the tree we have so
              * far. */

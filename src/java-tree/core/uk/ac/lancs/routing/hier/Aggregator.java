@@ -33,41 +33,31 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treeroute;
+package uk.ac.lancs.routing.hier;
+
+import java.util.Collection;
 
 /**
- * Represents a metric that is accumulated by multiplication, with
- * higher values being better.
+ * Implements a virtual switch hierarchically configuring inferior
+ * switches.
+ * 
+ * @todo This will implement {@link Switch}.
  * 
  * @author simpsons
  */
-public final class ReliabilityMetric extends UnitNamedMetric {
+public class Aggregator {
     /**
-     * Create a reliability-like metric with a given name and units.
+     * Create an aggregator consisting of a set of external end points
+     * (in terms of the inferior switches that possess them) and links
+     * between end points of inferior switches.
      * 
-     * @param name the metric's name
+     * @param externalEndPoints the set of external end points
      * 
-     * @param units the metric's units
+     * @param links the set of static links from which connections can
+     * be built
      */
-    public ReliabilityMetric(String name, String units) {
-        super(name, units);
-    }
-
-    /**
-     * {@inheritDoc}
-     * 
-     * @return the product of the two arguments
-     */
-    @Override
-    public double accumulate(double v1, double v2) {
-        return v1 * v2;
-    }
-
-    /**
-     * {@inheritDoc} Higher values are considered better.
-     */
-    @Override
-    public int compare(double v1, double v2) {
-        return Double.compare(v1, v2);
+    public Aggregator(Collection<? extends EndPoint> externalEndPoints,
+                      Collection<? extends LinkDescription> links) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }

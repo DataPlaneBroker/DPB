@@ -33,41 +33,49 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treeroute;
+package uk.ac.lancs.routing.hier;
 
 /**
- * Represents a metric that accumulates by choosing the smaller value,
- * with larger values being better.
+ * Represents accumulated metrics of a path, route or link.
  * 
  * @author simpsons
  */
-public final class BandwidthMetric extends UnitNamedMetric {
+public interface Metric {
     /**
-     * Create a bandwidth-like metric with a given name and units.
+     * Accumulate two meters.
      * 
-     * @param name the metric's name
+     * @param v1 the first meter
      * 
-     * @param units the metric's units
+     * @param v2 the second meter
+     * 
+     * @return the accumulation of the two meters
      */
-    public BandwidthMetric(String name, String units) {
-        super(name, units);
-    }
+    double accumulate(double v1, double v2);
 
     /**
-     * {@inheritDoc}
+     * Compare two meters.
      * 
-     * @return the minimum of the two arguments
+     * @param v1 the first meter
+     * 
+     * @param v2 the second meter
+     * 
+     * @return negative if the first meter is better than the second;
+     * positive if the second is better; zero if they are equivalent
      */
-    @Override
-    public double accumulate(double v1, double v2) {
-        return Math.min(v1, v2);
-    }
+    int compare(double v1, double v2);
 
     /**
-     * {@inheritDoc} Larger values are considered better.
+     * Get the metric name. Examples include <samp>bandwidth</samp>,
+     * <samp>delay</samp>, etc.
+     * 
+     * @return the metric's name
      */
-    @Override
-    public int compare(double v1, double v2) {
-        return Double.compare(v1, v2);
-    }
+    String name();
+
+    /**
+     * Get the metric units.
+     * 
+     * @return the metric's units
+     */
+    String units();
 }

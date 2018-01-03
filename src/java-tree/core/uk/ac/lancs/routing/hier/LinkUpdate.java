@@ -33,10 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.routing.hier;
 
 /**
  * 
  * 
  * @author simpsons
  */
-package uk.ac.lancs.treeroute;
+public class LinkUpdate {
+
+}

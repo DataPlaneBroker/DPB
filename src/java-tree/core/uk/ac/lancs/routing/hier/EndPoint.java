@@ -33,25 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treeroute;
+package uk.ac.lancs.routing.hier;
 
 /**
- * Represents a connection with allocated resources.
+ * 
  * 
  * @author simpsons
  */
-public interface Connection {
-    /**
-     * Allow the connection to carry traffic.
-     */
-    void activate();
-
-    /**
-     * Prevent the connection from carrying traffic.
-     */
-    void deactivate();
-    
-    boolean isActive();
-    
-    void release();
+public interface EndPoint {
+    Port getPort();
 }

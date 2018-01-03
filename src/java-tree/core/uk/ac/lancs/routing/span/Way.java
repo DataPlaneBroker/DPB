@@ -69,6 +69,13 @@ public final class Way<V> {
         this.distance = distance;
     }
 
+    /**
+     * Get a string representation of this way. This is simply
+     * <samp><var>{@linkplain #distance}</var> via
+     * <var>{@linkplain #nextHop}</var></samp>.
+     * 
+     * @return a string representation of this way
+     */
     @Override
     public String toString() {
         return distance + " via " + nextHop;

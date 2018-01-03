@@ -35,7 +35,7 @@
  */
 
 /**
- * 
+ * Contains classes for computing spanning trees.
  * 
  * @author simpsons
  */

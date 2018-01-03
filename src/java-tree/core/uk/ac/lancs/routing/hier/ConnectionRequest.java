@@ -33,42 +33,28 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.treeroute;
+package uk.ac.lancs.routing.hier;
+
+import java.util.Collection;
 
 /**
- * Represents a metric that accumulates by addition, with lower values
- * being better.
+ * Describes a required connection in terms of end points and minimum
+ * bandwidth allocation.
  * 
  * @author simpsons
  */
-public final class DelayMetric extends UnitNamedMetric {
+public interface ConnectionRequest {
     /**
-     * Create a delay-like metric with a given name and units.
+     * Get the set of end points of the required connection.
      * 
-     * @param name the metric's name
-     * 
-     * @param units the metric's units
+     * @return the set of end points in the connection
      */
-    public DelayMetric(String name, String units) {
-        super(name, units);
-    }
+    Collection<EndPoint> endPoints();
 
     /**
-     * {@inheritDoc}
+     * Get the minimum bandwidth allocation of the required connection.
      * 
-     * @return the sum of the two arguments
+     * @return the minimum bandwidth of the connection
      */
-    @Override
-    public double accumulate(double v1, double v2) {
-        return v1 + v2;
-
-    }
-
-    /**
-     * {@inheritDoc} Smaller values are considered better.
-     */
-    @Override
-    public int compare(double v1, double v2) {
-        return Double.compare(v2, v1);
-    }
+    long bandwidth();
 }
