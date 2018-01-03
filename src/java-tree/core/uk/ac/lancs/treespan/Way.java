@@ -36,31 +36,35 @@
 package uk.ac.lancs.treespan;
 
 /**
- * A distance-vector tuple
+ * Specifies the distance to some destination via an adjacent vertex.
+ * The destination is not explicitly stored.
  * 
- * @param <N> the node type
+ * <p>
+ * Objects of this class are suitable as hash keys.
+ * 
+ * @param <V> the vertex type
  * 
  * @author simpsons
  */
-public final class Way<N> {
+public final class Way<V> {
     /**
-     * The next hop to some given destination
+     * The next hop to the implicit destination
      */
-    public final N nextHop;
+    public final V nextHop;
 
     /**
-     * This distance to the destination
+     * The distance to the implicit destination
      */
     public final double distance;
 
     /**
-     * Create a tuple.
+     * Record a distance to a destination via an adjacent vertex.
      * 
      * @param nextHop the next hop to the implicit destination
      * 
      * @param distance the distance to the implicit destination
      */
-    public Way(N nextHop, double distance) {
+    public Way(V nextHop, double distance) {
         this.nextHop = nextHop;
         this.distance = distance;
     }
@@ -88,12 +92,13 @@ public final class Way<N> {
     }
 
     /**
-     * Determine whether this distance-vector equals another object.
+     * Determine whether this distance-vector tuple equals another
+     * object.
      * 
      * @param obj the other object
      * 
      * @return {@code true} iff the other object is also a
-     * distance-vector, and has the same distance and next hop
+     * distance-vector tuple, and has the same distance and next hop
      */
     @Override
     public boolean equals(Object obj) {

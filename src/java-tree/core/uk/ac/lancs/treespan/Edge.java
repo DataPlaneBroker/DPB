@@ -36,41 +36,47 @@
 package uk.ac.lancs.treespan;
 
 /**
- * Holds an unordered pair of nodes. This object is suitable as a hash
- * key.
+ * Describes an undirected edge between two vertices.
  * 
- * @param <N> the node type
+ * <p>
+ * Objects of this class are suitable as hash keys.
+ * 
+ * @param <V> the vertex type
  * 
  * @author simpsons
  */
-public final class Pair<N> {
+public final class Edge<V> {
     /**
-     * The first node
+     * The first vertex
      */
-    public final N first;
+    public final V first;
 
     /**
-     * The second node
+     * The second vertex
      */
-    public final N second;
+    public final V second;
 
+    /**
+     * The stored hash code of a vertex
+     */
     private final int firstHash, secondHash;
 
     /**
-     * Create a pair of nodes. The supplied arguments might not match
-     * the eventual field values.
+     * Create an undirected edge between two vertices. The supplied
+     * arguments are canonicalized, and so might not match the eventual
+     * field values.
      * 
-     * @param first one of the nodes
+     * @param first a vertex
      * 
-     * @param second the other node
+     * @param second another vertex
      * 
-     * @param <N> the node type
+     * @param <V> the vertex type
      */
-    public static <N> Pair<N> of(N first, N second) {
-        return new Pair<>(first, second);
+    public static <V> Edge<V> of(V first, V second) {
+        return new Edge<>(first, second);
     }
 
-    private Pair(N first, N second) {
+    private Edge(V first, V second) {
         if (first == null) throw new NullPointerException("first");
         if (second == null) throw new NullPointerException("second");
         int firstHash = first.hashCode();
@@ -89,10 +95,10 @@ public final class Pair<N> {
     }
 
     /**
-     * Get the hash code of this pair.
+     * Get the hash code of this edge.
      * 
-     * @return the hash code of this pair, a combination of the hash
-     * codes of the elements
+     * @return the hash code of this edge, a combination of the hash
+     * codes of the vertices
      */
     @Override
     public int hashCode() {
@@ -100,25 +106,24 @@ public final class Pair<N> {
     }
 
     /**
-     * Determine whether this pair equals another object.
+     * Determine whether another object describes this edge.
      * 
      * @param other the other object
      * 
-     * @return {@code true} iff the other object is a pair of the same
-     * elements
+     * @return {@code true} iff the other object describes the same edge
      */
     @Override
     public boolean equals(Object other) {
         if (other == null) return false;
-        if (!(other instanceof Pair)) return false;
-        Pair<?> p = (Pair<?>) other;
+        if (!(other instanceof Edge)) return false;
+        Edge<?> p = (Edge<?>) other;
         return first.equals(p.first) && second.equals(p.second);
     }
 
     /**
-     * Get a string representation of this pair.
+     * Get a string representation of this edge.
      * 
-     * @return string representations of the two elements, separated by
+     * @return string representations of the two vertices, separated by
      * a comma, and surrounded by angle brackets
      */
     @Override
