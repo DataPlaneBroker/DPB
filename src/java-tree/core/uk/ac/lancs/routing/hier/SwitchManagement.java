@@ -35,16 +35,12 @@
  */
 package uk.ac.lancs.routing.hier;
 
-import java.util.Map;
-
-import uk.ac.lancs.routing.span.Edge;
-
 /**
- * Represents a physical or virtual switch.
+ * Manages a switch.
  * 
  * @author simpsons
  */
-public interface Switch {
+public interface SwitchManagement {
     /**
      * Find a port on this switch.
      * 
@@ -54,33 +50,11 @@ public interface Switch {
      * available
      */
     Port findPort(String id);
-
+    
     /**
-     * Find the end point of this switch with the given identifier.
+     * Get the controlling intreface for this switch.
      * 
-     * @param id the end-point identifier
-     * 
-     * @return the identified end point, or {@code null} if not found
+     * @return the switch's control interface
      */
-    Terminus findEndPoint(String id);
-
-    /**
-     * Initiate allocation of a connection.
-     * 
-     * @param request a description of the required connection
-     * 
-     * @param response an object to be invoked on allocation completion
-     */
-    void connect(ConnectionRequest request, ConnectionListener response);
-
-    /**
-     * Get a model of port connections given a bandwidth requirement.
-     * 
-     * @param minimumBandwidth the threshold below which internal links
-     * shall not be included in computing the model
-     * 
-     * @return a mesh of weighted edges between this switch's external
-     * ports summarizing the internal connectivity of the switch
-     */
-    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
+    SwitchControl getControl();
 }

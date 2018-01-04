@@ -153,7 +153,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public Terminus getPeer(Terminus p) {
+    public EndPoint getPeer(EndPoint p) {
         if (p.getPort().equals(start)) {
             Short other = startToEndMap.get(p.getLabel());
             if (other == null) return null;
@@ -169,7 +169,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public Terminus allocateTunnel() {
+    public EndPoint allocateTunnel() {
         if (availableTunnels.isEmpty()) return null;
         short startLabel = (short) availableTunnels.nextSetBit(0);
         availableTunnels.clear(startLabel);
@@ -177,7 +177,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public void releaseTunnel(Terminus endPoint) {
+    public void releaseTunnel(EndPoint endPoint) {
         final short startLabel;
         if (endPoint.getPort().equals(start)) {
             startLabel = endPoint.getLabel();

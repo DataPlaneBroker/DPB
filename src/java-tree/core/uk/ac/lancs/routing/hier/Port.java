@@ -46,7 +46,7 @@ public interface Port {
      * 
      * @return the owning switch of the port
      */
-    Switch getSwitch();
+    SwitchControl getSwitch();
 
     /**
      * Get the end point for a given label applied to traffic through
@@ -56,5 +56,5 @@ public interface Port {
      * 
      * @return the end point for the given label
      */
-    Terminus getEndPoint(short label);
+    EndPoint getEndPoint(short label);
 }

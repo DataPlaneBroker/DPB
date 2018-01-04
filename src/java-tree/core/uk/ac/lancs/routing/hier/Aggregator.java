@@ -35,12 +35,13 @@
  */
 package uk.ac.lancs.routing.hier;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.routing.span.Edge;
@@ -51,13 +52,17 @@ import uk.ac.lancs.routing.span.Way;
  * Implements a virtual switch hierarchically configuring inferior
  * switches.
  * 
- * @todo This will implement {@link Switch}.
- * 
  * @author simpsons
  */
-public class Aggregator implements Switch {
-    private final Collection<Switch> inferiors = new HashSet<>();
+public class Aggregator implements SwitchManagement {
+    private final String name;
     private final Collection<Trunk> trunks = new HashSet<>();
+
+    private final Map<String, ExposedPort> ports = new HashMap<>();
+
+    public Aggregator(String name) {
+        this.name = name;
+    }
 
     /**
      * Make a trunk available for creating connections by this
@@ -67,42 +72,40 @@ public class Aggregator implements Switch {
      */
     public void addTrunk(Trunk trunk) {
         trunks.add(trunk);
-        List<Port> ports = trunk.getPorts();
-        inferiors.add(ports.get(0).getSwitch());
-        inferiors.add(ports.get(1).getSwitch());
     }
 
     /**
-     * Add a new port.
+     * Add a new port exposing an inferior switch's port.
      * 
-     * @param config configuration to define the port, or map it to
-     * lower layers
+     * @param name the local name of the port
+     * 
+     * @param inner the port of an inferior switch
      * 
      * @return the newly created port
-     * 
-     * @throws IllegalArgumentException if the configuration is invalid
-     * 
-     * @throws NoSuchElementException if the configuration is
-     * structurally valid, but does not map to an existing resource
      */
-    public Port addPort(Object config) {
-        String internalId = config.toString();
-        Collection<Port> matches =
-            inferiors.stream().map(sw -> sw.findPort(internalId))
-                .filter(p -> p != null).collect(Collectors.toSet());
-        if (matches.isEmpty())
-            throw new NoSuchElementException("unknown configuration "
-                + config);
-        if (matches.size() > 1)
-            throw new IllegalArgumentException("configuration " + config
-                + "matches " + matches);
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+    public Port addPort(String name, Port inner) {
+        if (ports.containsKey(name))
+            throw new IllegalArgumentException("name in use: " + name);
+        ExposedPort result = new ExposedPort(name, inner);
+        ports.put(name, result);
+        return result;
+    }
+
+    /**
+     * Remove a port from this switch.
+     * 
+     * @param name the port's local name
+     */
+    public void removePort(String name) {
+        ports.remove(name);
     }
 
     private class ExposedPort implements Port {
+        private final String name;
         private final Port innerPort;
 
-        public ExposedPort(Port innerPort) {
+        public ExposedPort(String name, Port innerPort) {
+            this.name = name;
             this.innerPort = innerPort;
         }
 
@@ -111,97 +114,267 @@ public class Aggregator implements Switch {
         }
 
         @Override
-        public Switch getSwitch() {
-            return Aggregator.this;
+        public SwitchControl getSwitch() {
+            return getControl();
         }
 
         @Override
-        public Terminus getEndPoint(short label) {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+        public EndPoint getEndPoint(short label) {
+            return new ExposedTerminus(label);
         }
-    }
 
-    @Override
-    public Terminus findEndPoint(String id) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+        private class ExposedTerminus implements EndPoint {
+            private final short label;
 
-    @Override
-    public void connect(ConnectionRequest request,
-                        ConnectionListener response) {
-        /* Map the set of our end points to the corresponding inner
-         * ports that our topology consists of. */
-        Collection<Port> terminals = request.endPoints().stream()
-            .map(Terminus::getPort).map(p -> (ExposedPort) p)
-            .map(ExposedPort::innerPort).collect(Collectors.toSet());
+            public ExposedTerminus(short label) {
+                this.label = label;
+            }
 
-        /* Get a subset of all trunks, those with sufficent bandwidth
-         * and free tunnels. */
-        Collection<Trunk> suitableTrunks = trunks.stream()
-            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
-                && trunk.getBandwidth() >= request.bandwidth())
-            .collect(Collectors.toSet());
+            @Override
+            public Port getPort() {
+                return ExposedPort.this;
+            }
 
-        /* Get a set of all switches for our trunks. */
-        Collection<Switch> switches = suitableTrunks.stream()
-            .flatMap(trunk -> trunk.getPorts().stream().map(Port::getSwitch))
-            .collect(Collectors.toSet());
+            @Override
+            public short getLabel() {
+                return label;
+            }
 
-        /* Get edges representing all suitable trunks. */
-        Map<Edge<Port>, Double> edges = new HashMap<>(suitableTrunks.stream()
-            .collect(Collectors.toMap(Trunk::getEdge, Trunk::getDelay)));
+            @Override
+            public String toString() {
+                return ExposedPort.this + ":" + label;
+            }
+        }
 
-        /* Get models of all switches, and combine their edges with the
-         * trunks. */
-        edges.entrySet().addAll(switches.stream()
-            .flatMap(sw -> getModel(request.bandwidth()).entrySet().stream())
-            .collect(Collectors.toSet()));
-
-        /* Get rid of spurs as a small optimization. */
-        Spans.prune(terminals, edges.keySet());
-
-        /* Create routing tables for each port. */
-        Map<Port, Map<Port, Way<Port>>> fibs = Spans.route(terminals, edges);
-
-        /* Create terminal-aware weights for each edge. */
-        Map<Edge<Port>, Double> weightedEdges = Spans.flatten(fibs);
-
-        /* To impose additional constraints on the spanning tree, keep a
-         * set of switches already reached. Edges that connect two
-         * distinct switches that have both been reached shall be
-         * excluded. */
-        Collection<Switch> reachedSwitches = new HashSet<>();
-
-        /* Create the spanning tree, keeping track of reached switches,
-         * and rejecting edges connecting two already reached
-         * switches. */
-        Collection<Edge<Port>> tree =
-            Spans.<Port>span(terminals, weightedEdges,
-                             p -> reachedSwitches.add(p.getSwitch()), e -> {
-                                 Switch first = e.first.getSwitch();
-                                 Switch second = e.second.getSwitch();
-                                 if (first == second) return true;
-                                 if (reachedSwitches.contains(first)
-                                     && reachedSwitches.contains(second))
-                                     return false;
-                                 return true;
-                             });
-
-        /* TODO: For each edge, identify the corresponding trunk or
-         * switch. Reserve bandwidth and a label on each trunk. Create
-         * sub-connections on switches. Record all labels and
-         * sub-connections in a new connection object, and give back to
-         * the caller. */
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
-    public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        @Override
+        public String toString() {
+            return Aggregator.this.name + ":" + name;
+        }
     }
 
     @Override
     public Port findPort(String id) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
+
+    @Override
+    public SwitchControl getControl() {
+        return control;
+    }
+
+    private final SwitchControl control = new SwitchControl() {
+        @Override
+        public void connect(ConnectionRequest request,
+                            ConnectionListener response) {
+            /* Map the set of caller's termini to the corresponding
+             * inner termini that our topology consists of. */
+            Collection<EndPoint> innerTerminalEndPoints =
+                request.terminals.stream().map(t -> {
+                    ExposedPort xp = (ExposedPort) t.getPort();
+                    Port ip = xp.innerPort();
+                    return ip.getEndPoint(t.getLabel());
+                }).collect(Collectors.toSet());
+
+            /* Get the set of ports that will be used as destinations in
+             * routing. */
+            Collection<Port> innerTerminalPorts = innerTerminalEndPoints
+                .stream().map(EndPoint::getPort).collect(Collectors.toSet());
+
+            /* Get a subset of all trunks, those with sufficent
+             * bandwidth and free tunnels. */
+            Collection<Trunk> adequateTrunks = trunks.stream()
+                .filter(trunk -> trunk.getAvailableTunnelCount() > 0
+                    && trunk.getBandwidth() >= request.bandwidth)
+                .collect(Collectors.toSet());
+
+            /* Maintain a reverse map from port to trunk. */
+            Map<Port, Trunk> portToTrunkMap = new IdentityHashMap<>();
+            for (Trunk trunk : adequateTrunks)
+                for (Port port : trunk.getPorts())
+                    portToTrunkMap.put(port, trunk);
+
+            /* Get edges representing all suitable trunks. */
+            Map<Edge<Port>, Double> edges = new HashMap<>(adequateTrunks
+                .stream()
+                .collect(Collectors.toMap(Trunk::getEdge, Trunk::getDelay)));
+
+            {
+                /* Get a set of all switches for our trunks. */
+                Collection<SwitchControl> switches =
+                    adequateTrunks.stream()
+                        .flatMap(trunk -> trunk.getPorts().stream()
+                            .map(Port::getSwitch))
+                        .collect(Collectors.toSet());
+
+                /* Get models of all switches connected to the selected
+                 * trunks, and combine their edges with the trunks. */
+                edges.entrySet()
+                    .addAll(switches
+                        .stream().flatMap(sw -> getModel(request.bandwidth)
+                            .entrySet().stream())
+                        .collect(Collectors.toSet()));
+            }
+
+            /* Get rid of spurs as a small optimization. */
+            Spans.prune(innerTerminalPorts, edges.keySet());
+
+            /* Create routing tables for each port. */
+            Map<Port, Map<Port, Way<Port>>> fibs =
+                Spans.route(innerTerminalPorts, edges);
+
+            /* Create terminal-aware weights for each edge. */
+            Map<Edge<Port>, Double> weightedEdges = Spans.flatten(fibs);
+
+            /* To impose additional constraints on the spanning tree,
+             * keep a set of switches already reached. Edges that
+             * connect two distinct switches that have both been reached
+             * shall be excluded. */
+            Collection<SwitchControl> reachedSwitches = new HashSet<>();
+
+            /* Create the spanning tree, keeping track of reached
+             * switches, and rejecting edges connecting two already
+             * reached switches. */
+            Collection<Edge<Port>> tree =
+                Spans.span(innerTerminalPorts, weightedEdges,
+                           p -> reachedSwitches.add(p.getSwitch()), e -> {
+                               SwitchControl first = e.first().getSwitch();
+                               SwitchControl second = e.second().getSwitch();
+                               if (first == second) return true;
+                               if (reachedSwitches.contains(first)
+                                   && reachedSwitches.contains(second))
+                                   return false;
+                               return true;
+                           });
+
+            /* For each switch, identify all its involved ports, and
+             * identify trunks that must be modified. */
+            class TrunkClient {
+                final Trunk trunk;
+                final EndPoint mouth;
+
+                public TrunkClient(Trunk trunk, EndPoint mouth) {
+                    this.trunk = trunk;
+                    this.mouth = mouth;
+                }
+            }
+            Map<SwitchControl, Collection<EndPoint>> mouthsPerSwitch =
+                new HashMap<>();
+            Collection<TrunkClient> trunkClients = new HashSet<>();
+            for (Edge<Port> edge : tree) {
+                SwitchControl firstSwitch = edge.first().getSwitch();
+                SwitchControl secondSwitch = edge.second().getSwitch();
+                if (firstSwitch == secondSwitch) {
+                    /* This is an edge across an inferior switch. We
+                     * don't handle it directly, but infer it by the
+                     * edges that connect to it. */
+                    continue;
+                }
+
+                /* Remember how we use this trunk. */
+                Trunk firstTrunk = portToTrunkMap.get(edge.first());
+                EndPoint ep1 = firstTrunk.allocateTunnel();
+                TrunkClient tc = new TrunkClient(firstTrunk, ep1);
+                trunkClients.add(tc);
+
+                /* */
+                EndPoint ep2 = firstTrunk.getPeer(ep1);
+                mouthsPerSwitch.computeIfAbsent(ep1.getPort().getSwitch(),
+                                                k -> new HashSet<>())
+                    .add(ep1);
+                mouthsPerSwitch.computeIfAbsent(ep2.getPort().getSwitch(),
+                                                k -> new HashSet<>())
+                    .add(ep2);
+            }
+
+            /* Make sure the caller's termini are included. */
+            for (EndPoint t : innerTerminalEndPoints)
+                mouthsPerSwitch.computeIfAbsent(t.getPort().getSwitch(),
+                                                k -> new HashSet<>())
+                    .add(t);
+
+            class SwitchClient {
+                final SwitchControl control;
+
+                SwitchClient(SwitchControl control) {
+                    this.control = control;
+                }
+            }
+
+            /* TODO: For each edge, identify the corresponding trunk or
+             * switch. Reserve bandwidth and a label on each trunk.
+             * Create sub-connections on switches. Record all labels and
+             * sub-connections in a new connection object, and give back
+             * to the caller. */
+            throw new UnsupportedOperationException("unimplemented"); // TODO
+        }
+
+        @Override
+        public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
+            /* Map the set of our termini to the corresponding inner
+             * ports that our topology consists of. */
+            Collection<Port> terminals = ports.values().stream()
+                .map(ExposedPort::innerPort).collect(Collectors.toSet());
+
+            /* Get a subset of all trunks, those with sufficent
+             * bandwidth and free tunnels. */
+            Collection<Trunk> suitableTrunks = trunks.stream()
+                .filter(trunk -> trunk.getAvailableTunnelCount() > 0
+                    && trunk.getBandwidth() >= minimumBandwidth)
+                .collect(Collectors.toSet());
+
+            /* Get a set of all switches for our trunks. */
+            Collection<SwitchControl> switches = suitableTrunks.stream()
+                .flatMap(trunk -> trunk.getPorts().stream()
+                    .map(Port::getSwitch))
+                .collect(Collectors.toSet());
+
+            /* Get edges representing all suitable trunks. */
+            Map<Edge<Port>, Double> edges = new HashMap<>(suitableTrunks
+                .stream()
+                .collect(Collectors.toMap(Trunk::getEdge, Trunk::getDelay)));
+
+            /* Get models of all switches, and combine their edges with
+             * the trunks. */
+            edges.entrySet().addAll(switches.stream()
+                .flatMap(sw -> getModel(minimumBandwidth).entrySet().stream())
+                .collect(Collectors.toSet()));
+
+            /* Get rid of spurs as a small optimization. */
+            Spans.<Port>prune(terminals, edges.keySet());
+
+            /* Create routing tables for each port. */
+            Map<Port, Map<Port, Way<Port>>> fibs =
+                Spans.route(terminals, edges);
+
+            /* Convert our exposed ports to a sequence so we can form
+             * every combination of two ports. */
+            final List<ExposedPort> portSeq = new ArrayList<>(ports.values());
+            final int size = portSeq.size();
+
+            /* For every combination of our exposed ports, store the
+             * total distance as part of the result. */
+            Map<Edge<Port>, Double> result = new HashMap<>();
+            for (int i = 0; i + 1 < size; i++) {
+                final ExposedPort start = portSeq.get(i);
+                final Port innerStart = start.innerPort();
+                final Map<Port, Way<Port>> startFib = fibs.get(innerStart);
+                if (startFib == null) continue;
+                for (int j = i + 1; j < size; j++) {
+                    final ExposedPort end = portSeq.get(j);
+                    final Port innerEnd = end.innerPort();
+                    final Way<Port> way = startFib.get(innerEnd);
+                    if (way == null) continue;
+                    final Edge<Port> edge = Edge.of(start, end);
+                    result.put(edge, way.distance);
+                }
+            }
+
+            return result;
+        }
+
+        @Override
+        public EndPoint findTerminus(String id) {
+            throw new UnsupportedOperationException("unimplemented"); // TODO
+        }
+    };
 }

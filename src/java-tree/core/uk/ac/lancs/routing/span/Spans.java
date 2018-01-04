@@ -116,10 +116,10 @@ public final class Spans {
         for (Map.Entry<Edge<V>, ? extends Number> entry : links.entrySet()) {
             Edge<V> link = entry.getKey();
             double weight = entry.getValue().doubleValue();
-            neighbours.computeIfAbsent(link.first, k -> new HashMap<>())
-                .put(link.second, weight);
-            neighbours.computeIfAbsent(link.second, k -> new HashMap<>())
-                .put(link.first, weight);
+            neighbours.computeIfAbsent(link.first(), k -> new HashMap<>())
+                .put(link.second(), weight);
+            neighbours.computeIfAbsent(link.second(), k -> new HashMap<>())
+                .put(link.first(), weight);
         }
 
         /* Keep track of vertices with out-of-date tables, and start
@@ -265,10 +265,10 @@ public final class Spans {
         /* Count how many links each vertex has. */
         Map<N, Collection<N>> graph = new HashMap<>();
         for (Edge<N> p : links) {
-            graph.computeIfAbsent(p.first, k -> new HashSet<>())
-                .add(p.second);
-            graph.computeIfAbsent(p.second, k -> new HashSet<>())
-                .add(p.first);
+            graph.computeIfAbsent(p.first(), k -> new HashSet<>())
+                .add(p.second());
+            graph.computeIfAbsent(p.second(), k -> new HashSet<>())
+                .add(p.first());
         }
 
         /* Identify vertices to be removed. */
@@ -425,10 +425,10 @@ public final class Spans {
             for (Iterator<Edge<V>> iter = available.iterator(); iter
                 .hasNext();) {
                 Edge<V> rem = iter.next();
-                if ((rem.first.equals(adding)
-                    && !reached.contains(rem.second))
-                    || (rem.second.equals(adding)
-                        && !reached.contains(rem.first))) {
+                if ((rem.first().equals(adding)
+                    && !reached.contains(rem.second()))
+                    || (rem.second().equals(adding)
+                        && !reached.contains(rem.first()))) {
                     /* If this one is okay with our caller, include it
                      * as a future candidate. */
                     if (edgeChecker.test(rem)) reachable.add(rem);
@@ -466,10 +466,10 @@ public final class Spans {
 
             /* Ensure that vertices reachable one hop from this link are
              * considered. */
-            if (reached.contains(bestLink.first))
-                adding = bestLink.second;
+            if (reached.contains(bestLink.first()))
+                adding = bestLink.second();
             else
-                adding = bestLink.first;
+                adding = bestLink.first();
         }
 
         /* Get rid of useless spurs. */

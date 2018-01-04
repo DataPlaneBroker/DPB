@@ -35,6 +35,10 @@
  */
 package uk.ac.lancs.routing.span;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * Describes an undirected edge between two vertices.
  * 
@@ -47,14 +51,10 @@ package uk.ac.lancs.routing.span;
  */
 public final class Edge<V> {
     /**
-     * The first vertex
+     * An unmodifiable pair of vertices in a canonical order that form
+     * the edge
      */
-    public final V first;
-
-    /**
-     * The second vertex
-     */
-    public final V second;
+    public final List<V> vertices;
 
     /**
      * The stored hash code of a vertex
@@ -82,13 +82,13 @@ public final class Edge<V> {
         int firstHash = first.hashCode();
         int secondHash = second.hashCode();
         if (firstHash < secondHash) {
-            this.first = first;
-            this.second = second;
+            this.vertices =
+                Collections.unmodifiableList(Arrays.asList(first, second));
             this.firstHash = firstHash;
             this.secondHash = secondHash;
         } else {
-            this.first = second;
-            this.second = first;
+            this.vertices =
+                Collections.unmodifiableList(Arrays.asList(second, first));
             this.firstHash = secondHash;
             this.secondHash = firstHash;
         }
@@ -117,7 +117,25 @@ public final class Edge<V> {
         if (other == null) return false;
         if (!(other instanceof Edge)) return false;
         Edge<?> p = (Edge<?>) other;
-        return first.equals(p.first) && second.equals(p.second);
+        return first().equals(p.first()) && second().equals(p.second());
+    }
+
+    /**
+     * Get the first vertex.
+     * 
+     * @return the first vertex
+     */
+    public V first() {
+        return vertices.get(0);
+    }
+
+    /**
+     * Get the second vertex.
+     * 
+     * @return the second vertex
+     */
+    public V second() {
+        return vertices.get(1);
     }
 
     /**
@@ -128,6 +146,6 @@ public final class Edge<V> {
      */
     @Override
     public String toString() {
-        return "<" + first + "," + second + ">";
+        return "<" + first() + "," + second() + ">";
     }
 }
