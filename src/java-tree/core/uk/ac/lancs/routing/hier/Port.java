@@ -42,14 +42,6 @@ package uk.ac.lancs.routing.hier;
  */
 public interface Port {
     /**
-     * Get the containing port of this virtual port.
-     * 
-     * @return the containing port, or {@code null} if this port is
-     * physical
-     */
-    Port getContainingPort();
-
-    /**
      * Get the switch directly owning this port.
      * 
      * @return the owning switch of the port
@@ -64,14 +56,5 @@ public interface Port {
      * 
      * @return the end point for the given label
      */
-    EndPoint getEndPoint(short label);
-
-    /**
-     * Get a virtual port by tagging this port.
-     * 
-     * @param label the label used to tag the inner traffic
-     * 
-     * @return a port tagged within this one
-     */
-    Port tag(short label);
+    Terminus getEndPoint(short label);
 }

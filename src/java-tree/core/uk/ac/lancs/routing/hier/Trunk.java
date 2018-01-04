@@ -35,6 +35,10 @@
  */
 package uk.ac.lancs.routing.hier;
 
+import java.util.List;
+
+import uk.ac.lancs.routing.span.Edge;
+
 /**
  * Represents a physical link with a fixed delay and a remaining
  * bandwidth connecting two ports. Bandwidth can be allocated and
@@ -48,7 +52,17 @@ public interface Trunk {
      * 
      * @return the ports of the trunk
      */
-    Port[] getPorts();
+    List<Port> getPorts();
+
+    /**
+     * Get the ports of this trunk as an edge.
+     * 
+     * @return an edge representing this trunk
+     */
+    default Edge<Port> getEdge() {
+        List<Port> ports = getPorts();
+        return Edge.of(ports.get(0), ports.get(1));
+    }
 
     /**
      * Get the bandwidth remaining available on this trunk.
@@ -119,7 +133,7 @@ public interface Trunk {
      * @throws IllegalArgumentException if the end point does not belong
      * to either port of this trunk
      */
-    EndPoint getPeer(EndPoint p);
+    Terminus getPeer(Terminus p);
 
     /**
      * Get the number of tunnels available through this trunk.
@@ -131,12 +145,12 @@ public interface Trunk {
     /**
      * Allocate a tunnel through this trunk. If successful, only one end
      * of the tunnel is returned. The other can be obtained with
-     * {@link #getPeer(EndPoint)}.
+     * {@link #getPeer(Terminus)}.
      * 
      * @return the end point at the start of the tunnel, or {@code null}
      * if no further resource remains
      */
-    EndPoint allocateTunnel();
+    Terminus allocateTunnel();
 
     /**
      * Get the fixed delay of this trunk.
@@ -150,5 +164,5 @@ public interface Trunk {
      * 
      * @param endPoint either of the tunnel end points
      */
-    void releaseTunnel(EndPoint endPoint);
+    void releaseTunnel(Terminus endPoint);
 }

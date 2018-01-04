@@ -40,7 +40,7 @@ package uk.ac.lancs.routing.hier;
  * 
  * @author simpsons
  */
-public interface EndPoint {
+public interface Terminus {
     /**
      * Get the containing port of the end point.
      * 

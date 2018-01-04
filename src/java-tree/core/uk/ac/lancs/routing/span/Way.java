@@ -64,7 +64,11 @@ public final class Way<V> {
      * 
      * @param distance the distance to the implicit destination
      */
-    public Way(V nextHop, double distance) {
+    public static <V> Way<V> of(V nextHop, double distance) {
+        return new Way<>(nextHop, distance);
+    }
+
+    private Way(V nextHop, double distance) {
         this.nextHop = nextHop;
         this.distance = distance;
     }

@@ -46,13 +46,23 @@ import uk.ac.lancs.routing.span.Edge;
  */
 public interface Switch {
     /**
+     * Find a port on this switch.
+     * 
+     * @param id the port identifier
+     * 
+     * @return the requested port, or {@code null} if it is not
+     * available
+     */
+    Port findPort(String id);
+
+    /**
      * Find the end point of this switch with the given identifier.
      * 
      * @param id the end-point identifier
      * 
      * @return the identified end point, or {@code null} if not found
      */
-    EndPoint findEndPoint(String id);
+    Terminus findEndPoint(String id);
 
     /**
      * Initiate allocation of a connection.

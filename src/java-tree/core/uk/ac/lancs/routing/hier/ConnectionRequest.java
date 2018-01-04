@@ -49,7 +49,7 @@ public interface ConnectionRequest {
      * 
      * @return the set of end points in the connection
      */
-    Collection<EndPoint> endPoints();
+    Collection<Terminus> endPoints();
 
     /**
      * Get the minimum bandwidth allocation of the required connection.

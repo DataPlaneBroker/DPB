@@ -35,7 +35,9 @@
  */
 package uk.ac.lancs.routing.hier;
 
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
@@ -151,7 +153,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public EndPoint getPeer(EndPoint p) {
+    public Terminus getPeer(Terminus p) {
         if (p.getPort().equals(start)) {
             Short other = startToEndMap.get(p.getLabel());
             if (other == null) return null;
@@ -167,7 +169,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public EndPoint allocateTunnel() {
+    public Terminus allocateTunnel() {
         if (availableTunnels.isEmpty()) return null;
         short startLabel = (short) availableTunnels.nextSetBit(0);
         availableTunnels.clear(startLabel);
@@ -175,7 +177,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public void releaseTunnel(EndPoint endPoint) {
+    public void releaseTunnel(Terminus endPoint) {
         final short startLabel;
         if (endPoint.getPort().equals(start)) {
             startLabel = endPoint.getLabel();
@@ -205,7 +207,7 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public Port[] getPorts() {
-        return new Port[] { start, end };
+    public List<Port> getPorts() {
+        return Arrays.asList(start, end);
     }
 }

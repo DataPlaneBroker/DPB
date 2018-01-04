@@ -44,6 +44,8 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -95,20 +97,21 @@ public final class Spans {
      * Generate forwarding information bases for all vertices in an
      * undirected weighted graph for a subset of destinations.
      * 
+     * @param result the map to hold the result, the FIBs of all
+     * vertices in the graph
+     * 
      * @param terminals the subset of destinations that will be the
      * keysets of each FIB
      * 
      * @param links the undirected weighted graph
      * 
      * @param <V> the vertex type
-     * 
-     * @return the FIBs of all vertices in the graph
      */
     public static <V> Map<V, Map<V, Way<V>>>
         route(Collection<? extends V> terminals,
               Map<Edge<V>, ? extends Number> links) {
-        /* From the provided links, for each vertex, create a set of
-         * neighbours. */
+        /* From the provided links, create a mapping from each vertex to
+         * each of its neighbours and the distance to each one. */
         Map<V, Map<V, Double>> neighbours = new HashMap<>();
         for (Map.Entry<Edge<V>, ? extends Number> entry : links.entrySet()) {
             Edge<V> link = entry.getKey();
@@ -121,31 +124,51 @@ public final class Spans {
 
         /* Keep track of vertices with out-of-date tables, and start
          * with the terminals. */
-        Collection<V> laggingNodes = new LinkedHashSet<>(terminals);
+        Collection<V> laggingVertices = new LinkedHashSet<>(terminals);
 
         /* Keep updating vertices' FIBs until none are out-of-date. */
         Map<V, Map<V, Way<V>>> result = new HashMap<>();
-        while (!laggingNodes.isEmpty()) {
-            /* Pick and remove one of the lagging vertices, and
-             * recompute its FIB. */
-            V updating = next(laggingNodes);
+        while (!laggingVertices.isEmpty()) {
+            /* Pick and remove one of the lagging vertices for its FIB
+             * to be recomputed. */
+            V updating = next(laggingVertices);
+
+            /* Start with a fresh FIB for this vertex. */
             Map<V, Way<V>> newFib = new HashMap<>();
+
+            /* If this vertex is a terminal, ensure it has a
+             * zero-distance way to itself. */
             if (terminals.contains(updating))
-                newFib.put(updating, new Way<V>(null, 0.0));
-            Map<V, Double> imms =
+                newFib.put(updating, Way.of(null, 0.0));
+
+            /* Get the distances to each neighbour vertex. */
+            Map<V, Double> neighbourWeights =
                 neighbours.getOrDefault(updating, Collections.emptyMap());
-            for (Map.Entry<V, Double> entry : imms.entrySet()) {
-                V neigh = entry.getKey();
+
+            for (Map.Entry<V, Double> entry : neighbourWeights.entrySet()) {
+                V neighbour = entry.getKey();
                 double weight = entry.getValue();
-                Map<V, Way<V>> neighFib =
-                    result.computeIfAbsent(neigh, k -> new HashMap<>());
-                for (Map.Entry<V, Way<V>> subway : neighFib.entrySet()) {
+
+                /* Consult the neighbour's routing table. */
+                Map<V, Way<V>> neighbourFib =
+                    result.computeIfAbsent(neighbour, k -> new HashMap<>());
+
+                /* For each entry in the neighbour's table, compute a
+                 * potential new entry for ours. */
+                for (Map.Entry<V, Way<V>> subway : neighbourFib.entrySet()) {
+                    /* Compute a potential route for this destination,
+                     * accounting for the fact that the neighbour is
+                     * some distance from us. */
                     V dest = subway.getKey();
                     Way<V> way = subway.getValue();
                     double newDist = way.distance + weight;
+
+                    /* Get the best we have for this destination in our
+                     * table. Replace it with the computed one if that
+                     * is better. */
                     Way<V> best = newFib.get(dest);
                     if (best == null || newDist < best.distance)
-                        newFib.put(dest, new Way<V>(neigh, newDist));
+                        newFib.put(dest, Way.of(neighbour, newDist));
                 }
             }
 
@@ -154,10 +177,40 @@ public final class Spans {
             Map<V, Way<V>> fib = result.get(updating);
             if (fib == null || !fib.equals(newFib)) {
                 result.put(updating, newFib);
-                laggingNodes.addAll(imms.keySet());
+                laggingVertices.addAll(neighbourWeights.keySet());
             }
         }
 
+        return result;
+    }
+
+    /**
+     * Determine which keys have changed values.
+     * 
+     * @param map1 one of the maps
+     * 
+     * @param map2 the other map
+     * 
+     * @return a set of keys whose values differ in the supplied maps,
+     * including keys present in only one map
+     */
+    @SuppressWarnings("unused")
+    private static <K, V> Collection<K> getChangedKeys(Map<K, V> map1,
+                                                       Map<K, V> map2) {
+        /* Identify keys present in both maps. Their values will have to
+         * be compared. */
+        Collection<K> commonKeys = new HashSet<>(map1.keySet());
+        commonKeys.retainAll(map2.keySet());
+
+        /* Add all keys present in only one map. */
+        Collection<K> result = new HashSet<>(map1.keySet());
+        result.addAll(map2.keySet());
+        result.removeAll(commonKeys);
+
+        /* Add common keys only if their values differ. */
+        result.addAll(commonKeys.stream()
+            .filter(k -> !map1.get(k).equals(map2.get(k)))
+            .collect(Collectors.toSet()));
         return result;
     }
 
@@ -322,7 +375,34 @@ public final class Spans {
      */
     public static <V> Collection<Edge<V>>
         span(Collection<? extends V> terminals,
-             Map<Edge<V>, ? extends Number> links) {
+             Map<? extends Edge<V>, ? extends Number> links) {
+        return span(terminals, links, vertex -> {}, edge -> true);
+    }
+
+    /**
+     * Generate a spanning tree given a set of links, weights for each
+     * link, and a set of essential vertices in the tree.
+     * 
+     * @param terminals the essential vertices in the tree
+     * 
+     * @param links the available links and their weights
+     *
+     * @param onReached informed each time a vertex is reached
+     *
+     * @param edgeChecker consulted before adding an edge to a candidate
+     * set
+     * 
+     * @param <V> the vertex type
+     * 
+     * @return a set of links that form a tree connecting all the
+     * essential vertices, or {@code null} if no spanning tree could be
+     * formed connecting all terminals
+     */
+    public static <V> Collection<Edge<V>>
+        span(Collection<? extends V> terminals,
+             Map<? extends Edge<V>, ? extends Number> links,
+             Consumer<? super V> onReached,
+             Predicate<? super Edge<V>> edgeChecker) {
         /* Keep track of vertices required. */
         Collection<V> required = new HashSet<>(terminals);
 
@@ -349,7 +429,12 @@ public final class Spans {
                     && !reached.contains(rem.second))
                     || (rem.second.equals(adding)
                         && !reached.contains(rem.first))) {
-                    reachable.add(rem);
+                    /* If this one is okay with our caller, include it
+                     * as a future candidate. */
+                    if (edgeChecker.test(rem)) reachable.add(rem);
+
+                    /* Whether we include it or not, we will not
+                     * consider it again. */
                     iter.remove();
                 }
             }
@@ -358,6 +443,7 @@ public final class Spans {
              * reached, stopping if we've now reached all terminals.
              * Abort if there are no more options. */
             reached.add(adding);
+            onReached.accept(adding);
             required.remove(adding);
             if (required.isEmpty()) break;
             if (reachable.isEmpty()) return null;
