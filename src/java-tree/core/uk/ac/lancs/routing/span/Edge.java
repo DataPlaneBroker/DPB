@@ -35,98 +35,30 @@
  */
 package uk.ac.lancs.routing.span;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /**
- * Describes an undirected edge between two vertices.
- * 
- * <p>
- * Objects of this class are suitable as hash keys.
+ * Represents a pair of adjacent vertices.
  * 
  * @param <V> the vertex type
  * 
  * @author simpsons
  */
-public final class Edge<V> {
+public interface Edge<V> {
     /**
-     * An unmodifiable pair of vertices in a canonical order that form
-     * the edge
+     * Get the pair of vertices that define this edge.
+     * 
+     * @return
      */
-    public final List<V> vertices;
-
-    /**
-     * The stored hash code of a vertex
-     */
-    private final int firstHash, secondHash;
-
-    /**
-     * Create an undirected edge between two vertices. The supplied
-     * arguments are canonicalized, and so might not match the eventual
-     * field values.
-     * 
-     * @param first a vertex
-     * 
-     * @param second another vertex
-     * 
-     * @param <V> the vertex type
-     */
-    public static <V> Edge<V> of(V first, V second) {
-        return new Edge<>(first, second);
-    }
-
-    private Edge(V first, V second) {
-        if (first == null) throw new NullPointerException("first");
-        if (second == null) throw new NullPointerException("second");
-        int firstHash = first.hashCode();
-        int secondHash = second.hashCode();
-        if (firstHash < secondHash) {
-            this.vertices =
-                Collections.unmodifiableList(Arrays.asList(first, second));
-            this.firstHash = firstHash;
-            this.secondHash = secondHash;
-        } else {
-            this.vertices =
-                Collections.unmodifiableList(Arrays.asList(second, first));
-            this.firstHash = secondHash;
-            this.secondHash = firstHash;
-        }
-    }
-
-    /**
-     * Get the hash code of this edge.
-     * 
-     * @return the hash code of this edge, a combination of the hash
-     * codes of the vertices
-     */
-    @Override
-    public int hashCode() {
-        return firstHash * 31 + secondHash;
-    }
-
-    /**
-     * Determine whether another object describes this edge.
-     * 
-     * @param other the other object
-     * 
-     * @return {@code true} iff the other object describes the same edge
-     */
-    @Override
-    public boolean equals(Object other) {
-        if (other == null) return false;
-        if (!(other instanceof Edge)) return false;
-        Edge<?> p = (Edge<?>) other;
-        return first().equals(p.first()) && second().equals(p.second());
-    }
+    List<V> vertices();
 
     /**
      * Get the first vertex.
      * 
      * @return the first vertex
      */
-    public V first() {
-        return vertices.get(0);
+    default V first() {
+        return vertices().get(0);
     }
 
     /**
@@ -134,18 +66,7 @@ public final class Edge<V> {
      * 
      * @return the second vertex
      */
-    public V second() {
-        return vertices.get(1);
-    }
-
-    /**
-     * Get a string representation of this edge.
-     * 
-     * @return string representations of the two vertices, separated by
-     * a comma, and surrounded by angle brackets
-     */
-    @Override
-    public String toString() {
-        return "<" + first() + "," + second() + ">";
+    default V second() {
+        return vertices().get(1);
     }
 }

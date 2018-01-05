@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.routing.span.Edge;
+import uk.ac.lancs.routing.span.HashableEdge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
 
@@ -162,6 +163,117 @@ public class Aggregator implements SwitchManagement {
         return control;
     }
 
+    private class AggregateConnection implements Connection {
+        private class SwitchClient implements ConnectionListener {
+            Connection connection;
+
+            SwitchClient(double bandwidth, SwitchControl control,
+                         Collection<EndPoint> terminals) {
+                ConnectionRequest request =
+                    ConnectionRequest.of(terminals, bandwidth);
+                control.connect(request, this);
+                incompleteRequests++;
+            }
+
+            @Override
+            public void ready(Connection conn) {
+                this.connection = conn;
+                incompleteRequests--;
+                checkCompletion();
+            }
+
+            @Override
+            public void failed() {
+                failedRequests++;
+                incompleteRequests--;
+                checkCompletion();
+            }
+        }
+
+        boolean active;
+        ConnectionListener user;
+        final int subnetworks;
+        final double bandwidth;
+        final List<SwitchClient> switchClients;
+        int incompleteRequests, failedRequests;
+        final Map<Trunk, EndPoint> tunnels;
+
+        void checkCompletion() {
+            /* Are we done yet? */
+            if (incompleteRequests > 0) return;
+            if (switchClients.size() < subnetworks) return;
+
+            if (failedRequests > 0) {
+                user.failed();
+                release();
+            } else {
+                user.ready(this);
+            }
+
+            user = null;
+        }
+
+        AggregateConnection(ConnectionListener user, double bandwidth,
+                            Map<SwitchControl, Collection<EndPoint>> subterminals,
+                            Map<Trunk, EndPoint> tunnels) {
+            this.user = user;
+            this.bandwidth = bandwidth;
+            this.tunnels = tunnels;
+            this.subnetworks = subterminals.size();
+            switchClients = new ArrayList<>(this.subnetworks);
+            for (Map.Entry<SwitchControl, Collection<EndPoint>> entry : subterminals
+                .entrySet()) {
+                SwitchClient cli = new SwitchClient(bandwidth, entry.getKey(),
+                                                    entry.getValue());
+                switchClients.add(cli);
+            }
+        }
+
+        @Override
+        public void activate() {
+            if (active) return;
+            for (SwitchClient cli : switchClients) {
+                assert cli.connection != null;
+                cli.connection.activate();
+            }
+            active = true;
+        }
+
+        @Override
+        public void deactivate() {
+            if (!active) return;
+            for (SwitchClient cli : switchClients) {
+                assert cli.connection != null;
+                cli.connection.deactivate();
+            }
+            active = false;
+        }
+
+        @Override
+        public boolean isActive() {
+            return active;
+        }
+
+        @Override
+        public void release() {
+            /* Release switch resources. */
+            for (SwitchClient cli : switchClients) {
+                if (cli.connection != null) {
+                    cli.connection.release();
+                    cli.connection = null;
+                }
+            }
+
+            /* Release tunnel resources. */
+            for (Map.Entry<Trunk, EndPoint> entry : tunnels.entrySet()) {
+                Trunk trunk = entry.getKey();
+                EndPoint ep = entry.getValue();
+                trunk.releaseBandwidth(bandwidth);
+                trunk.releaseTunnel(ep);
+            }
+        }
+    }
+
     private final SwitchControl control = new SwitchControl() {
         @Override
         public void connect(ConnectionRequest request,
@@ -187,16 +299,20 @@ public class Aggregator implements SwitchManagement {
                     && trunk.getBandwidth() >= request.bandwidth)
                 .collect(Collectors.toSet());
 
-            /* Maintain a reverse map from port to trunk. */
+            /* Maintain a reverse map from port to trunk. We need this
+             * after running the spanning-tree algorithm to find which
+             * trunks to allocate resources from. */
             Map<Port, Trunk> portToTrunkMap = new IdentityHashMap<>();
             for (Trunk trunk : adequateTrunks)
                 for (Port port : trunk.getPorts())
                     portToTrunkMap.put(port, trunk);
 
             /* Get edges representing all suitable trunks. */
-            Map<Edge<Port>, Double> edges = new HashMap<>(adequateTrunks
-                .stream()
-                .collect(Collectors.toMap(Trunk::getEdge, Trunk::getDelay)));
+            Map<Edge<Port>, Double> edges =
+                new HashMap<>(adequateTrunks.stream()
+                    .collect(Collectors
+                        .toMap(t -> HashableEdge.of(t.getPorts()),
+                               Trunk::getDelay)));
 
             {
                 /* Get a set of all switches for our trunks. */
@@ -223,7 +339,8 @@ public class Aggregator implements SwitchManagement {
                 Spans.route(innerTerminalPorts, edges);
 
             /* Create terminal-aware weights for each edge. */
-            Map<Edge<Port>, Double> weightedEdges = Spans.flatten(fibs);
+            Map<Edge<Port>, Double> weightedEdges =
+                Spans.flatten(fibs, (p1, p2) -> HashableEdge.of(p1, p2));
 
             /* To impose additional constraints on the spanning tree,
              * keep a set of switches already reached. Edges that
@@ -246,20 +363,16 @@ public class Aggregator implements SwitchManagement {
                                return true;
                            });
 
-            /* For each switch, identify all its involved ports, and
-             * identify trunks that must be modified. */
-            class TrunkClient {
-                final Trunk trunk;
-                final EndPoint mouth;
-
-                public TrunkClient(Trunk trunk, EndPoint mouth) {
-                    this.trunk = trunk;
-                    this.mouth = mouth;
-                }
-            }
-            Map<SwitchControl, Collection<EndPoint>> mouthsPerSwitch =
+            /* Identify all the end points for each switch. We have to
+             * gather them all like this because they don't all come at
+             * once. */
+            Map<SwitchControl, Collection<EndPoint>> subterminals =
                 new HashMap<>();
-            Collection<TrunkClient> trunkClients = new HashSet<>();
+
+            /* Remember all tunnels we're about to create, so we can
+             * delete them when the connection is closed. */
+            Map<Trunk, EndPoint> tunnels = new HashMap<>();
+
             for (Edge<Port> edge : tree) {
                 SwitchControl firstSwitch = edge.first().getSwitch();
                 SwitchControl secondSwitch = edge.second().getSwitch();
@@ -269,43 +382,37 @@ public class Aggregator implements SwitchManagement {
                      * edges that connect to it. */
                     continue;
                 }
+                /* This is an edge runnning along a trunk. */
 
-                /* Remember how we use this trunk. */
+                /* Create a tunnel along this trunk, and remember one
+                 * end of it. */
                 Trunk firstTrunk = portToTrunkMap.get(edge.first());
                 EndPoint ep1 = firstTrunk.allocateTunnel();
-                TrunkClient tc = new TrunkClient(firstTrunk, ep1);
-                trunkClients.add(tc);
+                tunnels.put(firstTrunk, ep1);
 
-                /* */
+                /* Get both end points, find out what switches they
+                 * correspond to, and add each end point to its switch's
+                 * respective set of end points. */
                 EndPoint ep2 = firstTrunk.getPeer(ep1);
-                mouthsPerSwitch.computeIfAbsent(ep1.getPort().getSwitch(),
-                                                k -> new HashSet<>())
+                subterminals.computeIfAbsent(ep1.getPort().getSwitch(),
+                                             k -> new HashSet<>())
                     .add(ep1);
-                mouthsPerSwitch.computeIfAbsent(ep2.getPort().getSwitch(),
-                                                k -> new HashSet<>())
+                subterminals.computeIfAbsent(ep2.getPort().getSwitch(),
+                                             k -> new HashSet<>())
                     .add(ep2);
             }
 
-            /* Make sure the caller's termini are included. */
+            /* Make sure the caller's end points are included in their
+             * switches' corresponding sets. */
             for (EndPoint t : innerTerminalEndPoints)
-                mouthsPerSwitch.computeIfAbsent(t.getPort().getSwitch(),
-                                                k -> new HashSet<>())
+                subterminals.computeIfAbsent(t.getPort().getSwitch(),
+                                             k -> new HashSet<>())
                     .add(t);
 
-            class SwitchClient {
-                final SwitchControl control;
-
-                SwitchClient(SwitchControl control) {
-                    this.control = control;
-                }
-            }
-
-            /* TODO: For each edge, identify the corresponding trunk or
-             * switch. Reserve bandwidth and a label on each trunk.
-             * Create sub-connections on switches. Record all labels and
-             * sub-connections in a new connection object, and give back
-             * to the caller. */
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            /* Create the connection, and let it pass itself to the user
+             * when complete. */
+            new AggregateConnection(response, request.bandwidth, subterminals,
+                                    tunnels);
         }
 
         @Override
@@ -329,9 +436,11 @@ public class Aggregator implements SwitchManagement {
                 .collect(Collectors.toSet());
 
             /* Get edges representing all suitable trunks. */
-            Map<Edge<Port>, Double> edges = new HashMap<>(suitableTrunks
-                .stream()
-                .collect(Collectors.toMap(Trunk::getEdge, Trunk::getDelay)));
+            Map<Edge<Port>, Double> edges =
+                new HashMap<>(suitableTrunks.stream()
+                    .collect(Collectors.toMap(t -> HashableEdge
+                        .of(t.getPorts().get(0), t.getPorts().get(1)),
+                                              Trunk::getDelay)));
 
             /* Get models of all switches, and combine their edges with
              * the trunks. */
@@ -364,7 +473,7 @@ public class Aggregator implements SwitchManagement {
                     final Port innerEnd = end.innerPort();
                     final Way<Port> way = startFib.get(innerEnd);
                     if (way == null) continue;
-                    final Edge<Port> edge = Edge.of(start, end);
+                    final Edge<Port> edge = HashableEdge.of(start, end);
                     result.put(edge, way.distance);
                 }
             }
@@ -373,7 +482,7 @@ public class Aggregator implements SwitchManagement {
         }
 
         @Override
-        public EndPoint findTerminus(String id) {
+        public EndPoint findEndPoint(String id) {
             throw new UnsupportedOperationException("unimplemented"); // TODO
         }
     };

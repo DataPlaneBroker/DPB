@@ -49,17 +49,17 @@ public final class ConnectionRequest {
     /**
      * The set of terminal end points in the connection
      */
-    public final Collection<? extends EndPoint> terminals;
+    public final Collection<EndPoint> terminals;
 
     /**
      * The minimum bandwidth of the connection
      */
-    public final long bandwidth;
+    public final double bandwidth;
 
-    private ConnectionRequest(Collection<? extends EndPoint> termini,
-                              long bandwidth) {
+    private ConnectionRequest(Collection<? extends EndPoint> terminals,
+                              double bandwidth) {
         this.terminals =
-            Collections.unmodifiableCollection(new HashSet<>(termini));
+            Collections.unmodifiableCollection(new HashSet<>(terminals));
         this.bandwidth = bandwidth;
     }
 
@@ -73,7 +73,7 @@ public final class ConnectionRequest {
      * @return a description of the requested connection
      */
     public static ConnectionRequest of(Collection<? extends EndPoint> termini,
-                                       long bandwidth) {
+                                       double bandwidth) {
         return new ConnectionRequest(termini, bandwidth);
     }
 }

@@ -37,8 +37,6 @@ package uk.ac.lancs.routing.hier;
 
 import java.util.List;
 
-import uk.ac.lancs.routing.span.Edge;
-
 /**
  * Represents a physical link with a fixed delay and a remaining
  * bandwidth connecting two ports. Bandwidth can be allocated and
@@ -53,16 +51,6 @@ public interface Trunk {
      * @return the ports of the trunk
      */
     List<Port> getPorts();
-
-    /**
-     * Get the ports of this trunk as an edge.
-     * 
-     * @return an edge representing this trunk
-     */
-    default Edge<Port> getEdge() {
-        List<Port> ports = getPorts();
-        return Edge.of(ports.get(0), ports.get(1));
-    }
 
     /**
      * Get the bandwidth remaining available on this trunk.

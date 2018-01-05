@@ -44,6 +44,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -109,11 +110,12 @@ public final class Spans {
      */
     public static <V> Map<V, Map<V, Way<V>>>
         route(Collection<? extends V> terminals,
-              Map<Edge<V>, ? extends Number> links) {
+              Map<? extends Edge<V>, ? extends Number> links) {
         /* From the provided links, create a mapping from each vertex to
          * each of its neighbours and the distance to each one. */
         Map<V, Map<V, Double>> neighbours = new HashMap<>();
-        for (Map.Entry<Edge<V>, ? extends Number> entry : links.entrySet()) {
+        for (Map.Entry<? extends Edge<V>, ? extends Number> entry : links
+            .entrySet()) {
             Edge<V> link = entry.getKey();
             double weight = entry.getValue().doubleValue();
             neighbours.computeIfAbsent(link.first(), k -> new HashMap<>())
@@ -219,18 +221,18 @@ public final class Spans {
      */
     public static void main(String[] args) throws Exception {
         Map<Edge<String>, Double> graph = new HashMap<>();
-        graph.put(Edge.of("A", "D"), 1.0);
-        graph.put(Edge.of("E", "D"), 1.0);
-        graph.put(Edge.of("E", "F"), 1.0);
-        graph.put(Edge.of("E", "G"), 1.0);
-        graph.put(Edge.of("G", "F"), 1.0);
-        graph.put(Edge.of("G", "H"), 1.0);
-        graph.put(Edge.of("H", "I"), 1.0);
-        graph.put(Edge.of("I", "D"), 1.0);
-        graph.put(Edge.of("I", "J"), 1.0);
-        graph.put(Edge.of("J", "H"), 1.0);
-        graph.put(Edge.of("F", "C"), 1.0);
-        graph.put(Edge.of("B", "H"), 1.0);
+        graph.put(HashableEdge.of("A", "D"), 1.0);
+        graph.put(HashableEdge.of("E", "D"), 1.0);
+        graph.put(HashableEdge.of("E", "F"), 1.0);
+        graph.put(HashableEdge.of("E", "G"), 1.0);
+        graph.put(HashableEdge.of("G", "F"), 1.0);
+        graph.put(HashableEdge.of("G", "H"), 1.0);
+        graph.put(HashableEdge.of("H", "I"), 1.0);
+        graph.put(HashableEdge.of("I", "D"), 1.0);
+        graph.put(HashableEdge.of("I", "J"), 1.0);
+        graph.put(HashableEdge.of("J", "H"), 1.0);
+        graph.put(HashableEdge.of("F", "C"), 1.0);
+        graph.put(HashableEdge.of("B", "H"), 1.0);
         System.out.printf("Original graph: %s%n", graph);
 
         Collection<String> terminals =
@@ -243,7 +245,8 @@ public final class Spans {
             Spans.route(terminals, graph);
         System.out.printf("%nFIBs: %s%n", fibs);
 
-        Map<Edge<String>, Double> weights = Spans.flatten(fibs);
+        Map<Edge<String>, Double> weights =
+            Spans.flatten(fibs, HashableEdge::of);
         System.out.printf("%nSpan-weighted graph: %s%n", weights);
 
         Collection<Edge<String>> tree = Spans.span(terminals, weights);
@@ -283,7 +286,7 @@ public final class Spans {
             for (N cand : current) {
                 /* Tell this candidate's neighbours to lose a link. */
                 for (N neigh : graph.remove(cand)) {
-                    links.remove(Edge.of(cand, neigh));
+                    links.remove(HashableEdge.of(cand, neigh));
                     Collection<N> neighNeigh = graph.get(neigh);
                     neighNeigh.remove(cand);
                     if (neighNeigh.size() <= 1 && !terminals.contains(neigh))
@@ -314,7 +317,8 @@ public final class Spans {
      * @return the weights for each link
      */
     public static <V> Map<Edge<V>, Double>
-        flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs) {
+        flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs,
+                BiFunction<? super V, ? super V, Edge<V>> edgeMaker) {
         /**
          * Holds a tally for a link.
          * 
@@ -335,7 +339,7 @@ public final class Spans {
         }
 
         /* Accumulate tallies for each link. */
-        Map<Edge<V>, Tally> ratios = new HashMap<>(fibs.size());
+        Map<Edge<V>, Tally> tallies = new HashMap<>(fibs.size());
         Collection<V> terminals = new HashSet<>();
         for (Map.Entry<? extends V, ? extends Map<? extends V, ? extends Way<V>>> nodeFib : fibs
             .entrySet()) {
@@ -347,13 +351,14 @@ public final class Spans {
                 Way<V> way = entry.getValue();
                 V second = way.nextHop;
                 if (second == null) continue;
-                Tally t = ratios.computeIfAbsent(Edge.of(first, second),
-                                                 k -> new Tally());
+                Tally t =
+                    tallies.computeIfAbsent(edgeMaker.apply(first, second),
+                                            k -> new Tally());
                 t.add(way.distance);
             }
         }
 
-        return ratios.entrySet().stream()
+        return tallies.entrySet().stream()
             .collect(Collectors
                 .toMap(Map.Entry::getKey,
                        e -> e.getValue().value(terminals.size())));
