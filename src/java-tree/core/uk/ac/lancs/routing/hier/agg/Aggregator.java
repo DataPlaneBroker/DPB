@@ -33,38 +33,33 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.hier.agg;
+
+import uk.ac.lancs.routing.hier.Port;
+import uk.ac.lancs.routing.hier.SwitchManagement;
 
 /**
- * Accepts an allocated connection upon creation.
+ * Configures a virtual switch that aggregates other switches.
  * 
  * @author simpsons
  */
-public interface ConnectionListener {
+public interface Aggregator extends SwitchManagement {
     /**
-     * The connection has become ready to use, and is inactive.
-     */
-    void ready();
-
-    /**
-     * The connection failed.
+     * Create a trunk between two end points within the switch.
      * 
-     * @param t the reason for failure
+     * @param p1 one of the ports
+     * 
+     * @param p2 the other port
      */
-    void failed(Throwable t);
+    TrunkManagement addTrunk(Port p1, Port p2);
 
     /**
-     * The connection has become active.
+     * Find an existing trunk connected to an port.
+     * 
+     * @param p one of the ports of the trunk
+     * 
+     * @return the requested trunk, or {@code null} if none exist with
+     * that end point
      */
-    void activated();
-
-    /**
-     * The connection has become inactive.
-     */
-    void deactivated();
-
-    /**
-     * The connection has been fully released, and can be used again.
-     */
-    void released();
+    TrunkManagement findTrunk(Port p);
 }

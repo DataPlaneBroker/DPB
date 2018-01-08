@@ -33,10 +33,11 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.hier.agg;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -44,48 +45,29 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import uk.ac.lancs.routing.hier.EndPoint;
+import uk.ac.lancs.routing.hier.Port;
+
 /**
  * Represents a physical link with no persistent state.
  * 
  * @author simpsons
  */
-public final class TransientTrunk implements Trunk {
+final class TransientTrunk implements Trunk {
     private final Port start, end;
-    private final double delay;
-    private double bandwidth;
+    private double delay = 0.0;
+    private double bandwidth = 0.0;
 
     /**
-     * Create a trunk between two ports with an initial bandwidth
-     * allocation.
+     * Create a trunk between two ports.
      * 
      * @param start one of the ends of the trunk
      * 
      * @param end the other end
-     * 
-     * @param delay the fixed delay of the trunk
-     * 
-     * @param bandwidth the initial available bandwidth
      */
-    public TransientTrunk(Port start, Port end, double delay,
-                          double bandwidth) {
+    public TransientTrunk(Port start, Port end) {
         this.start = start;
         this.end = end;
-        this.delay = delay;
-        this.bandwidth = bandwidth;
-    }
-
-    /**
-     * Create a trunk between two ports with initially no bandwidth
-     * allocation.
-     * 
-     * @param start one of the ends of the trunk
-     * 
-     * @param end the other end
-     * 
-     * @param delay the fixed delay of the trunk
-     */
-    public TransientTrunk(Port start, Port end, double delay) {
-        this(start, end, delay, 0.0);
     }
 
     @Override
@@ -93,64 +75,10 @@ public final class TransientTrunk implements Trunk {
         return bandwidth;
     }
 
-    @Override
-    public void allocateBandwidth(double amount) {
-        if (amount < 0)
-            throw new IllegalArgumentException("negative: " + amount);
-        if (amount > bandwidth) throw new IllegalArgumentException("request "
-            + amount + " exceeds " + bandwidth);
-        bandwidth -= amount;
-    }
-
-    @Override
-    public void releaseBandwidth(double amount) {
-        if (amount < 0)
-            throw new IllegalArgumentException("negative: " + amount);
-        bandwidth += amount;
-    }
-
     private final NavigableMap<Short, Short> startToEndMap = new TreeMap<>();
     private final NavigableMap<Short, Short> endToStartMap = new TreeMap<>();
     private final BitSet availableTunnels = new BitSet();
-
-    @Override
-    public void defineLabelRange(short startBase, short amount,
-                                 short endBase) {
-        if (startBase + amount < startBase)
-            throw new IllegalArgumentException("illegal start range "
-                + startBase + " plus " + amount);
-        if (endBase + amount < endBase)
-            throw new IllegalArgumentException("illegal end range " + endBase
-                + " plus " + amount);
-
-        /* Check that all numbers are available. */
-        Map<Short, Short> startExisting =
-            startToEndMap.subMap(startBase, (short) (startBase + amount));
-        if (!startExisting.isEmpty())
-            throw new IllegalArgumentException("start range in use "
-                + startExisting.keySet());
-        Map<Short, Short> endExisting =
-            endToStartMap.subMap(endBase, (short) (endBase + amount));
-        if (!endExisting.isEmpty())
-            throw new IllegalArgumentException("end range in use "
-                + endExisting.keySet());
-
-        /* Add all the labels. */
-        startToEndMap
-            .putAll(IntStream.range(startBase, amount).boxed()
-                .collect(Collectors
-                    .<Integer, Short, Short>toMap(Integer::shortValue,
-                                                  k -> (short) (k.shortValue()
-                                                      + endBase
-                                                      - startBase))));
-        endToStartMap
-            .putAll(IntStream.range(startBase, amount).boxed()
-                .collect(Collectors
-                    .<Integer, Short, Short>toMap(Integer::shortValue,
-                                                  k -> (short) (k.shortValue()
-                                                      + endBase
-                                                      - startBase))));
-    }
+    private final Map<Short, Double> allocations = new HashMap<>();
 
     @Override
     public EndPoint getPeer(EndPoint p) {
@@ -169,10 +97,21 @@ public final class TransientTrunk implements Trunk {
     }
 
     @Override
-    public EndPoint allocateTunnel() {
+    public EndPoint allocateTunnel(double bandwidth) {
+        /* Sanity-check bandwidth. */
+        if (bandwidth < 0)
+            throw new IllegalArgumentException("negative: " + bandwidth);
+        if (bandwidth > this.bandwidth) return null;
+
+        /* Obtain a tunnel. */
         if (availableTunnels.isEmpty()) return null;
         short startLabel = (short) availableTunnels.nextSetBit(0);
         availableTunnels.clear(startLabel);
+
+        /* Allocate bandwidth. */
+        this.bandwidth -= bandwidth;
+        allocations.put(startLabel, bandwidth);
+
         return start.getEndPoint(startLabel);
     }
 
@@ -193,6 +132,9 @@ public final class TransientTrunk implements Trunk {
             throw new IllegalArgumentException("end point " + endPoint
                 + " does not belong to " + start + " or " + end);
         }
+
+        /* De-allocate resources. */
+        this.bandwidth += allocations.remove(startLabel);
         availableTunnels.set(startLabel);
     }
 
@@ -210,4 +152,75 @@ public final class TransientTrunk implements Trunk {
     public List<Port> getPorts() {
         return Arrays.asList(start, end);
     }
+
+    @Override
+    public TrunkManagement getManagement() {
+        return management;
+    }
+
+    private final TrunkManagement management = new TrunkManagement() {
+        @Override
+        public void allocateBandwidth(double amount) {
+            if (amount < 0)
+                throw new IllegalArgumentException("negative: " + amount);
+            if (amount > bandwidth)
+                throw new IllegalArgumentException("request " + amount
+                    + " exceeds " + bandwidth);
+            bandwidth -= amount;
+        }
+
+        @Override
+        public void releaseBandwidth(double amount) {
+            if (amount < 0)
+                throw new IllegalArgumentException("negative: " + amount);
+            bandwidth += amount;
+        }
+
+        @Override
+        public void setDelay(double delay) {
+            TransientTrunk.this.delay = delay;
+        }
+
+        @Override
+        public double getDelay() {
+            return delay;
+        }
+
+        @Override
+        public void defineLabelRange(short startBase, short amount,
+                                     short endBase) {
+            if (startBase + amount < startBase)
+                throw new IllegalArgumentException("illegal start range "
+                    + startBase + " plus " + amount);
+            if (endBase + amount < endBase)
+                throw new IllegalArgumentException("illegal end range "
+                    + endBase + " plus " + amount);
+
+            /* Check that all numbers are available. */
+            Map<Short, Short> startExisting =
+                startToEndMap.subMap(startBase, (short) (startBase + amount));
+            if (!startExisting.isEmpty())
+                throw new IllegalArgumentException("start range in use "
+                    + startExisting.keySet());
+            Map<Short, Short> endExisting =
+                endToStartMap.subMap(endBase, (short) (endBase + amount));
+            if (!endExisting.isEmpty())
+                throw new IllegalArgumentException("end range in use "
+                    + endExisting.keySet());
+
+            /* Add all the labels. */
+            startToEndMap.putAll(IntStream.range(startBase, amount).boxed()
+                .collect(Collectors
+                    .<Integer, Short, Short>toMap(Integer::shortValue,
+                                                  k -> (short) (k.shortValue()
+                                                      + endBase
+                                                      - startBase))));
+            endToStartMap.putAll(IntStream.range(startBase, amount).boxed()
+                .collect(Collectors
+                    .<Integer, Short, Short>toMap(Integer::shortValue,
+                                                  k -> (short) (k.shortValue()
+                                                      + endBase
+                                                      - startBase))));
+        }
+    };
 }

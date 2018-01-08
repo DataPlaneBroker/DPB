@@ -55,13 +55,21 @@ public interface SwitchControl {
     EndPoint findEndPoint(String id);
 
     /**
-     * Initiate allocation of a connection.
+     * Create a connection.
      * 
      * @param request a description of the required connection
-     * 
-     * @param response an object to be invoked on allocation completion
      */
-    void connect(ConnectionRequest request, ConnectionListener response);
+    Connection newConnection();
+
+    /**
+     * Get an existing connection.
+     * 
+     * @param id the connection identifier
+     * 
+     * @return the connection with the requested id, or {@code null} if
+     * it does not exist
+     */
+    Connection getConnection(int id);
 
     /**
      * Get a model of port connections given a bandwidth requirement.

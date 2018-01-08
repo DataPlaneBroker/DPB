@@ -33,93 +33,85 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.routing.hier.agg;
+
+import java.util.List;
+
+import uk.ac.lancs.routing.hier.EndPoint;
+import uk.ac.lancs.routing.hier.Port;
 
 /**
- * Represents a connection with allocated resources.
+ * Represents a physical link with a fixed delay and a remaining
+ * bandwidth connecting two ports. Bandwidth can be allocated and
+ * released. Tunnels within the trunk can be allocated and released.
  * 
  * @author simpsons
  */
-public interface Connection {
+public interface Trunk {
     /**
-     * Initiate allocation of resources.
+     * Get the ports at either end of this trunk.
      * 
-     * @param request the connection details
+     * @return the ports of the trunk
      */
-    void initiate(ConnectionRequest request);
+    List<Port> getPorts();
 
     /**
-     * Add a listener for events.
+     * Get the bandwidth remaining available on this trunk.
      * 
-     * @param events the listener to be added
+     * @return the remaining available bandwidth
      */
-    void addListener(ConnectionListener events);
+    double getBandwidth();
 
     /**
-     * Remove a listener.
+     * Get the peer of an end point.
      * 
-     * @param events the listener to be removed
+     * @param p the end point whose peer is requested
+     * 
+     * @return the peer of the supplied end point, or {@code null} if it
+     * has no peer
+     * 
+     * @throws IllegalArgumentException if the end point does not belong
+     * to either port of this trunk
      */
-    void removeListener(ConnectionListener events);
+    EndPoint getPeer(EndPoint p);
 
     /**
-     * Activate the connection, allowing it to carry traffic. This
-     * method has no effect if called while the connection is active or
-     * activating.
+     * Get the number of tunnels available through this trunk.
      * 
-     * @see #status()
-     * 
-     * @see #deactivate()
-     * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @return the number of available tunnels
      */
-    void activate();
+    int getAvailableTunnelCount();
 
     /**
-     * Prevent the connection from carrying traffic.
+     * Allocate a tunnel through this trunk. If successful, only one end
+     * of the tunnel is returned. The other can be obtained with
+     * {@link #getPeer(EndPoint)}.
      * 
-     * @see #status()
+     * @param bandwidth the bandwidth to allocate to the tunnel
      * 
-     * @see #activate()
-     * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @return the end point at the start of the tunnel, or {@code null}
+     * if no further resource remains
      */
-    void deactivate();
+    EndPoint allocateTunnel(double bandwidth);
 
     /**
-     * Determine whether the connection is active. When
+     * Get the fixed delay of this trunk.
      * 
-     * @return the connection's status
-     * 
-     * @see #activate()
-     * 
-     * @see #deactivate()
-     * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @return the trunk's fixed delay
      */
-    ConnectionStatus status();
+    double getDelay();
 
     /**
-     * Release all resources pertaining to this connection. All methods
-     * on this object will subsequently raise
-     * {@link IllegalStateException}.
+     * Release a tunnel through this trunk.
+     * 
+     * @param endPoint either of the tunnel end points
      */
-    void release();
+    void releaseTunnel(EndPoint endPoint);
 
     /**
-     * Get the connection's identifier within the switch that created
-     * it. The identifier can be used to re-acquire the interface to a
-     * connection if the original is lost.
+     * Get the trunk's management interface.
      * 
-     * @see SwitchControl#getConnection(int)
-     * 
-     * @return the connection identifier
-     * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @return the trunk's management interface
      */
-    int id();
+    TrunkManagement getManagement();
 }

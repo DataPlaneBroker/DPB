@@ -33,31 +33,27 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
-
-import java.util.List;
+package uk.ac.lancs.routing.hier.agg;
 
 /**
- * Represents a physical link with a fixed delay and a remaining
- * bandwidth connecting two ports. Bandwidth can be allocated and
- * released. Tunnels within the trunk can be allocated and released.
+ * 
  * 
  * @author simpsons
  */
-public interface Trunk {
+public interface TrunkManagement {
     /**
-     * Get the ports at either end of this trunk.
+     * Get the configured delay for this trunk.
      * 
-     * @return the ports of the trunk
+     * @return the trunk's delay
      */
-    List<Port> getPorts();
+    double getDelay();
 
     /**
-     * Get the bandwidth remaining available on this trunk.
+     * Set the delay for this trunk.
      * 
-     * @return the remaining available bandwidth
+     * @param delay the new delay
      */
-    double getBandwidth();
+    void setDelay(double delay);
 
     /**
      * Consume bandwidth on this trunk.
@@ -109,48 +105,4 @@ public interface Trunk {
     default void defineLabelRange(short startBase, short amount) {
         defineLabelRange(startBase, amount, startBase);
     }
-
-    /**
-     * Get the peer of an end point.
-     * 
-     * @param p the end point whose peer is requested
-     * 
-     * @return the peer of the supplied end point, or {@code null} if it
-     * has no peer
-     * 
-     * @throws IllegalArgumentException if the end point does not belong
-     * to either port of this trunk
-     */
-    EndPoint getPeer(EndPoint p);
-
-    /**
-     * Get the number of tunnels available through this trunk.
-     * 
-     * @return the number of available tunnels
-     */
-    int getAvailableTunnelCount();
-
-    /**
-     * Allocate a tunnel through this trunk. If successful, only one end
-     * of the tunnel is returned. The other can be obtained with
-     * {@link #getPeer(EndPoint)}.
-     * 
-     * @return the end point at the start of the tunnel, or {@code null}
-     * if no further resource remains
-     */
-    EndPoint allocateTunnel();
-
-    /**
-     * Get the fixed delay of this trunk.
-     * 
-     * @return the trunk's fixed delay
-     */
-    double getDelay();
-
-    /**
-     * Release a tunnel through this trunk.
-     * 
-     * @param endPoint either of the tunnel end points
-     */
-    void releaseTunnel(EndPoint endPoint);
 }

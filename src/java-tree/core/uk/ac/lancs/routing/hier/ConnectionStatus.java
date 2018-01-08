@@ -36,35 +36,49 @@
 package uk.ac.lancs.routing.hier;
 
 /**
- * Accepts an allocated connection upon creation.
+ * Describes a connection's status. The initial state is
+ * {@link #ESTABLISHING}.
  * 
  * @author simpsons
  */
-public interface ConnectionListener {
+public enum ConnectionStatus {
     /**
-     * The connection has become ready to use, and is inactive.
+     * The connection is not in use, and has no associated request. This
+     * is the initial state.
      */
-    void ready();
+    DORMANT,
 
     /**
-     * The connection failed.
-     * 
-     * @param t the reason for failure
+     * The underlying connection resources have not yet been
+     * established.
      */
-    void failed(Throwable t);
+    ESTABLISHING,
 
     /**
-     * The connection has become active.
+     * The connection has link resources allocated, but no switch
+     * resources.
      */
-    void activated();
+    INACTIVE,
 
     /**
-     * The connection has become inactive.
+     * The connection is in the process of becoming {@link #ACTIVE}.
+     * Some traffic might begin to get through.
      */
-    void deactivated();
+    ACTIVATING,
 
     /**
-     * The connection has been fully released, and can be used again.
+     * The connection is active, and so can carry traffic.
      */
-    void released();
+    ACTIVE,
+
+    /**
+     * The connection is deactivating. Some traffic might still get
+     * through.
+     */
+    DEACTIVATING,
+
+    /**
+     * The connection has failed outright.
+     */
+    FAILED,
 }
