@@ -33,33 +33,12 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier.agg;
-
-import uk.ac.lancs.routing.hier.Port;
-import uk.ac.lancs.routing.hier.SwitchManagement;
 
 /**
- * Configures a virtual switch that aggregates other switches.
+ * Contains classes for managing hierarchical out-of-band connection
+ * management. The primary class is
+ * {@link uk.ac.lancs.switches.SwitchManagement}.
  * 
  * @author simpsons
  */
-public interface Aggregator extends SwitchManagement {
-    /**
-     * Create a trunk between two end points within the switch.
-     * 
-     * @param p1 one of the ports
-     * 
-     * @param p2 the other port
-     */
-    TrunkManagement addTrunk(Port p1, Port p2);
-
-    /**
-     * Find an existing trunk connected to an port.
-     * 
-     * @param p one of the ports of the trunk
-     * 
-     * @return the requested trunk, or {@code null} if none exist with
-     * that end point
-     */
-    TrunkManagement findTrunk(Port p);
-}
+package uk.ac.lancs.switches;

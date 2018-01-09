@@ -33,43 +33,57 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
-
-import java.util.Map;
-
-import uk.ac.lancs.routing.span.Edge;
+package uk.ac.lancs.switches;
 
 /**
- * Represents a physical or virtual switch.
+ * Describes a connection's status. The initial state is
+ * {@link #ESTABLISHING}.
  * 
  * @author simpsons
  */
-public interface SwitchControl {
+public enum ConnectionStatus {
     /**
-     * Create a connection.
-     * 
-     * @param request a description of the required connection
+     * The connection is not in use, and has no associated request. This
+     * is the initial state.
      */
-    Connection newConnection();
+    DORMANT,
 
     /**
-     * Get an existing connection.
-     * 
-     * @param id the connection identifier
-     * 
-     * @return the connection with the requested id, or {@code null} if
-     * it does not exist
+     * The underlying connection resources have not yet been
+     * established.
      */
-    Connection getConnection(int id);
+    ESTABLISHING,
 
     /**
-     * Get a model of port connections given a bandwidth requirement.
-     * 
-     * @param minimumBandwidth the threshold below which internal links
-     * shall not be included in computing the model
-     * 
-     * @return a mesh of weighted edges between this switch's external
-     * ports summarizing the internal connectivity of the switch
+     * The connection has link resources allocated, but no switch
+     * resources.
      */
-    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
+    INACTIVE,
+
+    /**
+     * The connection is in the process of becoming {@link #ACTIVE}.
+     * Some traffic might begin to get through.
+     */
+    ACTIVATING,
+
+    /**
+     * The connection is active, and so can carry traffic.
+     */
+    ACTIVE,
+
+    /**
+     * The connection is deactivating. Some traffic might still get
+     * through.
+     */
+    DEACTIVATING,
+
+    /**
+     * The connection has failed outright.
+     */
+    FAILED,
+
+    /**
+     * The connection has been released, and can no longer be used.
+     */
+    RELEASED,
 }

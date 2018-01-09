@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, Regents of the University of Lancaster
+ * Copyright 2017, Regents of the Univ(ersity of Lancaster
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,11 +33,47 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.switches;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 
 /**
- * Contains classes for managing hierarchical out-of-band connection
- * management.
+ * Describes a required connection in terms of terminal end points and
+ * minimum bandwidth allocation.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.routing.hier;
+public final class ConnectionRequest {
+    /**
+     * The set of terminal end points in the connection
+     */
+    public final Collection<EndPoint> terminals;
+
+    /**
+     * The minimum bandwidth of the connection
+     */
+    public final double bandwidth;
+
+    private ConnectionRequest(Collection<? extends EndPoint> terminals,
+                              double bandwidth) {
+        this.terminals =
+            Collections.unmodifiableCollection(new HashSet<>(terminals));
+        this.bandwidth = bandwidth;
+    }
+
+    /**
+     * Create a connection request.
+     * 
+     * @param termini the termini of the required connection
+     * 
+     * @param bandwidth the amount of bandwidth to be allocated
+     * 
+     * @return a description of the requested connection
+     */
+    public static ConnectionRequest of(Collection<? extends EndPoint> termini,
+                                       double bandwidth) {
+        return new ConnectionRequest(termini, bandwidth);
+    }
+}

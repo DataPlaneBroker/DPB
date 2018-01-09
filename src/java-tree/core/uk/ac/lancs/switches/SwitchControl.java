@@ -1,5 +1,5 @@
 /*
- * Copyright 2017, Regents of the Univ(ersity of Lancaster
+ * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -33,47 +33,43 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.switches;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.Map;
+
+import uk.ac.lancs.routing.span.Edge;
 
 /**
- * Describes a required connection in terms of terminal end points and
- * minimum bandwidth allocation.
+ * Represents a physical or virtual switch.
  * 
  * @author simpsons
  */
-public final class ConnectionRequest {
+public interface SwitchControl {
     /**
-     * The set of terminal end points in the connection
+     * Create a connection.
+     * 
+     * @param request a description of the required connection
      */
-    public final Collection<EndPoint> terminals;
+    Connection newConnection();
 
     /**
-     * The minimum bandwidth of the connection
+     * Get an existing connection.
+     * 
+     * @param id the connection identifier
+     * 
+     * @return the connection with the requested id, or {@code null} if
+     * it does not exist
      */
-    public final double bandwidth;
-
-    private ConnectionRequest(Collection<? extends EndPoint> terminals,
-                              double bandwidth) {
-        this.terminals =
-            Collections.unmodifiableCollection(new HashSet<>(terminals));
-        this.bandwidth = bandwidth;
-    }
+    Connection getConnection(int id);
 
     /**
-     * Create a connection request.
+     * Get a model of port connections given a bandwidth requirement.
      * 
-     * @param termini the termini of the required connection
+     * @param minimumBandwidth the threshold below which internal links
+     * shall not be included in computing the model
      * 
-     * @param bandwidth the amount of bandwidth to be allocated
-     * 
-     * @return a description of the requested connection
+     * @return a mesh of weighted edges between this switch's external
+     * ports summarizing the internal connectivity of the switch
      */
-    public static ConnectionRequest of(Collection<? extends EndPoint> termini,
-                                       double bandwidth) {
-        return new ConnectionRequest(termini, bandwidth);
-    }
+    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
 }

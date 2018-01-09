@@ -33,28 +33,33 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.switches.aggregate;
+
+import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.SwitchManagement;
 
 /**
- * Manages a switch.
+ * Configures a virtual switch that aggregates other switches.
  * 
  * @author simpsons
  */
-public interface SwitchManagement {
+public interface Aggregator extends SwitchManagement {
     /**
-     * Get a port on this switch.
+     * Create a trunk between two end points within the switch.
      * 
-     * @param id the local port name
+     * @param p1 one of the ports
      * 
-     * @return the requested port, or {@code null} if no such port
-     * exists
+     * @param p2 the other port
      */
-    Port getPort(String id);
+    TrunkManagement addTrunk(Port p1, Port p2);
 
     /**
-     * Get the controlling intreface for this switch.
+     * Find an existing trunk connected to an port.
      * 
-     * @return the switch's control interface
+     * @param p one of the ports of the trunk
+     * 
+     * @return the requested trunk, or {@code null} if none exist with
+     * that end point
      */
-    SwitchControl getControl();
+    TrunkManagement findTrunk(Port p);
 }

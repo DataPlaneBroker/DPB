@@ -33,38 +33,10 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
 
 /**
- * Accepts an allocated connection upon creation.
+ * Holds classes for aggregate routing.
  * 
  * @author simpsons
  */
-public interface ConnectionListener {
-    /**
-     * The connection has become ready to use, and is inactive.
-     */
-    void ready();
-
-    /**
-     * The connection failed.
-     * 
-     * @param t the reason for failure
-     */
-    void failed(Throwable t);
-
-    /**
-     * The connection has become active.
-     */
-    void activated();
-
-    /**
-     * The connection has become inactive.
-     */
-    void deactivated();
-
-    /**
-     * The connection has been fully released, and can be used again.
-     */
-    void released();
-}
+package uk.ac.lancs.switches.aggregate;

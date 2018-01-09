@@ -33,26 +33,76 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.switches.aggregate;
 
 /**
- * Identifies the terminus of a connection.
+ * 
  * 
  * @author simpsons
  */
-public interface EndPoint {
+public interface TrunkManagement {
     /**
-     * Get the containing port of the end point.
+     * Get the configured delay for this trunk.
      * 
-     * @return the end point's containing port
+     * @return the trunk's delay
      */
-    Port getPort();
+    double getDelay();
 
     /**
-     * Get the label that subdivides the port to identify the
-     * connection.
+     * Set the delay for this trunk.
      * 
-     * @return the end-point label
+     * @param delay the new delay
      */
-    short getLabel();
+    void setDelay(double delay);
+
+    /**
+     * Consume bandwidth on this trunk.
+     * 
+     * @param amount the amount to deduct from the remaining bandwidth
+     * 
+     * @throws IllegalArgumentException if the amount is negative or
+     * exceeds the remaining level
+     */
+    void allocateBandwidth(double amount);
+
+    /**
+     * Release bandwidth on this trunk.
+     * 
+     * @param amount the amount to add to the remaining bandwidth
+     * 
+     * @throws IllegalArgumentException if the amount is negative
+     */
+    void releaseBandwidth(double amount);
+
+    /**
+     * Make a range of labels available.
+     * 
+     * @param startBase the first available label at the start side of
+     * the link
+     * 
+     * @param amount the number of labels from the base to make
+     * available
+     * 
+     * @param endBase the first available label at the end side of the
+     * link
+     */
+    void defineLabelRange(short startBase, short amount, short endBase);
+
+    /**
+     * Make a range of labels available.
+     * 
+     * <p>
+     * By default, this method calls
+     * {@link #defineLabelRange(short, short, short)}, using the first
+     * argument also as the last.
+     * 
+     * @param startBase the first available label at either side of the
+     * link
+     * 
+     * @param amount the number of labels from the base to make
+     * available
+     */
+    default void defineLabelRange(short startBase, short amount) {
+        defineLabelRange(startBase, amount, startBase);
+    }
 }

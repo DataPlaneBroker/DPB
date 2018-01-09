@@ -33,12 +33,12 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier.agg;
+package uk.ac.lancs.switches.aggregate;
 
 import java.util.List;
 
-import uk.ac.lancs.routing.hier.EndPoint;
-import uk.ac.lancs.routing.hier.Port;
+import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.Port;
 
 /**
  * Represents a physical link with a fixed delay and a remaining

@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier.dummy;
+package uk.ac.lancs.switches.dummy;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -45,16 +45,16 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
-import uk.ac.lancs.routing.hier.Connection;
-import uk.ac.lancs.routing.hier.ConnectionListener;
-import uk.ac.lancs.routing.hier.ConnectionRequest;
-import uk.ac.lancs.routing.hier.ConnectionStatus;
-import uk.ac.lancs.routing.hier.EndPoint;
-import uk.ac.lancs.routing.hier.Port;
-import uk.ac.lancs.routing.hier.SwitchControl;
-import uk.ac.lancs.routing.hier.SwitchManagement;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.HashableEdge;
+import uk.ac.lancs.switches.Connection;
+import uk.ac.lancs.switches.ConnectionListener;
+import uk.ac.lancs.switches.ConnectionRequest;
+import uk.ac.lancs.switches.ConnectionStatus;
+import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.SwitchControl;
+import uk.ac.lancs.switches.SwitchManagement;
 
 /**
  * Implements an entirely virtual switch that does nothing.

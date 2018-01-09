@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier.agg;
+package uk.ac.lancs.switches.aggregate;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -46,17 +46,17 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import uk.ac.lancs.routing.hier.Connection;
-import uk.ac.lancs.routing.hier.ConnectionListener;
-import uk.ac.lancs.routing.hier.ConnectionRequest;
-import uk.ac.lancs.routing.hier.ConnectionStatus;
-import uk.ac.lancs.routing.hier.EndPoint;
-import uk.ac.lancs.routing.hier.Port;
-import uk.ac.lancs.routing.hier.SwitchControl;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.HashableEdge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
+import uk.ac.lancs.switches.Connection;
+import uk.ac.lancs.switches.ConnectionListener;
+import uk.ac.lancs.switches.ConnectionRequest;
+import uk.ac.lancs.switches.ConnectionStatus;
+import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.SwitchControl;
 
 /**
  * Implements a virtual switch hierarchically configuring inferior

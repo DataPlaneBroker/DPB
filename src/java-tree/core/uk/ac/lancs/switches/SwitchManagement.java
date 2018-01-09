@@ -33,28 +33,28 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
+package uk.ac.lancs.switches;
 
 /**
- * Models the end of a trunk capable of carrying connections.
+ * Manages a switch.
  * 
  * @author simpsons
  */
-public interface Port {
+public interface SwitchManagement {
     /**
-     * Get the switch directly owning this port.
+     * Get a port on this switch.
      * 
-     * @return the owning switch of the port
+     * @param id the local port name
+     * 
+     * @return the requested port, or {@code null} if no such port
+     * exists
      */
-    SwitchControl getSwitch();
+    Port getPort(String id);
 
     /**
-     * Get the end point for a given label applied to traffic through
-     * this port.
+     * Get the controlling intreface for this switch.
      * 
-     * @param label the label subdividing traffic on this port
-     * 
-     * @return the end point for the given label
+     * @return the switch's control interface
      */
-    EndPoint getEndPoint(short label);
+    SwitchControl getControl();
 }

@@ -33,10 +33,28 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.switches;
 
 /**
- * Implements a switch with no effect.
+ * Models the end of a trunk capable of carrying connections.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.routing.hier.dummy;
+public interface Port {
+    /**
+     * Get the switch directly owning this port.
+     * 
+     * @return the owning switch of the port
+     */
+    SwitchControl getSwitch();
+
+    /**
+     * Get the end point for a given label applied to traffic through
+     * this port.
+     * 
+     * @param label the label subdividing traffic on this port
+     * 
+     * @return the end point for the given label
+     */
+    EndPoint getEndPoint(short label);
+}
