@@ -42,15 +42,15 @@ package uk.ac.lancs.routing.hier;
  */
 public interface SwitchManagement {
     /**
-     * Find a port on this switch.
+     * Get a port on this switch.
      * 
-     * @param id the port identifier
+     * @param id the local port name
      * 
-     * @return the requested port, or {@code null} if it is not
-     * available
+     * @return the requested port, or {@code null} if no such port
+     * exists
      */
-    Port findPort(String id);
-    
+    Port getPort(String id);
+
     /**
      * Get the controlling intreface for this switch.
      * 

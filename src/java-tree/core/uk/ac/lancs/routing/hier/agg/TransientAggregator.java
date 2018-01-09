@@ -35,12 +35,15 @@
  */
 package uk.ac.lancs.routing.hier.agg;
 
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.routing.hier.Connection;
@@ -80,32 +83,16 @@ public class TransientAggregator implements Aggregator {
             return getControl();
         }
 
-        @Override
-        public EndPoint getEndPoint(short label) {
-            return new MyEndPoint(label);
+        TransientAggregator owner() {
+            return TransientAggregator.this;
         }
 
-        private class MyEndPoint implements EndPoint {
-            private final short label;
-
-            public MyEndPoint(short label) {
-                this.label = label;
-            }
-
-            @Override
-            public Port getPort() {
-                return MyPort.this;
-            }
-
-            @Override
-            public short getLabel() {
-                return label;
-            }
-
-            @Override
-            public String toString() {
-                return MyPort.this + ":" + label;
-            }
+        @Override
+        public EndPoint getEndPoint(short label) {
+            if (label < 0)
+                throw new IllegalArgumentException("negative label on " + this
+                    + ": " + label);
+            return new MyEndPoint(this, label);
         }
 
         @Override
@@ -114,11 +101,59 @@ public class TransientAggregator implements Aggregator {
         }
     }
 
+    private static class MyEndPoint implements EndPoint {
+        private final Port port;
+        private final short label;
+
+        MyEndPoint(Port port, short label) {
+            assert port != null;
+            this.port = port;
+            this.label = label;
+        }
+
+        @Override
+        public Port getPort() {
+            return port;
+        }
+
+        @Override
+        public short getLabel() {
+            return label;
+        }
+
+        @Override
+        public String toString() {
+            return port + ":" + label;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + label;
+            result = prime * result + ((port == null) ? 0 : port.hashCode());
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            MyEndPoint other = (MyEndPoint) obj;
+            if (label != other.label) return false;
+            if (port == null) {
+                if (other.port != null) return false;
+            } else if (!port.equals(other.port)) return false;
+            return true;
+        }
+    }
+
     private class MyConnection implements Connection {
         private class Client implements ConnectionListener {
             final Connection connection;
             Throwable error;
-            boolean intendedActive;
+            boolean activeIntent;
 
             Client(Connection connection) {
                 this.connection = connection;
@@ -132,7 +167,7 @@ public class TransientAggregator implements Aggregator {
 
             @Override
             public void failed(Throwable t) {
-                fail(this, t);
+                clientFailed(this, t);
             }
 
             @Override
@@ -156,18 +191,21 @@ public class TransientAggregator implements Aggregator {
              ***/
 
             void activate() {
-                if (intendedActive) return;
-                intendedActive = true;
+                assert Thread.holdsLock(MyConnection.this);
+                if (activeIntent) return;
+                activeIntent = true;
                 connection.activate();
             }
 
             void deactivate() {
-                if (!intendedActive) return;
-                intendedActive = false;
+                assert Thread.holdsLock(MyConnection.this);
+                if (!activeIntent) return;
+                activeIntent = false;
                 if (connection != null) connection.deactivate();
             }
 
             void release() {
+                assert Thread.holdsLock(MyConnection.this);
                 if (connection != null) {
                     connection.release();
                 }
@@ -183,11 +221,11 @@ public class TransientAggregator implements Aggregator {
             unresponded--;
             if (unresponded > 0) return;
             if (errored > 0) return;
-            listeners.stream().forEach(ConnectionListener::ready);
+            callOut(ConnectionListener::ready);
             if (intendedActivity) clients.stream().forEach(Client::activate);
         }
 
-        synchronized void fail(Client cli, Throwable t) {
+        synchronized void clientFailed(Client cli, Throwable t) {
             if (tunnels == null) return;
             if (cli.error != null) return;
             cli.error = t;
@@ -195,7 +233,7 @@ public class TransientAggregator implements Aggregator {
             unresponded--;
             if (errored == 1) {
                 /* This is the first error. */
-                listeners.stream().forEach(l -> l.failed(cli.error));
+                callOut(l -> l.failed(t));
             }
         }
 
@@ -205,26 +243,35 @@ public class TransientAggregator implements Aggregator {
             if (!clients.isEmpty()) return;
             clients.clear();
             tunnels = null;
-            listeners.stream().forEach(ConnectionListener::released);
+            bandwidth = -1.0;
+            synchronized (TransientAggregator.this) {
+                connections.remove(id);
+            }
+            callOut(ConnectionListener::released);
         }
 
         synchronized void clientActivated(Client cli) {
             if (tunnels == null) return;
             activeInferiors++;
             if (activeInferiors < clients.size()) return;
-            listeners.stream().forEach(ConnectionListener::activated);
+            callOut(ConnectionListener::activated);
         }
 
         synchronized void clientDeactivated(Client cli) {
             if (tunnels == null) return;
             activeInferiors--;
             if (activeInferiors > 0) return;
-            listeners.stream().forEach(ConnectionListener::deactivated);
+            callOut(ConnectionListener::deactivated);
         }
 
         final int id;
         final Collection<ConnectionListener> listeners = new HashSet<>();
         final List<Client> clients = new ArrayList<>();
+
+        private void callOut(Consumer<? super ConnectionListener> action) {
+            listeners.stream()
+                .forEach(l -> executor.execute(() -> action.accept(l)));
+        }
 
         double bandwidth;
         Map<Trunk, EndPoint> tunnels;
@@ -239,6 +286,8 @@ public class TransientAggregator implements Aggregator {
 
         @Override
         public synchronized void initiate(ConnectionRequest request) {
+            if (bandwidth < 0.0)
+                throw new IllegalStateException("connection released");
             if (tunnels != null)
                 throw new IllegalStateException("connection in use");
             bandwidth = request.bandwidth;
@@ -273,7 +322,8 @@ public class TransientAggregator implements Aggregator {
         @Override
         public synchronized ConnectionStatus status() {
             if (errored > 0) return ConnectionStatus.FAILED;
-            if (bandwidth < 0.0) return ConnectionStatus.DORMANT;
+            if (bandwidth < 0.0) return ConnectionStatus.RELEASED;
+            if (tunnels == null) return ConnectionStatus.DORMANT;
             if (unresponded > 0) return ConnectionStatus.ESTABLISHING;
             if (intendedActivity) return activeInferiors < clients.size()
                 ? ConnectionStatus.ACTIVATING : ConnectionStatus.ACTIVE;
@@ -311,14 +361,14 @@ public class TransientAggregator implements Aggregator {
             /* Release switch resources. */
             clients.stream().forEach(Client::release);
             clients.clear();
-            bandwidth = -1.0;
 
-            Map<Trunk, EndPoint> tunnels = this.tunnels;
-            this.tunnels = null;
             synchronized (TransientAggregator.this) {
                 /* Release tunnel resources. */
                 tunnels.forEach((k, v) -> k.releaseTunnel(v));
+                connections.remove(id);
             }
+
+            tunnels.clear();
         }
 
         @Override
@@ -335,8 +385,22 @@ public class TransientAggregator implements Aggregator {
         public synchronized void removeListener(ConnectionListener events) {
             listeners.remove(events);
         }
+
+        synchronized void dump(PrintWriter out) {
+            // TODO
+        }
     }
 
+    public void dump(PrintWriter out) {
+        Collection<MyConnection> connections;
+        synchronized (this) {
+            connections = new ArrayList<>(this.connections.values());
+        }
+        for (MyConnection conn : connections)
+            conn.dump(out);
+    }
+
+    private final Executor executor;
     private final String name;
 
     private final Map<String, MyPort> ports = new HashMap<>();
@@ -344,7 +408,8 @@ public class TransientAggregator implements Aggregator {
     private final Map<Integer, MyConnection> connections = new HashMap<>();
     private int nextConnectionId;
 
-    public TransientAggregator(String name) {
+    public TransientAggregator(Executor executor, String name) {
+        this.executor = executor;
         this.name = name;
     }
 
@@ -392,7 +457,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Port findPort(String id) {
+    public Port getPort(String id) {
         return ports.get(id);
     }
 
@@ -415,6 +480,9 @@ public class TransientAggregator implements Aggregator {
      * 
      * @param subterminals a place to store which internal end points of
      * which internal switches should be connected
+     * 
+     * @throws IllegalArgumentException if any end point does not belong
+     * to this switch
      */
     synchronized void
         plotTree(Collection<? extends EndPoint> terminals, double bandwidth,
@@ -424,7 +492,14 @@ public class TransientAggregator implements Aggregator {
          * end points that our topology consists of. */
         Collection<EndPoint> innerTerminalEndPoints =
             terminals.stream().map(t -> {
-                MyPort xp = (MyPort) t.getPort();
+                Port p = t.getPort();
+                if (!(p instanceof MyPort))
+                    throw new IllegalArgumentException("end point " + t
+                        + " not part of " + name);
+                MyPort xp = (MyPort) p;
+                if (xp.owner() != this)
+                    throw new IllegalArgumentException("end point " + t
+                        + " not part of " + name);
                 Port ip = xp.innerPort();
                 return ip.getEndPoint(t.getLabel());
             }).collect(Collectors.toSet());
@@ -506,6 +581,10 @@ public class TransientAggregator implements Aggregator {
      * Given a subset of our internal ports to connect and a bandwidth
      * requirement, create FIBs for each port.
      * 
+     * <p>
+     * This method does not modify any switch state, but should only be
+     * called while synchronized on the switch.
+     * 
      * @param bandwidth the required bandwidth
      * 
      * @param innerTerminalPorts the set of ports to connect
@@ -514,6 +593,7 @@ public class TransientAggregator implements Aggregator {
      */
     Map<Port, Map<Port, Way<Port>>>
         getFibs(double bandwidth, Collection<Port> innerTerminalPorts) {
+        assert Thread.holdsLock(this);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
@@ -546,47 +626,46 @@ public class TransientAggregator implements Aggregator {
         return Spans.route(innerTerminalPorts, edges);
     }
 
+    synchronized Map<Edge<Port>, Double> getModel(double bandwidth) {
+        /* Map the set of our end points to the corresponding inner
+         * ports that our topology consists of. */
+        Collection<Port> innerTerminalPorts = ports.values().stream()
+            .map(MyPort::innerPort).collect(Collectors.toSet());
+
+        /* Create routing tables for each port. */
+        Map<Port, Map<Port, Way<Port>>> fibs =
+            getFibs(bandwidth, innerTerminalPorts);
+
+        /* Convert our exposed ports to a sequence so we can form every
+         * combination of two ports. */
+        final List<MyPort> portSeq = new ArrayList<>(ports.values());
+        final int size = portSeq.size();
+
+        /* For every combination of our exposed ports, store the total
+         * distance as part of the result. */
+        Map<Edge<Port>, Double> result = new HashMap<>();
+        for (int i = 0; i + 1 < size; i++) {
+            final MyPort start = portSeq.get(i);
+            final Port innerStart = start.innerPort();
+            final Map<Port, Way<Port>> startFib = fibs.get(innerStart);
+            if (startFib == null) continue;
+            for (int j = i + 1; j < size; j++) {
+                final MyPort end = portSeq.get(j);
+                final Port innerEnd = end.innerPort();
+                final Way<Port> way = startFib.get(innerEnd);
+                if (way == null) continue;
+                final Edge<Port> edge = HashableEdge.of(start, end);
+                result.put(edge, way.distance);
+            }
+        }
+
+        return result;
+    }
+
     private final SwitchControl control = new SwitchControl() {
         @Override
         public Map<Edge<Port>, Double> getModel(double bandwidth) {
-            /* Map the set of our end points to the corresponding inner
-             * ports that our topology consists of. */
-            Collection<Port> innerTerminalPorts = ports.values().stream()
-                .map(MyPort::innerPort).collect(Collectors.toSet());
-
-            /* Create routing tables for each port. */
-            Map<Port, Map<Port, Way<Port>>> fibs =
-                getFibs(bandwidth, innerTerminalPorts);
-
-            /* Convert our exposed ports to a sequence so we can form
-             * every combination of two ports. */
-            final List<MyPort> portSeq = new ArrayList<>(ports.values());
-            final int size = portSeq.size();
-
-            /* For every combination of our exposed ports, store the
-             * total distance as part of the result. */
-            Map<Edge<Port>, Double> result = new HashMap<>();
-            for (int i = 0; i + 1 < size; i++) {
-                final MyPort start = portSeq.get(i);
-                final Port innerStart = start.innerPort();
-                final Map<Port, Way<Port>> startFib = fibs.get(innerStart);
-                if (startFib == null) continue;
-                for (int j = i + 1; j < size; j++) {
-                    final MyPort end = portSeq.get(j);
-                    final Port innerEnd = end.innerPort();
-                    final Way<Port> way = startFib.get(innerEnd);
-                    if (way == null) continue;
-                    final Edge<Port> edge = HashableEdge.of(start, end);
-                    result.put(edge, way.distance);
-                }
-            }
-
-            return result;
-        }
-
-        @Override
-        public EndPoint findEndPoint(String id) {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            return TransientAggregator.this.getModel(bandwidth);
         }
 
         @Override

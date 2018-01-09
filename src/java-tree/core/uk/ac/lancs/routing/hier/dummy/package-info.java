@@ -33,57 +33,10 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.routing.hier;
 
 /**
- * Describes a connection's status. The initial state is
- * {@link #ESTABLISHING}.
+ * Implements a switch with no effect.
  * 
  * @author simpsons
  */
-public enum ConnectionStatus {
-    /**
-     * The connection is not in use, and has no associated request. This
-     * is the initial state.
-     */
-    DORMANT,
-
-    /**
-     * The underlying connection resources have not yet been
-     * established.
-     */
-    ESTABLISHING,
-
-    /**
-     * The connection has link resources allocated, but no switch
-     * resources.
-     */
-    INACTIVE,
-
-    /**
-     * The connection is in the process of becoming {@link #ACTIVE}.
-     * Some traffic might begin to get through.
-     */
-    ACTIVATING,
-
-    /**
-     * The connection is active, and so can carry traffic.
-     */
-    ACTIVE,
-
-    /**
-     * The connection is deactivating. Some traffic might still get
-     * through.
-     */
-    DEACTIVATING,
-
-    /**
-     * The connection has failed outright.
-     */
-    FAILED,
-
-    /**
-     * The connection has been released, and can no longer be used.
-     */
-    RELEASED,
-}
+package uk.ac.lancs.routing.hier.dummy;

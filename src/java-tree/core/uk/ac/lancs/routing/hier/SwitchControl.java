@@ -46,15 +46,6 @@ import uk.ac.lancs.routing.span.Edge;
  */
 public interface SwitchControl {
     /**
-     * Find the end point of this switch with the given identifier.
-     * 
-     * @param id the end-point identifier
-     * 
-     * @return the identified end point, or {@code null} if not found
-     */
-    EndPoint findEndPoint(String id);
-
-    /**
      * Create a connection.
      * 
      * @param request a description of the required connection
