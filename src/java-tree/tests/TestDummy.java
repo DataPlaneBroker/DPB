@@ -55,8 +55,7 @@ public class TestDummy {
      * @param args
      */
     public static void main(String[] args) {
-        IdleExecutor executor = new IdleExecutor();
-        DummySwitch zwitch = new DummySwitch(executor, "dummy");
+        DummySwitch zwitch = new DummySwitch(IdleExecutor.INSTANCE, "dummy");
 
         Port left = zwitch.addPort("left");
         Port right = zwitch.addPort("right");
@@ -114,7 +113,7 @@ public class TestDummy {
                 7));
 
         /* Wait until there's nothing to do. */
-        executor.processAll();
+        IdleExecutor.processAll();
 
         /* Show the current status. */
         zwitch.dump(new PrintWriter(System.out));

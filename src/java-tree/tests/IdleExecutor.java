@@ -44,6 +44,10 @@ import java.util.concurrent.Executor;
  * @author simpsons
  */
 public final class IdleExecutor implements Executor {
+    private IdleExecutor() {}
+
+    public static final IdleExecutor INSTANCE = new IdleExecutor();
+
     private final ThreadLocal<List<Runnable>> queue = new ThreadLocal<>() {
         @Override
         protected List<Runnable> initialValue() {
@@ -56,13 +60,7 @@ public final class IdleExecutor implements Executor {
         queue.get().add(command);
     }
 
-    /**
-     * Run at most one task now. The first task off the thread's queue
-     * is removed and executed.
-     * 
-     * @return {@code true} if a task was executed
-     */
-    public boolean process() {
+    private boolean internalProcess() {
         List<Runnable> q = queue.get();
         if (q.isEmpty()) return false;
         q.remove(0).run();
@@ -70,11 +68,21 @@ public final class IdleExecutor implements Executor {
     }
 
     /**
+     * Run at most one task now. The first task off the thread's queue
+     * is removed and executed.
+     * 
+     * @return {@code true} if a task was executed
+     */
+    public static boolean process() {
+        return INSTANCE.internalProcess();
+    }
+
+    /**
      * Run all tasks until exhausted.
      * 
      * @return {@code true} if at least one task was executed
      */
-    public boolean processAll() {
+    public static boolean processAll() {
         if (!process()) return false;
         while (process())
             ;
