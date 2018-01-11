@@ -105,8 +105,7 @@ public class TestDummy {
 
         /* Initiate some connections. */
         c1.initiate(ConnectionRequest
-            .of(Arrays.asList(left.getEndPoint(1), right.getEndPoint(1)),
-                10));
+            .of(Arrays.asList(left.getEndPoint(1), down.getEndPoint(1)), 10));
         c2.initiate(ConnectionRequest
             .of(Arrays.asList(left.getEndPoint(4), right.getEndPoint(6),
                               up.getEndPoint(3)),
