@@ -285,4 +285,9 @@ public class DummySwitch implements SwitchManagement {
             return new HashSet<>(connections.keySet());
         }
     };
+
+    @Override
+    public Collection<String> getPorts() {
+        return new HashSet<>(ports.keySet());
+    }
 }

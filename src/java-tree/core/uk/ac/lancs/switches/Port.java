@@ -38,6 +38,9 @@ package uk.ac.lancs.switches;
 /**
  * Models the end of a trunk capable of carrying connections.
  * 
+ * <p>
+ * The {@link Object#toString()} method should fully identify the port.
+ * 
  * @author simpsons
  */
 public interface Port {

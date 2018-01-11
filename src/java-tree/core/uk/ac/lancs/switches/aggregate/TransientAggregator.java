@@ -688,4 +688,9 @@ public class TransientAggregator implements Aggregator {
             return new HashSet<>(connections.keySet());
         }
     };
+
+    @Override
+    public Collection<String> getPorts() {
+        return new HashSet<>(ports.keySet());
+    }
 }

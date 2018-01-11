@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.switches;
 
+import java.util.Collection;
+
 /**
  * Manages a switch.
  * 
@@ -50,6 +52,14 @@ public interface SwitchManagement {
      * exists
      */
     Port getPort(String id);
+
+    /**
+     * Get a set of all ports on this switch.
+     * 
+     * @return a mutable collection of names of ports created by
+     * {@link #getPort(String)}
+     */
+    Collection<String> getPorts();
 
     /**
      * Get the controlling intreface for this switch.
