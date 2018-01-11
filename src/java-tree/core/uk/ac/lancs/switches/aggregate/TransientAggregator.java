@@ -87,64 +87,8 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public EndPoint getEndPoint(int label) {
-            if (label < 0)
-                throw new IllegalArgumentException("negative label on " + this
-                    + ": " + label);
-            return new MyEndPoint(this, label);
-        }
-
-        @Override
         public String toString() {
             return TransientAggregator.this.name + ":" + name;
-        }
-    }
-
-    private static class MyEndPoint implements EndPoint {
-        private final Port port;
-        private final int label;
-
-        MyEndPoint(Port port, int label) {
-            assert port != null;
-            this.port = port;
-            this.label = label;
-        }
-
-        @Override
-        public Port getPort() {
-            return port;
-        }
-
-        @Override
-        public int getLabel() {
-            return label;
-        }
-
-        @Override
-        public String toString() {
-            return port + ":" + label;
-        }
-
-        @Override
-        public int hashCode() {
-            final int prime = 31;
-            int result = 1;
-            result = prime * result + label;
-            result = prime * result + ((port == null) ? 0 : port.hashCode());
-            return result;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null) return false;
-            if (getClass() != obj.getClass()) return false;
-            MyEndPoint other = (MyEndPoint) obj;
-            if (label != other.label) return false;
-            if (port == null) {
-                if (other.port != null) return false;
-            } else if (!port.equals(other.port)) return false;
-            return true;
         }
     }
 

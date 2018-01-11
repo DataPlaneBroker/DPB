@@ -56,5 +56,7 @@ public interface Port {
      * 
      * @return the end point for the given label
      */
-    EndPoint getEndPoint(int label);
+    default EndPoint getEndPoint(int label) {
+        return EndPoint.of(this, label);
+    }
 }

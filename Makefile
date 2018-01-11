@@ -8,6 +8,7 @@ PRINTF=printf
 -include dataplanebroker-env.mk
 
 jars += $(SELECTED_JARS)
+jars += $(TEST_JARS)
 
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
@@ -16,7 +17,7 @@ roots_core += uk.ac.lancs.switches.SwitchManagement
 roots_core += uk.ac.lancs.switches.DummySwitch
 roots_core += uk.ac.lancs.switches.aggregate.TransientAggregator
 
-SELECTED_JARS += tests
+TEST_JARS += tests
 roots_tests += TestDummy
 deps_tests += core
 
@@ -27,6 +28,7 @@ JARDEPS_MERGEDIR=src/java-merge
 include jardeps.mk
 
 all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+all:: $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 
 #blank:: clean
 
