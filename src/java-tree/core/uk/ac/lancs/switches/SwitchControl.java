@@ -35,6 +35,7 @@
  */
 package uk.ac.lancs.switches;
 
+import java.util.Collection;
 import java.util.Map;
 
 import uk.ac.lancs.routing.span.Edge;
@@ -61,6 +62,13 @@ public interface SwitchControl {
      * it does not exist
      */
     Connection getConnection(int id);
+
+    /**
+     * Get ids of all open connections.
+     * 
+     * @return a set of all open connection ids, modifiable by the user
+     */
+    Collection<Integer> getConnectionIds();
 
     /**
      * Get a model of port connections given a bandwidth requirement.

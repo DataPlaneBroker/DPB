@@ -696,5 +696,10 @@ public class TransientAggregator implements Aggregator {
                 return conn;
             }
         }
+
+        @Override
+        public Collection<Integer> getConnectionIds() {
+            return new HashSet<>(connections.keySet());
+        }
     };
 }

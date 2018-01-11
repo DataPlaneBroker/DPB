@@ -315,5 +315,10 @@ public class DummySwitch implements SwitchManagement {
                 return connections.get(id);
             }
         }
+
+        @Override
+        public Collection<Integer> getConnectionIds() {
+            return new HashSet<>(connections.keySet());
+        }
     };
 }
