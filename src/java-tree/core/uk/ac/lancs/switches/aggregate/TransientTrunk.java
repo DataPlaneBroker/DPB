@@ -75,20 +75,22 @@ final class TransientTrunk implements Trunk {
         return bandwidth;
     }
 
-    private final NavigableMap<Short, Short> startToEndMap = new TreeMap<>();
-    private final NavigableMap<Short, Short> endToStartMap = new TreeMap<>();
+    private final NavigableMap<Integer, Integer> startToEndMap =
+        new TreeMap<>();
+    private final NavigableMap<Integer, Integer> endToStartMap =
+        new TreeMap<>();
     private final BitSet availableTunnels = new BitSet();
-    private final Map<Short, Double> allocations = new HashMap<>();
+    private final Map<Integer, Double> allocations = new HashMap<>();
 
     @Override
     public EndPoint getPeer(EndPoint p) {
         if (p.getPort().equals(start)) {
-            Short other = startToEndMap.get(p.getLabel());
+            Integer other = startToEndMap.get(p.getLabel());
             if (other == null) return null;
             return end.getEndPoint(other);
         }
         if (p.getPort().equals(end)) {
-            Short other = endToStartMap.get(p.getLabel());
+            Integer other = endToStartMap.get(p.getLabel());
             if (other == null) return null;
             return start.getEndPoint(other);
         }
@@ -105,7 +107,7 @@ final class TransientTrunk implements Trunk {
 
         /* Obtain a tunnel. */
         if (availableTunnels.isEmpty()) return null;
-        short startLabel = (short) availableTunnels.nextSetBit(0);
+        int startLabel = (short) availableTunnels.nextSetBit(0);
         availableTunnels.clear(startLabel);
 
         /* Allocate bandwidth. */
@@ -117,14 +119,14 @@ final class TransientTrunk implements Trunk {
 
     @Override
     public void releaseTunnel(EndPoint endPoint) {
-        final short startLabel;
+        final int startLabel;
         if (endPoint.getPort().equals(start)) {
             startLabel = endPoint.getLabel();
             if (!startToEndMap.containsKey(startLabel))
                 throw new IllegalArgumentException("unallocated " + endPoint);
         } else if (endPoint.getPort().equals(end)) {
-            short endLabel = endPoint.getLabel();
-            Short rv = endToStartMap.get(endLabel);
+            int endLabel = endPoint.getLabel();
+            Integer rv = endToStartMap.get(endLabel);
             if (rv == null)
                 throw new IllegalArgumentException("unallocated " + endPoint);
             startLabel = rv;
@@ -187,8 +189,7 @@ final class TransientTrunk implements Trunk {
         }
 
         @Override
-        public void defineLabelRange(short startBase, short amount,
-                                     short endBase) {
+        public void defineLabelRange(int startBase, int amount, int endBase) {
             if (startBase + amount < startBase)
                 throw new IllegalArgumentException("illegal start range "
                     + startBase + " plus " + amount);
@@ -197,13 +198,13 @@ final class TransientTrunk implements Trunk {
                     + endBase + " plus " + amount);
 
             /* Check that all numbers are available. */
-            Map<Short, Short> startExisting =
-                startToEndMap.subMap(startBase, (short) (startBase + amount));
+            Map<Integer, Integer> startExisting =
+                startToEndMap.subMap(startBase, startBase + amount);
             if (!startExisting.isEmpty())
                 throw new IllegalArgumentException("start range in use "
                     + startExisting.keySet());
-            Map<Short, Short> endExisting =
-                endToStartMap.subMap(endBase, (short) (endBase + amount));
+            Map<Integer, Integer> endExisting =
+                endToStartMap.subMap(endBase, endBase + amount);
             if (!endExisting.isEmpty())
                 throw new IllegalArgumentException("end range in use "
                     + endExisting.keySet());
@@ -211,16 +212,16 @@ final class TransientTrunk implements Trunk {
             /* Add all the labels. */
             startToEndMap.putAll(IntStream.range(startBase, amount).boxed()
                 .collect(Collectors
-                    .<Integer, Short, Short>toMap(Integer::shortValue,
-                                                  k -> (short) (k.shortValue()
-                                                      + endBase
-                                                      - startBase))));
+                    .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                      k -> k.shortValue()
+                                                          + endBase
+                                                          - startBase)));
             endToStartMap.putAll(IntStream.range(startBase, amount).boxed()
                 .collect(Collectors
-                    .<Integer, Short, Short>toMap(Integer::shortValue,
-                                                  k -> (short) (k.shortValue()
-                                                      + endBase
-                                                      - startBase))));
+                    .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                      k -> k.shortValue()
+                                                          + endBase
+                                                          - startBase)));
         }
     };
 }

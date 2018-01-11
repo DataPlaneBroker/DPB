@@ -82,6 +82,22 @@ package uk.ac.lancs.switches;
  */
 public interface Connection {
     /**
+     * Get the switch that owns this connection.
+     * 
+     * @return the owning switch, or {@code null} if the connection has
+     * been released
+     */
+    SwitchControl getSwitch();
+
+    /**
+     * Get the request associated with this connection.
+     * 
+     * @return the associated request, or {@code null} if this
+     * connection is released or has not been initiated
+     */
+    ConnectionRequest getRequest();
+
+    /**
      * Initiate allocation of resources.
      * 
      * @param request the connection details

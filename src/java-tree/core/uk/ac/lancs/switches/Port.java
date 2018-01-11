@@ -56,5 +56,5 @@ public interface Port {
      * 
      * @return the end point for the given label
      */
-    EndPoint getEndPoint(short label);
+    EndPoint getEndPoint(int label);
 }

@@ -87,7 +87,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public EndPoint getEndPoint(short label) {
+        public EndPoint getEndPoint(int label) {
             if (label < 0)
                 throw new IllegalArgumentException("negative label on " + this
                     + ": " + label);
@@ -102,9 +102,9 @@ public class TransientAggregator implements Aggregator {
 
     private static class MyEndPoint implements EndPoint {
         private final Port port;
-        private final short label;
+        private final int label;
 
-        MyEndPoint(Port port, short label) {
+        MyEndPoint(Port port, int label) {
             assert port != null;
             this.port = port;
             this.label = label;
@@ -116,7 +116,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public short getLabel() {
+        public int getLabel() {
             return label;
         }
 
@@ -209,6 +209,13 @@ public class TransientAggregator implements Aggregator {
                     connection.release();
                 }
             }
+
+            void dump(PrintWriter out) {
+                out.printf("%n    %s:", connection.status());
+                for (EndPoint ep : connection.getRequest().terminals) {
+                    out.printf("%n      %s", ep);
+                }
+            }
         }
 
         /***
@@ -242,7 +249,8 @@ public class TransientAggregator implements Aggregator {
             if (!clients.isEmpty()) return;
             clients.clear();
             tunnels = null;
-            bandwidth = -1.0;
+            request = null;
+            released = true;
             synchronized (TransientAggregator.this) {
                 connections.remove(id);
             }
@@ -272,12 +280,12 @@ public class TransientAggregator implements Aggregator {
                 .forEach(l -> executor.execute(() -> action.accept(l)));
         }
 
-        double bandwidth;
         Map<Trunk, EndPoint> tunnels;
+        ConnectionRequest request;
 
         int unresponded, errored;
         int activeInferiors;
-        boolean intendedActivity = false;
+        boolean intendedActivity = false, released = false;
 
         MyConnection(int id) {
             this.id = id;
@@ -285,11 +293,10 @@ public class TransientAggregator implements Aggregator {
 
         @Override
         public synchronized void initiate(ConnectionRequest request) {
-            if (bandwidth < 0.0)
+            if (released)
                 throw new IllegalStateException("connection released");
             if (tunnels != null)
                 throw new IllegalStateException("connection in use");
-            bandwidth = request.bandwidth;
             tunnels = new HashMap<>();
             clients.clear();
             errored = activeInferiors = 0;
@@ -299,15 +306,17 @@ public class TransientAggregator implements Aggregator {
              * tunnels. */
             Map<SwitchControl, Collection<EndPoint>> subterminals =
                 new HashMap<>();
-            plotTree(request.terminals, bandwidth, tunnels, subterminals);
+            plotTree(request.terminals, request.bandwidth, tunnels,
+                     subterminals);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
-            Map<Connection, ConnectionRequest> subcons = subterminals
-                .entrySet().stream()
-                .collect(Collectors.toMap(e -> e.getKey().newConnection(),
-                                          e -> ConnectionRequest
-                                              .of(e.getValue(), bandwidth)));
+            Map<Connection, ConnectionRequest> subcons =
+                subterminals.entrySet().stream()
+                    .collect(Collectors
+                        .toMap(e -> e.getKey().newConnection(),
+                               e -> ConnectionRequest.of(e.getValue(),
+                                                         request.bandwidth)));
             clients.addAll(subcons.keySet().stream().map(Client::new)
                 .collect(Collectors.toList()));
             unresponded = clients.size();
@@ -316,12 +325,14 @@ public class TransientAggregator implements Aggregator {
              * trees with their respective end points. */
             subcons.entrySet().stream()
                 .forEach(e -> e.getKey().initiate(e.getValue()));
+
+            this.request = request;
         }
 
         @Override
         public synchronized ConnectionStatus status() {
+            if (released) return ConnectionStatus.RELEASED;
             if (errored > 0) return ConnectionStatus.FAILED;
-            if (bandwidth < 0.0) return ConnectionStatus.RELEASED;
             if (tunnels == null) return ConnectionStatus.DORMANT;
             if (unresponded > 0) return ConnectionStatus.ESTABLISHING;
             if (intendedActivity) return activeInferiors < clients.size()
@@ -386,7 +397,37 @@ public class TransientAggregator implements Aggregator {
         }
 
         synchronized void dump(PrintWriter out) {
-            // TODO
+            ConnectionStatus status = status();
+            out.printf("  %3d %-8s", id, status);
+            switch (status) {
+            case DORMANT:
+            case RELEASED:
+                break;
+
+            default:
+                out.printf(" %5g", request.bandwidth);
+                for (Map.Entry<Trunk, EndPoint> tunnel : tunnels.entrySet()) {
+                    EndPoint ep1 = tunnel.getValue();
+                    EndPoint ep2 = tunnel.getKey().getPeer(ep1);
+                    out.printf("%n      %20s=%-20s", ep1, ep2);
+                }
+                for (Client cli : clients) {
+                    cli.dump(out);
+                }
+                break;
+            }
+            out.println();
+        }
+
+        @Override
+        public synchronized SwitchControl getSwitch() {
+            if (released) return null;
+            return control;
+        }
+
+        @Override
+        public synchronized ConnectionRequest getRequest() {
+            return request;
         }
     }
 
@@ -401,6 +442,7 @@ public class TransientAggregator implements Aggregator {
         synchronized (this) {
             connections = new ArrayList<>(this.connections.values());
         }
+        out.printf("aggregate %s:%n", name);
         for (MyConnection conn : connections)
             conn.dump(out);
     }

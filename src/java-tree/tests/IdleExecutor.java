@@ -1,3 +1,7 @@
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+
 /*
  * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
@@ -33,26 +37,47 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
 
 /**
- * Identifies the terminus of a connection.
+ * Runs tasks later on the same thread.
  * 
  * @author simpsons
  */
-public interface EndPoint {
-    /**
-     * Get the containing port of the end point.
-     * 
-     * @return the end point's containing port
-     */
-    Port getPort();
+public final class IdleExecutor implements Executor {
+    private final ThreadLocal<List<Runnable>> queue = new ThreadLocal<>() {
+        @Override
+        protected List<Runnable> initialValue() {
+            return new ArrayList<>();
+        }
+    };
+
+    @Override
+    public void execute(Runnable command) {
+        queue.get().add(command);
+    }
 
     /**
-     * Get the label that subdivides the port to identify the
-     * connection.
+     * Run at most one task now. The first task off the thread's queue
+     * is removed and executed.
      * 
-     * @return the end-point label
+     * @return {@code true} if a task was executed
      */
-    int getLabel();
+    public boolean process() {
+        List<Runnable> q = queue.get();
+        if (q.isEmpty()) return false;
+        q.remove(0).run();
+        return true;
+    }
+
+    /**
+     * Run all tasks until exhausted.
+     * 
+     * @return {@code true} if at least one task was executed
+     */
+    public boolean processAll() {
+        if (!process()) return false;
+        while (process())
+            ;
+        return true;
+    }
 }

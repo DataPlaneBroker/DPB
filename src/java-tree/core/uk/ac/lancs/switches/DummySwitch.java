@@ -56,9 +56,9 @@ import uk.ac.lancs.routing.span.HashableEdge;
 public class DummySwitch implements SwitchManagement {
     private static class MyEndPoint implements EndPoint {
         private final Port port;
-        private final short label;
+        private final int label;
 
-        MyEndPoint(Port port, short label) {
+        MyEndPoint(Port port, int label) {
             assert port != null;
             assert label >= 0;
             this.port = port;
@@ -71,7 +71,7 @@ public class DummySwitch implements SwitchManagement {
         }
 
         @Override
-        public short getLabel() {
+        public int getLabel() {
             return label;
         }
 
@@ -116,7 +116,7 @@ public class DummySwitch implements SwitchManagement {
         }
 
         @Override
-        public EndPoint getEndPoint(short label) {
+        public EndPoint getEndPoint(int label) {
             if (label < 0)
                 throw new IllegalArgumentException("negative label on " + this
                     + ": " + label);
@@ -219,7 +219,26 @@ public class DummySwitch implements SwitchManagement {
         }
 
         synchronized void dump(PrintWriter out) {
-            // TODO
+            out.printf("  %3d %-8s", id,
+                       released ? "RELEASED" : request == null ? "DORMANT"
+                           : active ? "ACTIVE" : "INACTIVE");
+            if (request != null) {
+                out.printf(" %3g", request.bandwidth);
+                for (EndPoint ep : request.terminals)
+                    out.printf("%n      %s", ep);
+            }
+            out.println();
+        }
+
+        @Override
+        public synchronized SwitchControl getSwitch() {
+            if (released || request == null) return null;
+            return control;
+        }
+
+        @Override
+        public synchronized ConnectionRequest getRequest() {
+            return request;
         }
     }
 
@@ -240,8 +259,10 @@ public class DummySwitch implements SwitchManagement {
         synchronized (this) {
             connections = new ArrayList<>(this.connections.values());
         }
+        out.printf("dummy %s:%n", name);
         for (MyConnection conn : connections)
             conn.dump(out);
+        out.flush();
     }
 
     /**

@@ -86,7 +86,7 @@ public interface TrunkManagement {
      * @param endBase the first available label at the end side of the
      * link
      */
-    void defineLabelRange(short startBase, short amount, short endBase);
+    void defineLabelRange(int startBase, int amount, int endBase);
 
     /**
      * Make a range of labels available.
@@ -102,7 +102,7 @@ public interface TrunkManagement {
      * @param amount the number of labels from the base to make
      * available
      */
-    default void defineLabelRange(short startBase, short amount) {
+    default void defineLabelRange(int startBase, int amount) {
         defineLabelRange(startBase, amount, startBase);
     }
 }
