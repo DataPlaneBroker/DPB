@@ -39,13 +39,22 @@ import uk.ac.lancs.switches.Port;
 import uk.ac.lancs.switches.SwitchManagement;
 
 /**
- * Configures a virtual switch that aggregates other switches.
+ * Configures a virtual switch that aggregates other switches. An
+ * aggregator distinguishes between internal and external ports.
+ * External ports are its own, and be obtained from the aggregator's
+ * {@link SwitchManagement#getPort(String)} method. Internal ports
+ * belong to inferior switches, and are used to define trunks. A trunk
+ * connects the ports of two different inferior switches together by
+ * calling {@link #addTrunk(Port, Port)}. The aggregator uses its
+ * knowledge of trunks to plot spanning trees over them, and delegates
+ * connections to the switches holding the ports at the ends of the
+ * trunks.
  * 
  * @author simpsons
  */
 public interface Aggregator extends SwitchManagement {
     /**
-     * Create a trunk between two end points within the switch.
+     * Create a trunk between two internal ports within the switch.
      * 
      * @param p1 one of the ports
      * 
@@ -54,7 +63,7 @@ public interface Aggregator extends SwitchManagement {
     TrunkManagement addTrunk(Port p1, Port p2);
 
     /**
-     * Find an existing trunk connected to an port.
+     * Find an existing trunk connected to a port.
      * 
      * @param p one of the ports of the trunk
      * 

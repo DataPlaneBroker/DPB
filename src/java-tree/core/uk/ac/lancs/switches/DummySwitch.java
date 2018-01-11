@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.dummy;
+package uk.ac.lancs.switches;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -47,14 +47,6 @@ import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.HashableEdge;
-import uk.ac.lancs.switches.Connection;
-import uk.ac.lancs.switches.ConnectionListener;
-import uk.ac.lancs.switches.ConnectionRequest;
-import uk.ac.lancs.switches.ConnectionStatus;
-import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.SwitchControl;
-import uk.ac.lancs.switches.SwitchManagement;
 
 /**
  * Implements an entirely virtual switch that does nothing.
@@ -237,6 +229,12 @@ public class DummySwitch implements SwitchManagement {
     private final Map<Integer, MyConnection> connections = new HashMap<>();
     private int nextConnectionId;
 
+    /**
+     * Print out the status of all connections and trunks of this
+     * switch.
+     * 
+     * @param out the destination for the status report
+     */
     public void dump(PrintWriter out) {
         Collection<MyConnection> connections;
         synchronized (this) {
@@ -246,6 +244,13 @@ public class DummySwitch implements SwitchManagement {
             conn.dump(out);
     }
 
+    /**
+     * Create a dummy switch.
+     * 
+     * @param executor used to invoke {@link ConnectionListener}s
+     * 
+     * @param name the new switch's name
+     */
     public DummySwitch(Executor executor, String name) {
         this.executor = executor;
         this.name = name;

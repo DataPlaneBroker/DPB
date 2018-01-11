@@ -37,7 +37,7 @@ package uk.ac.lancs.switches;
 
 /**
  * Describes a connection's status. The initial state is
- * {@link #ESTABLISHING}.
+ * {@link #DORMANT}.
  * 
  * @author simpsons
  */

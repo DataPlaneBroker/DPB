@@ -47,7 +47,7 @@ public interface ConnectionListener {
     void ready();
 
     /**
-     * The connection failed.
+     * The connection failed during establishment or activation.
      * 
      * @param t the reason for failure
      */

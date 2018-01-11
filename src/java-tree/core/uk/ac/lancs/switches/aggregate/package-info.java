@@ -35,7 +35,7 @@
  */
 
 /**
- * Holds classes for aggregate routing.
+ * Holds classes for aggregate switches.
  * 
  * @author simpsons
  */

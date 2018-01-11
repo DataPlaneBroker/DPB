@@ -36,7 +36,47 @@
 package uk.ac.lancs.switches;
 
 /**
- * Represents a connection with allocated resources.
+ * Represents a connection with allocated resources. A new connection is
+ * obtained from {@link SwitchControl#newConnection()}. Each connection
+ * has a persistent identifier which can be used to recover the
+ * connection object through {@link SwitchControl#getConnection(int)} if
+ * lost.
+ * 
+ * Listeners can be added to a connection to be informed of changes to
+ * its state.
+ * 
+ * <p>
+ * A connection has internal state and potentially inferior state, i.e.,
+ * that which is held by inferior or subservient entities, e.g.,
+ * subswitches.
+ * 
+ * <p>
+ * Call {@link #initiate(ConnectionrRequest)} with connection parameters
+ * (end points and bandwidth) to initiate a connection.
+ * {@link ConnectionListener#ready()} will be invoked if the connection
+ * is established (but not yet activated).
+ * {@link ConnectionListener#failed(Throwable)} will be invoked on
+ * error.
+ * 
+ * <p>
+ * Once established, {@link #activate()} can be called to activate the
+ * connection. Inferior resources will be set up, allowing traffic to
+ * flow between its end points. {@link ConnectionListener#activated()}
+ * will be invoked when activation is complete.
+ * 
+ * <p>
+ * A connection can be deactived with {@link #deactivate()}. Inferior
+ * resources will be released, and traffic will no longer flow.
+ * {@link ConnectionListener#deactivated()} will be invoked when
+ * de-activation is complete.
+ * 
+ * <p>
+ * A connection can be activated and deactivated any number of times.
+ * 
+ * <p>
+ * Calling {@link #release()} ensures the connection is deactivated, and
+ * all resources will be released. {@link ConnectionListener#released()}
+ * will finally be called.
  * 
  * @author simpsons
  */

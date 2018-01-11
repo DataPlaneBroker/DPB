@@ -59,8 +59,7 @@ import uk.ac.lancs.switches.Port;
 import uk.ac.lancs.switches.SwitchControl;
 
 /**
- * Implements a virtual switch hierarchically configuring inferior
- * switches.
+ * Implements a switch aggregator with no persistent state.
  * 
  * @author simpsons
  */
@@ -391,6 +390,12 @@ public class TransientAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Print out the status of all connections and trunks of this
+     * switch.
+     * 
+     * @param out the destination for the status report
+     */
     public void dump(PrintWriter out) {
         Collection<MyConnection> connections;
         synchronized (this) {
@@ -408,6 +413,13 @@ public class TransientAggregator implements Aggregator {
     private final Map<Integer, MyConnection> connections = new HashMap<>();
     private int nextConnectionId;
 
+    /**
+     * Create an aggregator.
+     * 
+     * @param executor used to invoke {@link ConnectionListener}s
+     * 
+     * @param name the new switch's name
+     */
     public TransientAggregator(Executor executor, String name) {
         this.executor = executor;
         this.name = name;
@@ -431,7 +443,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     /**
-     * Add a new port exposing an inferior switch's port.
+     * Add a new external port exposing an inferior switch's port.
      * 
      * @param name the local name of the port
      * 
