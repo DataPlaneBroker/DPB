@@ -13,8 +13,9 @@ jars += $(TEST_JARS)
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 roots_core += uk.ac.lancs.routing.span.Spans
-roots_core += uk.ac.lancs.switches.SwitchManagement
+roots_core += uk.ac.lancs.switches.Switch
 roots_core += uk.ac.lancs.switches.DummySwitch
+roots_core += uk.ac.lancs.switches.aggregate.Aggregator
 roots_core += uk.ac.lancs.switches.aggregate.TransientAggregator
 
 TEST_JARS += tests

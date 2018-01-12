@@ -33,76 +33,38 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.aggregate;
+package uk.ac.lancs.switches;
+
+import java.util.Collection;
 
 /**
- * 
+ * Manages a switch.
  * 
  * @author simpsons
  */
-public interface TrunkManagement {
+public interface Switch {
     /**
-     * Get the configured delay for this trunk.
+     * Get a port on this switch.
      * 
-     * @return the trunk's delay
+     * @param id the local port name
+     * 
+     * @return the requested port, or {@code null} if no such port
+     * exists
      */
-    double getDelay();
+    Port getPort(String id);
 
     /**
-     * Set the delay for this trunk.
+     * Get a set of all ports on this switch.
      * 
-     * @param delay the new delay
+     * @return a mutable collection of names of ports created by
+     * {@link #getPort(String)}
      */
-    void setDelay(double delay);
+    Collection<String> getPorts();
 
     /**
-     * Consume bandwidth on this trunk.
+     * Get the controlling intreface for this switch.
      * 
-     * @param amount the amount to deduct from the remaining bandwidth
-     * 
-     * @throws IllegalArgumentException if the amount is negative or
-     * exceeds the remaining level
+     * @return the switch's control interface
      */
-    void allocateBandwidth(double amount);
-
-    /**
-     * Release bandwidth on this trunk.
-     * 
-     * @param amount the amount to add to the remaining bandwidth
-     * 
-     * @throws IllegalArgumentException if the amount is negative
-     */
-    void releaseBandwidth(double amount);
-
-    /**
-     * Make a range of labels available.
-     * 
-     * @param startBase the first available label at the start side of
-     * the link
-     * 
-     * @param amount the number of labels from the base to make
-     * available
-     * 
-     * @param endBase the first available label at the end side of the
-     * link
-     */
-    void defineLabelRange(int startBase, int amount, int endBase);
-
-    /**
-     * Make a range of labels available.
-     * 
-     * <p>
-     * By default, this method calls
-     * {@link #defineLabelRange(short, short, short)}, using the first
-     * argument also as the last.
-     * 
-     * @param startBase the first available label at either side of the
-     * link
-     * 
-     * @param amount the number of labels from the base to make
-     * available
-     */
-    default void defineLabelRange(int startBase, int amount) {
-        defineLabelRange(startBase, amount, startBase);
-    }
+    SwitchControl getControl();
 }

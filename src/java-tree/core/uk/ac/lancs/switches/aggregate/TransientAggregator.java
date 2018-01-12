@@ -37,14 +37,19 @@ package uk.ac.lancs.switches.aggregate;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.HashableEdge;
@@ -224,7 +229,7 @@ public class TransientAggregator implements Aggregator {
                 .forEach(l -> executor.execute(() -> action.accept(l)));
         }
 
-        Map<Trunk, EndPoint> tunnels;
+        Map<TrunkControl, EndPoint> tunnels;
         ConnectionRequest request;
 
         int unresponded, errored;
@@ -350,7 +355,7 @@ public class TransientAggregator implements Aggregator {
 
             default:
                 out.printf(" %5g", request.bandwidth);
-                for (Map.Entry<Trunk, EndPoint> tunnel : tunnels.entrySet()) {
+                for (Map.Entry<TrunkControl, EndPoint> tunnel : tunnels.entrySet()) {
                     EndPoint ep1 = tunnel.getValue();
                     EndPoint ep2 = tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
@@ -376,6 +381,214 @@ public class TransientAggregator implements Aggregator {
     }
 
     /**
+     * Represents a physical link with no persistent state.
+     * 
+     * @author simpsons
+     */
+    final class MyTrunk implements TrunkControl {
+        private final Port start, end;
+        private double delay = 0.0;
+        private double bandwidth = 0.0;
+
+        /**
+         * Create a trunk between two ports.
+         * 
+         * @param start one of the ends of the trunk
+         * 
+         * @param end the other end
+         */
+        public MyTrunk(Port start, Port end) {
+            this.start = start;
+            this.end = end;
+        }
+
+        @Override
+        public double getBandwidth() {
+            return bandwidth;
+        }
+
+        private final NavigableMap<Integer, Integer> startToEndMap =
+            new TreeMap<>();
+        private final NavigableMap<Integer, Integer> endToStartMap =
+            new TreeMap<>();
+        private final BitSet availableTunnels = new BitSet();
+        private final Map<Integer, Double> allocations = new HashMap<>();
+
+        @Override
+        public EndPoint getPeer(EndPoint p) {
+            synchronized (TransientAggregator.this) {
+                if (p.getPort().equals(start)) {
+                    Integer other = startToEndMap.get(p.getLabel());
+                    if (other == null) return null;
+                    return end.getEndPoint(other);
+                }
+                if (p.getPort().equals(end)) {
+                    Integer other = endToStartMap.get(p.getLabel());
+                    if (other == null) return null;
+                    return start.getEndPoint(other);
+                }
+                throw new IllegalArgumentException("end point does not"
+                    + " belong to trunk");
+            }
+        }
+
+        @Override
+        public EndPoint allocateTunnel(double bandwidth) {
+            /* Sanity-check bandwidth. */
+            if (bandwidth < 0)
+                throw new IllegalArgumentException("negative: " + bandwidth);
+            if (bandwidth > this.bandwidth) return null;
+
+            /* Obtain a tunnel. */
+            if (availableTunnels.isEmpty()) return null;
+            int startLabel = (short) availableTunnels.nextSetBit(0);
+            availableTunnels.clear(startLabel);
+
+            /* Allocate bandwidth. */
+            this.bandwidth -= bandwidth;
+            allocations.put(startLabel, bandwidth);
+
+            return start.getEndPoint(startLabel);
+        }
+
+        @Override
+        public void releaseTunnel(EndPoint endPoint) {
+            final int startLabel;
+            if (endPoint.getPort().equals(start)) {
+                startLabel = endPoint.getLabel();
+                if (!startToEndMap.containsKey(startLabel))
+                    throw new IllegalArgumentException("unmapped "
+                        + endPoint);
+            } else if (endPoint.getPort().equals(end)) {
+                int endLabel = endPoint.getLabel();
+                Integer rv = endToStartMap.get(endLabel);
+                if (rv == null) throw new IllegalArgumentException("unmapped "
+                    + endPoint);
+                startLabel = rv;
+            } else {
+                throw new IllegalArgumentException("end point " + endPoint
+                    + " does not belong to " + start + " or " + end);
+            }
+            if (availableTunnels.get(startLabel))
+                throw new IllegalArgumentException("unallocated " + endPoint);
+            if (!allocations.containsKey(startLabel))
+                throw new IllegalArgumentException("unallocated " + endPoint);
+
+            /* De-allocate resources. */
+            this.bandwidth += allocations.remove(startLabel);
+            availableTunnels.set(startLabel);
+        }
+
+        @Override
+        public int getAvailableTunnelCount() {
+            return availableTunnels.cardinality();
+        }
+
+        @Override
+        public double getDelay() {
+            return delay;
+        }
+
+        @Override
+        public List<Port> getPorts() {
+            return Arrays.asList(start, end);
+        }
+
+        @Override
+        public Trunk getManagement() {
+            return management;
+        }
+
+        private final Trunk management = new Trunk() {
+            @Override
+            public void allocateBandwidth(double amount) {
+                synchronized (TransientAggregator.this) {
+                    if (amount < 0)
+                        throw new IllegalArgumentException("negative: "
+                            + amount);
+                    if (amount > bandwidth)
+                        throw new IllegalArgumentException("request " + amount
+                            + " exceeds " + bandwidth);
+                    bandwidth -= amount;
+                }
+            }
+
+            @Override
+            public void releaseBandwidth(double amount) {
+                synchronized (TransientAggregator.this) {
+                    if (amount < 0)
+                        throw new IllegalArgumentException("negative: "
+                            + amount);
+                    bandwidth += amount;
+                }
+            }
+
+            @Override
+            public void setDelay(double delay) {
+                synchronized (TransientAggregator.this) {
+                    MyTrunk.this.delay = delay;
+                }
+            }
+
+            @Override
+            public double getDelay() {
+                synchronized (TransientAggregator.this) {
+                    return delay;
+                }
+            }
+
+            @Override
+            public void defineLabelRange(int startBase, int amount,
+                                         int endBase) {
+                synchronized (TransientAggregator.this) {
+                    if (startBase + amount < startBase)
+                        throw new IllegalArgumentException("illegal start range "
+                            + startBase + " plus " + amount);
+                    if (endBase + amount < endBase)
+                        throw new IllegalArgumentException("illegal end range "
+                            + endBase + " plus " + amount);
+
+                    /* Check that all numbers are available. */
+                    Map<Integer, Integer> startExisting =
+                        startToEndMap.subMap(startBase, startBase + amount);
+                    if (!startExisting.isEmpty())
+                        throw new IllegalArgumentException("start range in use "
+                            + startExisting.keySet());
+                    Map<Integer, Integer> endExisting =
+                        endToStartMap.subMap(endBase, endBase + amount);
+                    if (!endExisting.isEmpty())
+                        throw new IllegalArgumentException("end range in use "
+                            + endExisting.keySet());
+
+                    /* Add all the labels. */
+                    startToEndMap.putAll(IntStream
+                        .range(startBase, startBase + amount).boxed()
+                        .collect(Collectors
+                            .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                              k -> k
+                                                                  .shortValue()
+                                                                  + endBase
+                                                                  - startBase)));
+                    availableTunnels.set(startBase, startBase + amount);
+                    endToStartMap.putAll(IntStream
+                        .range(endBase, endBase + amount).boxed()
+                        .collect(Collectors
+                            .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                              k -> k
+                                                                  .shortValue()
+                                                                  + endBase
+                                                                  - startBase)));
+                }
+            }
+        };
+
+        @Override
+        public String toString() {
+            return start + "+" + end;
+        }
+    }
+
+    /**
      * Print out the status of all connections and trunks of this
      * switch.
      * 
@@ -385,7 +598,7 @@ public class TransientAggregator implements Aggregator {
         out.printf("aggregate %s:%n", name);
         for (MyConnection conn : connections.values())
             conn.dump(out);
-        for (TransientTrunk trunk : new HashSet<>(trunks.values())) {
+        for (MyTrunk trunk : new HashSet<>(trunks.values())) {
             out.printf("  %s=(%gMbps, %gs) [%d]%n", trunk.getPorts(),
                        trunk.getBandwidth(), trunk.getDelay(),
                        trunk.getAvailableTunnelCount());
@@ -397,7 +610,7 @@ public class TransientAggregator implements Aggregator {
     private final String name;
 
     private final Map<String, MyPort> ports = new HashMap<>();
-    private final Map<Port, TransientTrunk> trunks = new HashMap<>();
+    private final Map<Port, MyTrunk> trunks = new HashMap<>();
     private final Map<Integer, MyConnection> connections = new HashMap<>();
     private int nextConnectionId;
 
@@ -414,21 +627,21 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public TrunkManagement addTrunk(Port p1, Port p2) {
+    public Trunk addTrunk(Port p1, Port p2) {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null port(s)");
         if (trunks.containsKey(p1))
             throw new IllegalArgumentException("port in use: " + p1);
         if (trunks.containsKey(p2))
             throw new IllegalArgumentException("port in use: " + p2);
-        TransientTrunk trunk = new TransientTrunk(p1, p2);
+        MyTrunk trunk = new MyTrunk(p1, p2);
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
         return trunk.getManagement();
     }
 
     @Override
-    public TrunkManagement findTrunk(Port p) {
+    public Trunk findTrunk(Port p) {
         return trunks.get(p).getManagement();
     }
 
@@ -488,7 +701,7 @@ public class TransientAggregator implements Aggregator {
      */
     synchronized void
         plotTree(Collection<? extends EndPoint> terminals, double bandwidth,
-                 Map<? super Trunk, ? super EndPoint> tunnels,
+                 Map<? super TrunkControl, ? super EndPoint> tunnels,
                  Map<? super SwitchControl, Collection<EndPoint>> subterminals) {
         // System.err.println("outer terminal end points: " +
         // terminals);
@@ -563,7 +776,7 @@ public class TransientAggregator implements Aggregator {
 
             /* Create a tunnel along this trunk, and remember one end of
              * it. */
-            Trunk firstTrunk = trunks.get(edge.first());
+            TrunkControl firstTrunk = trunks.get(edge.first());
             EndPoint ep1 = firstTrunk.allocateTunnel(bandwidth);
             tunnels.put(firstTrunk, ep1);
 
@@ -609,7 +822,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
-        Collection<TransientTrunk> adequateTrunks = trunks.values().stream()
+        Collection<MyTrunk> adequateTrunks = trunks.values().stream()
             .filter(trunk -> trunk.getAvailableTunnelCount() > 0
                 && trunk.getBandwidth() >= bandwidth)
             .collect(Collectors.toSet());
@@ -618,7 +831,7 @@ public class TransientAggregator implements Aggregator {
         /* Get edges representing all suitable trunks. */
         Map<Edge<Port>, Double> edges =
             new HashMap<>(adequateTrunks.stream().collect(Collectors
-                .toMap(t -> HashableEdge.of(t.getPorts()), Trunk::getDelay)));
+                .toMap(t -> HashableEdge.of(t.getPorts()), TrunkControl::getDelay)));
         // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */

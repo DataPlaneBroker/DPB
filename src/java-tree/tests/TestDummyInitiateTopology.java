@@ -6,10 +6,10 @@ import uk.ac.lancs.switches.ConnectionListener;
 import uk.ac.lancs.switches.ConnectionRequest;
 import uk.ac.lancs.switches.DummySwitch;
 import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.SwitchManagement;
+import uk.ac.lancs.switches.Switch;
 import uk.ac.lancs.switches.aggregate.Aggregator;
 import uk.ac.lancs.switches.aggregate.TransientAggregator;
-import uk.ac.lancs.switches.aggregate.TrunkManagement;
+import uk.ac.lancs.switches.aggregate.Trunk;
 
 /*
  * Copyright 2017, Regents of the University of Lancaster
@@ -53,13 +53,13 @@ import uk.ac.lancs.switches.aggregate.TrunkManagement;
  * @author simpsons
  */
 public class TestDummyInitiateTopology {
-    private static TrunkManagement
-        link(Aggregator aggregator, SwitchManagement zwitch1, String port1,
-             SwitchManagement zwitch2, String port2, double bandwidth,
+    private static Trunk
+        link(Aggregator aggregator, Switch zwitch1, String port1,
+             Switch zwitch2, String port2, double bandwidth,
              int baseTag, int tagCount) {
         Port p1 = zwitch1.getPort(port1);
         Port p2 = zwitch2.getPort(port2);
-        TrunkManagement result = aggregator.addTrunk(p1, p2);
+        Trunk result = aggregator.addTrunk(p1, p2);
         result.releaseBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
         result.setDelay(1.0);

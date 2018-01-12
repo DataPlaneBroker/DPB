@@ -35,75 +35,83 @@
  */
 package uk.ac.lancs.switches.aggregate;
 
+import java.util.List;
+
+import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.Port;
+
 /**
- * Allows a trunk defined within an aggregator to have its resources
- * administratively modified.
+ * Represents a physical link with a fixed delay and a remaining
+ * bandwidth connecting two ports. Bandwidth can be allocated and
+ * released. Tunnels within the trunk can be allocated and released.
  * 
  * @author simpsons
  */
-public interface Trunk {
+interface TrunkControl {
     /**
-     * Get the configured delay for this trunk.
+     * Get the ports at either end of this trunk.
      * 
-     * @return the trunk's delay
+     * @return the ports of the trunk
+     */
+    List<Port> getPorts();
+
+    /**
+     * Get the bandwidth remaining available on this trunk.
+     * 
+     * @return the remaining available bandwidth
+     */
+    double getBandwidth();
+
+    /**
+     * Get the peer of an end point.
+     * 
+     * @param p the end point whose peer is requested
+     * 
+     * @return the peer of the supplied end point, or {@code null} if it
+     * has no peer
+     * 
+     * @throws IllegalArgumentException if the end point does not belong
+     * to either port of this trunk
+     */
+    EndPoint getPeer(EndPoint p);
+
+    /**
+     * Get the number of tunnels available through this trunk.
+     * 
+     * @return the number of available tunnels
+     */
+    int getAvailableTunnelCount();
+
+    /**
+     * Allocate a tunnel through this trunk. If successful, only one end
+     * of the tunnel is returned. The other can be obtained with
+     * {@link #getPeer(EndPoint)}.
+     * 
+     * @param bandwidth the bandwidth to allocate to the tunnel
+     * 
+     * @return the end point at the start of the tunnel, or {@code null}
+     * if no further resource remains
+     */
+    EndPoint allocateTunnel(double bandwidth);
+
+    /**
+     * Get the fixed delay of this trunk.
+     * 
+     * @return the trunk's fixed delay
      */
     double getDelay();
 
     /**
-     * Set the delay for this trunk.
+     * Release a tunnel through this trunk.
      * 
-     * @param delay the new delay
+     * @param endPoint either of the tunnel end points
      */
-    void setDelay(double delay);
+    void releaseTunnel(EndPoint endPoint);
 
     /**
-     * Consume bandwidth on this trunk.
+     * Get the trunk's management interface.
      * 
-     * @param amount the amount to deduct from the remaining bandwidth
-     * 
-     * @throws IllegalArgumentException if the amount is negative or
-     * exceeds the remaining level
+     * @return the trunk's management interface
      */
-    void allocateBandwidth(double amount);
-
-    /**
-     * Release bandwidth on this trunk.
-     * 
-     * @param amount the amount to add to the remaining bandwidth
-     * 
-     * @throws IllegalArgumentException if the amount is negative
-     */
-    void releaseBandwidth(double amount);
-
-    /**
-     * Make a range of labels available.
-     * 
-     * @param startBase the first available label at the start side of
-     * the link
-     * 
-     * @param amount the number of labels from the base to make
-     * available
-     * 
-     * @param endBase the first available label at the end side of the
-     * link
-     */
-    void defineLabelRange(int startBase, int amount, int endBase);
-
-    /**
-     * Make a range of labels available.
-     * 
-     * <p>
-     * By default, this method calls
-     * {@link #defineLabelRange(short, short, short)}, using the first
-     * argument also as the last.
-     * 
-     * @param startBase the first available label at either side of the
-     * link
-     * 
-     * @param amount the number of labels from the base to make
-     * available
-     */
-    default void defineLabelRange(int startBase, int amount) {
-        defineLabelRange(startBase, amount, startBase);
-    }
+    Trunk getManagement();
 }

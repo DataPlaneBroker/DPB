@@ -53,7 +53,7 @@ import uk.ac.lancs.routing.span.HashableEdge;
  * 
  * @author simpsons
  */
-public class DummySwitch implements SwitchManagement {
+public class DummySwitch implements Switch {
     private class MyPort implements Port {
         private final String name;
 

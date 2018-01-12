@@ -37,7 +37,7 @@
 /**
  * Contains classes for managing hierarchical out-of-band connection
  * management. The primary class is
- * {@link uk.ac.lancs.switches.SwitchManagement}.
+ * {@link uk.ac.lancs.switches.Switch}.
  * 
  * @author simpsons
  */
