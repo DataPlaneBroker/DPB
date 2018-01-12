@@ -51,7 +51,7 @@ package uk.ac.lancs.switches;
  * subswitches.
  * 
  * <p>
- * Call {@link #initiate(ConnectionrRequest)} with connection parameters
+ * Call {@link #initiate(ConnectionRequest)} with connection parameters
  * (end points and bandwidth) to initiate a connection.
  * {@link ConnectionListener#ready()} will be invoked if the connection
  * is established (but not yet activated).

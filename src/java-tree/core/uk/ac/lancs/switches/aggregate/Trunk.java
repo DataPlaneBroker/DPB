@@ -94,7 +94,7 @@ public interface Trunk {
      * 
      * <p>
      * By default, this method calls
-     * {@link #defineLabelRange(short, short, short)}, using the first
+     * {@link #defineLabelRange(int, int, int)}, using the first
      * argument also as the last.
      * 
      * @param startBase the first available label at either side of the

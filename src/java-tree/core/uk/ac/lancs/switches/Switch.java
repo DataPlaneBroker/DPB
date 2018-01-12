@@ -62,7 +62,7 @@ public interface Switch {
     Collection<String> getPorts();
 
     /**
-     * Get the controlling intreface for this switch.
+     * Get the controlling interface for this switch.
      * 
      * @return the switch's control interface
      */

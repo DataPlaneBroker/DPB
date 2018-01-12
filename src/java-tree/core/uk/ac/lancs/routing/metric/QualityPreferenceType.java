@@ -46,7 +46,7 @@ import java.util.List;
  * 
  * @author simpsons
  */
-public class QualityPreferenceType<T extends Enum<T>> {
+class QualityPreferenceType<T extends Enum<T>> {
     private final T[] values;
     private final long codes;
 

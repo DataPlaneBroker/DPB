@@ -222,6 +222,11 @@ public final class MetricCombination {
             return values[i];
         }
 
+        /**
+         * Get the hash code for this tuple.
+         * 
+         * @return the hash code for this tuple
+         */
         @Override
         public int hashCode() {
             final int prime = 31;
@@ -231,6 +236,15 @@ public final class MetricCombination {
             return result;
         }
 
+        /**
+         * Determine whether another object is identical to this one.
+         * 
+         * @param obj the object to be compare with
+         * 
+         * @return {@code true} iff the other object is a tuple
+         * belonging to the same metric combination and having the same
+         * values
+         */
         @Override
         public boolean equals(Object obj) {
             if (this == obj) return true;

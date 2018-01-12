@@ -31,6 +31,17 @@ JARDEPS_MERGEDIR=src/java-merge
 
 include jardeps.mk
 
+
+DOC_PKGS += uk.ac.lancs.routing.metric
+DOC_PKGS += uk.ac.lancs.routing.span
+DOC_PKGS += uk.ac.lancs.switches
+DOC_PKGS += uk.ac.lancs.switches.aggregate
+
+DOC_OVERVIEW=src/java-overview.html
+DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)
+DOC_SRC=$(call jardeps_srcdirs4jars,$(SELECTED_JARS))
+DOC_CORE=dataplanebroker$(DOC_CORE_SFX)
+
 all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 
 testoddspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)

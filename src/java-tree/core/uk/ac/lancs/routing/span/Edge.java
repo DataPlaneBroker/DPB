@@ -48,7 +48,7 @@ public interface Edge<V> {
     /**
      * Get the pair of vertices that define this edge.
      * 
-     * @return
+     * @return an immutable pair of vertices defining this edge
      */
     List<V> vertices();
 

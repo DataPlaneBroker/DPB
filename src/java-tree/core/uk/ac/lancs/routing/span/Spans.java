@@ -80,7 +80,8 @@ import java.util.stream.Collectors;
  * user. (The bandwidth attribute can then be discarded.) Then call
  * {@link #prune(Collection, Collection)} to eliminate spurs that do not
  * reach the terminals. Then call {@link #route(Collection, Map)},
- * {@link #flatten(Map)} and {@link #span(Collection, Map)} as above.
+ * {@link #flatten(Map, BiFunction)} and {@link #span(Collection, Map)}
+ * as above.
  * 
  * <p>
  * From the results, one could identify vertices with two edges, and
@@ -437,7 +438,7 @@ public final class Spans {
                     bestLink = cand;
                 }
             }
-            
+
             /* If there's no other hop to make, we've failed. */
             if (bestLink == null) {
                 assert !required.isEmpty();
