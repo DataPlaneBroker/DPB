@@ -35,7 +35,6 @@
  */
 package uk.ac.lancs.routing.span;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -158,11 +157,15 @@ public final class Spans {
                 /* For each entry in the neighbour's table, compute a
                  * potential new entry for ours. */
                 for (Map.Entry<V, Way<V>> subway : neighbourFib.entrySet()) {
+                    /* Don't bother with this entry if it routes back to
+                     * us. */
+                    Way<V> way = subway.getValue();
+                    if (updating.equals(way.nextHop)) continue;
+
                     /* Compute a potential route for this destination,
                      * accounting for the fact that the neighbour is
                      * some distance from us. */
                     V dest = subway.getKey();
-                    Way<V> way = subway.getValue();
                     double newDist = way.distance + weight;
 
                     /* Get the best we have for this destination in our
@@ -214,43 +217,6 @@ public final class Spans {
             .filter(k -> !map1.get(k).equals(map2.get(k)))
             .collect(Collectors.toSet()));
         return result;
-    }
-
-    /**
-     * @undocumented
-     */
-    public static void main(String[] args) throws Exception {
-        Map<Edge<String>, Double> graph = new HashMap<>();
-        graph.put(HashableEdge.of("A", "D"), 1.0);
-        graph.put(HashableEdge.of("E", "D"), 1.0);
-        graph.put(HashableEdge.of("E", "F"), 1.0);
-        graph.put(HashableEdge.of("E", "G"), 1.0);
-        graph.put(HashableEdge.of("G", "F"), 1.0);
-        graph.put(HashableEdge.of("G", "H"), 1.0);
-        graph.put(HashableEdge.of("H", "I"), 1.0);
-        graph.put(HashableEdge.of("I", "D"), 1.0);
-        graph.put(HashableEdge.of("I", "J"), 1.0);
-        graph.put(HashableEdge.of("J", "H"), 1.0);
-        graph.put(HashableEdge.of("F", "C"), 1.0);
-        graph.put(HashableEdge.of("B", "H"), 1.0);
-        System.out.printf("Original graph: %s%n", graph);
-
-        Collection<String> terminals =
-            new HashSet<>(Arrays.asList("A", "B", "C"));
-        Spans.prune(terminals, graph.keySet());
-        System.out.printf("%nPruned graph: %s for %s%n", graph, terminals);
-        System.out.println("  (should be unchanged)");
-
-        Map<String, Map<String, Way<String>>> fibs =
-            Spans.route(terminals, graph);
-        System.out.printf("%nFIBs: %s%n", fibs);
-
-        Map<Edge<String>, Double> weights =
-            Spans.flatten(fibs, HashableEdge::of);
-        System.out.printf("%nSpan-weighted graph: %s%n", weights);
-
-        Collection<Edge<String>> tree = Spans.span(terminals, weights);
-        System.out.printf("%nSpanning tree: %s%n", tree);
     }
 
     /**
@@ -408,6 +374,15 @@ public final class Spans {
              Map<? extends Edge<V>, ? extends Number> links,
              Consumer<? super V> onReached,
              Predicate<? super Edge<V>> edgeChecker) {
+        /* Get a set of edges connected to each vertex. */
+        Map<V, Collection<Edge<V>>> outwards = new HashMap<>();
+        for (Edge<V> link : links.keySet()) {
+            outwards.computeIfAbsent(link.first(), k -> new HashSet<>())
+                .add(link);
+            outwards.computeIfAbsent(link.second(), k -> new HashSet<>())
+                .add(link);
+        }
+
         /* Keep track of vertices required. */
         Collection<V> required = new HashSet<>(terminals);
 
@@ -417,8 +392,7 @@ public final class Spans {
         /* Keep track of links immediately available. */
         Collection<Edge<V>> reachable = new HashSet<>();
 
-        /* Keep track of links included and available. */
-        Collection<Edge<V>> available = new HashSet<>(links.keySet());
+        /* Keep track of links included in the result. */
         Collection<Edge<V>> result = new HashSet<>();
 
         /* Start by choosing one of the terminal vertices to be
@@ -426,23 +400,10 @@ public final class Spans {
         V adding = terminals.iterator().next();
 
         for (;;) {
-            /* Make reachable all edges from the vertex to be added. */
-            for (Iterator<Edge<V>> iter = available.iterator(); iter
-                .hasNext();) {
-                Edge<V> rem = iter.next();
-                if ((rem.first().equals(adding)
-                    && !reached.contains(rem.second()))
-                    || (rem.second().equals(adding)
-                        && !reached.contains(rem.first()))) {
-                    /* If this one is okay with our caller, include it
-                     * as a future candidate. */
-                    if (edgeChecker.test(rem)) reachable.add(rem);
-
-                    /* Whether we include it or not, we will not
-                     * consider it again. */
-                    iter.remove();
-                }
-            }
+            /* All edges from the new vertex are new candidates for the
+             * next hop. */
+            reachable.addAll(outwards.getOrDefault(adding,
+                                                   Collections.emptySet()));
 
             /* Add the chosen vertex, and indicate that it has been
              * reached, stopping if we've now reached all terminals.
@@ -457,12 +418,30 @@ public final class Spans {
              * far. */
             double bestDistance = Double.POSITIVE_INFINITY;
             Edge<V> bestLink = null;
-            for (Edge<V> cand : reachable) {
+            for (Iterator<Edge<V>> iter = reachable.iterator(); iter
+                .hasNext();) {
+                Edge<V> cand = iter.next();
+
+                /* Drop this edge altogether if both ends have been
+                 * reached. */
+                if ((reached.contains(cand.first())
+                    && reached.contains(cand.second()))
+                    || !edgeChecker.test(cand)) {
+                    iter.remove();
+                    continue;
+                }
+
                 double distance = links.get(cand).doubleValue();
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestLink = cand;
                 }
+            }
+            
+            /* If there's no other hop to make, we've failed. */
+            if (bestLink == null) {
+                assert !required.isEmpty();
+                return null;
             }
 
             /* Add the link to the result, and don't use it again. */
