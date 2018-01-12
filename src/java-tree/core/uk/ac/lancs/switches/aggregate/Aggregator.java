@@ -59,6 +59,8 @@ public interface Aggregator extends SwitchManagement {
      * @param p1 one of the ports
      * 
      * @param p2 the other port
+     * 
+     * @throws NullPointerException if either port is null
      */
     TrunkManagement addTrunk(Port p1, Port p2);
 
@@ -69,6 +71,9 @@ public interface Aggregator extends SwitchManagement {
      * 
      * @return the requested trunk, or {@code null} if none exist with
      * that end point
+     * 
+     * @throws IllegalArgumentException if the port does not belong to
+     * the switch
      */
     TrunkManagement findTrunk(Port p);
 }

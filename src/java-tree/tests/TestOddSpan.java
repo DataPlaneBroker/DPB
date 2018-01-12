@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
@@ -33,53 +34,58 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
 
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import uk.ac.lancs.routing.span.Edge;
+import uk.ac.lancs.routing.span.HashableEdge;
+import uk.ac.lancs.routing.span.Spans;
+import uk.ac.lancs.routing.span.Way;
 
 /**
- * Represents a physical or virtual switch.
+ * 
  * 
  * @author simpsons
  */
-public interface SwitchControl {
+public class TestOddSpan {
     /**
-     * Create a connection.
-     * 
-     * @param request a description of the required connection
+     * @undocumented
      */
-    Connection newConnection();
+    public static void main(String[] args) throws Exception {
+        Map<Edge<String>, Double> graph = new HashMap<>();
+        graph.put(HashableEdge.of("A", "D"), 1.0);
+        graph.put(HashableEdge.of("E", "D"), 1.0);
+        graph.put(HashableEdge.of("E", "F"), 1.0);
+        graph.put(HashableEdge.of("E", "G"), 1.0);
+        graph.put(HashableEdge.of("G", "F"), 1.0);
+        graph.put(HashableEdge.of("G", "H"), 1.0);
+        graph.put(HashableEdge.of("H", "I"), 1.0);
+        graph.put(HashableEdge.of("I", "D"), 1.0);
+        graph.put(HashableEdge.of("I", "J"), 1.0);
+        graph.put(HashableEdge.of("J", "H"), 1.0);
+        graph.put(HashableEdge.of("F", "C"), 1.0);
+        graph.put(HashableEdge.of("B", "H"), 1.0);
+        System.out.printf("Original graph: %s%n", graph);
 
-    /**
-     * Get an existing connection.
-     * 
-     * @param id the connection identifier
-     * 
-     * @return the connection with the requested id, or {@code null} if
-     * it does not exist
-     */
-    Connection getConnection(int id);
+        Collection<String> terminals =
+            new HashSet<>(Arrays.asList("A", "B", "C"));
+        Spans.prune(terminals, graph.keySet());
+        System.out.printf("%nPruned graph: %s for %s%n", graph, terminals);
+        System.out.println("  (should be unchanged)");
 
-    /**
-     * Get ids of all open connections.
-     * 
-     * @return a set of all open connection ids, modifiable by the user
-     */
-    Collection<Integer> getConnectionIds();
+        Map<String, Map<String, Way<String>>> fibs =
+            Spans.route(terminals, graph);
+        System.out.printf("%nFIBs: %s%n", fibs);
 
-    /**
-     * Get a model of port connections given a bandwidth requirement.
-     * Returned weights should always be positive. Atomic switches
-     * should use extremely small values rather than zero.
-     * 
-     * @param minimumBandwidth the threshold below which internal links
-     * shall not be included in computing the model
-     * 
-     * @return a mesh of weighted edges between this switch's external
-     * ports summarizing the internal connectivity of the switch
-     */
-    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
+        Map<Edge<String>, Double> weights =
+            Spans.flatten(fibs, HashableEdge::of);
+        System.out.printf("%nSpan-weighted graph: %s%n", weights);
+
+        Collection<Edge<String>> tree = Spans.span(terminals, weights);
+        System.out.printf("%nSpanning tree: %s%n", tree);
+    }
 }

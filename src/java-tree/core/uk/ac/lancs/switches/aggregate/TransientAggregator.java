@@ -155,9 +155,9 @@ public class TransientAggregator implements Aggregator {
             }
 
             void dump(PrintWriter out) {
-                out.printf("%n    %s:", connection.status());
+                out.printf("%n      inferior %s:", connection.status());
                 for (EndPoint ep : connection.getRequest().terminals) {
-                    out.printf("%n      %s", ep);
+                    out.printf("%n        %s", ep);
                 }
             }
         }
@@ -381,14 +381,16 @@ public class TransientAggregator implements Aggregator {
      * 
      * @param out the destination for the status report
      */
-    public void dump(PrintWriter out) {
-        Collection<MyConnection> connections;
-        synchronized (this) {
-            connections = new ArrayList<>(this.connections.values());
-        }
+    public synchronized void dump(PrintWriter out) {
         out.printf("aggregate %s:%n", name);
-        for (MyConnection conn : connections)
+        for (MyConnection conn : connections.values())
             conn.dump(out);
+        for (TransientTrunk trunk : new HashSet<>(trunks.values())) {
+            out.printf("  %s=(%gMbps, %gs) [%d]%n", trunk.getPorts(),
+                       trunk.getBandwidth(), trunk.getDelay(),
+                       trunk.getAvailableTunnelCount());
+        }
+        out.flush();
     }
 
     private final Executor executor;
@@ -413,6 +415,8 @@ public class TransientAggregator implements Aggregator {
 
     @Override
     public TrunkManagement addTrunk(Port p1, Port p2) {
+        if (p1 == null || p2 == null)
+            throw new NullPointerException("null port(s)");
         if (trunks.containsKey(p1))
             throw new IllegalArgumentException("port in use: " + p1);
         if (trunks.containsKey(p2))
@@ -486,6 +490,9 @@ public class TransientAggregator implements Aggregator {
         plotTree(Collection<? extends EndPoint> terminals, double bandwidth,
                  Map<? super Trunk, ? super EndPoint> tunnels,
                  Map<? super SwitchControl, Collection<EndPoint>> subterminals) {
+        // System.err.println("outer terminal end points: " +
+        // terminals);
+
         /* Map the set of caller's end points to the corresponding inner
          * end points that our topology consists of. */
         Collection<EndPoint> innerTerminalEndPoints =
@@ -501,19 +508,26 @@ public class TransientAggregator implements Aggregator {
                 Port ip = xp.innerPort();
                 return ip.getEndPoint(t.getLabel());
             }).collect(Collectors.toSet());
+        // System.err
+        // .println("inner terminal end points: " +
+        // innerTerminalEndPoints);
 
         /* Get the set of ports that will be used as destinations in
          * routing. */
         Collection<Port> innerTerminalPorts = innerTerminalEndPoints.stream()
             .map(EndPoint::getPort).collect(Collectors.toSet());
+        // System.err.println("inner terminal ports: " +
+        // innerTerminalPorts);
 
         /* Create routing tables for each port. */
         Map<Port, Map<Port, Way<Port>>> fibs =
             getFibs(bandwidth, innerTerminalPorts);
+        // System.err.println("FIBs: " + fibs);
 
         /* Create terminal-aware weights for each edge. */
         Map<Edge<Port>, Double> weightedEdges =
             Spans.flatten(fibs, (p1, p2) -> HashableEdge.of(p1, p2));
+        // System.err.println("Edges: " + weightedEdges);
 
         /* To impose additional constraints on the spanning tree, keep a
          * set of switches already reached. Edges that connect two
@@ -595,30 +609,35 @@ public class TransientAggregator implements Aggregator {
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
-        Collection<Trunk> adequateTrunks = trunks.values().stream()
+        Collection<TransientTrunk> adequateTrunks = trunks.values().stream()
             .filter(trunk -> trunk.getAvailableTunnelCount() > 0
                 && trunk.getBandwidth() >= bandwidth)
             .collect(Collectors.toSet());
+        // System.err.println("Usable trunks: " + adequateTrunks);
 
         /* Get edges representing all suitable trunks. */
         Map<Edge<Port>, Double> edges =
             new HashMap<>(adequateTrunks.stream().collect(Collectors
                 .toMap(t -> HashableEdge.of(t.getPorts()), Trunk::getDelay)));
+        // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */
         Collection<SwitchControl> switches = adequateTrunks.stream()
             .flatMap(trunk -> trunk.getPorts().stream().map(Port::getSwitch))
             .collect(Collectors.toSet());
+        // System.err.println("Switches: " + switches);
 
         /* Get models of all switches connected to the selected trunks,
          * and combine their edges with the trunks. */
-        edges.entrySet()
-            .addAll(switches.stream()
-                .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
-                .collect(Collectors.toSet()));
+        edges.putAll(switches.stream()
+            .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
+            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
+        // System.err.println("Edges of trunks and switches: " + edges);
 
         /* Get rid of spurs as a small optimization. */
         Spans.prune(innerTerminalPorts, edges.keySet());
+        // System.err.println("Pruned edges of trunks and switches: " +
+        // edges);
 
         /* Create routing tables for each port. */
         return Spans.route(innerTerminalPorts, edges);

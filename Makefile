@@ -18,7 +18,10 @@ roots_core += uk.ac.lancs.switches.DummySwitch
 roots_core += uk.ac.lancs.switches.aggregate.TransientAggregator
 
 TEST_JARS += tests
+roots_tests += TestOddSpan
+roots_tests += TestInitSpan
 roots_tests += TestDummy
+roots_tests += TestDummyInitiateTopology
 deps_tests += core
 
 JARDEPS_OUTDIR=out
@@ -28,7 +31,18 @@ JARDEPS_MERGEDIR=src/java-merge
 include jardeps.mk
 
 all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-all:: $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+
+testoddspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestOddSpan
+
+testinitspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestInitSpan
+
+testdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDummy
+
+testinitdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDummyInitiateTopology
 
 #blank:: clean
 

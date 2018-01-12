@@ -266,7 +266,7 @@ public class DummySwitch implements SwitchManagement {
                     for (int j = i + 1; j < size; j++) {
                         Edge<Port> edge =
                             HashableEdge.of(list.get(i), list.get(j));
-                        result.put(edge, 0.0);
+                        result.put(edge, 0.001);
                     }
                 }
                 return result;
@@ -283,6 +283,11 @@ public class DummySwitch implements SwitchManagement {
         @Override
         public Collection<Integer> getConnectionIds() {
             return new HashSet<>(connections.keySet());
+        }
+
+        @Override
+        public String toString() {
+            return "ctrl:" + name;
         }
     };
 
