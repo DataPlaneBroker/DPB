@@ -239,7 +239,7 @@ public final class MetricCombination {
         /**
          * Determine whether another object is identical to this one.
          * 
-         * @param obj the object to be compare with
+         * @param obj the object to be compared with
          * 
          * @return {@code true} iff the other object is a tuple
          * belonging to the same metric combination and having the same
