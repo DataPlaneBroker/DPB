@@ -82,12 +82,10 @@ public class TestInitSpan {
             Spans.route(terminals, graph);
         System.out.printf("%nFIBs: %s%n", fibs);
 
-        Map<Edge<String>, Double> weights =
-            Spans.flatten(fibs, Edge::of);
+        Map<Edge<String>, Double> weights = Spans.flatten(fibs, Edge::of);
         System.out.printf("%nSpan-weighted graph: %s%n", weights);
 
-        Collection<Edge<String>> tree =
-            Spans.span(terminals, weights);
+        Collection<Edge<String>> tree = Spans.span(terminals, weights);
         System.out.printf("%nSpanning tree: %s%n", tree);
     }
 

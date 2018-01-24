@@ -830,9 +830,8 @@ public class TransientAggregator implements Aggregator {
 
         /* Get edges representing all suitable trunks. */
         Map<Edge<Port>, Double> edges =
-            new HashMap<>(adequateTrunks.stream()
-                .collect(Collectors.toMap(t -> Edge.of(t.getPorts()),
-                                          TrunkControl::getDelay)));
+            new HashMap<>(adequateTrunks.stream().collect(Collectors
+                .toMap(t -> Edge.of(t.getPorts()), TrunkControl::getDelay)));
         // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */

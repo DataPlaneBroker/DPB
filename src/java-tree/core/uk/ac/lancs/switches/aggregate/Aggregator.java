@@ -42,13 +42,12 @@ import uk.ac.lancs.switches.Switch;
  * Configures a virtual switch that aggregates other switches. An
  * aggregator distinguishes between internal and external ports.
  * External ports are its own, and be obtained from the aggregator's
- * {@link Switch#getPort(String)} method. Internal ports
- * belong to inferior switches, and are used to define trunks. A trunk
- * connects the ports of two different inferior switches together by
- * calling {@link #addTrunk(Port, Port)}. The aggregator uses its
- * knowledge of trunks to plot spanning trees over them, and delegates
- * connections to the switches holding the ports at the ends of the
- * trunks.
+ * {@link Switch#getPort(String)} method. Internal ports belong to
+ * inferior switches, and are used to define trunks. A trunk connects
+ * the ports of two different inferior switches together by calling
+ * {@link #addTrunk(Port, Port)}. The aggregator uses its knowledge of
+ * trunks to plot spanning trees over them, and delegates connections to
+ * the switches holding the ports at the ends of the trunks.
  * 
  * @author simpsons
  */

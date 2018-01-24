@@ -35,24 +35,28 @@
  */
 package uk.ac.lancs.routing.span;
 
-import java.util.Arrays;
+import java.util.AbstractList;
 import java.util.Collections;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 /**
  * Describes an undirected edge between two vertices and is suitable as
- * a hash key.
+ * a hash key. This class defines a canonical order for vertices, based
+ * simply on their hash codes. This class is suitable as a hash key
+ * provided {@code V} is suitable.
  * 
  * @param <V> the vertex type
  * 
  * @author simpsons
  */
-public final class Edge<V> {
+public final class Edge<V> extends AbstractList<V> {
     /**
      * An unmodifiable pair of vertices in a canonical order that form
      * the edge
      */
-    private final List<V> vertices;
+    @SuppressWarnings("unchecked")
+    private final V[] vertices = (V[]) new Object[2];
 
     /**
      * The stored hash code of a vertex
@@ -166,13 +170,13 @@ public final class Edge<V> {
         int firstHash = first.hashCode();
         int secondHash = second.hashCode();
         if (firstHash < secondHash) {
-            this.vertices =
-                Collections.unmodifiableList(Arrays.asList(first, second));
+            vertices[0] = first;
+            vertices[1] = second;
             this.firstHash = firstHash;
             this.secondHash = secondHash;
         } else {
-            this.vertices =
-                Collections.unmodifiableList(Arrays.asList(second, first));
+            vertices[1] = first;
+            vertices[0] = second;
             this.firstHash = secondHash;
             this.secondHash = firstHash;
             if (list != null) Collections.reverse(list.subList(0, 2));
@@ -211,7 +215,7 @@ public final class Edge<V> {
      * @return the first vertex
      */
     public V first() {
-        return vertices.get(0);
+        return vertices[0];
     }
 
     /**
@@ -220,7 +224,7 @@ public final class Edge<V> {
      * @return the second vertex
      */
     public V second() {
-        return vertices.get(1);
+        return vertices[1];
     }
 
     /**
@@ -234,7 +238,27 @@ public final class Edge<V> {
         return "<" + first() + "," + second() + ">";
     }
 
-    public List<V> vertices() {
-        return vertices;
+    /**
+     * Get the number of elements in the edge.
+     * 
+     * @return 2
+     */
+    @Override
+    public int size() {
+        return 2;
+    }
+
+    /**
+     * Get a vertex.
+     * 
+     * @param index 0 or 1
+     * 
+     * @return one of the vertices forming this edge, in canonical order
+     */
+    @Override
+    public V get(int index) {
+        if (index < 0 || index >= 2)
+            throw new NoSuchElementException("index: " + index);
+        return vertices[index];
     }
 }

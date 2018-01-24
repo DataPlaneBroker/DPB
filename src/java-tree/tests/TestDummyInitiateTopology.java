@@ -53,10 +53,9 @@ import uk.ac.lancs.switches.aggregate.Trunk;
  * @author simpsons
  */
 public class TestDummyInitiateTopology {
-    private static Trunk
-        link(Aggregator aggregator, Switch zwitch1, String port1,
-             Switch zwitch2, String port2, double bandwidth,
-             int baseTag, int tagCount) {
+    private static Trunk link(Aggregator aggregator, Switch zwitch1,
+                              String port1, Switch zwitch2, String port2,
+                              double bandwidth, int baseTag, int tagCount) {
         Port p1 = zwitch1.getPort(port1);
         Port p2 = zwitch2.getPort(port2);
         Trunk result = aggregator.addTrunk(p1, p2);

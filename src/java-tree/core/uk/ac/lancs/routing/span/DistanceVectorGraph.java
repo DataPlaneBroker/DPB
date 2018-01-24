@@ -137,8 +137,7 @@ public final class DistanceVectorGraph<V> {
                     result.computeIfAbsent(edge, k -> Arrays
                         .asList(new HashMap<>(), new HashMap<>()));
                 double distance = way.getValue().distance;
-                list.get(edge.vertices().indexOf(first)).put(way.getKey(),
-                                                             distance);
+                list.get(edge.indexOf(first)).put(way.getKey(), distance);
             }
         }
         return result;
@@ -211,7 +210,7 @@ public final class DistanceVectorGraph<V> {
             .remove(second);
         neighbours.computeIfAbsent(second, k -> new HashMap<>())
             .remove(first);
-        invalid.addAll(edge.vertices());
+        invalid.addAll(edge);
     }
 
     /**
@@ -219,8 +218,7 @@ public final class DistanceVectorGraph<V> {
      * 
      * @param edges the set of edges to remove
      */
-    public void
-        removeEdges(Collection<? extends Edge<? extends V>> edges) {
+    public void removeEdges(Collection<? extends Edge<? extends V>> edges) {
         edges.stream().forEach(this::removeEdge);
     }
 
@@ -249,17 +247,17 @@ public final class DistanceVectorGraph<V> {
         V second = edge.second();
         addNeighbour(first, second, weight);
         addNeighbour(second, first, weight);
-        invalid.addAll(edge.vertices());
+        invalid.addAll(edge);
     }
 
     /**
      * Ensure that all FIBs are up-to-date. In the initial state with
      * the non-zero-args constructor, or after a call to
-     * {@link #removeEdge(Edge)},
-     * {@link #addEdge(Edge, double)}, {@link #addEdges(Map)},
-     * {@link #addTerminal(Object)}, {@link #addTerminals(Collection)}
-     * or {@link #removeEdges(Collection)}, the FIBs should be
-     * considered out-of-date.
+     * {@link #removeEdge(Edge)}, {@link #addEdge(Edge, double)},
+     * {@link #addEdges(Map)}, {@link #addTerminal(Object)},
+     * {@link #addTerminals(Collection)} or
+     * {@link #removeEdges(Collection)}, the FIBs should be considered
+     * out-of-date.
      */
     public void update() {
         Iterator<V> iter;

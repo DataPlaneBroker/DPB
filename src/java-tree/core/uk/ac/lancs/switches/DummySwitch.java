@@ -256,16 +256,14 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public Map<Edge<Port>, Double>
-            getModel(double minimumBandwidth) {
+        public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
             synchronized (DummySwitch.this) {
                 List<Port> list = new ArrayList<>(ports.values());
                 Map<Edge<Port>, Double> result = new HashMap<>();
                 int size = list.size();
                 for (int i = 0; i < size - 1; i++) {
                     for (int j = i + 1; j < size; j++) {
-                        Edge<Port> edge =
-                            Edge.of(list.get(i), list.get(j));
+                        Edge<Port> edge = Edge.of(list.get(i), list.get(j));
                         result.put(edge, 0.001);
                     }
                 }
