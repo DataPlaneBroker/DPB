@@ -13,6 +13,7 @@ jars += $(TEST_JARS)
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 roots_core += uk.ac.lancs.routing.span.Spans
+roots_core += uk.ac.lancs.routing.span.DistanceVectorGraph
 roots_core += uk.ac.lancs.switches.Switch
 roots_core += uk.ac.lancs.switches.DummySwitch
 roots_core += uk.ac.lancs.switches.aggregate.Aggregator
@@ -22,6 +23,7 @@ TEST_JARS += tests
 roots_tests += TestOddSpan
 roots_tests += TestInitSpan
 roots_tests += TestDummy
+roots_tests += TestDV
 roots_tests += TestDummyInitiateTopology
 deps_tests += core
 
@@ -43,6 +45,9 @@ DOC_SRC=$(call jardeps_srcdirs4jars,$(SELECTED_JARS))
 DOC_CORE=dataplanebroker$(DOC_CORE_SFX)
 
 all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+
+testdv: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDV
 
 testoddspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestOddSpan
