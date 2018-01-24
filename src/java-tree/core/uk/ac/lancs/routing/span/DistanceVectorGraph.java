@@ -132,7 +132,7 @@ public final class DistanceVectorGraph<V> {
             for (Map.Entry<V, Way<V>> way : entry.getValue().entrySet()) {
                 V second = way.getValue().nextHop;
                 if (second == null) continue;
-                Edge<V> edge = HashableEdge.of(first, second);
+                Edge<V> edge = Edge.of(first, second);
                 List<Map<V, Double>> list =
                     result.computeIfAbsent(edge, k -> Arrays
                         .asList(new HashMap<>(), new HashMap<>()));
@@ -219,7 +219,8 @@ public final class DistanceVectorGraph<V> {
      * 
      * @param edges the set of edges to remove
      */
-    public void removeEdges(Collection<? extends Edge<? extends V>> edges) {
+    public void
+        removeEdges(Collection<? extends Edge<? extends V>> edges) {
         edges.stream().forEach(this::removeEdge);
     }
 
@@ -254,11 +255,11 @@ public final class DistanceVectorGraph<V> {
     /**
      * Ensure that all FIBs are up-to-date. In the initial state with
      * the non-zero-args constructor, or after a call to
-     * {@link #removeEdge(Edge)}, {@link #addEdge(Edge, double)},
-     * {@link #addEdges(Map)}, {@link #addTerminal(Object)},
-     * {@link #addTerminals(Collection)} or
-     * {@link #removeEdges(Collection)}, the FIBs should be considered
-     * out-of-date.
+     * {@link #removeEdge(Edge)},
+     * {@link #addEdge(Edge, double)}, {@link #addEdges(Map)},
+     * {@link #addTerminal(Object)}, {@link #addTerminals(Collection)}
+     * or {@link #removeEdges(Collection)}, the FIBs should be
+     * considered out-of-date.
      */
     public void update() {
         Iterator<V> iter;

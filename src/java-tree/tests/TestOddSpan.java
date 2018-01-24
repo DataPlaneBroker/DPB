@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.HashableEdge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
 
@@ -57,18 +56,18 @@ public class TestOddSpan {
      */
     public static void main(String[] args) throws Exception {
         Map<Edge<String>, Double> graph = new HashMap<>();
-        graph.put(HashableEdge.of("A", "D"), 1.0);
-        graph.put(HashableEdge.of("E", "D"), 1.0);
-        graph.put(HashableEdge.of("E", "F"), 1.0);
-        graph.put(HashableEdge.of("E", "G"), 1.0);
-        graph.put(HashableEdge.of("G", "F"), 1.0);
-        graph.put(HashableEdge.of("G", "H"), 1.0);
-        graph.put(HashableEdge.of("H", "I"), 1.0);
-        graph.put(HashableEdge.of("I", "D"), 1.0);
-        graph.put(HashableEdge.of("I", "J"), 1.0);
-        graph.put(HashableEdge.of("J", "H"), 1.0);
-        graph.put(HashableEdge.of("F", "C"), 1.0);
-        graph.put(HashableEdge.of("B", "H"), 1.0);
+        graph.put(Edge.of("A", "D"), 1.0);
+        graph.put(Edge.of("E", "D"), 1.0);
+        graph.put(Edge.of("E", "F"), 1.0);
+        graph.put(Edge.of("E", "G"), 1.0);
+        graph.put(Edge.of("G", "F"), 1.0);
+        graph.put(Edge.of("G", "H"), 1.0);
+        graph.put(Edge.of("H", "I"), 1.0);
+        graph.put(Edge.of("I", "D"), 1.0);
+        graph.put(Edge.of("I", "J"), 1.0);
+        graph.put(Edge.of("J", "H"), 1.0);
+        graph.put(Edge.of("F", "C"), 1.0);
+        graph.put(Edge.of("B", "H"), 1.0);
         System.out.printf("Original graph: %s%n", graph);
 
         Collection<String> terminals =
@@ -82,10 +81,11 @@ public class TestOddSpan {
         System.out.printf("%nFIBs: %s%n", fibs);
 
         Map<Edge<String>, Double> weights =
-            Spans.flatten(fibs, HashableEdge::of);
+            Spans.flatten(fibs, Edge::of);
         System.out.printf("%nSpan-weighted graph: %s%n", weights);
 
-        Collection<Edge<String>> tree = Spans.span(terminals, weights);
+        Collection<Edge<String>> tree =
+            Spans.span(terminals, weights);
         System.out.printf("%nSpanning tree: %s%n", tree);
     }
 }

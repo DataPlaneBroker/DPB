@@ -52,7 +52,6 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.HashableEdge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
 import uk.ac.lancs.switches.Connection;
@@ -355,7 +354,8 @@ public class TransientAggregator implements Aggregator {
 
             default:
                 out.printf(" %5g", request.bandwidth);
-                for (Map.Entry<TrunkControl, EndPoint> tunnel : tunnels.entrySet()) {
+                for (Map.Entry<TrunkControl, EndPoint> tunnel : tunnels
+                    .entrySet()) {
                     EndPoint ep1 = tunnel.getValue();
                     EndPoint ep2 = tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
@@ -739,7 +739,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Create terminal-aware weights for each edge. */
         Map<Edge<Port>, Double> weightedEdges =
-            Spans.flatten(fibs, (p1, p2) -> HashableEdge.of(p1, p2));
+            Spans.flatten(fibs, (p1, p2) -> Edge.of(p1, p2));
         // System.err.println("Edges: " + weightedEdges);
 
         /* To impose additional constraints on the spanning tree, keep a
@@ -830,8 +830,9 @@ public class TransientAggregator implements Aggregator {
 
         /* Get edges representing all suitable trunks. */
         Map<Edge<Port>, Double> edges =
-            new HashMap<>(adequateTrunks.stream().collect(Collectors
-                .toMap(t -> HashableEdge.of(t.getPorts()), TrunkControl::getDelay)));
+            new HashMap<>(adequateTrunks.stream()
+                .collect(Collectors.toMap(t -> Edge.of(t.getPorts()),
+                                          TrunkControl::getDelay)));
         // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */
@@ -884,7 +885,7 @@ public class TransientAggregator implements Aggregator {
                 final Port innerEnd = end.innerPort();
                 final Way<Port> way = startFib.get(innerEnd);
                 if (way == null) continue;
-                final Edge<Port> edge = HashableEdge.of(start, end);
+                final Edge<Port> edge = Edge.of(start, end);
                 result.put(edge, way.distance);
             }
         }

@@ -42,7 +42,6 @@ import java.util.HashSet;
 import java.util.Map;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.HashableEdge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
 
@@ -58,20 +57,20 @@ public class TestInitSpan {
      */
     public static void main(String[] args) {
         Map<Edge<String>, Double> graph = new HashMap<>();
-        graph.put(HashableEdge.of("A", "B"), 0.01);
-        graph.put(HashableEdge.of("B", "C"), 1.0);
-        graph.put(HashableEdge.of("D", "E"), 0.01);
-        graph.put(HashableEdge.of("E", "F"), 1.0);
-        graph.put(HashableEdge.of("G", "H"), 0.01);
-        graph.put(HashableEdge.of("H", "I"), 1.0);
-        graph.put(HashableEdge.of("J", "K"), 0.01);
-        graph.put(HashableEdge.of("K", "L"), 1.0);
-        graph.put(HashableEdge.of("C", "F"), 0.01);
-        graph.put(HashableEdge.of("C", "I"), 0.01);
-        graph.put(HashableEdge.of("C", "L"), 0.01);
-        graph.put(HashableEdge.of("I", "F"), 0.01);
-        graph.put(HashableEdge.of("L", "F"), 0.01);
-        graph.put(HashableEdge.of("L", "I"), 0.01);
+        graph.put(Edge.of("A", "B"), 0.01);
+        graph.put(Edge.of("B", "C"), 1.0);
+        graph.put(Edge.of("D", "E"), 0.01);
+        graph.put(Edge.of("E", "F"), 1.0);
+        graph.put(Edge.of("G", "H"), 0.01);
+        graph.put(Edge.of("H", "I"), 1.0);
+        graph.put(Edge.of("J", "K"), 0.01);
+        graph.put(Edge.of("K", "L"), 1.0);
+        graph.put(Edge.of("C", "F"), 0.01);
+        graph.put(Edge.of("C", "I"), 0.01);
+        graph.put(Edge.of("C", "L"), 0.01);
+        graph.put(Edge.of("I", "F"), 0.01);
+        graph.put(Edge.of("L", "F"), 0.01);
+        graph.put(Edge.of("L", "I"), 0.01);
         System.out.printf("Original graph: %s%n", graph);
 
         Collection<String> terminals = new HashSet<>(Arrays.asList("A", "J"));
@@ -84,10 +83,11 @@ public class TestInitSpan {
         System.out.printf("%nFIBs: %s%n", fibs);
 
         Map<Edge<String>, Double> weights =
-            Spans.flatten(fibs, HashableEdge::of);
+            Spans.flatten(fibs, Edge::of);
         System.out.printf("%nSpan-weighted graph: %s%n", weights);
 
-        Collection<Edge<String>> tree = Spans.span(terminals, weights);
+        Collection<Edge<String>> tree =
+            Spans.span(terminals, weights);
         System.out.printf("%nSpanning tree: %s%n", tree);
     }
 

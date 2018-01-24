@@ -253,7 +253,7 @@ public final class Spans {
             for (N cand : current) {
                 /* Tell this candidate's neighbours to lose a link. */
                 for (N neigh : graph.remove(cand)) {
-                    links.remove(HashableEdge.of(cand, neigh));
+                    links.remove(Edge.of(cand, neigh));
                     Collection<N> neighNeigh = graph.get(neigh);
                     neighNeigh.remove(cand);
                     if (neighNeigh.size() <= 1 && !terminals.contains(neigh))

@@ -36,7 +36,7 @@
  */
 
 import uk.ac.lancs.routing.span.DistanceVectorGraph;
-import uk.ac.lancs.routing.span.HashableEdge;
+import uk.ac.lancs.routing.span.Edge;
 
 public class TestDV {
     public static void main(String[] args) {
@@ -44,20 +44,20 @@ public class TestDV {
         fibData.addTerminal("A");
         fibData.addTerminal("B");
         fibData.addTerminal("C");
-        fibData.addEdge(HashableEdge.of("A", "D"), 1.0);
-        fibData.addEdge(HashableEdge.of("B", "E"), 1.0);
-        fibData.addEdge(HashableEdge.of("C", "F"), 1.0);
-        fibData.addEdge(HashableEdge.of("D", "E"), 1.0);
-        fibData.addEdge(HashableEdge.of("E", "F"), 1.0);
-        fibData.addEdge(HashableEdge.of("F", "G"), 1.0);
-        fibData.addEdge(HashableEdge.of("G", "H"), 1.0);
-        fibData.addEdge(HashableEdge.of("H", "D"), 1.0);
+        fibData.addEdge(Edge.of("A", "D"), 1.0);
+        fibData.addEdge(Edge.of("B", "E"), 1.0);
+        fibData.addEdge(Edge.of("C", "F"), 1.0);
+        fibData.addEdge(Edge.of("D", "E"), 1.0);
+        fibData.addEdge(Edge.of("E", "F"), 1.0);
+        fibData.addEdge(Edge.of("F", "G"), 1.0);
+        fibData.addEdge(Edge.of("G", "H"), 1.0);
+        fibData.addEdge(Edge.of("H", "D"), 1.0);
 
         fibData.update();
         System.out.println("RTs: " + fibData.getFIBs());
         System.out.println("Loads: " + fibData.getEdgeLoads());
 
-        fibData.removeEdge(HashableEdge.of("F", "E"));
+        fibData.removeEdge(Edge.of("F", "E"));
 
         fibData.update();
         System.out.println("RTs: " + fibData.getFIBs());

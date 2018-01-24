@@ -46,7 +46,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.HashableEdge;
 
 /**
  * Implements an entirely virtual switch that does nothing.
@@ -257,7 +256,8 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
+        public Map<Edge<Port>, Double>
+            getModel(double minimumBandwidth) {
             synchronized (DummySwitch.this) {
                 List<Port> list = new ArrayList<>(ports.values());
                 Map<Edge<Port>, Double> result = new HashMap<>();
@@ -265,7 +265,7 @@ public class DummySwitch implements Switch {
                 for (int i = 0; i < size - 1; i++) {
                     for (int j = i + 1; j < size; j++) {
                         Edge<Port> edge =
-                            HashableEdge.of(list.get(i), list.get(j));
+                            Edge.of(list.get(i), list.get(j));
                         result.put(edge, 0.001);
                     }
                 }
