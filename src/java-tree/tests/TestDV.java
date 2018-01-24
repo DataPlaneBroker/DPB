@@ -55,10 +55,12 @@ public class TestDV {
 
         fibData.update();
         System.out.println("RTs: " + fibData.getFIBs());
-        
+        System.out.println("Loads: " + fibData.getEdgeLoads());
+
         fibData.removeEdge(HashableEdge.of("F", "E"));
 
         fibData.update();
         System.out.println("RTs: " + fibData.getFIBs());
+        System.out.println("Loads: " + fibData.getEdgeLoads());
     }
 }

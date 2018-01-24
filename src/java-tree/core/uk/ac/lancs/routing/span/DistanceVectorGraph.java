@@ -35,12 +35,14 @@
  */
 package uk.ac.lancs.routing.span;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -87,7 +89,7 @@ public final class DistanceVectorGraph<V> {
      * weights/costs)
      */
     public DistanceVectorGraph(Collection<? extends V> terminals,
-                                Map<? extends Edge<? extends V>, ? extends Number> links) {
+                               Map<? extends Edge<? extends V>, ? extends Number> links) {
         this.terminals.addAll(terminals);
 
         /* Treat all vertices as having out-of-date FIBs. */
@@ -115,6 +117,31 @@ public final class DistanceVectorGraph<V> {
      */
     public boolean isUpdated() {
         return invalid.isEmpty();
+    }
+
+    /**
+     * Get the load on each edge.
+     * 
+     * @return a map from each edge to a pair of maps listing each
+     * terminal routed over the edge with its distance
+     */
+    public Map<Edge<V>, List<Map<V, Double>>> getEdgeLoads() {
+        Map<Edge<V>, List<Map<V, Double>>> result = new HashMap<>();
+        for (Map.Entry<V, Map<V, Way<V>>> entry : fibs.entrySet()) {
+            V first = entry.getKey();
+            for (Map.Entry<V, Way<V>> way : entry.getValue().entrySet()) {
+                V second = way.getValue().nextHop;
+                if (second == null) continue;
+                Edge<V> edge = HashableEdge.of(first, second);
+                List<Map<V, Double>> list =
+                    result.computeIfAbsent(edge, k -> Arrays
+                        .asList(new HashMap<>(), new HashMap<>()));
+                double distance = way.getValue().distance;
+                list.get(edge.vertices().indexOf(first)).put(way.getKey(),
+                                                             distance);
+            }
+        }
+        return result;
     }
 
     /**
