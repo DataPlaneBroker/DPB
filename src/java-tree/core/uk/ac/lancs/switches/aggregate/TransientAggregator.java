@@ -756,11 +756,16 @@ public class TransientAggregator implements Aggregator {
                 throw new IllegalArgumentException("not my end point: " + ep);
 
             /* Record the bandwidth produced and consumed on the
-             * inferior switch's port. */
+             * inferior switch's port. Make sure we aggregate
+             * contributions when two or more end points belong to the
+             * same port. */
             double produced = request.producers().get(ep).doubleValue();
             double consumed = request.consumers().get(ep).doubleValue();
             Port innerPort = myPort.innerPort();
-            bandwidths.put(innerPort, Arrays.asList(produced, consumed));
+            List<Double> tuple = bandwidths
+                .computeIfAbsent(innerPort, k -> Arrays.asList(0.0, 0.0));
+            tuple.set(0, tuple.get(0) + produced);
+            tuple.set(1, tuple.get(1) + consumed);
 
             /* Map the outer end point to an inner one by copying the
              * label. */
