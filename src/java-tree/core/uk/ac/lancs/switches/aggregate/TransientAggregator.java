@@ -51,6 +51,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import uk.ac.lancs.routing.span.DistanceVectorGraph;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.Spans;
 import uk.ac.lancs.routing.span.Way;
@@ -160,8 +161,11 @@ public class TransientAggregator implements Aggregator {
 
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", connection.status());
-                for (EndPoint ep : connection.getRequest().terminals) {
-                    out.printf("%n        %s", ep);
+                ConnectionRequest request = connection.getRequest();
+                for (EndPoint ep : request.producers().keySet()) {
+                    out.printf("%n        %10s %6g %6g", ep,
+                               request.producers().get(ep),
+                               request.consumers().get(ep));
                 }
             }
         }
@@ -245,6 +249,7 @@ public class TransientAggregator implements Aggregator {
                 throw new IllegalStateException("connection released");
             if (tunnels != null)
                 throw new IllegalStateException("connection in use");
+            request = ConnectionRequest.sanitize(request, 0.01);
             tunnels = new HashMap<>();
             clients.clear();
             errored = activeInferiors = 0;
@@ -252,19 +257,26 @@ public class TransientAggregator implements Aggregator {
 
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
-            Map<SwitchControl, Collection<EndPoint>> subterminals =
-                new HashMap<>();
-            plotTree(request.terminals, request.bandwidth, tunnels,
-                     subterminals);
+            Collection<ConnectionRequest> subrequests = new HashSet<>();
+            plotAsymmetricTree(request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
-            Map<Connection, ConnectionRequest> subcons =
-                subterminals.entrySet().stream()
-                    .collect(Collectors
-                        .toMap(e -> e.getKey().newConnection(),
-                               e -> ConnectionRequest.of(e.getValue(),
-                                                         request.bandwidth)));
+            Map<Connection, ConnectionRequest> subcons = subrequests.stream()
+                .collect(Collectors.toMap(r -> r.producers().keySet()
+                    .iterator().next().getPort().getSwitch().newConnection(),
+                                          r -> r));
+
+            /* Map<SwitchControl, Collection<EndPoint>> subterminals =
+             * new HashMap<>(); plotTree(request.terminals,
+             * request.bandwidth, tunnels, subterminals);
+             * 
+             * Map<Connection, ConnectionRequest> subcons =
+             * subterminals.entrySet().stream() .collect(Collectors
+             * .toMap(e -> e.getKey().newConnection(), e ->
+             * ConnectionRequest.of(e.getValue(),
+             * request.bandwidth))); */
+
             clients.addAll(subcons.keySet().stream().map(Client::new)
                 .collect(Collectors.toList()));
             unresponded = clients.size();
@@ -353,7 +365,6 @@ public class TransientAggregator implements Aggregator {
                 break;
 
             default:
-                out.printf(" %5g", request.bandwidth);
                 for (Map.Entry<TrunkControl, EndPoint> tunnel : tunnels
                     .entrySet()) {
                     EndPoint ep1 = tunnel.getValue();
@@ -388,7 +399,7 @@ public class TransientAggregator implements Aggregator {
     final class MyTrunk implements TrunkControl {
         private final Port start, end;
         private double delay = 0.0;
-        private double bandwidth = 0.0;
+        private double upstreamBandwidth = 0.0, downstreamBandwidth = 0.0;
 
         /**
          * Create a trunk between two ports.
@@ -403,8 +414,13 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public double getBandwidth() {
-            return bandwidth;
+        public double getUpstreamBandwidth() {
+            return upstreamBandwidth;
+        }
+
+        @Override
+        public double getDownstreamBandwidth() {
+            return downstreamBandwidth;
         }
 
         private final NavigableMap<Integer, Integer> startToEndMap =
@@ -412,7 +428,10 @@ public class TransientAggregator implements Aggregator {
         private final NavigableMap<Integer, Integer> endToStartMap =
             new TreeMap<>();
         private final BitSet availableTunnels = new BitSet();
-        private final Map<Integer, Double> allocations = new HashMap<>();
+        private final Map<Integer, Double> upstreamAllocations =
+            new HashMap<>();
+        private final Map<Integer, Double> downstreamAllocations =
+            new HashMap<>();
 
         @Override
         public EndPoint getPeer(EndPoint p) {
@@ -433,11 +452,17 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public EndPoint allocateTunnel(double bandwidth) {
+        public EndPoint allocateTunnel(double upstreamBandwidth,
+                                       double downstreamBandwidth) {
             /* Sanity-check bandwidth. */
-            if (bandwidth < 0)
-                throw new IllegalArgumentException("negative: " + bandwidth);
-            if (bandwidth > this.bandwidth) return null;
+            if (upstreamBandwidth < 0)
+                throw new IllegalArgumentException("negative upstream: "
+                    + upstreamBandwidth);
+            if (downstreamBandwidth < 0)
+                throw new IllegalArgumentException("negative downstream: "
+                    + downstreamBandwidth);
+            if (downstreamBandwidth > this.downstreamBandwidth) return null;
+            if (upstreamBandwidth > this.upstreamBandwidth) return null;
 
             /* Obtain a tunnel. */
             if (availableTunnels.isEmpty()) return null;
@@ -445,8 +470,10 @@ public class TransientAggregator implements Aggregator {
             availableTunnels.clear(startLabel);
 
             /* Allocate bandwidth. */
-            this.bandwidth -= bandwidth;
-            allocations.put(startLabel, bandwidth);
+            this.downstreamBandwidth -= downstreamBandwidth;
+            downstreamAllocations.put(startLabel, downstreamBandwidth);
+            this.upstreamBandwidth -= upstreamBandwidth;
+            upstreamAllocations.put(startLabel, upstreamBandwidth);
 
             return start.getEndPoint(startLabel);
         }
@@ -471,11 +498,13 @@ public class TransientAggregator implements Aggregator {
             }
             if (availableTunnels.get(startLabel))
                 throw new IllegalArgumentException("unallocated " + endPoint);
-            if (!allocations.containsKey(startLabel))
+            if (!upstreamAllocations.containsKey(startLabel))
                 throw new IllegalArgumentException("unallocated " + endPoint);
 
             /* De-allocate resources. */
-            this.bandwidth += allocations.remove(startLabel);
+            this.upstreamBandwidth += upstreamAllocations.remove(startLabel);
+            this.downstreamBandwidth +=
+                downstreamAllocations.remove(startLabel);
             availableTunnels.set(startLabel);
         }
 
@@ -501,25 +530,38 @@ public class TransientAggregator implements Aggregator {
 
         private final Trunk management = new Trunk() {
             @Override
-            public void allocateBandwidth(double amount) {
+            public void withdrawBandwidth(double upstream,
+                                          double downstream) {
                 synchronized (TransientAggregator.this) {
-                    if (amount < 0)
-                        throw new IllegalArgumentException("negative: "
-                            + amount);
-                    if (amount > bandwidth)
-                        throw new IllegalArgumentException("request " + amount
-                            + " exceeds " + bandwidth);
-                    bandwidth -= amount;
+                    if (upstream < 0)
+                        throw new IllegalArgumentException("negative upstream: "
+                            + upstream);
+                    if (upstream > upstreamBandwidth)
+                        throw new IllegalArgumentException("request upstream "
+                            + upstream + " exceeds " + upstreamBandwidth);
+                    if (downstream < 0)
+                        throw new IllegalArgumentException("negative downstream: "
+                            + downstream);
+                    if (downstream > downstreamBandwidth)
+                        throw new IllegalArgumentException("request downstream "
+                            + downstream + " exceeds " + downstreamBandwidth);
+
+                    upstreamBandwidth -= upstream;
+                    downstreamBandwidth -= downstream;
                 }
             }
 
             @Override
-            public void releaseBandwidth(double amount) {
+            public void provideBandwidth(double upstream, double downstream) {
                 synchronized (TransientAggregator.this) {
-                    if (amount < 0)
-                        throw new IllegalArgumentException("negative: "
-                            + amount);
-                    bandwidth += amount;
+                    if (upstream < 0)
+                        throw new IllegalArgumentException("negative upstream: "
+                            + upstream);
+                    if (downstream < 0)
+                        throw new IllegalArgumentException("negative downstream: "
+                            + downstream);
+                    upstreamBandwidth += upstream;
+                    downstreamBandwidth += downstream;
                 }
             }
 
@@ -599,8 +641,9 @@ public class TransientAggregator implements Aggregator {
         for (MyConnection conn : connections.values())
             conn.dump(out);
         for (MyTrunk trunk : new HashSet<>(trunks.values())) {
-            out.printf("  %s=(%gMbps, %gs) [%d]%n", trunk.getPorts(),
-                       trunk.getBandwidth(), trunk.getDelay(),
+            out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n", trunk.getPorts(),
+                       trunk.getUpstreamBandwidth(),
+                       trunk.getDownstreamBandwidth(), trunk.getDelay(),
                        trunk.getAvailableTunnelCount());
         }
         out.flush();
@@ -679,6 +722,223 @@ public class TransientAggregator implements Aggregator {
     @Override
     public SwitchControl getControl() {
         return control;
+    }
+
+    /**
+     * Plot a spanning tree with asymmetric bandwidth requirements
+     * across this switch, allocation tunnels on trunks.
+     * 
+     * @param request the request specifying bandwidth at each concerned
+     * end point of this switch
+     * 
+     * @param tunnels a place to store the set of allocated tunnels,
+     * indexed by trunk
+     * 
+     * @param subrequests a place to store the connection requests to be
+     * submitted to each inferior switch
+     */
+    synchronized void
+        plotAsymmetricTree(ConnectionRequest request,
+                           Map<? super TrunkControl, ? super EndPoint> tunnels,
+                           Collection<? super ConnectionRequest> subrequests) {
+        /* Sanity-check the end points, map them to internal ports, and
+         * record bandwidth requirements. */
+        Map<Port, List<Double>> bandwidths = new HashMap<>();
+        Map<EndPoint, List<Double>> innerTerminalEndPoints = new HashMap<>();
+        double smallestBandwidthSoFar = Double.MAX_VALUE;
+        for (EndPoint ep : request.producers().keySet()) {
+            /* Map this end point to an inferior switch's port. */
+            Port outerPort = ep.getPort();
+            if (!(outerPort instanceof MyPort))
+                throw new IllegalArgumentException("not my end point: " + ep);
+            MyPort myPort = (MyPort) outerPort;
+            if (myPort.owner() != this)
+                throw new IllegalArgumentException("not my end point: " + ep);
+
+            /* Record the bandwidth produced and consumed on the
+             * inferior switch's port. */
+            double produced = request.producers().get(ep).doubleValue();
+            double consumed = request.consumers().get(ep).doubleValue();
+            Port innerPort = myPort.innerPort();
+            bandwidths.put(innerPort, Arrays.asList(produced, consumed));
+
+            /* Map the outer end point to an inner one by copying the
+             * label. */
+            innerTerminalEndPoints.put(innerPort.getEndPoint(ep.getLabel()),
+                                       Arrays.asList(produced, consumed));
+
+            /* Get the smallest production. We use it to filter out
+             * trunks that no longer have the required bandwidth in
+             * either direction. */
+            if (produced < smallestBandwidthSoFar)
+                smallestBandwidthSoFar = produced;
+        }
+        double smallestBandwidth = smallestBandwidthSoFar;
+
+        /* Get the set of ports to connect. */
+        Collection<Port> innerTerminalPorts = bandwidths.keySet();
+
+        /* Get a subset of all trunks, those with sufficent bandwidth
+         * and free tunnels. */
+        Collection<MyTrunk> adequateTrunks = trunks.values().stream()
+            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
+                && trunk.getMaximumBandwidth() >= smallestBandwidth)
+            .collect(Collectors.toSet());
+
+        /* Get the set of all switches connected to our selected
+         * trunks. */
+        Collection<SwitchControl> switches =
+            adequateTrunks.stream().flatMap(tr -> tr.getPorts().stream())
+                .map(Port::getSwitch).collect(Collectors.toSet());
+
+        /* Create modifiable routing tables across our network, where
+         * the vertices are inner (inferior) ports. */
+        DistanceVectorGraph<Port> fibGraph = new DistanceVectorGraph<Port>();
+
+        /* The terminals are the inner ports of those identified in the
+         * request. */
+        fibGraph.addTerminals(innerTerminalPorts);
+
+        /* The edges include all our trunks, using their delays as
+         * metrics. Also retain a reverse mapping from edge to trunk, so
+         * we can test bandwidth availability whenever we find a
+         * spanning tree. */
+        Map<Edge<Port>, Double> trunkEdgeWeights = new HashMap<>();
+        Map<Edge<Port>, MyTrunk> edgeTrunks = new HashMap<>();
+        for (MyTrunk trunk : adequateTrunks) {
+            Edge<Port> edge = Edge.of(trunk.getPorts());
+            trunkEdgeWeights.put(edge, trunk.getDelay());
+            edgeTrunks.put(edge, trunk);
+        }
+        fibGraph.addEdges(trunkEdgeWeights);
+
+        /* The edges include virtual ones constituting models of
+         * inferior switches. Also make a note of connected ports within
+         * an inferior switch, in case it is a fragmented aggregate. */
+        Map<Edge<Port>, Double> switchEdgeWeights = switches.stream()
+            .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
+            .collect(Collectors.toMap(Map.Entry::getKey,
+                                      Map.Entry::getValue));
+        fibGraph.addEdges(switchEdgeWeights);
+        Map<Port, Collection<Port>> portGroups =
+            Spans.getGroups(Spans.getAdjacencies(switchEdgeWeights.keySet()));
+
+        /* Keep track of the weights of all edges, whether they come
+         * from trunks or inferior switches. */
+        Map<Edge<Port>, Double> edgeWeights = new HashMap<>(trunkEdgeWeights);
+        edgeWeights.putAll(switchEdgeWeights);
+
+        do {
+            /* Ensure we have up-to-date routing tables. */
+            fibGraph.update();
+
+            /* Create terminal-aware weights for each edge, and build a
+             * spanning tree. */
+            Map<Edge<Port>, Double> weightedEdges =
+                Spans.flatten(fibGraph.getFIBs(), Edge::of);
+            Collection<Port> reached = new HashSet<>();
+            Collection<Edge<Port>> tree =
+                Spans.span(innerTerminalPorts, weightedEdges,
+                           p -> reached.addAll(portGroups.get(p)), e -> {
+                               /* Permit edges within the same
+                                * switch. */
+                               SwitchControl first = e.first().getSwitch();
+                               SwitchControl second = e.second().getSwitch();
+                               if (first == second) return true;
+
+                               /* Allow this edge at least one port
+                                * hasn't been reached. */
+                               return !reached.containsAll(e);
+                           });
+            if (tree == null)
+                throw new IllegalArgumentException("no tree found");
+
+            /* Work out how much bandwidth each trunk edge requires in
+             * each direction. Find trunk edges in the spanning tree
+             * that don't have enough bandwidth for what is going over
+             * them. Identify the worst case. */
+            Map<MyTrunk, List<Double>> edgeBandwidths = new HashMap<>();
+            DistanceVectorGraph<Port> routes =
+                new DistanceVectorGraph<>(innerTerminalPorts, tree.stream()
+                    .collect(Collectors.toMap(e -> e, edgeWeights::get)));
+            Edge<Port> worstEdge = null;
+            double worstShortfall = 0.0;
+            for (Map.Entry<Edge<Port>, List<Map<Port, Double>>> entry : routes
+                .getEdgeLoads().entrySet()) {
+                Edge<Port> edge = entry.getKey();
+                MyTrunk trunk = edgeTrunks.get(edge);
+                if (trunk == null) continue;
+                boolean reverse = !trunk.getPorts().equals(edge);
+
+                List<Double> thisEdgeBandwidths = Arrays.asList(0.0, 0.0);
+                edgeBandwidths.put(trunk, thisEdgeBandwidths);
+                for (int i = 0; i < 2; i++) {
+                    double consumed =
+                        entry.getValue().get(i).keySet().stream()
+                            .mapToDouble(p -> bandwidths.get(p).get(1)).sum();
+                    double produced =
+                        entry.getValue().get(1 - i).keySet().stream()
+                            .mapToDouble(p -> bandwidths.get(p).get(0)).sum();
+                    thisEdgeBandwidths.set(reverse ? 1 - i : i,
+                                           Math.min(consumed, produced));
+                }
+                double shortfall = 0.0;
+                shortfall += Math.max(0.0, thisEdgeBandwidths.get(0)
+                    - trunk.getUpstreamBandwidth());
+                shortfall += Math.max(0.0, thisEdgeBandwidths.get(1)
+                    - trunk.getDownstreamBandwidth());
+                if (shortfall > worstShortfall) {
+                    worstShortfall = shortfall;
+                    worstEdge = edge;
+                }
+            }
+
+            /* Remove the worst edge from the graph, and start again. */
+            if (worstEdge != null) {
+                fibGraph.removeEdge(worstEdge);
+                continue;
+            }
+            /* If there is no worst case, we have a result. */
+
+            /* Allocate tunnels along identified trunks. Also gather end
+             * points per port group, and bandwidth required on each. */
+            Map<Collection<Port>, Map<EndPoint, List<Double>>> subterminals =
+                new HashMap<>();
+            for (Map.Entry<MyTrunk, List<Double>> trunkReq : edgeBandwidths
+                .entrySet()) {
+                MyTrunk trunk = trunkReq.getKey();
+                double upstream = trunkReq.getValue().get(0);
+                double downstream = trunkReq.getValue().get(1);
+                EndPoint ep1 = trunk.allocateTunnel(upstream, downstream);
+                tunnels.put(trunk, ep1);
+                EndPoint ep2 = trunk.getPeer(ep1);
+                subterminals
+                    .computeIfAbsent(portGroups.get(ep1.getPort()),
+                                     k -> new HashMap<>())
+                    .put(ep1, Arrays.asList(downstream, upstream));
+                subterminals
+                    .computeIfAbsent(portGroups.get(ep2.getPort()),
+                                     k -> new HashMap<>())
+                    .put(ep2, Arrays.asList(upstream, downstream));
+            }
+
+            /* Ensure the caller's end points are included in the
+             * requests to inferior switches. */
+            for (Map.Entry<EndPoint, List<Double>> entry : innerTerminalEndPoints
+                .entrySet()) {
+                EndPoint ep = entry.getKey();
+                subterminals
+                    .computeIfAbsent(portGroups.get(ep.getPort()),
+                                     k -> new HashMap<>())
+                    .put(ep, entry.getValue());
+            }
+
+            /* For each port group, create a new connection request. */
+            for (Map<EndPoint, List<Double>> reqs : subterminals.values()) {
+                subrequests.add(ConnectionRequest.of(reqs));
+            }
+            return;
+        } while (true);
     }
 
     /**
@@ -777,7 +1037,7 @@ public class TransientAggregator implements Aggregator {
             /* Create a tunnel along this trunk, and remember one end of
              * it. */
             TrunkControl firstTrunk = trunks.get(edge.first());
-            EndPoint ep1 = firstTrunk.allocateTunnel(bandwidth);
+            EndPoint ep1 = firstTrunk.allocateTunnel(bandwidth, bandwidth);
             tunnels.put(firstTrunk, ep1);
 
             /* Get both end points, find out what switches they
@@ -824,7 +1084,7 @@ public class TransientAggregator implements Aggregator {
          * and free tunnels. */
         Collection<MyTrunk> adequateTrunks = trunks.values().stream()
             .filter(trunk -> trunk.getAvailableTunnelCount() > 0
-                && trunk.getBandwidth() >= bandwidth)
+                && trunk.getMaximumBandwidth() >= bandwidth)
             .collect(Collectors.toSet());
         // System.err.println("Usable trunks: " + adequateTrunks);
 

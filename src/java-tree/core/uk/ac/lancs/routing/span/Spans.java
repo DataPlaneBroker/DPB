@@ -464,6 +464,55 @@ public final class Spans {
     }
 
     /**
+     * Get a set of adjacent vertices for each vertex, given a set of
+     * edges.
+     * 
+     * @param edges the set of edges
+     * 
+     * @return the adjacencies for each vertex mentioned in the graph
+     */
+    public static <V> Map<V, Collection<V>>
+        getAdjacencies(Collection<? extends Edge<V>> edges) {
+        Map<V, Collection<V>> result = new HashMap<>();
+        for (Edge<V> edge : edges) {
+            result.computeIfAbsent(edge.first(), k -> new HashSet<>())
+                .add(edge.second());
+            result.computeIfAbsent(edge.second(), k -> new HashSet<>())
+                .add(edge.first());
+        }
+        return result;
+    }
+
+    /**
+     * For each vertex mentioned in a set of adjacencies, get the sets
+     * of reachable vertices from each vertex.
+     * 
+     * @param adjacencies the set of adjacencies
+     * 
+     * @return the set of groups, indexed by members
+     */
+    public static <V> Map<V, Collection<V>>
+        getGroups(Map<? extends V, ? extends Collection<? extends V>> adjacencies) {
+        Map<V, Collection<? extends V>> copy = new HashMap<>(adjacencies);
+        Map<V, Collection<V>> result = new HashMap<>();
+        while (!copy.isEmpty()) {
+            Map.Entry<V, Collection<? extends V>> entry =
+                next(copy.entrySet());
+            Collection<V> group = new HashSet<>();
+            group.add(entry.getKey());
+            Collection<V> remaining = new HashSet<>(entry.getValue());
+            while (!remaining.isEmpty()) {
+                V rem = next(remaining);
+                if (!group.add(rem)) continue;
+                remaining.addAll(copy.remove(rem));
+            }
+            for (V mem : group)
+                result.put(mem, group);
+        }
+        return result;
+    }
+
+    /**
      * Remove and acquire an arbitrary element from a collection.
      * 
      * @param coll the collection to be modified

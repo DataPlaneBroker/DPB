@@ -36,7 +36,6 @@
  */
 
 import java.io.PrintWriter;
-import java.util.Arrays;
 
 import uk.ac.lancs.switches.Connection;
 import uk.ac.lancs.switches.ConnectionListener;
@@ -104,12 +103,10 @@ public class TestDummy {
         c2.addListener(cl2);
 
         /* Initiate some connections. */
-        c1.initiate(ConnectionRequest
-            .of(Arrays.asList(left.getEndPoint(1), down.getEndPoint(1)), 10));
-        c2.initiate(ConnectionRequest
-            .of(Arrays.asList(left.getEndPoint(4), right.getEndPoint(6),
-                              up.getEndPoint(3)),
-                7));
+        c1.initiate(ConnectionRequest.start().add(left, 1, 10.0)
+            .add(down, 1, 10.0).create());
+        c2.initiate(ConnectionRequest.start().add(left, 4, 7.0)
+            .add(right, 6, 7.0).add(up, 3, 7.0).create());
 
         /* Wait until there's nothing to do. */
         IdleExecutor.processAll();

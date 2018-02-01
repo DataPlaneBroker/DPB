@@ -57,23 +57,56 @@ public interface Trunk {
     void setDelay(double delay);
 
     /**
-     * Consume bandwidth on this trunk.
+     * Withdraw bandwidth from this trunk.
      * 
-     * @param amount the amount to deduct from the remaining bandwidth
+     * @param upstream the amount to deduct from the available bandwidth
+     * in the direction from the start port to the end
      * 
-     * @throws IllegalArgumentException if the amount is negative or
-     * exceeds the remaining level
+     * @param downstream the amount to deduct from the available
+     * bandwidth in the direction from the end port to the start
+     * 
+     * @throws IllegalArgumentException if either amount is negative or
+     * exceeds the corresponding available level
      */
-    void allocateBandwidth(double amount);
+    void withdrawBandwidth(double upstream, double downstream);
 
     /**
-     * Release bandwidth on this trunk.
+     * Withdraw bandwidth from this trunk.
      * 
-     * @param amount the amount to add to the remaining bandwidth
+     * @param amount the amount to deduct from the available bandwidth
+     * in each direction
+     * 
+     * @throws IllegalArgumentException if the amount is negative or
+     * exceeds either available level
+     */
+    default void withdrawBandwidth(double amount) {
+        withdrawBandwidth(amount, amount);
+    }
+
+    /**
+     * Provide bandwidth to this trunk.
+     * 
+     * @param upstream the amount to add to the available bandwidth in
+     * the direction from the start port to the end
+     * 
+     * @param downstream the amount to add to the available bandwidth in
+     * the direction from the end port to the start
+     * 
+     * @throws IllegalArgumentException if either amount is negative
+     */
+    void provideBandwidth(double upstream, double downstream);
+
+    /**
+     * Provide bandwidth to this trunk.
+     * 
+     * @param amount the amount to add to the available bandwidth in
+     * both directions
      * 
      * @throws IllegalArgumentException if the amount is negative
      */
-    void releaseBandwidth(double amount);
+    default void provideBandwidth(double amount) {
+        provideBandwidth(amount, amount);
+    }
 
     /**
      * Make a range of labels available.

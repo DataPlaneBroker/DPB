@@ -92,8 +92,14 @@ public class DummySwitch implements Switch {
                 throw new IllegalStateException("connection disused");
             if (this.request != null)
                 throw new IllegalStateException("connection in use");
+
+            /* Sanitize the request such that every end point mentioned
+             * in either set is present in both. A minimum bandwidth is
+             * applied to all implicit and explicit consumers. */
+            request = ConnectionRequest.sanitize(request, 0.01);
+
             /* Check that all end points belong to us. */
-            for (EndPoint ep : request.terminals) {
+            for (EndPoint ep : request.producers().keySet()) {
                 Port p = ep.getPort();
                 if (!(p instanceof MyPort))
                     throw new IllegalArgumentException("not my end point: "
@@ -164,11 +170,11 @@ public class DummySwitch implements Switch {
             out.printf("  %3d %-8s", id,
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
-            if (request != null) {
-                out.printf(" %3g", request.bandwidth);
-                for (EndPoint ep : request.terminals)
-                    out.printf("%n      %s", ep);
-            }
+            if (request != null)
+                for (EndPoint ep : request.producers().keySet())
+                out.printf("%n      %10s %6g %6g", ep,
+                           request.producers().get(ep),
+                           request.consumers().get(ep));
             out.println();
         }
 

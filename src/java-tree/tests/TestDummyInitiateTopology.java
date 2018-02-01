@@ -1,5 +1,4 @@
 import java.io.PrintWriter;
-import java.util.Arrays;
 
 import uk.ac.lancs.switches.Connection;
 import uk.ac.lancs.switches.ConnectionListener;
@@ -59,7 +58,7 @@ public class TestDummyInitiateTopology {
         Port p1 = zwitch1.getPort(port1);
         Port p2 = zwitch2.getPort(port2);
         Trunk result = aggregator.addTrunk(p1, p2);
-        result.releaseBandwidth(bandwidth);
+        result.provideBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
         result.setDelay(1.0);
         return result;
@@ -148,12 +147,11 @@ public class TestDummyInitiateTopology {
         MyListener cl1 = new MyListener("c1");
         c1.addListener(cl1);
 
-        c1.initiate(ConnectionRequest.of(Arrays
-            .asList(aggregator.getPort("lancs.vms").getEndPoint(1234),
-                    aggregator.getPort("bristol.vms").getEndPoint(1111),
-                    aggregator.getPort("slough.vms").getEndPoint(2222),
-                    aggregator.getPort("slough.vms").getEndPoint(2223)),
-                                         100.0));
+        c1.initiate(ConnectionRequest.start().produce(100.0)
+            .add(aggregator.getPort("lancs.vms"), 1234)
+            .add(aggregator.getPort("bristol.vms"), 1111)
+            .add(aggregator.getPort("slough.vms"), 2222)
+            .add(aggregator.getPort("slough.vms"), 2223).create());
 
         IdleExecutor.processAll();
 
