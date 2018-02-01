@@ -79,19 +79,19 @@ public class TestDummyInitiateTopology {
         DummySwitch bristol =
             new DummySwitch(IdleExecutor.INSTANCE, "bristol");
         bristol.addPort("vms");
-        bristol.addPort("core");
+        bristol.addPort("slough");
 
         DummySwitch kcl = new DummySwitch(IdleExecutor.INSTANCE, "kcl");
         kcl.addPort("vms");
-        kcl.addPort("core");
+        kcl.addPort("slough");
 
         DummySwitch edin = new DummySwitch(IdleExecutor.INSTANCE, "edin");
         edin.addPort("vms");
-        edin.addPort("core");
+        edin.addPort("slough");
 
         DummySwitch lancs = new DummySwitch(IdleExecutor.INSTANCE, "lancs");
         lancs.addPort("vms");
-        lancs.addPort("core");
+        lancs.addPort("slough");
 
         /* Create an aggregator to control the site switches. */
         TransientAggregator aggregator =
@@ -105,11 +105,12 @@ public class TestDummyInitiateTopology {
         aggregator.addPort("slough.vms", slough.getPort("vms"));
 
         /* Link up the inferior switches within the superior. */
-        link(aggregator, slough, "lancs", lancs, "core", 1024.0, 1000, 40);
-        link(aggregator, slough, "bristol", bristol, "core", 1024.0 * 9.0,
+        link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);
+        link(aggregator, slough, "bristol", bristol, "slough", 1024.0 * 9.0,
              1000, 40);
-        link(aggregator, slough, "kcl", kcl, "core", 1024.0 * 9.0, 1000, 40);
-        link(aggregator, slough, "edin", edin, "core", 1024.0, 1000, 40);
+        link(aggregator, slough, "kcl", kcl, "slough", 1024.0 * 9.0, 1000,
+             40);
+        link(aggregator, slough, "edin", edin, "slough", 1024.0, 1000, 40);
 
         Connection c1 = aggregator.getControl().newConnection();
         class MyListener implements ConnectionListener {
