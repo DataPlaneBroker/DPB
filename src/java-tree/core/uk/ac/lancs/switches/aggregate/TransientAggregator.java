@@ -741,6 +741,11 @@ public class TransientAggregator implements Aggregator {
         plotAsymmetricTree(ConnectionRequest request,
                            Map<? super TrunkControl, ? super EndPoint> tunnels,
                            Collection<? super ConnectionRequest> subrequests) {
+        // System.err.printf("Request producers: %s%n",
+        // request.producers());
+        // System.err.printf("Request consumers: %s%n",
+        // request.consumers());
+
         /* Sanity-check the end points, map them to internal ports, and
          * record bandwidth requirements. */
         Map<Port, List<Double>> bandwidths = new HashMap<>();
@@ -750,10 +755,12 @@ public class TransientAggregator implements Aggregator {
             /* Map this end point to an inferior switch's port. */
             Port outerPort = ep.getPort();
             if (!(outerPort instanceof MyPort))
-                throw new IllegalArgumentException("not my end point: " + ep);
+                throw new IllegalArgumentException("end point " + ep
+                    + " not part of " + name);
             MyPort myPort = (MyPort) outerPort;
             if (myPort.owner() != this)
-                throw new IllegalArgumentException("not my end point: " + ep);
+                throw new IllegalArgumentException("end point " + ep
+                    + " not part of " + name);
 
             /* Record the bandwidth produced and consumed on the
              * inferior switch's port. Make sure we aggregate
@@ -777,11 +784,20 @@ public class TransientAggregator implements Aggregator {
              * either direction. */
             if (produced < smallestBandwidthSoFar)
                 smallestBandwidthSoFar = produced;
+
+            // System.err.printf("e/p %s is part of %s, mapping to
+            // %s%n", ep,
+            // outerPort, innerPort);
         }
         double smallestBandwidth = smallestBandwidthSoFar;
+        // System.err.printf("Bandwidths on ports: %s%n", bandwidths);
+        // System.err.printf("Inner end points: %s%n",
+        // innerTerminalEndPoints);
 
         /* Get the set of ports to connect. */
         Collection<Port> innerTerminalPorts = bandwidths.keySet();
+        // System.err.printf("Inner terminal ports: %s%n",
+        // innerTerminalPorts);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
@@ -789,6 +805,10 @@ public class TransientAggregator implements Aggregator {
             .filter(trunk -> trunk.getAvailableTunnelCount() > 0
                 && trunk.getMaximumBandwidth() >= smallestBandwidth)
             .collect(Collectors.toSet());
+        // System.err.printf("Selected trunks: %s%n",
+        // adequateTrunks.stream()
+        // .map(t ->
+        // Edge.of(t.getPorts())).collect(Collectors.toSet()));
 
         /* Get the set of all switches connected to our selected
          * trunks. */
@@ -809,13 +829,14 @@ public class TransientAggregator implements Aggregator {
          * we can test bandwidth availability whenever we find a
          * spanning tree. */
         Map<Edge<Port>, Double> trunkEdgeWeights = new HashMap<>();
-        Map<Edge<Port>, MyTrunk> edgeTrunks = new HashMap<>();
+        Map<Edge<Port>, MyTrunk> trunkEdges = new HashMap<>();
         for (MyTrunk trunk : adequateTrunks) {
             Edge<Port> edge = Edge.of(trunk.getPorts());
             trunkEdgeWeights.put(edge, trunk.getDelay());
-            edgeTrunks.put(edge, trunk);
+            trunkEdges.put(edge, trunk);
         }
         fibGraph.addEdges(trunkEdgeWeights);
+        // System.err.printf("Trunk weights: %s%n", trunkEdgeWeights);
 
         /* The edges include virtual ones constituting models of
          * inferior switches. Also make a note of connected ports within
@@ -825,8 +846,11 @@ public class TransientAggregator implements Aggregator {
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
         fibGraph.addEdges(switchEdgeWeights);
+        // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
         Map<Port, Collection<Port>> portGroups =
             Spans.getGroups(Spans.getAdjacencies(switchEdgeWeights.keySet()));
+        // System.err.printf("Port groups: %s%n",
+        // new HashSet<>(portGroups.values()));
 
         /* Keep track of the weights of all edges, whether they come
          * from trunks or inferior switches. */
@@ -857,6 +881,7 @@ public class TransientAggregator implements Aggregator {
                            });
             if (tree == null)
                 throw new IllegalArgumentException("no tree found");
+            // System.err.printf("Spanning tree: %s%n", tree);
 
             /* Work out how much bandwidth each trunk edge requires in
              * each direction. Find trunk edges in the spanning tree
@@ -866,12 +891,14 @@ public class TransientAggregator implements Aggregator {
             DistanceVectorGraph<Port> routes =
                 new DistanceVectorGraph<>(innerTerminalPorts, tree.stream()
                     .collect(Collectors.toMap(e -> e, edgeWeights::get)));
+            routes.update();
+            // System.err.printf("Loads: %s%n", routes.getEdgeLoads());
             Edge<Port> worstEdge = null;
             double worstShortfall = 0.0;
             for (Map.Entry<Edge<Port>, List<Map<Port, Double>>> entry : routes
                 .getEdgeLoads().entrySet()) {
                 Edge<Port> edge = entry.getKey();
-                MyTrunk trunk = edgeTrunks.get(edge);
+                MyTrunk trunk = trunkEdges.get(edge);
                 if (trunk == null) continue;
                 boolean reverse = !trunk.getPorts().equals(edge);
 
@@ -897,6 +924,8 @@ public class TransientAggregator implements Aggregator {
                     worstEdge = edge;
                 }
             }
+            // System.err.printf("Edge bandwidths: %s%n",
+            // edgeBandwidths);
 
             /* Remove the worst edge from the graph, and start again. */
             if (worstEdge != null) {
@@ -937,6 +966,7 @@ public class TransientAggregator implements Aggregator {
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }
+            // System.err.printf("Subterminals: %s%n", subterminals);
 
             /* For each port group, create a new connection request. */
             for (Map<EndPoint, List<Double>> reqs : subterminals.values()) {
