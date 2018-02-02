@@ -25,6 +25,7 @@ roots_tests += TestInitSpan
 roots_tests += TestDummy
 roots_tests += TestDV
 roots_tests += TestDummyInitiateTopology
+roots_tests += TestGeographicSpan
 deps_tests += core
 
 JARDEPS_OUTDIR=out
@@ -60,6 +61,9 @@ testdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 
 testinitdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDummyInitiateTopology
+
+testgeospan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestGeographicSpan
 
 #blank:: clean
 
