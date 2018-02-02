@@ -43,7 +43,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -80,8 +79,7 @@ import java.util.stream.Collectors;
  * user. (The bandwidth attribute can then be discarded.) Then call
  * {@link #prune(Collection, Collection)} to eliminate spurs that do not
  * reach the terminals. Then call {@link #route(Collection, Map)},
- * {@link #flatten(Map, BiFunction)} and {@link #span(Collection, Map)}
- * as above.
+ * {@link #flatten(Map)} and {@link #span(Collection, Map)} as above.
  * 
  * <p>
  * From the results, one could identify vertices with two edges, and
@@ -284,8 +282,7 @@ public final class Spans {
      * @return the weights for each link
      */
     public static <V> Map<Edge<V>, Double>
-        flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs,
-                BiFunction<? super V, ? super V, Edge<V>> edgeMaker) {
+        flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs) {
         /**
          * Holds a tally for a link.
          * 
@@ -318,9 +315,8 @@ public final class Spans {
                 Way<V> way = entry.getValue();
                 V second = way.nextHop;
                 if (second == null) continue;
-                Tally t =
-                    tallies.computeIfAbsent(edgeMaker.apply(first, second),
-                                            k -> new Tally());
+                Tally t = tallies.computeIfAbsent(Edge.of(first, second),
+                                                  k -> new Tally());
                 t.add(way.distance);
             }
         }

@@ -171,7 +171,8 @@ public interface ConnectionRequest {
         }
 
         /**
-         * Add an end point specified by port and label, producing the default amount.
+         * Add an end point specified by port and label, producing the
+         * default amount.
          * 
          * @param p the port containing the end point
          * 

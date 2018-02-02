@@ -109,8 +109,8 @@ interface TrunkControl {
      * @param upstreamBandwidth the bandwidth to allocate to the tunnel
      * in the direction from the start port to the end
      * 
-     * @param downstreamBandwidth the bandwidth to allocate to the tunnel
-     * in the direction from the end port to the start
+     * @param downstreamBandwidth the bandwidth to allocate to the
+     * tunnel in the direction from the end port to the start
      * 
      * @return the end point at the start of the tunnel, or {@code null}
      * if no further resource remains

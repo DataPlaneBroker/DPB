@@ -864,7 +864,7 @@ public class TransientAggregator implements Aggregator {
             /* Create terminal-aware weights for each edge, and build a
              * spanning tree. */
             Map<Edge<Port>, Double> weightedEdges =
-                Spans.flatten(fibGraph.getFIBs(), Edge::of);
+                Spans.flatten(fibGraph.getFIBs());
             Collection<Port> reached = new HashSet<>();
             Collection<Edge<Port>> tree =
                 Spans.span(innerTerminalPorts, weightedEdges,
@@ -1033,8 +1033,7 @@ public class TransientAggregator implements Aggregator {
         // System.err.println("FIBs: " + fibs);
 
         /* Create terminal-aware weights for each edge. */
-        Map<Edge<Port>, Double> weightedEdges =
-            Spans.flatten(fibs, (p1, p2) -> Edge.of(p1, p2));
+        Map<Edge<Port>, Double> weightedEdges = Spans.flatten(fibs);
         // System.err.println("Edges: " + weightedEdges);
 
         /* To impose additional constraints on the spanning tree, keep a

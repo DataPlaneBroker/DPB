@@ -284,8 +284,7 @@ public class TestGeographicSpan {
 
         /* Compute terminal-aware weights for all edges, and use to pick
          * a spanning tree. */
-        Map<Edge<Vertex>, Double> spanWeights =
-            Spans.flatten(dv.getFIBs(), Edge::of);
+        Map<Edge<Vertex>, Double> spanWeights = Spans.flatten(dv.getFIBs());
         Collection<Edge<Vertex>> span = Spans.span(terminals, spanWeights);
 
         try (PrintWriter out = new PrintWriter(new File("scratch/geo.svg"))) {
