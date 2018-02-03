@@ -867,7 +867,7 @@ public class TransientAggregator implements Aggregator {
                 Spans.flatten(fibGraph.getFIBs());
             Collection<Port> reached = new HashSet<>();
             Collection<Edge<Port>> tree =
-                Spans.span(innerTerminalPorts, weightedEdges,
+                Spans.span(innerTerminalPorts, null, weightedEdges,
                            p -> reached.addAll(portGroups.get(p)), e -> {
                                /* Permit edges within the same
                                 * switch. */
@@ -1046,7 +1046,7 @@ public class TransientAggregator implements Aggregator {
          * and rejecting edges connecting two already reached
          * switches. */
         Collection<Edge<Port>> tree =
-            Spans.span(innerTerminalPorts, weightedEdges,
+            Spans.span(innerTerminalPorts, null, weightedEdges,
                        p -> reachedSwitches.add(p.getSwitch()), e -> {
                            SwitchControl first = e.first().getSwitch();
                            SwitchControl second = e.second().getSwitch();

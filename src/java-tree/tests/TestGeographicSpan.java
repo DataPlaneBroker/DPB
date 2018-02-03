@@ -4,15 +4,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.routing.span.DistanceVectorGraph;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.Spans;
+import uk.ac.lancs.routing.span.Way;
 
 /*
  * Copyright 2017, Regents of the University of Lancaster
@@ -226,7 +229,7 @@ public class TestGeographicSpan {
                 }
             }
         }
-        if (false) {
+        if (true) {
             /* For every three vertices, check to see if any other
              * vertex lies in the circumcircle. If there is one, remove
              * the longest edge. */
@@ -270,7 +273,7 @@ public class TestGeographicSpan {
         final int toBeSelected = 2 + rng.nextInt(4);
         Collection<Vertex> terminals = new HashSet<>();
         List<Vertex> remaining = new ArrayList<>(vertices);
-        for (int i = 0; i < toBeSelected; i++) {
+        for (int i = 0; i < toBeSelected && !remaining.isEmpty(); i++) {
             int index = rng.nextInt(remaining.size());
             terminals.add(remaining.remove(index));
         }
@@ -282,10 +285,77 @@ public class TestGeographicSpan {
             .collect(Collectors.toMap(e -> e, e -> length(e))));
         dv.update();
 
-        /* Compute terminal-aware weights for all edges, and use to pick
-         * a spanning tree. */
-        Map<Edge<Vertex>, Double> spanWeights = Spans.flatten(dv.getFIBs());
-        Collection<Edge<Vertex>> span = Spans.span(terminals, spanWeights);
+        /* Pick weights for selecting a spanning tree. */
+        final Collection<Edge<Vertex>> tree;
+        if (true) {
+            Map<Vertex, Map<Vertex, Way<Vertex>>> fibs = dv.getFIBs();
+
+            /* Collate ways by the edges they cross. Identify the
+             * terminals nearest to each other. */
+            Map<Edge<Vertex>, Map<Vertex, Double>> edgeOpts = new HashMap<>();
+            Vertex bestVertex = null;
+            double bestDistance = Double.MAX_VALUE;
+            for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> fib : fibs
+                .entrySet()) {
+                Vertex v1 = fib.getKey();
+                boolean v1Term = terminals.contains(v1);
+                for (Map.Entry<Vertex, Way<Vertex>> route : fib.getValue()
+                    .entrySet()) {
+                    Vertex dest = route.getKey();
+                    Way<Vertex> way = route.getValue();
+                    if (way.nextHop == null) continue;
+
+                    Edge<Vertex> edge = Edge.of(v1, way.nextHop);
+                    edgeOpts.computeIfAbsent(edge, k -> new HashMap<>())
+                        .put(dest, way.distance);
+
+                    if (v1Term && terminals.contains(dest)) {
+                        if (bestVertex == null
+                            || way.distance < bestDistance) {
+                            bestDistance = way.distance;
+                            bestVertex = v1;
+                        }
+                    }
+                }
+            }
+
+            Collection<Vertex> reached = new HashSet<>();
+            Function<Edge<Vertex>, Double> weights = e -> edgeOpts
+                .getOrDefault(e, Collections.emptyMap()).entrySet().stream()
+                .filter(en -> !reached.contains(en.getKey()))
+                .mapToDouble(en -> en.getValue()).min()
+                .orElseGet(() -> Double.MAX_VALUE);
+            tree = Spans.span(terminals, bestVertex, edges, weights,
+                              reached::add, e -> true);
+        } else {
+            final Map<Edge<Vertex>, Double> spanWeights;
+            if (false) {
+                spanWeights = new HashMap<>(edges.stream().collect(Collectors
+                    .toMap(e -> e, e -> Double.MAX_VALUE)));
+                for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> entry : dv
+                    .getFIBs().entrySet()) {
+                    Vertex v1 = entry.getKey();
+
+                    /* Work out what to write. */
+                    for (Way<Vertex> way : entry.getValue().values()) {
+                        Vertex v2 = way.nextHop;
+                        if (v2 == null) continue;
+                        Edge<Vertex> edge = Edge.of(v1, v2);
+                        double best =
+                            spanWeights.getOrDefault(edge, Double.MAX_VALUE);
+                        if (way.distance < best)
+                            spanWeights.put(edge, way.distance);
+                    }
+                }
+            } else {
+                /* Compute terminal-aware weights for all edges. */
+                spanWeights =
+                    Spans.flatten(dv.getFIBs(),
+                                  (l, t, e, s0, c0, s1,
+                                   c1) -> (s0 + s1 + (t - c0 + c1) * l));
+            }
+            tree = Spans.span(terminals, spanWeights);
+        }
 
         try (PrintWriter out = new PrintWriter(new File("scratch/geo.svg"))) {
             out.println("<?xml version=\"1.0\" " + "standalone=\"no\"?>\n");
@@ -296,9 +366,11 @@ public class TestGeographicSpan {
             out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
             out.println(" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
             out.println(" viewBox='-10 -10 110 110'>");
+
             out.println("<rect style='fill: white; "
                 + "stroke: black; stroke-width: 0.5'");
             out.println(" x='-10' y='-10' width='110' height='110' />");
+
             out.println("<g style='fill: none;"
                 + " stroke: rgb(200,200,200); stroke-width: 0.5'>");
             for (Edge<Vertex> edge : edges) {
@@ -307,27 +379,111 @@ public class TestGeographicSpan {
                            edge.second().y);
             }
             out.println("</g>");
+
             out.println("<g style='fill: none;"
                 + " stroke: rgb(200,0,0); stroke-width: 1.0'>");
-            for (Edge<Vertex> edge : span) {
+            for (Edge<Vertex> edge : tree) {
                 out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g' />%n",
                            edge.first().x, edge.first().y, edge.second().x,
                            edge.second().y);
             }
             out.println("</g>");
-            out.println("<g style='fill: red; stroke: none'>");
+
+            out.println("<g fill='red' stroke='none'>");
             for (Vertex v : terminals) {
                 out.printf("<circle cx='%g' cy='%g' r='%g' />%n", v.x, v.y,
-                           2.5);
+                           1.5);
             }
             out.println("</g>");
-            out.println("<g style='fill: black; stroke: none'>");
+
+            out.println("<g fill='black' stroke='none'>");
             for (Vertex v : vertices) {
                 out.printf("<circle cx='%g' cy='%g' r='%g' />%n", v.x, v.y,
-                           2.0);
+                           1.0);
             }
             out.println("</g>");
+
+            if (false) {
+                out.println("<g fill='black' stroke='none'"
+                    + " font-size='1' text-anchor='middle'>");
+                for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> entry : dv
+                    .getFIBs().entrySet()) {
+                    Vertex v1 = entry.getKey();
+
+                    /* Work out what to write. */
+                    Map<Vertex, Double> sums = new HashMap<>();
+                    Map<Vertex, Integer> counts = new HashMap<>();
+                    for (Way<Vertex> way : entry.getValue().values()) {
+                        Vertex v2 = way.nextHop;
+                        if (v2 == null) continue;
+                        counts.put(v2, counts.getOrDefault(v2, 0) + 1);
+                        sums.put(v2,
+                                 sums.getOrDefault(v2, 0.0) + way.distance);
+                    }
+
+                    for (Vertex v2 : sums.keySet()) {
+                        /* Work out where to write the text. */
+                        final double dx = v2.x - v1.x;
+                        final double dy = v2.y - v1.y;
+                        final double hyp = Math.hypot(dx, dy);
+                        final double sin = dy / hyp;
+                        final double cos = dx / hyp;
+
+                        /* Work out the centre to rotate around. */
+                        final double cx = v1.x + dx / 2.0;
+                        final double cy = v1.y + dy / 2.0;
+
+                        final double off = 0.5;
+                        final double mx = cx + sin * off;
+                        final double my = cy - cos * off;
+
+                        out.printf("<text transform='translate(%g %g)"
+                            + " matrix(%g %g %g %g 0 0)'>%.1f/%d</text>%n",
+                                   mx, my, cos, sin, -sin, cos, sums.get(v2),
+                                   counts.get(v2));
+                    }
+                }
+                out.println("</g>");
+            }
+
+            out.println("<g fill='black' stroke='none'"
+                + " font-size='1' text-anchor='middle'>");
+            for (Map.Entry<Edge<Vertex>, Double> entry : Collections
+                .<Edge<Vertex>, Double>emptyMap().entrySet()) {
+                if (entry.getValue() > 1000.0) continue;
+
+                /* Work out where to write the text. */
+                Vertex v1 = entry.getKey().first();
+                Vertex v2 = entry.getKey().second();
+                final double dx = v2.x - v1.x;
+                final double dy = v2.y - v1.y;
+                final double hyp = Math.hypot(dx, dy);
+                final double sin = dy / hyp;
+                final double cos = dx / hyp;
+
+                /* Work out the centre to rotate around. */
+                final double cx = v1.x + dx / 2.0;
+                final double cy = v1.y + dy / 2.0;
+
+                final double off = 0.5;
+                final double mx = cx + sin * off;
+                final double my = cy - cos * off;
+
+                out.printf("<text transform='translate(%g %g)"
+                    + " matrix(%g %g %g %g 0 0)'>%.1f</text>%n", mx, my, cos,
+                           sin, -sin, cos, entry.getValue());
+            }
+            out.println("</g>");
+
             out.println("</svg>");
         }
+    }
+
+    @SuppressWarnings("unused")
+    private static double ratio(double a, double b) {
+        if (Math.abs(a) > Math.abs(b))
+            return b / a;
+        else
+            return a / b;
     }
 }

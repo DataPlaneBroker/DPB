@@ -44,6 +44,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -262,6 +263,40 @@ public final class Spans {
     }
 
     /**
+     * Flattens a summary of FIB entries applied to an edge into a
+     * scalar weight.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @author simpsons
+     */
+    public interface Flattener<V> {
+        /**
+         * Flatten a summary of FIB entries applied to an edge into a
+         * scalar weight.
+         * 
+         * @param longest the longest distance appearing in the FIB
+         * 
+         * @param total the total number of terminals in the graph
+         * 
+         * @param edge the concerned edge
+         * 
+         * @param sum0 the sum of distances of routes in one direction
+         * 
+         * @param count0 the number of routes in one direction
+         * 
+         * @param sum1 the sum of distances of routes in the other
+         * direction
+         * 
+         * @param count1 the number of routes in the other direction
+         * 
+         * @return the computed weight
+         */
+        double flatten(double longest, int total, Edge<V> edge, double sum0,
+                       int count0, double sum1, int count1);
+    }
+
+    /**
      * Given the forwarding information bases of all vertices, create an
      * undirected weighted graph suitable for choosing a spanning tree
      * from.
@@ -283,28 +318,60 @@ public final class Spans {
      */
     public static <V> Map<Edge<V>, Double>
         flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs) {
+        return flatten(fibs, (l, t, e, s0, c0, s1, c1) -> (s0 + s1)
+            * (t + 1 - c0 - c1));
+    }
+
+    /**
+     * Given the forwarding information bases of all vertices, create an
+     * undirected weighted graph suitable for choosing a spanning tree
+     * from, using a user-defined function.
+     * 
+     * <p>
+     * The weight is computed by summing the distances of the ways
+     * applying in either direction on each link, counting those ways
+     * per link, subtracting the count from one plus the maximum number
+     * of distinct destinations implied by ways, and multiplying the
+     * difference by the distance sum.
+     * 
+     * @param fibs the FIBs of each vertex, the first key being current
+     * vertex, the second being destination, and the value being the
+     * next hop and distance to the destination
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param func the function for flattening FIBs' contributions to an
+     * edge
+     * 
+     * @return the weights for each link
+     */
+    public static <V> Map<Edge<V>, Double>
+        flatten(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs,
+                Flattener<V> func) {
         /**
          * Holds a tally for a link.
          * 
          * @author simpsons
          */
         class Tally {
-            double dividend = 0;
-            int divisor = 0;
+            double[] dividend = { 0.0, 0.0 };
+            int[] divisor = { 0, 0 };
 
-            void add(double distance) {
-                dividend += distance;
-                divisor++;
+            void add(int pos, double distance) {
+                dividend[pos] += distance;
+                divisor[pos]++;
             }
 
-            double value(int size) {
-                return dividend * (size + 1 - divisor);
+            double value(Edge<V> edge, int size, double longest) {
+                return func.flatten(longest, size, edge, dividend[0],
+                                    divisor[0], dividend[1], divisor[1]);
             }
         }
 
         /* Accumulate tallies for each link. */
         Map<Edge<V>, Tally> tallies = new HashMap<>(fibs.size());
         Collection<V> terminals = new HashSet<>();
+        double longest = 0.0;
         for (Map.Entry<? extends V, ? extends Map<? extends V, ? extends Way<V>>> nodeFib : fibs
             .entrySet()) {
             V first = nodeFib.getKey();
@@ -315,16 +382,17 @@ public final class Spans {
                 Way<V> way = entry.getValue();
                 V second = way.nextHop;
                 if (second == null) continue;
-                Tally t = tallies.computeIfAbsent(Edge.of(first, second),
-                                                  k -> new Tally());
-                t.add(way.distance);
+                Edge<V> edge = Edge.of(first, second);
+                Tally t = tallies.computeIfAbsent(edge, k -> new Tally());
+                t.add(edge.indexOf(first), way.distance);
+                if (way.distance > longest) longest = way.distance;
             }
         }
+        double finalLongest = longest;
 
         return tallies.entrySet().stream()
-            .collect(Collectors
-                .toMap(Map.Entry::getKey,
-                       e -> e.getValue().value(terminals.size())));
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()
+                .value(e.getKey(), terminals.size(), finalLongest)));
     }
 
     /**
@@ -344,7 +412,7 @@ public final class Spans {
     public static <V> Collection<Edge<V>>
         span(Collection<? extends V> terminals,
              Map<? extends Edge<V>, ? extends Number> links) {
-        return span(terminals, links, vertex -> {}, edge -> true);
+        return span(terminals, null, links, vertex -> {}, edge -> true);
     }
 
     /**
@@ -353,10 +421,13 @@ public final class Spans {
      * 
      * @param terminals the essential vertices in the tree
      * 
+     * @param first the vertex to start from, or {@code null} if a
+     * vertex should be chosen arbitrarily
+     * 
      * @param links the available links and their weights
-     *
+     * 
      * @param onReached informed each time a vertex is reached
-     *
+     * 
      * @param edgeChecker consulted before adding an edge to a candidate
      * set
      * 
@@ -367,13 +438,125 @@ public final class Spans {
      * formed connecting all terminals
      */
     public static <V> Collection<Edge<V>>
-        span(Collection<? extends V> terminals,
+        span(Collection<? extends V> terminals, V first,
              Map<? extends Edge<V>, ? extends Number> links,
              Consumer<? super V> onReached,
              Predicate<? super Edge<V>> edgeChecker) {
         /* Get a set of edges connected to each vertex. */
         Map<V, Collection<Edge<V>>> outwards = new HashMap<>();
         for (Edge<V> link : links.keySet()) {
+            outwards.computeIfAbsent(link.first(), k -> new HashSet<>())
+                .add(link);
+            outwards.computeIfAbsent(link.second(), k -> new HashSet<>())
+                .add(link);
+        }
+
+        /* Keep track of vertices required. */
+        Collection<V> required = new HashSet<>(terminals);
+
+        /* Keep a set of vertices already included. */
+        Collection<V> reached = new HashSet<>();
+
+        /* Keep track of links immediately available. */
+        Collection<Edge<V>> reachable = new HashSet<>();
+
+        /* Keep track of links included in the result. */
+        Collection<Edge<V>> result = new HashSet<>();
+
+        /* Start by choosing one of the terminal vertices to be
+         * added. */
+        V adding = first != null ? first : terminals.iterator().next();
+
+        for (;;) {
+            /* All edges from the new vertex are new candidates for the
+             * next hop. */
+            reachable.addAll(outwards.getOrDefault(adding,
+                                                   Collections.emptySet()));
+
+            /* Add the chosen vertex, and indicate that it has been
+             * reached, stopping if we've now reached all terminals.
+             * Abort if there are no more options. */
+            reached.add(adding);
+            onReached.accept(adding);
+            required.remove(adding);
+            if (required.isEmpty()) break;
+            if (reachable.isEmpty()) return null;
+
+            /* Choose another vertex, the nearest to the tree we have so
+             * far. */
+            double bestDistance = Double.POSITIVE_INFINITY;
+            Edge<V> bestLink = null;
+            for (Iterator<Edge<V>> iter = reachable.iterator(); iter
+                .hasNext();) {
+                Edge<V> cand = iter.next();
+
+                /* Drop this edge altogether if both ends have been
+                 * reached. */
+                if ((reached.contains(cand.first())
+                    && reached.contains(cand.second()))
+                    || !edgeChecker.test(cand)) {
+                    iter.remove();
+                    continue;
+                }
+
+                double distance = links.get(cand).doubleValue();
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestLink = cand;
+                }
+            }
+
+            /* If there's no other hop to make, we've failed. */
+            if (bestLink == null) {
+                assert !required.isEmpty();
+                return null;
+            }
+
+            /* Add the link to the result, and don't use it again. */
+            result.add(bestLink);
+            reachable.remove(bestLink);
+
+            /* Ensure that vertices reachable one hop from this link are
+             * considered. */
+            if (reached.contains(bestLink.first()))
+                adding = bestLink.second();
+            else
+                adding = bestLink.first();
+        }
+
+        /* Get rid of useless spurs. */
+        prune(terminals, result);
+
+        return result;
+    }
+
+    /**
+     * Generate a spanning tree given a set of links, weights for each
+     * link, and a set of essential vertices in the tree.
+     * 
+     * @param terminals the essential vertices in the tree
+     * @param first TODO
+     * @param edges the available edges
+     * @param weights the weights of each edge
+     * @param onReached informed each time a vertex is reached
+     * @param edgeChecker consulted before adding an edge to a candidate
+     * set
+     * 
+     * @param <V> the vertex type
+     * 
+     * @return a set of links that form a tree connecting all the
+     * essential vertices, or {@code null} if no spanning tree could be
+     * formed connecting all terminals
+     */
+    public static <V> Collection<Edge<V>>
+        span(Collection<? extends V> terminals, V first,
+             Collection<? extends Edge<V>> edges,
+             Function<? super Edge<V>, ? extends Number> weights,
+             Consumer<? super V> onReached,
+             Predicate<? super Edge<V>> edgeChecker) {
+        /* Get a set of edges connected to each vertex. */
+        Map<V, Collection<Edge<V>>> outwards = new HashMap<>();
+        for (Edge<V> link : edges) {
             outwards.computeIfAbsent(link.first(), k -> new HashSet<>())
                 .add(link);
             outwards.computeIfAbsent(link.second(), k -> new HashSet<>())
@@ -428,7 +611,7 @@ public final class Spans {
                     continue;
                 }
 
-                double distance = links.get(cand).doubleValue();
+                double distance = weights.apply(cand).doubleValue();
                 if (distance < bestDistance) {
                     bestDistance = distance;
                     bestLink = cand;
