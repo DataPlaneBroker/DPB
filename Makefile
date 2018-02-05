@@ -13,6 +13,7 @@ jars += $(TEST_JARS)
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 roots_core += uk.ac.lancs.routing.span.Spans
+roots_core += uk.ac.lancs.routing.span.GraphSpanner
 roots_core += uk.ac.lancs.routing.span.DistanceVectorGraph
 roots_core += uk.ac.lancs.switches.Switch
 roots_core += uk.ac.lancs.switches.DummySwitch
