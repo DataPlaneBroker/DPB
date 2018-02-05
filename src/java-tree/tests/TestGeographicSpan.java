@@ -183,13 +183,22 @@ public class TestGeographicSpan {
      * @param args
      */
     public static void main(String[] args) throws Exception {
+        final int vertexCount = 100;
+        final int minTerminalCount = 2;
+        final int terminalCountRange = 4;
+        final double areaPerVertex = 5.0;
+        final double spacing = 10.0;
+
+        final int gridSize =
+            (int) Math.ceil(Math.sqrt(vertexCount * areaPerVertex));
+
         Random rng = new Random();
 
         /* Create a random set of vertices. */
         Collection<Vertex> vertices = new HashSet<>();
-        for (int i = 0; i < 20; i++) {
-            Vertex v =
-                new Vertex(rng.nextInt(10) * 10.0, rng.nextInt(10) * 10.0);
+        for (int i = 0; i < vertexCount; i++) {
+            Vertex v = new Vertex(rng.nextInt(gridSize) * spacing,
+                                  rng.nextInt(gridSize) * spacing);
             vertices.add(v);
         }
 
@@ -270,7 +279,8 @@ public class TestGeographicSpan {
         }
 
         /* Randomly select some vertices as terminals. */
-        final int toBeSelected = 2 + rng.nextInt(4);
+        final int toBeSelected =
+            minTerminalCount + rng.nextInt(terminalCountRange);
         Collection<Vertex> terminals = new HashSet<>();
         List<Vertex> remaining = new ArrayList<>(vertices);
         for (int i = 0; i < toBeSelected && !remaining.isEmpty(); i++) {
@@ -365,11 +375,14 @@ public class TestGeographicSpan {
                 + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
             out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
             out.println(" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
-            out.println(" viewBox='-10 -10 110 110'>");
+            out.printf(" viewBox='%g %g %g %g'>%n", -spacing, -spacing,
+                       (gridSize + 1) * spacing, (gridSize + 1) * spacing);
 
             out.println("<rect style='fill: white; "
                 + "stroke: black; stroke-width: 0.5'");
-            out.println(" x='-10' y='-10' width='110' height='110' />");
+            out.printf(" x='%g' y='%g' width='%g' height='%g' />%n", -spacing,
+                       -spacing, (gridSize + 1) * spacing,
+                       (gridSize + 1) * spacing);
 
             out.println("<g style='fill: none;"
                 + " stroke: rgb(200,200,200); stroke-width: 0.5'>");
