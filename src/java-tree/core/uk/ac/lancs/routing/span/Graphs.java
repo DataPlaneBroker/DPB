@@ -90,8 +90,8 @@ import java.util.stream.Collectors;
  * 
  * @author simpsons
  */
-public final class Spans {
-    private Spans() {}
+public final class Graphs {
+    private Graphs() {}
 
     /**
      * Generate forwarding information bases for all vertices in an

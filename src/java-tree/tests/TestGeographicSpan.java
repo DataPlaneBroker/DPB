@@ -12,9 +12,9 @@ import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import uk.ac.lancs.routing.span.DistanceVectorGraph;
+import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.Spans;
+import uk.ac.lancs.routing.span.Graphs;
 import uk.ac.lancs.routing.span.Way;
 
 /*
@@ -289,7 +289,7 @@ public class TestGeographicSpan {
         }
 
         /* Create routing tables on all nodes for all terminals. */
-        DistanceVectorGraph<Vertex> dv = new DistanceVectorGraph<>();
+        DistanceVectorComputer<Vertex> dv = new DistanceVectorComputer<>();
         dv.addTerminals(terminals);
         dv.addEdges(edges.stream()
             .collect(Collectors.toMap(e -> e, e -> length(e))));
@@ -335,7 +335,7 @@ public class TestGeographicSpan {
                 .filter(en -> !reached.contains(en.getKey()))
                 .mapToDouble(en -> en.getValue()).min()
                 .orElseGet(() -> Double.MAX_VALUE);
-            tree = Spans.span(terminals, bestVertex, edges, weights,
+            tree = Graphs.span(terminals, bestVertex, edges, weights,
                               reached::add, e -> true);
         } else {
             final Map<Edge<Vertex>, Double> spanWeights;
@@ -360,11 +360,11 @@ public class TestGeographicSpan {
             } else {
                 /* Compute terminal-aware weights for all edges. */
                 spanWeights =
-                    Spans.flatten(dv.getFIBs(),
+                    Graphs.flatten(dv.getFIBs(),
                                   (l, t, e, s0, c0, s1,
                                    c1) -> (s0 + s1 + (t - c0 + c1) * l));
             }
-            tree = Spans.span(terminals, spanWeights);
+            tree = Graphs.span(terminals, spanWeights);
         }
 
         try (PrintWriter out = new PrintWriter(new File("scratch/geo.svg"))) {

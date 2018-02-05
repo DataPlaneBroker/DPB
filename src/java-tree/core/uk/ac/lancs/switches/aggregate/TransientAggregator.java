@@ -51,9 +51,9 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import uk.ac.lancs.routing.span.DistanceVectorGraph;
+import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.Spans;
+import uk.ac.lancs.routing.span.Graphs;
 import uk.ac.lancs.routing.span.Way;
 import uk.ac.lancs.switches.Connection;
 import uk.ac.lancs.switches.ConnectionListener;
@@ -818,7 +818,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Create modifiable routing tables across our network, where
          * the vertices are inner (inferior) ports. */
-        DistanceVectorGraph<Port> fibGraph = new DistanceVectorGraph<Port>();
+        DistanceVectorComputer<Port> fibGraph = new DistanceVectorComputer<Port>();
 
         /* The terminals are the inner ports of those identified in the
          * request. */
@@ -848,7 +848,7 @@ public class TransientAggregator implements Aggregator {
         fibGraph.addEdges(switchEdgeWeights);
         // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
         Map<Port, Collection<Port>> portGroups =
-            Spans.getGroups(Spans.getAdjacencies(switchEdgeWeights.keySet()));
+            Graphs.getGroups(Graphs.getAdjacencies(switchEdgeWeights.keySet()));
         // System.err.printf("Port groups: %s%n",
         // new HashSet<>(portGroups.values()));
 
@@ -864,10 +864,10 @@ public class TransientAggregator implements Aggregator {
             /* Create terminal-aware weights for each edge, and build a
              * spanning tree. */
             Map<Edge<Port>, Double> weightedEdges =
-                Spans.flatten(fibGraph.getFIBs());
+                Graphs.flatten(fibGraph.getFIBs());
             Collection<Port> reached = new HashSet<>();
             Collection<Edge<Port>> tree =
-                Spans.span(innerTerminalPorts, null, weightedEdges,
+                Graphs.span(innerTerminalPorts, null, weightedEdges,
                            p -> reached.addAll(portGroups.get(p)), e -> {
                                /* Permit edges within the same
                                 * switch. */
@@ -888,8 +888,8 @@ public class TransientAggregator implements Aggregator {
              * that don't have enough bandwidth for what is going over
              * them. Identify the worst case. */
             Map<MyTrunk, List<Double>> edgeBandwidths = new HashMap<>();
-            DistanceVectorGraph<Port> routes =
-                new DistanceVectorGraph<>(innerTerminalPorts, tree.stream()
+            DistanceVectorComputer<Port> routes =
+                new DistanceVectorComputer<>(innerTerminalPorts, tree.stream()
                     .collect(Collectors.toMap(e -> e, edgeWeights::get)));
             routes.update();
             // System.err.printf("Loads: %s%n", routes.getEdgeLoads());
@@ -1033,7 +1033,7 @@ public class TransientAggregator implements Aggregator {
         // System.err.println("FIBs: " + fibs);
 
         /* Create terminal-aware weights for each edge. */
-        Map<Edge<Port>, Double> weightedEdges = Spans.flatten(fibs);
+        Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
         // System.err.println("Edges: " + weightedEdges);
 
         /* To impose additional constraints on the spanning tree, keep a
@@ -1046,7 +1046,7 @@ public class TransientAggregator implements Aggregator {
          * and rejecting edges connecting two already reached
          * switches. */
         Collection<Edge<Port>> tree =
-            Spans.span(innerTerminalPorts, null, weightedEdges,
+            Graphs.span(innerTerminalPorts, null, weightedEdges,
                        p -> reachedSwitches.add(p.getSwitch()), e -> {
                            SwitchControl first = e.first().getSwitch();
                            SwitchControl second = e.second().getSwitch();
@@ -1142,12 +1142,12 @@ public class TransientAggregator implements Aggregator {
         // System.err.println("Edges of trunks and switches: " + edges);
 
         /* Get rid of spurs as a small optimization. */
-        Spans.prune(innerTerminalPorts, edges.keySet());
+        Graphs.prune(innerTerminalPorts, edges.keySet());
         // System.err.println("Pruned edges of trunks and switches: " +
         // edges);
 
         /* Create routing tables for each port. */
-        return Spans.route(innerTerminalPorts, edges);
+        return Graphs.route(innerTerminalPorts, edges);
     }
 
     synchronized Map<Edge<Port>, Double> getModel(double bandwidth) {

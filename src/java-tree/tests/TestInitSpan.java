@@ -42,7 +42,7 @@ import java.util.HashSet;
 import java.util.Map;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.routing.span.Spans;
+import uk.ac.lancs.routing.span.Graphs;
 import uk.ac.lancs.routing.span.Way;
 
 /**
@@ -74,18 +74,18 @@ public class TestInitSpan {
         System.out.printf("Original graph: %s%n", graph);
 
         Collection<String> terminals = new HashSet<>(Arrays.asList("A", "J"));
-        Spans.prune(terminals, graph.keySet());
+        Graphs.prune(terminals, graph.keySet());
         System.out.printf("%nPruned graph: %s for %s%n", graph, terminals);
         System.out.println("  (should be unchanged)");
 
         Map<String, Map<String, Way<String>>> fibs =
-            Spans.route(terminals, graph);
+            Graphs.route(terminals, graph);
         System.out.printf("%nFIBs: %s%n", fibs);
 
-        Map<Edge<String>, Double> weights = Spans.flatten(fibs);
+        Map<Edge<String>, Double> weights = Graphs.flatten(fibs);
         System.out.printf("%nSpan-weighted graph: %s%n", weights);
 
-        Collection<Edge<String>> tree = Spans.span(terminals, weights);
+        Collection<Edge<String>> tree = Graphs.span(terminals, weights);
         System.out.printf("%nSpanning tree: %s%n", tree);
     }
 

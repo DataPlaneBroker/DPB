@@ -52,7 +52,7 @@ import java.util.function.Predicate;
  * 
  * @author simpsons
  */
-public final class GraphSpanner<V> {
+public final class SpanningTreeComputer<V> {
     /**
      * Collects parameters for building a spanning tree.
      * 
@@ -185,8 +185,8 @@ public final class GraphSpanner<V> {
          * 
          * @return the new spanner
          */
-        public GraphSpanner<V> create() {
-            return new GraphSpanner<>(this);
+        public SpanningTreeComputer<V> create() {
+            return new SpanningTreeComputer<>(this);
         }
     }
 
@@ -199,7 +199,7 @@ public final class GraphSpanner<V> {
         return new Builder<>();
     }
 
-    private GraphSpanner(Builder<V> builder) {
+    private SpanningTreeComputer(Builder<V> builder) {
         this.edges = builder.edges;
         this.edgeEliminator = builder.edgeEliminator;
         this.onReached = builder.onReached;
@@ -321,7 +321,7 @@ public final class GraphSpanner<V> {
         }
 
         /* Get rid of useless spurs. */
-        Spans.prune(terminals, result);
+        Graphs.prune(terminals, result);
 
         return result;
     }

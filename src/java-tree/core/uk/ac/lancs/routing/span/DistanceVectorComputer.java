@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * 
  * @author simpsons
  */
-public final class DistanceVectorGraph<V> {
+public final class DistanceVectorComputer<V> {
     private final Collection<V> terminals = new HashSet<>();
 
     /**
@@ -76,7 +76,7 @@ public final class DistanceVectorGraph<V> {
      * Create structures to maintain FIBs with distance-vector
      * information, with initially no graph or terminal information.
      */
-    public DistanceVectorGraph() {}
+    public DistanceVectorComputer() {}
 
     /**
      * Create structures to maintain FIBs with distance-vector
@@ -88,7 +88,7 @@ public final class DistanceVectorGraph<V> {
      * @param links the edges between vertices, and their distances (or
      * weights/costs)
      */
-    public DistanceVectorGraph(Collection<? extends V> terminals,
+    public DistanceVectorComputer(Collection<? extends V> terminals,
                                Map<? extends Edge<? extends V>, ? extends Number> links) {
         this.terminals.addAll(terminals);
 

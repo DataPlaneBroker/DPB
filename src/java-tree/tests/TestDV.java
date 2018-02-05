@@ -35,12 +35,12 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-import uk.ac.lancs.routing.span.DistanceVectorGraph;
+import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
 
 public class TestDV {
     public static void main(String[] args) {
-        DistanceVectorGraph<String> fibData = new DistanceVectorGraph<>();
+        DistanceVectorComputer<String> fibData = new DistanceVectorComputer<>();
         fibData.addTerminal("A");
         fibData.addTerminal("B");
         fibData.addTerminal("C");
