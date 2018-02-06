@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.Graphs;
+import uk.ac.lancs.routing.span.SpanningTreeComputer;
 import uk.ac.lancs.routing.span.Way;
 
 /*
@@ -192,7 +193,7 @@ public class TestGeographicSpan {
         final int gridSize =
             (int) Math.ceil(Math.sqrt(vertexCount * areaPerVertex));
 
-        Random rng = new Random();
+        Random rng = new Random(22);
 
         /* Create a random set of vertices. */
         Collection<Vertex> vertices = new HashSet<>();
@@ -297,7 +298,9 @@ public class TestGeographicSpan {
 
         /* Pick weights for selecting a spanning tree. */
         final Collection<Edge<Vertex>> tree;
-        if (true) {
+        final Map<Edge<Vertex>, Double> spanWeights;
+        if (false) {
+            spanWeights = Collections.emptyMap();
             Map<Vertex, Map<Vertex, Way<Vertex>>> fibs = dv.getFIBs();
 
             /* Collate ways by the edges they cross. Identify the
@@ -335,10 +338,12 @@ public class TestGeographicSpan {
                 .filter(en -> !reached.contains(en.getKey()))
                 .mapToDouble(en -> en.getValue()).min()
                 .orElseGet(() -> Double.MAX_VALUE);
-            tree = Graphs.span(terminals, bestVertex, edges, weights,
-                              reached::add, e -> true);
+            tree = SpanningTreeComputer.start(Vertex.class)
+                .withTerminals(terminals).withEdges(edges)
+                .withWeights(weights).create().getSpanningTree(bestVertex);
         } else {
-            final Map<Edge<Vertex>, Double> spanWeights;
+            /* Compute undirected weights for each edge by some means,
+             * then plot a normal spanning tree. */
             if (false) {
                 spanWeights = new HashMap<>(edges.stream().collect(Collectors
                     .toMap(e -> e, e -> Double.MAX_VALUE)));
@@ -361,10 +366,13 @@ public class TestGeographicSpan {
                 /* Compute terminal-aware weights for all edges. */
                 spanWeights =
                     Graphs.flatten(dv.getFIBs(),
-                                  (l, t, e, s0, c0, s1,
-                                   c1) -> (s0 + s1 + (t - c0 + c1) * l));
+                                   (l, t, e, s0, c0, s1, c1) -> (s0 + s1)
+                                       * (t + 1 - c0 - c1)
+                                       / ratio(c0 + 1.0, c1 + 1.0));
             }
-            tree = Graphs.span(terminals, spanWeights);
+            tree = SpanningTreeComputer.start(Vertex.class)
+                .withTerminals(terminals).withWeightedEdges(spanWeights)
+                .create().getSpanningTree();
         }
 
         try (PrintWriter out = new PrintWriter(new File("scratch/geo.svg"))) {
@@ -384,12 +392,24 @@ public class TestGeographicSpan {
                        -spacing, (gridSize + 1) * spacing,
                        (gridSize + 1) * spacing);
 
+            final Double maxWeight = spanWeights.values().stream()
+                .max(Double::compare).orElseGet(() -> null);
+            final double minWeight = spanWeights.values().stream()
+                .mapToDouble(Double::doubleValue).min().orElseGet(() -> 0.0);
             out.println("<g style='fill: none;"
                 + " stroke: rgb(200,200,200); stroke-width: 0.5'>");
             for (Edge<Vertex> edge : edges) {
-                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g' />%n",
+                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'",
                            edge.first().x, edge.first().y, edge.second().x,
                            edge.second().y);
+                if (maxWeight != null) {
+                    double weight = spanWeights.getOrDefault(edge, minWeight);
+                    weight -= minWeight;
+                    weight /= maxWeight - minWeight;
+                    int col = 200 - (int) (200 * weight);
+                    out.printf(" stroke='rgb(%d,%d,%d)'", col, col, col);
+                }
+                out.printf(" />%n");
             }
             out.println("</g>");
 
@@ -416,82 +436,90 @@ public class TestGeographicSpan {
             }
             out.println("</g>");
 
+            out.println("<g fill='black' stroke='none'"
+                + " font-size='2' text-anchor='middle'>");
+            for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> entry : dv
+                .getFIBs().entrySet()) {
+                Vertex v1 = entry.getKey();
+
+                /* Work out what to write. */
+                Map<Vertex, Double> sums = new HashMap<>();
+                Map<Vertex, Integer> counts = new HashMap<>();
+                for (Way<Vertex> way : entry.getValue().values()) {
+                    Vertex v2 = way.nextHop;
+                    if (v2 == null) continue;
+                    counts.put(v2, counts.getOrDefault(v2, 0) + 1);
+                    sums.put(v2, sums.getOrDefault(v2, 0.0) + way.distance);
+                }
+
+                for (Vertex v2 : sums.keySet()) {
+                    /* Work out where to write the text. */
+                    final double dx = v2.x - v1.x;
+                    final double dy = v2.y - v1.y;
+                    final double hyp = Math.hypot(dx, dy);
+                    final double sin = dy / hyp;
+                    final double cos = dx / hyp;
+
+                    /* Work out the centre to rotate around. */
+                    final double cx = v1.x + dx / 2.0;
+                    final double cy = v1.y + dy / 2.0;
+
+                    final double off = 0.7;
+                    final double mx = cx + sin * off;
+                    final double my = cy - cos * off;
+
+                    out.printf("<text transform='translate(%g %g)"
+                        + " matrix(%g %g %g %g 0 0)'>%.1f/%d</text>%n", mx,
+                               my, cos, sin, -sin, cos, sums.get(v2),
+                               counts.get(v2));
+                }
+            }
+            out.println("</g>");
+
             if (false) {
                 out.println("<g fill='black' stroke='none'"
-                    + " font-size='1' text-anchor='middle'>");
-                for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> entry : dv
-                    .getFIBs().entrySet()) {
-                    Vertex v1 = entry.getKey();
+                    + " font-size='2' text-anchor='middle'>");
+                for (Map.Entry<Edge<Vertex>, Double> entry : spanWeights
+                    .entrySet()) {
+                    if (entry.getValue() > 1000.0) continue;
 
-                    /* Work out what to write. */
-                    Map<Vertex, Double> sums = new HashMap<>();
-                    Map<Vertex, Integer> counts = new HashMap<>();
-                    for (Way<Vertex> way : entry.getValue().values()) {
-                        Vertex v2 = way.nextHop;
-                        if (v2 == null) continue;
-                        counts.put(v2, counts.getOrDefault(v2, 0) + 1);
-                        sums.put(v2,
-                                 sums.getOrDefault(v2, 0.0) + way.distance);
-                    }
+                    /* Work out where to write the text. */
+                    Vertex v1 = entry.getKey().first();
+                    Vertex v2 = entry.getKey().second();
+                    final double dx = v2.x - v1.x;
+                    final double dy = v2.y - v1.y;
+                    final double hyp = Math.hypot(dx, dy);
+                    final double sin = dy / hyp;
+                    final double cos = dx / hyp;
 
-                    for (Vertex v2 : sums.keySet()) {
-                        /* Work out where to write the text. */
-                        final double dx = v2.x - v1.x;
-                        final double dy = v2.y - v1.y;
-                        final double hyp = Math.hypot(dx, dy);
-                        final double sin = dy / hyp;
-                        final double cos = dx / hyp;
+                    /* Work out the centre to rotate around. */
+                    final double cx = v1.x + dx / 2.0;
+                    final double cy = v1.y + dy / 2.0;
 
-                        /* Work out the centre to rotate around. */
-                        final double cx = v1.x + dx / 2.0;
-                        final double cy = v1.y + dy / 2.0;
+                    final double off = 0.5;
+                    final double mx = cx + sin * off;
+                    final double my = cy - cos * off;
 
-                        final double off = 0.5;
-                        final double mx = cx + sin * off;
-                        final double my = cy - cos * off;
-
-                        out.printf("<text transform='translate(%g %g)"
-                            + " matrix(%g %g %g %g 0 0)'>%.1f/%d</text>%n",
-                                   mx, my, cos, sin, -sin, cos, sums.get(v2),
-                                   counts.get(v2));
-                    }
+                    out.printf("<text transform='translate(%g %g)"
+                        + " matrix(%g %g %g %g 0 0)'>%.1f</text>%n", mx, my,
+                               cos, sin, -sin, cos, entry.getValue());
                 }
                 out.println("</g>");
             }
-
-            out.println("<g fill='black' stroke='none'"
-                + " font-size='1' text-anchor='middle'>");
-            for (Map.Entry<Edge<Vertex>, Double> entry : Collections
-                .<Edge<Vertex>, Double>emptyMap().entrySet()) {
-                if (entry.getValue() > 1000.0) continue;
-
-                /* Work out where to write the text. */
-                Vertex v1 = entry.getKey().first();
-                Vertex v2 = entry.getKey().second();
-                final double dx = v2.x - v1.x;
-                final double dy = v2.y - v1.y;
-                final double hyp = Math.hypot(dx, dy);
-                final double sin = dy / hyp;
-                final double cos = dx / hyp;
-
-                /* Work out the centre to rotate around. */
-                final double cx = v1.x + dx / 2.0;
-                final double cy = v1.y + dy / 2.0;
-
-                final double off = 0.5;
-                final double mx = cx + sin * off;
-                final double my = cy - cos * off;
-
-                out.printf("<text transform='translate(%g %g)"
-                    + " matrix(%g %g %g %g 0 0)'>%.1f</text>%n", mx, my, cos,
-                           sin, -sin, cos, entry.getValue());
-            }
-            out.println("</g>");
 
             out.println("</svg>");
         }
     }
 
+    /**
+     * Get the smaller ratio of two numbers.
+     * 
+     * @param a the first number
+     * 
+     * @param b the second number
+     * 
+     * @return the smaller ratio, in the range [-1, +1]
+     */
     @SuppressWarnings("unused")
     private static double ratio(double a, double b) {
         if (Math.abs(a) > Math.abs(b))

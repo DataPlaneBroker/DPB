@@ -195,7 +195,7 @@ public final class SpanningTreeComputer<V> {
      * 
      * @return a fresh parameter collector
      */
-    public static <V> Builder<V> start() {
+    public static <V> Builder<V> start(Class<V> type) {
         return new Builder<>();
     }
 
