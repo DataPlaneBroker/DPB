@@ -104,7 +104,7 @@ public final class SpanningTreeComputer<V> {
          * 
          * @return this object
          */
-        public Builder<V> notify(Consumer<? super V> observer) {
+        public Builder<V> notifying(Consumer<? super V> observer) {
             this.onReached = observer;
             return this;
         }
@@ -114,8 +114,8 @@ public final class SpanningTreeComputer<V> {
          * 
          * @return this object
          */
-        public Builder<V> notifyNone() {
-            return notify(v -> {});
+        public Builder<V> notNotifying() {
+            return notifying(v -> {});
         }
 
         /**
@@ -126,7 +126,7 @@ public final class SpanningTreeComputer<V> {
          * 
          * @return this object
          */
-        public Builder<V> invert(boolean status) {
+        public Builder<V> inverted(boolean status) {
             inverted = status;
             return this;
         }
@@ -151,7 +151,7 @@ public final class SpanningTreeComputer<V> {
          * 
          * @return this object
          */
-        public Builder<V> retainingAll() {
+        public Builder<V> notEliminating() {
             return this.eliminating(e -> false);
         }
 

@@ -379,7 +379,7 @@ public class TestGeographicSpan {
             FIBSpanGuide guide = new FIBSpanGuide(dv.getFIBs());
             tree = SpanningTreeComputer.start(Vertex.class).withEdges(edges)
                 .withTerminals(terminals).withEdgePreference(guide::select)
-                .notify(guide::reached).create()
+                .notifying(guide::reached).create()
                 .getSpanningTree(guide.first());
         } else if (false) {
             spanWeights = Collections.emptyMap();

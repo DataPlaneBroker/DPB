@@ -53,7 +53,9 @@ import java.util.stream.IntStream;
 
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
+import uk.ac.lancs.routing.span.FIBSpanGuide;
 import uk.ac.lancs.routing.span.Graphs;
+import uk.ac.lancs.routing.span.SpanningTreeComputer;
 import uk.ac.lancs.routing.span.Way;
 import uk.ac.lancs.switches.Connection;
 import uk.ac.lancs.switches.ConnectionListener;
@@ -818,7 +820,8 @@ public class TransientAggregator implements Aggregator {
 
         /* Create modifiable routing tables across our network, where
          * the vertices are inner (inferior) ports. */
-        DistanceVectorComputer<Port> fibGraph = new DistanceVectorComputer<Port>();
+        DistanceVectorComputer<Port> fibGraph =
+            new DistanceVectorComputer<Port>();
 
         /* The terminals are the inner ports of those identified in the
          * request. */
@@ -847,8 +850,8 @@ public class TransientAggregator implements Aggregator {
                                       Map.Entry::getValue));
         fibGraph.addEdges(switchEdgeWeights);
         // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
-        Map<Port, Collection<Port>> portGroups =
-            Graphs.getGroups(Graphs.getAdjacencies(switchEdgeWeights.keySet()));
+        Map<Port, Collection<Port>> portGroups = Graphs
+            .getGroups(Graphs.getAdjacencies(switchEdgeWeights.keySet()));
         // System.err.printf("Port groups: %s%n",
         // new HashSet<>(portGroups.values()));
 
@@ -863,22 +866,38 @@ public class TransientAggregator implements Aggregator {
 
             /* Create terminal-aware weights for each edge, and build a
              * spanning tree. */
-            Map<Edge<Port>, Double> weightedEdges =
-                Graphs.flatten(fibGraph.getFIBs());
+            Map<Port, Map<Port, Way<Port>>> fibs = fibGraph.getFIBs();
+            //Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
+            FIBSpanGuide<Port> guide = new FIBSpanGuide<>(fibs);
             Collection<Port> reached = new HashSet<>();
-            Collection<Edge<Port>> tree =
-                Graphs.span(innerTerminalPorts, null, weightedEdges,
-                           p -> reached.addAll(portGroups.get(p)), e -> {
-                               /* Permit edges within the same
-                                * switch. */
-                               SwitchControl first = e.first().getSwitch();
-                               SwitchControl second = e.second().getSwitch();
-                               if (first == second) return true;
+            Collection<Edge<Port>> tree = SpanningTreeComputer
+                .start(Port.class).withEdges(edgeWeights.keySet())
+                .withTerminals(innerTerminalPorts).notifying(p -> {
+                    guide.reached(p);
+                    reached.addAll(portGroups.get(p));
+                }).withEdgePreference(guide::select).eliminating(e -> {
+                    /* Permit edges within the same switch. */
+                    SwitchControl first = e.first().getSwitch();
+                    SwitchControl second = e.second().getSwitch();
+                    if (first == second) return false;
 
-                               /* Allow this edge at least one port
-                                * hasn't been reached. */
-                               return !reached.containsAll(e);
-                           });
+                    /* Allow this edge at least one port hasn't been
+                     * reached. */
+                    return reached.containsAll(e);
+                }).create().getSpanningTree(guide.first());
+            // Collection<Edge<Port>> tree2 =
+            // Graphs.span(innerTerminalPorts, null, weightedEdges,
+            // p -> reached.addAll(portGroups.get(p)), e -> {
+            // /* Permit edges within the same
+            // * switch. */
+            // SwitchControl first = e.first().getSwitch();
+            // SwitchControl second = e.second().getSwitch();
+            // if (first == second) return true;
+            //
+            // /* Allow this edge at least one port
+            // * hasn't been reached. */
+            // return !reached.containsAll(e);
+            // });
             if (tree == null)
                 throw new IllegalArgumentException("no tree found");
             // System.err.printf("Spanning tree: %s%n", tree);
@@ -1033,7 +1052,7 @@ public class TransientAggregator implements Aggregator {
         // System.err.println("FIBs: " + fibs);
 
         /* Create terminal-aware weights for each edge. */
-        Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
+        // Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
         // System.err.println("Edges: " + weightedEdges);
 
         /* To impose additional constraints on the spanning tree, keep a
@@ -1045,17 +1064,28 @@ public class TransientAggregator implements Aggregator {
         /* Create the spanning tree, keeping track of reached switches,
          * and rejecting edges connecting two already reached
          * switches. */
-        Collection<Edge<Port>> tree =
-            Graphs.span(innerTerminalPorts, null, weightedEdges,
-                       p -> reachedSwitches.add(p.getSwitch()), e -> {
-                           SwitchControl first = e.first().getSwitch();
-                           SwitchControl second = e.second().getSwitch();
-                           if (first == second) return true;
-                           if (reachedSwitches.contains(first)
-                               && reachedSwitches.contains(second))
-                               return false;
-                           return true;
-                       });
+        FIBSpanGuide<Port> guide = new FIBSpanGuide<Port>(fibs);
+        Collection<Edge<Port>> tree = SpanningTreeComputer.start(Port.class)
+            .withEdgePreference(guide::select).eliminating(e -> {
+                SwitchControl first = e.first().getSwitch();
+                SwitchControl second = e.second().getSwitch();
+                if (first == second) return false;
+                if (reachedSwitches.contains(first)
+                    && reachedSwitches.contains(second)) return true;
+                return false;
+            }).notifying(p -> {
+                guide.reached(p);
+                reachedSwitches.add(p.getSwitch());
+            }).create().getSpanningTree(guide.first());
+
+        /* Collection<Edge<Port>> tree2 =
+         * Graphs.span(innerTerminalPorts, null, weightedEdges, p ->
+         * reachedSwitches.add(p.getSwitch()), e -> { SwitchControl
+         * first = e.first().getSwitch(); SwitchControl second =
+         * e.second().getSwitch(); if (first == second) return true; if
+         * (reachedSwitches.contains(first) &&
+         * reachedSwitches.contains(second)) return false; return true;
+         * }); */
 
         for (Edge<Port> edge : tree) {
             SwitchControl firstSwitch = edge.first().getSwitch();
