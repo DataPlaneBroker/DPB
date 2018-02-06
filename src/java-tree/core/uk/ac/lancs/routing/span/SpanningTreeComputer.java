@@ -37,6 +37,7 @@ package uk.ac.lancs.routing.span;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -65,8 +66,8 @@ public final class SpanningTreeComputer<V> {
         Collection<? extends V> terminals;
         Consumer<? super V> onReached = v -> {};
         Predicate<? super Edge<V>> edgeEliminator = e -> false;
-        Function<? super Edge<V>, ? extends Number> weights;
         boolean inverted;
+        Comparator<? super Edge<V>> edgePreference;
 
         private Builder() {}
 
@@ -163,8 +164,12 @@ public final class SpanningTreeComputer<V> {
          */
         public Builder<V>
             withWeights(Function<? super Edge<V>, ? extends Number> weights) {
-            this.weights = weights;
-            return this;
+            Comparator<Edge<V>> pref = (a, b) -> {
+                double av = weights.apply(a).doubleValue();
+                double bv = weights.apply(b).doubleValue();
+                return Double.compare(av, bv);
+            };
+            return this.withEdgePreference(pref);
         }
 
         /**
@@ -178,6 +183,12 @@ public final class SpanningTreeComputer<V> {
             withWeightedEdges(Map<? extends Edge<V>, ? extends Number> weightedEdges) {
             return withEdges(weightedEdges.keySet())
                 .withWeights(weightedEdges::get);
+        }
+
+        public Builder<V>
+            withEdgePreference(Comparator<? super Edge<V>> preference) {
+            this.edgePreference = preference;
+            return this;
         }
 
         /**
@@ -204,16 +215,15 @@ public final class SpanningTreeComputer<V> {
         this.edgeEliminator = builder.edgeEliminator;
         this.onReached = builder.onReached;
         this.terminals = builder.terminals;
-        this.weights = builder.weights;
-        this.inverted = builder.inverted;
+        this.edgePreference = builder.inverted
+            ? builder.edgePreference.reversed() : builder.edgePreference;
     }
 
-    private final boolean inverted;
     private final Collection<? extends Edge<V>> edges;
     private final Collection<? extends V> terminals;
     private final Consumer<? super V> onReached;
     private final Predicate<? super Edge<V>> edgeEliminator;
-    private final Function<? super Edge<V>, ? extends Number> weights;
+    private final Comparator<? super Edge<V>> edgePreference;
 
     /**
      * Get a spanning tree across the terminals, starting from one of
@@ -277,8 +287,6 @@ public final class SpanningTreeComputer<V> {
 
             /* Choose another vertex, the nearest to the tree we have so
              * far. */
-            double bestDistance = inverted ? Double.NEGATIVE_INFINITY
-                : Double.POSITIVE_INFINITY;
             Edge<V> bestLink = null;
             for (Iterator<Edge<V>> iter = reachable.iterator(); iter
                 .hasNext();) {
@@ -294,10 +302,8 @@ public final class SpanningTreeComputer<V> {
                     continue;
                 }
 
-                double distance = weights.apply(cand).doubleValue();
-                if ((inverted && distance > bestDistance)
-                    || (!inverted && distance < bestDistance)) {
-                    bestDistance = distance;
+                if (bestLink == null
+                    || edgePreference.compare(cand, bestLink) < 0) {
                     bestLink = cand;
                 }
             }
