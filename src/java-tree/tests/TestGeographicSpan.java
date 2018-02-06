@@ -186,7 +186,7 @@ public class TestGeographicSpan {
     public static void main(String[] args) throws Exception {
         final int vertexCount = 100;
         final int minTerminalCount = 2;
-        final int terminalCountRange = 4;
+        final int terminalCountRange = 8;
         final double areaPerVertex = 5.0;
         final double spacing = 10.0;
 
