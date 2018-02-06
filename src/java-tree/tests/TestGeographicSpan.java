@@ -193,7 +193,7 @@ public class TestGeographicSpan {
         final int gridSize =
             (int) Math.ceil(Math.sqrt(vertexCount * areaPerVertex));
 
-        Random rng = new Random(22);
+        Random rng = new Random();
 
         /* Create a random set of vertices. */
         Collection<Vertex> vertices = new HashSet<>();
@@ -299,7 +299,131 @@ public class TestGeographicSpan {
         /* Pick weights for selecting a spanning tree. */
         final Collection<Edge<Vertex>> tree;
         final Map<Edge<Vertex>, Double> spanWeights;
-        if (false) {
+        if (true) {
+            spanWeights = Collections.emptyMap();
+            class FIBSpanGuide {
+                final List<Vertex> sequence;
+                final Map<Edge<Vertex>, Map<Vertex, Double>> waysPerEdge =
+                    new HashMap<>();
+
+                FIBSpanGuide(Map<Vertex, Map<Vertex, Way<Vertex>>> fibs) {
+                    /* Collate distances to each terminal by edge. */
+                    Collection<Vertex> terminals = new HashSet<>();
+                    for (Map.Entry<Vertex, Map<Vertex, Way<Vertex>>> entry : fibs
+                        .entrySet()) {
+                        Vertex v1 = entry.getKey();
+                        for (Map.Entry<Vertex, Way<Vertex>> route : entry
+                            .getValue().entrySet()) {
+
+                            /* Get a full set of terminals while we're
+                             * at it. */
+                            Vertex term = route.getKey();
+                            terminals.add(term);
+
+                            Way<Vertex> way = route.getValue();
+                            Vertex v2 = way.nextHop;
+                            if (v2 == null) continue;
+                            Edge<Vertex> edge = Edge.of(v1, v2);
+                            waysPerEdge
+                                .computeIfAbsent(edge, k -> new HashMap<>())
+                                .put(term, way.distance);
+                        }
+                    }
+
+                    /* Find the longest distance to each terminal from
+                     * each other. */
+                    Map<Vertex, Double> worst = new HashMap<>();
+                    for (Vertex v1 : terminals) {
+                        for (Map.Entry<Vertex, Way<Vertex>> route : fibs
+                            .get(v1).entrySet()) {
+                            Vertex dest = route.getKey();
+                            Double soFar = worst.get(dest);
+                            double cand = route.getValue().distance;
+                            if (soFar == null || cand > soFar)
+                                worst.put(dest, cand);
+                        }
+                    }
+
+                    /* Sort terminals by longest distance. We will
+                     * connect the longest ones first. */
+                    sequence = new ArrayList<>(worst.keySet());
+                    Collections.sort(sequence, (a, b) -> {
+                        double ad = worst.get(a);
+                        double bd = worst.get(b);
+                        return Double.compare(bd, ad);
+                    });
+                }
+
+                void reached(Vertex v) {
+                    /* If the newly reached vertex is a terminal, we
+                     * will stop using routes to it. */
+                    sequence.remove(v);
+                }
+
+                int select(Edge<Vertex> a, Edge<Vertex> b) {
+                    /* Return negative if a is preferable to b. */
+                    Vertex target = sequence.get(0);
+                    double ad =
+                        waysPerEdge.getOrDefault(a, Collections.emptyMap())
+                            .getOrDefault(target, Double.MAX_VALUE);
+                    double bd =
+                        waysPerEdge.getOrDefault(b, Collections.emptyMap())
+                            .getOrDefault(target, Double.MAX_VALUE);
+                    return Double.compare(ad, bd);
+                }
+
+                Vertex first() {
+                    return sequence.get(0);
+                }
+            }
+            FIBSpanGuide guide = new FIBSpanGuide(dv.getFIBs());
+            tree = SpanningTreeComputer.start(Vertex.class).withEdges(edges)
+                .withTerminals(terminals).withEdgePreference(guide::select)
+                .notify(guide::reached).create()
+                .getSpanningTree(guide.first());
+        } else if (false) {
+            spanWeights = Collections.emptyMap();
+            Map<Vertex, Map<Vertex, Way<Vertex>>> fibs = dv.getFIBs();
+            Map<Edge<Vertex>, Graphs.ForwardingTally> tallies =
+                new HashMap<>(fibs.size());
+            Collection<Vertex> derivedTerminals = new HashSet<>();
+            Graphs.tallyForwarding(fibs, tallies, derivedTerminals::add);
+            tree = SpanningTreeComputer.start(Vertex.class).withEdges(edges)
+                .withTerminals(terminals).withEdgePreference((a, b) -> {
+                    Graphs.ForwardingTally at = tallies.get(a);
+                    Graphs.ForwardingTally bt = tallies.get(b);
+
+                    /* Whichever has routes is better. */
+                    if (at == null) {
+                        if (bt == null) {
+                            return 0;
+                        } else {
+                            return +1;
+                        }
+                    } else if (bt == null) { return -1; }
+
+                    {
+                        /* Whichever has a more even count of routes is
+                         * better. */
+                        int[] acs = { at.count(0), at.count(1) };
+                        Arrays.sort(acs);
+                        int[] bcs = { bt.count(0), bt.count(1) };
+                        Arrays.sort(bcs);
+                        acs[1] *= bcs[0];
+                        bcs[1] *= acs[0];
+                        int ratdiff = Integer.compare(acs[1], bcs[1]);
+                        if (ratdiff != 0) return ratdiff;
+                    }
+
+                    /* Whichever has more routes is better. */
+                    {
+                        int cdiff = bt.count() - at.count();
+                        if (cdiff != 0) return cdiff;
+                    }
+
+                    return Double.compare(at.sum(), bt.sum());
+                }).create().getSpanningTree();
+        } else if (false) {
             spanWeights = Collections.emptyMap();
             Map<Vertex, Map<Vertex, Way<Vertex>>> fibs = dv.getFIBs();
 
@@ -364,11 +488,9 @@ public class TestGeographicSpan {
                 }
             } else {
                 /* Compute terminal-aware weights for all edges. */
-                spanWeights =
-                    Graphs.flatten(dv.getFIBs(),
-                                   (l, t, e, s0, c0, s1, c1) -> (s0 + s1)
-                                       * (t + 1 - c0 - c1)
-                                       / ratio(c0 + 1.0, c1 + 1.0));
+                spanWeights = Graphs.flatten(dv.getFIBs(),
+                                             (l, t, e, s0, c0, s1, c1) -> 1.0
+                                                 / (1.0 + s0 + s1));
             }
             tree = SpanningTreeComputer.start(Vertex.class)
                 .withTerminals(terminals).withWeightedEdges(spanWeights)
@@ -406,21 +528,39 @@ public class TestGeographicSpan {
                     double weight = spanWeights.getOrDefault(edge, minWeight);
                     weight -= minWeight;
                     weight /= maxWeight - minWeight;
-                    int col = 200 - (int) (200 * weight);
-                    out.printf(" stroke='rgb(%d,%d,%d)'", col, col, col);
+                    if (tree.contains(edge)) {
+                        int col = 200 - (int) (100 * weight);
+                        out.printf(" stroke='rgb(%d,0,0)'", col);
+                    } else {
+                        int col = 200 - (int) (200 * weight);
+                        out.printf(" stroke='rgb(%d,%d,%d)'", col, col, col);
+                    }
+                } else if (tree.contains(edge)) {
+                    out.printf(" stroke='rgb(200,0,0)'");
                 }
                 out.printf(" />%n");
             }
             out.println("</g>");
 
-            out.println("<g style='fill: none;"
-                + " stroke: rgb(200,0,0); stroke-width: 1.0'>");
-            for (Edge<Vertex> edge : tree) {
-                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g' />%n",
-                           edge.first().x, edge.first().y, edge.second().x,
-                           edge.second().y);
+            if (false) {
+                out.println("<g style='fill: none;"
+                    + " stroke: rgb(200,0,0); stroke-width: 0.5'>");
+                for (Edge<Vertex> edge : tree) {
+                    out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'",
+                               edge.first().x, edge.first().y,
+                               edge.second().x, edge.second().y);
+                    if (maxWeight != null) {
+                        double weight =
+                            spanWeights.getOrDefault(edge, minWeight);
+                        weight -= minWeight;
+                        weight /= maxWeight - minWeight;
+                        int col = 200 - (int) (200 * weight);
+                        out.printf(" stroke='rgb(%d,0,0)'", col);
+                    }
+                    out.printf(" />%n");
+                }
+                out.println("</g>");
             }
-            out.println("</g>");
 
             out.println("<g fill='red' stroke='none'>");
             for (Vertex v : terminals) {

@@ -323,6 +323,106 @@ public final class Graphs {
     }
 
     /**
+     * Summarizes routes across an edge.
+     * 
+     * @author simpsons
+     */
+    public static final class ForwardingTally {
+        private ForwardingTally() {}
+
+        double[] dividend = { 0.0, 0.0 };
+        int[] divisor = { 0, 0 };
+
+        void add(int pos, double distance) {
+            dividend[pos] += distance;
+            divisor[pos]++;
+        }
+
+        /**
+         * Get the sum of distances for routes across this edge in a
+         * given direction.
+         * 
+         * @param i 0 or 1, indicating which direction is being
+         * considered
+         * 
+         * @return the sum of distances across this edge
+         */
+        public double sum(int i) {
+            return dividend[i];
+        }
+
+        /**
+         * Get the count of routes across this edge in a given
+         * direction.
+         * 
+         * @param i 0 or 1, indicating which direction is being
+         * considered
+         * 
+         * @return the number of routes across this edge
+         */
+        public int count(int i) {
+            return divisor[i];
+        }
+
+        /**
+         * Get the sum of distances for routes across this edge in both
+         * directions.
+         * 
+         * @return the sum of distances across this edge
+         */
+        public double sum() {
+            return sum(0) + sum(1);
+        }
+
+        /**
+         * Get the count of routes across this edge in both directions.
+         * 
+         * @return the number of routes across this edge
+         */
+        public int count() {
+            return count(0) + count(1);
+        }
+    }
+
+    /**
+     * Collate FIB routes according to the edges they apply to.
+     * 
+     * @param fibs the FIBs of the graph
+     * 
+     * @param tallies a place to store accumulated routes per edge
+     * 
+     * @param terminals a place to store encountered destinations
+     * mentioned by routes
+     * 
+     * @return the longest distance encountered in a route
+     */
+    public static <V> double
+        tallyForwarding(Map<? extends V, ? extends Map<? extends V, ? extends Way<V>>> fibs,
+                        Map<? super Edge<V>, ForwardingTally> tallies,
+                        Consumer<? super V> terminals) {
+        /* Accumulate tallies for each link. */
+        double longest = 0.0;
+        for (Map.Entry<? extends V, ? extends Map<? extends V, ? extends Way<V>>> nodeFib : fibs
+            .entrySet()) {
+            V first = nodeFib.getKey();
+            Map<? extends V, ? extends Way<V>> fib = nodeFib.getValue();
+            for (Map.Entry<? extends V, ? extends Way<V>> entry : fib
+                .entrySet()) {
+                terminals.accept(entry.getKey());
+                Way<V> way = entry.getValue();
+                V second = way.nextHop;
+                if (second == null) continue;
+                Edge<V> edge = Edge.of(first, second);
+                ForwardingTally t =
+                    tallies.computeIfAbsent(edge, k -> new ForwardingTally());
+                t.add(edge.indexOf(first), way.distance);
+                if (way.distance > longest) longest = way.distance;
+            }
+        }
+        return longest;
+    }
+
+    /**
      * Given the forwarding information bases of all vertices, create an
      * undirected weighted graph suitable for choosing a spanning tree
      * from, using a user-defined function.

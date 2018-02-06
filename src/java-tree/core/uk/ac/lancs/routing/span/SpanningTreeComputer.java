@@ -185,6 +185,17 @@ public final class SpanningTreeComputer<V> {
                 .withWeights(weightedEdges::get);
         }
 
+        /**
+         * Specify how to select one edge over another. The supplied
+         * comparator should return negative if its first operand is
+         * better, positive if its second is better, or zero if there is
+         * no distinction.
+         * 
+         * @param preference a comparator that identifies earlier edges
+         * as preferable
+         * 
+         * @return this object
+         */
         public Builder<V>
             withEdgePreference(Comparator<? super Edge<V>> preference) {
             this.edgePreference = preference;
