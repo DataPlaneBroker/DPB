@@ -20,6 +20,10 @@ roots_core += uk.ac.lancs.switches.DummySwitch
 roots_core += uk.ac.lancs.switches.aggregate.Aggregator
 roots_core += uk.ac.lancs.switches.aggregate.TransientAggregator
 
+SELECTED_JARS += initiate-dpb-util
+trees_initiate-dpb-util += util
+roots_util += uk.ac.lancs.config.ConfigurationContext
+
 TEST_JARS += tests
 roots_tests += TestOddSpan
 roots_tests += TestInitSpan
@@ -40,6 +44,7 @@ DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.switches
 DOC_PKGS += uk.ac.lancs.switches.aggregate
+DOC_PKGS += uk.ac.lancs.config
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)
@@ -65,6 +70,9 @@ testinitdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 
 testgeospan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestGeographicSpan
+
+testconfig: all
+	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-util.jar uk.ac.lancs.config.ConfigurationContext scratch/test.properties
 
 #blank:: clean
 
