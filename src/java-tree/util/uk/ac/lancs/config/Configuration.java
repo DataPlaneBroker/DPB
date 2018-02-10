@@ -45,7 +45,15 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * Views a configuration structurally.
+ * Views a set of named configuration properties. Property names are the
+ * same as for Java properties files.
+ * 
+ * <p>
+ * Subviews of a configuration are obtainable. For example, if the
+ * subview <samp>foo.bar</samp> is obtained, then only properties whose
+ * names in the original view begin with <samp>foo.bar.</samp> will be
+ * visible. Furthermore, their names will lack the prefix
+ * <samp>foo.bar.</samp>.
  * 
  * @author simpsons
  */
@@ -83,7 +91,8 @@ public interface Configuration {
      * 
      * @return the selected keys
      */
-    default Iterable<String> keys(Predicate<? super String> condition) {
+    default Iterable<String>
+        selectedKeys(Predicate<? super String> condition) {
         return new Iterable<String>() {
             @Override
             public Iterator<String> iterator() {
@@ -102,7 +111,7 @@ public interface Configuration {
      * @return the transformed keys
      */
     default <K> Iterable<K>
-        keys(Function<? super String, ? extends K> xform) {
+        transformedKeys(Function<? super String, ? extends K> xform) {
         return new Iterable<K>() {
             @Override
             public Iterator<K> iterator() {
@@ -123,8 +132,8 @@ public interface Configuration {
      * @return the selected and then transformed keys
      */
     default <K> Iterable<K>
-        keys(Predicate<? super String> precondition,
-             Function<? super String, ? extends K> xform) {
+        transformedSelectedKeys(Predicate<? super String> precondition,
+                                Function<? super String, ? extends K> xform) {
         return new Iterable<K>() {
             @Override
             public Iterator<K> iterator() {
@@ -145,8 +154,9 @@ public interface Configuration {
      * 
      * @return the selected transformed keys
      */
-    default <K> Iterable<K> keys(Function<? super String, ? extends K> xform,
-                                 Predicate<? super K> postcondition) {
+    default <K> Iterable<K>
+        selectedTransformedKeys(Function<? super String, ? extends K> xform,
+                                Predicate<? super K> postcondition) {
         return new Iterable<K>() {
             @Override
             public Iterator<K> iterator() {
@@ -169,9 +179,10 @@ public interface Configuration {
      * 
      * @return the selected transformed keys
      */
-    default <K> Iterable<K> keys(Predicate<? super String> precondition,
-                                 Function<? super String, ? extends K> xform,
-                                 Predicate<? super K> postcondition) {
+    default <K> Iterable<K>
+        selectedTransformedSelectedKeys(Predicate<? super String> precondition,
+                                        Function<? super String, ? extends K> xform,
+                                        Predicate<? super K> postcondition) {
         return new Iterable<K>() {
             @Override
             public Iterator<K> iterator() {

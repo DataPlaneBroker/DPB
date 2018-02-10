@@ -36,6 +36,31 @@
 
 /**
  * Contains packages for managing self-referencing configuration files.
+ * The files contain Java properties. When loaded, keys ending with
+ * <samp>inherit.<var>num</var></samp> and an integer are found. Their
+ * values are URI references that identify another part of a properties
+ * file, possible the same one. Properties from that file are copied to
+ * the referring configuration, with their keys modified. The number
+ * specifies the order in which to inherit properties this way, with
+ * lower numbers overriding higher ones.
+ * 
+ * <p>
+ * For example, if keys beginning with <samp>foo.bar.</samp> are
+ * referenced by entry <samp>yan.tan.inherit.0</samp>, then
+ * <samp>foo.bar.baz></samp> will be copied to <samp>yan.tan.baz</samp>.
+ * 
+ * <p>
+ * Inherit directives are removed from the view presented to the user.
+ * 
+ * <p>
+ * Example:
+ * 
+ * <pre>
+ * ConfigurationContext ctxt = new ConfigurationContext();
+ * Configuration root = ctxt.get("config.properties");
+ * Configuration foo = root.subview("foo");
+ * assert foo.get("bar").equals(root.get("foo.bar"));
+ * </pre>
  * 
  * @author simpsons
  */

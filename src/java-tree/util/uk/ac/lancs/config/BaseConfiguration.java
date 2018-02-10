@@ -44,6 +44,7 @@ import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -55,6 +56,7 @@ final class BaseConfiguration implements Configuration {
     private final ConfigurationContext context;
     private final URI location;
     private final Properties props;
+    private final Collection<String> removed = new HashSet<>();
 
     private static final Pattern INHERITANCE =
         Pattern.compile("^((?:[^.]+\\.)*)inherit\\.(\\d+)$");
@@ -70,17 +72,16 @@ final class BaseConfiguration implements Configuration {
     void init() throws IOException {
         /* Gather all inheritance declarations. */
         Map<String, Map<Integer, URI>> inheritance = new TreeMap<>();
-        Collection<String> inheritKeys = new HashSet<>();
         for (String key : props.stringPropertyNames()) {
             Matcher m = INHERITANCE.matcher(key);
             if (!m.matches()) continue;
-            inheritKeys.add(key);
+            removed.add(key);
             String prefix = m.group(1);
             int seqno = Integer.parseInt(m.group(2));
             URI reference = this.location.resolve(props.getProperty(key));
             URI page = defragment(reference);
             String fragment = reference.getFragment();
-            if (fragment != null && page.equals(this.location)) {
+            if (false && fragment != null && page.equals(this.location)) {
                 /* Resolve the fragment against our prefix. */
                 fragment =
                     Configuration.normalizeKey(m.group(1) + '.' + fragment);
@@ -91,7 +92,7 @@ final class BaseConfiguration implements Configuration {
                                             .compare(b, a)))
                 .put(seqno, reference);
         }
-        for (String key : inheritKeys)
+        for (String key : removed)
             props.remove(key);
 
         for (Map.Entry<String, Map<Integer, URI>> entry : inheritance
@@ -147,6 +148,7 @@ final class BaseConfiguration implements Configuration {
     }
 
     public String get(String key) {
+        if (removed.contains(key)) return null;
         return props.getProperty(key);
     }
 
@@ -158,6 +160,12 @@ final class BaseConfiguration implements Configuration {
 
     @Override
     public Iterable<String> keys() {
-        return props.stringPropertyNames();
+        return new Iterable<String>() {
+            @Override
+            public Iterator<String> iterator() {
+                return new FilterIterator<String>(props.stringPropertyNames()
+                    .iterator(), k -> !removed.contains(k));
+            }
+        };
     }
 }

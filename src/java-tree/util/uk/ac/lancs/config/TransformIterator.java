@@ -38,10 +38,27 @@ package uk.ac.lancs.config;
 import java.util.Iterator;
 import java.util.function.Function;
 
+/**
+ * Transforms elements of an iterator, possibly into a different type.
+ * 
+ * @param <F> the original iterator's element type
+ * 
+ * @param <T> the new view's element type
+ * 
+ * @author simpsons
+ */
 class TransformIterator<F, T> implements Iterator<T> {
     private final Iterator<? extends F> base;
     private final Function<? super F, ? extends T> function;
 
+    /**
+     * Create a new view of an iterator in which each element is
+     * transformed.
+     * 
+     * @param base the original iterator
+     * 
+     * @param function the transformation function
+     */
     TransformIterator(Iterator<? extends F> base,
                       Function<? super F, ? extends T> function) {
         this.base = base;

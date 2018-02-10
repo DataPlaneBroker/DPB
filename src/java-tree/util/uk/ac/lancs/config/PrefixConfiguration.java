@@ -36,7 +36,6 @@
 package uk.ac.lancs.config;
 
 import java.net.URI;
-import java.util.function.Predicate;
 
 /**
  * Views only parts of a configuration with a given prefix.
@@ -72,12 +71,13 @@ class PrefixConfiguration implements Configuration {
     @Override
     public Configuration subview(String prefix) {
         prefix = Configuration.normalizeKey(this.prefix + prefix);
+        if (prefix.isEmpty()) return base;
         return new PrefixConfiguration(context, location, base, prefix);
     }
 
     @Override
     public Iterable<String> keys() {
-        Predicate<String> selector = s -> s.startsWith(prefix);
-        return base.keys(selector, s -> s.substring(prefixLength));
+        return base.transformedSelectedKeys(s -> s.startsWith(prefix),
+                                            s -> s.substring(prefixLength));
     }
 }

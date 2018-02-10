@@ -38,10 +38,26 @@ package uk.ac.lancs.config;
 import java.util.Iterator;
 import java.util.function.Predicate;
 
+/**
+ * Eliminates items from an iterator.
+ * 
+ * @param <E> the element type
+ * 
+ * @author simpsons
+ */
 class FilterIterator<E> implements Iterator<E> {
     private final Iterator<? extends E> base;
     private final Predicate<? super E> condition;
 
+    /**
+     * Create new view over an iterator that includes only a subset of
+     * items.
+     * 
+     * @param base the original iterator
+     * 
+     * @param condition a predicate selecting items to be present in the
+     * new view
+     */
     FilterIterator(Iterator<? extends E> base,
                    Predicate<? super E> condition) {
         this.base = base;

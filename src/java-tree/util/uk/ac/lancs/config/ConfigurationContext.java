@@ -42,7 +42,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Caches mutually referenced configurations.
+ * Caches mutually referenced configurations. When configurations loaded
+ * through the same context contain references to the same
+ * configuration, the configuration is fetched only once.
  * 
  * @author simpsons
  */
@@ -81,8 +83,11 @@ public final class ConfigurationContext {
     }
 
     /**
-     * Get the configuration from a file. The fragment may be a subview
-     * identifier.
+     * Get the configuration from a file.
+     * 
+     * <p>
+     * This method simply converts the {@link File} into a {@link URI},
+     * and calls {@link #get(URI)}.
      * 
      * @param file the location to load the configuration from
      * 
@@ -96,13 +101,35 @@ public final class ConfigurationContext {
     }
 
     /**
+     * Get the configuration from a file named by a string.
+     * 
+     * <p>
+     * This method simply converts the {@link String} into a
+     * {@link File}, and calls {@link #get(File)}.
+     * 
+     * @param name the name of the file to load the configuration from
+     * 
+     * @return the requested configuration
+     * 
+     * @throws IOException if there was an error loading the
+     * configuration
+     */
+    public Configuration get(String name) throws IOException {
+        return get(new File(name));
+    }
+
+    /**
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
         ConfigurationContext ctxt = new ConfigurationContext();
         Configuration base = ctxt.get(new File(args[0]));
+        Configuration sop = base.subview("sop");
         for (String key : base.keys()) {
-            System.out.printf("%s -> %s%n", key, base.get(key));
+            System.out.printf("base %s -> %s%n", key, base.get(key));
+        }
+        for (String key : sop.keys()) {
+            System.out.printf("sop %s -> %s%n", key, sop.get(key));
         }
     }
 }
