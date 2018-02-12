@@ -16,7 +16,7 @@ roots_core += uk.ac.lancs.routing.span.Graphs
 roots_core += uk.ac.lancs.routing.span.SpanningTreeComputer
 roots_core += uk.ac.lancs.routing.span.DistanceVectorComputer
 roots_core += uk.ac.lancs.switches.Switch
-roots_core += uk.ac.lancs.switches.DummySwitch
+roots_core += uk.ac.lancs.switches.transients.DummySwitch
 roots_core += uk.ac.lancs.switches.aggregate.Aggregator
 roots_core += uk.ac.lancs.switches.aggregate.TransientAggregator
 
@@ -44,6 +44,8 @@ DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.switches
 DOC_PKGS += uk.ac.lancs.switches.aggregate
+DOC_PKGS += uk.ac.lancs.switches.transients
+DOC_PKGS += uk.ac.lancs.switches.persist
 DOC_PKGS += uk.ac.lancs.config
 
 DOC_OVERVIEW=src/java-overview.html

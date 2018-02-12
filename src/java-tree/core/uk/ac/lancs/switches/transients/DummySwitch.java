@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
+package uk.ac.lancs.switches.transients;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -46,6 +46,14 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
+import uk.ac.lancs.switches.Connection;
+import uk.ac.lancs.switches.ConnectionListener;
+import uk.ac.lancs.switches.ConnectionRequest;
+import uk.ac.lancs.switches.ConnectionStatus;
+import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.Switch;
+import uk.ac.lancs.switches.SwitchControl;
 
 /**
  * Implements an entirely virtual switch that does nothing.
