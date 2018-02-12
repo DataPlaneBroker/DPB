@@ -33,12 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.aggregate;
+package uk.ac.lancs.switches.transients;
 
 import java.util.List;
 
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.aggregate.Trunk;
 
 /**
  * Represents a physical link with a fixed delay and a remaining

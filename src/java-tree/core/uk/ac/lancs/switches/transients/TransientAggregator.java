@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.aggregate;
+package uk.ac.lancs.switches.transients;
 
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -64,6 +64,8 @@ import uk.ac.lancs.switches.ConnectionStatus;
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Port;
 import uk.ac.lancs.switches.SwitchControl;
+import uk.ac.lancs.switches.aggregate.Aggregator;
+import uk.ac.lancs.switches.aggregate.Trunk;
 
 /**
  * Implements a switch aggregator with no persistent state.

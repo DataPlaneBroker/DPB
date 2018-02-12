@@ -6,9 +6,9 @@ import uk.ac.lancs.switches.ConnectionRequest;
 import uk.ac.lancs.switches.Port;
 import uk.ac.lancs.switches.Switch;
 import uk.ac.lancs.switches.aggregate.Aggregator;
-import uk.ac.lancs.switches.aggregate.TransientAggregator;
 import uk.ac.lancs.switches.aggregate.Trunk;
 import uk.ac.lancs.switches.transients.DummySwitch;
+import uk.ac.lancs.switches.transients.TransientAggregator;
 
 /*
  * Copyright 2017, Regents of the University of Lancaster
