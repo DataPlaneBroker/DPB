@@ -35,26 +35,26 @@
  */
 
 /**
- * Provides classes for adapting a high-level switch abstraction to a
- * physical switch.
+ * Provides classes for adapting a network abstraction to a physical
+ * switch.
  * 
  * <p>
- * A physical switch has <dfn>interfaces</dfn>, which might correspond
- * to physical ports, or to ports with some sort of tagging, or to port
- * aggregations. An interface is described by a set of properties
- * expressed as {@link uk.ac.lancs.config.Configuration}, and
- * {@link Backend#getPort(uk.ac.lancs.config.Configuration)} can be used
- * to obtain one.
+ * The {@link uk.ac.lancs.switches.Terminal}s of a physical switch are
+ * <dfn>interfaces</dfn>, which might correspond to physical ports, or
+ * to ports with some sort of tagging, or to port aggregations. An
+ * interface is described by an implemenation-defined string, and
+ * {@link Switch#getInterface(String)} can be used to obtain one.
  * 
  * <p>
- * A physical switch establishes a set of <dfn>bindings</dfn>, each
- * connecting a subset of its interfaces with outgoing shaping and
- * incoming metering of bandwidth. A switch can be asked to
- * <em>ensure</em> that a binding exists with
- * {@link Backend#bind(BackendListener, java.util.Map)}. Bindings should
+ * A physical switch establishes a set of <dfn>bridges</dfn>, each
+ * connecting {@link uk.ac.lancs.switches.EndPoint}s of a subset of its
+ * interfaces with outgoing shaping and incoming metering of bandwidth
+ * (an {@link uk.ac.lancs.switches.backend.Enforcement}). A switch can
+ * be asked to <em>ensure</em> that a bridge exists with
+ * {@link Switch#bridge(BackendListener, java.util.Map)}. Bridges should
  * be removed by asking the switch to <em>retain</em> all others,
  * allowing the remote management software of a switch to restart after
- * breakdown without disrupting any existing bindings.
+ * breakdown without disrupting any existing bridges.
  * 
  * @author simpsons
  */

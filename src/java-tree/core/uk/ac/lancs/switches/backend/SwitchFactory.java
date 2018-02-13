@@ -35,9 +35,25 @@
  */
 package uk.ac.lancs.switches.backend;
 
+import java.util.concurrent.Executor;
+
+import uk.ac.lancs.config.Configuration;
+
 /**
- * 
+ * Creates switches from configuration.
  * 
  * @author simpsons
  */
-public interface BackendListener {}
+public interface SwitchFactory {
+    /**
+     * Create a switch from configuration. The only reserved key is
+     * <samp>class</samp>.
+     * 
+     * @param config the switch configuration
+     * 
+     * @param executor used to invoke {@link BridgeListener}s
+     * 
+     * @return the configured switch
+     */
+    Switch makeSwitch(Executor executor, Configuration config);
+}

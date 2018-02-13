@@ -38,62 +38,64 @@ package uk.ac.lancs.switches.backend;
 import java.util.Collection;
 import java.util.Map;
 
-import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.NetworkControl;
+import uk.ac.lancs.switches.Terminal;
 
 /**
  * Abstracts a physical switch. This is a simpler interface than
  * {@link NetworkControl}, as there is no creation of ports, only
- * acquisition, and only binary connection state (no reserved/active
+ * acquisition, and only binary service state (no reserved/active
  * distinction).
  * 
  * <p>
- * Physical or virtual interfaces on the switch are identifiable by
- * configuration, usually supplied to the management of the network
- * abstraction along with an abstract port name. The network passes this
- * abstraction to {@link #getPort(Configuration)} when it needs to set
- * up a connection (a binding, at this level).
+ * Physical or virtual interfaces on the switch correspond to
+ * {@link Terminal}s in the higher abstraction, and are identifiable by
+ * implementation-defined strings, usually supplied to the management of
+ * the network abstraction along with an abstract terminal name. The
+ * network passes this abstraction to {@link #getInterface(String)} when
+ * it needs to set up a service (a bridge, at this level).
  * 
  * <p>
- * When several interfaces and bandwidth requirements have been gathered
- * to implement a connection, they are a requested as a binding with
- * {@link #bind(BackendListener, Map)}. The physical switch ensures that
- * each requested binding exists (it might already), and then a call to
- * {@link #retainBindings(Collection)} can be used at the end of a
- * recovery phase to flush out resources left over from previous
- * invocations.
+ * When end points of several interfaces and bandwidth requirements have
+ * been gathered to implement a service, they are a requested as a
+ * bridge with {@link #bridge(BridgeListener, Map)}. The physical switch
+ * ensures that each requested bridge exists (it might already), and
+ * then a call to {@link #retainBridges(Collection)} can be used at the
+ * end of a recovery phase to flush out resources left over from
+ * previous invocations.
  * 
  * @author simpsons
  */
-public interface Backend {
+public interface Switch {
     /**
-     * Identify an interface by configuration.
+     * Identify an interface by description. Terminal objects generated
+     * by a switch should equate when described using the same string.
      * 
-     * @param conf a description of the interface
+     * @param desc a description of the interface
      * 
      * @return a reference which identifies the interface
      */
-    Terminal getPort(String conf);
+    Terminal getInterface(String desc);
 
     /**
-     * Ensure a binding exists.
+     * Ensure that a bridge exists.
      * 
      * @param listener an object informed about changes to the state of
-     * the binding
+     * the bridge
      * 
-     * @param details the characteristics of the binding
+     * @param details end points and bandwidth requirements of the
+     * bridge
      * 
-     * @return a binding object
+     * @return a bridge object
      */
-    Binding bind(BackendListener listener,
-                 Map<? extends EndPoint, ? extends Enforcement> details);
+    Bridge bridge(BridgeListener listener,
+                  Map<? extends EndPoint, ? extends Enforcement> details);
 
     /**
-     * Retain only the specified bindings, discarding all others.
+     * Retain only the specified bridges, discarding all others.
      * 
-     * @param bindings the set of bindings to retain
+     * @param bridges the set of bridges to retain
      */
-    void retainBindings(Collection<? extends Binding> bindings);
+    void retainBridges(Collection<? extends Bridge> bridges);
 }

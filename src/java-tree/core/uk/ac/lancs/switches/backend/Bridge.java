@@ -40,6 +40,6 @@ package uk.ac.lancs.switches.backend;
  * 
  * @author simpsons
  */
-public interface Interface {
+public interface Bridge {
 
 }

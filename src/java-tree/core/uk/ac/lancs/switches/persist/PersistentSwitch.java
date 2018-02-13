@@ -36,6 +36,7 @@
 package uk.ac.lancs.switches.persist;
 
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationTargetException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -59,8 +60,10 @@ import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
-import uk.ac.lancs.switches.backend.Backend;
-import uk.ac.lancs.switches.backend.Binding;
+import uk.ac.lancs.switches.backend.Switch;
+import uk.ac.lancs.switches.backend.SwitchFactory;
+import uk.ac.lancs.switches.backend.Bridge;
+import uk.ac.lancs.switches.backend.BridgeListener;
 
 /**
  * Implements a switch that retains its state in a database.
@@ -68,15 +71,15 @@ import uk.ac.lancs.switches.backend.Binding;
  * @author simpsons
  */
 public class PersistentSwitch implements Network {
-    private final Backend backend;
+    private final Switch backend;
 
-    private class MyPort implements Terminal {
+    private class MyTerminal implements Terminal {
         private final String name;
         private final Terminal physicalPort;
 
-        MyPort(String name, String desc) {
+        MyTerminal(String name, String desc) {
             this.name = name;
-            this.physicalPort = backend.getPort(desc);
+            this.physicalPort = backend.getInterface(desc);
         }
 
         EndPoint getInnerEndPoint(int label) {
@@ -98,24 +101,23 @@ public class PersistentSwitch implements Network {
         }
     }
 
-    private class MyConnection implements Service {
+    private class MyService implements Service {
         final int id;
         final Collection<ServiceListener> listeners = new HashSet<>();
 
-        MyConnection(int id) {
+        MyService(int id) {
             this.id = id;
         }
 
         boolean active, released;
         ServiceRequest request;
-        Binding binding;
+        Bridge bridge;
 
         @Override
         public synchronized void initiate(ServiceRequest request) {
-            if (released)
-                throw new IllegalStateException("connection disused");
+            if (released) throw new IllegalStateException("service disused");
             if (this.request != null)
-                throw new IllegalStateException("connection in use");
+                throw new IllegalStateException("service in use");
 
             /* Sanitize the request such that every end point mentioned
              * in either set is present in both. A minimum bandwidth is
@@ -125,10 +127,10 @@ public class PersistentSwitch implements Network {
             /* Check that all end points belong to us. */
             for (EndPoint ep : request.producers().keySet()) {
                 Terminal p = ep.getTerminal();
-                if (!(p instanceof MyPort))
+                if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
-                MyPort mp = (MyPort) p;
+                MyTerminal mp = (MyTerminal) p;
                 if (mp.owner() != PersistentSwitch.this)
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
@@ -155,7 +157,7 @@ public class PersistentSwitch implements Network {
         @Override
         public synchronized void activate() {
             if (released || request == null)
-                throw new IllegalStateException("connection uninitiated");
+                throw new IllegalStateException("service uninitiated");
             if (active) return;
             active = true;
             callOut(ServiceListener::activated);
@@ -178,7 +180,7 @@ public class PersistentSwitch implements Network {
         @Override
         public synchronized void release() {
             if (released) return;
-            connections.remove(id);
+            services.remove(id);
             request = null;
             released = true;
             callOut(ServiceListener::released);
@@ -215,23 +217,22 @@ public class PersistentSwitch implements Network {
 
     private final Executor executor;
     private final String name;
-    private final Map<String, MyPort> ports = new HashMap<>();
-    private final Map<Integer, MyConnection> connections = new HashMap<>();
+    private final Map<String, MyTerminal> terminals = new HashMap<>();
+    private final Map<Integer, MyService> services = new HashMap<>();
     private int nextConnectionId;
 
     /**
-     * Print out the status of all connections and trunks of this
-     * switch.
+     * Print out the status of all services and trunks of this switch.
      * 
      * @param out the destination for the status report
      */
     public void dump(PrintWriter out) {
-        Collection<MyConnection> connections;
+        Collection<MyService> services;
         synchronized (this) {
-            connections = new ArrayList<>(this.connections.values());
+            services = new ArrayList<>(this.services.values());
         }
-        out.printf("dummy %s:%n", name);
-        for (MyConnection conn : connections)
+        out.printf("Switch %s:%n", name);
+        for (MyService conn : services)
             conn.dump(out);
         out.flush();
     }
@@ -239,18 +240,67 @@ public class PersistentSwitch implements Network {
     /**
      * Create a dummy switch.
      * 
-     * @param executor used to invoke {@link ServiceListener}s
+     * @param executor used to invoke {@link ServiceListener}s and
+     * {@link BridgeListener}s
      * 
      * @param name the new switch's name
+     * 
+     * @throws ClassNotFoundException if the back-end factory class was
+     * not found
+     * 
+     * @throws SecurityException if the back-end factory class or its
+     * constructor are inaccessible because of security restrictions
+     * 
+     * @throws NoSuchMethodException if the back-end factory class has
+     * no default constructor
+     * 
+     * @throws InvocationTargetException if the back-end factory
+     * constructor throws an exception
+     * 
+     * @throws IllegalAccessException if the back-end factory
+     * constructor is inaccessible
+     * 
+     * @throws InstantiationException if the back-end factory class is
+     * abstract
      */
     public PersistentSwitch(Executor executor, Configuration config,
-                            String name) {
+                            String name)
+        throws InstantiationException,
+            IllegalAccessException,
+            IllegalArgumentException,
+            InvocationTargetException,
+            NoSuchMethodException,
+            SecurityException,
+            ClassNotFoundException {
         this.executor = executor;
         this.name = name;
-        this.backend = null; // TODO
+
+        /* Create the backend. */
+        Configuration beConfig = config.subview("backend");
+        try {
+            this.backend = Class.forName(beConfig.get("class"))
+                .asSubclass(SwitchFactory.class).getConstructor()
+                .newInstance().makeSwitch(executor, beConfig);
+        } catch (IllegalArgumentException ex) {
+            throw new AssertionError("unreachable");
+        }
+
+        /* Record how we talk to the database. */
         Configuration dbConfig = config.subview("db");
-        this.dbConnectionAddress = dbConfig.get("addr");
+        this.dbConnectionAddress = dbConfig.get("service");
         this.dbConnectionConfig = dbConfig.toProperties();
+    }
+
+    /**
+     * Initialize the switch. Ensure the necessary tables exist in the
+     * database. Recreate the internal service records mentioned in the
+     * tables. Flush out any other bridges in the back-end.
+     */
+    public void init() {
+        /* TODO: Ensure the tables exist. */
+
+        // TODO
+        throw new UnsupportedOperationException("unimplemented");
     }
 
     private final String dbConnectionAddress;
@@ -266,16 +316,16 @@ public class PersistentSwitch implements Network {
      * @return the new port
      */
     public synchronized Terminal addPort(String name, String desc) {
-        if (ports.containsKey(name))
+        if (terminals.containsKey(name))
             throw new IllegalArgumentException("port name in use: " + name);
-        MyPort port = new MyPort(name, desc);
-        ports.put(name, port);
+        MyTerminal port = new MyTerminal(name, desc);
+        terminals.put(name, port);
         return port;
     }
 
     @Override
     public synchronized Terminal getTerminal(String id) {
-        return ports.get(id);
+        return terminals.get(id);
     }
 
     @Override
@@ -288,8 +338,8 @@ public class PersistentSwitch implements Network {
         public Service newService() {
             synchronized (PersistentSwitch.this) {
                 int id = nextConnectionId++;
-                MyConnection conn = new MyConnection(id);
-                connections.put(id, conn);
+                MyService conn = new MyService(id);
+                services.put(id, conn);
                 return conn;
             }
         }
@@ -297,7 +347,7 @@ public class PersistentSwitch implements Network {
         @Override
         public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
             synchronized (PersistentSwitch.this) {
-                List<Terminal> list = new ArrayList<>(ports.values());
+                List<Terminal> list = new ArrayList<>(terminals.values());
                 Map<Edge<Terminal>, Double> result = new HashMap<>();
                 int size = list.size();
                 for (int i = 0; i < size - 1; i++) {
@@ -314,13 +364,13 @@ public class PersistentSwitch implements Network {
         @Override
         public Service getService(int id) {
             synchronized (PersistentSwitch.this) {
-                return connections.get(id);
+                return services.get(id);
             }
         }
 
         @Override
         public Collection<Integer> getServiceIds() {
-            return new HashSet<>(connections.keySet());
+            return new HashSet<>(services.keySet());
         }
 
         @Override
@@ -331,9 +381,17 @@ public class PersistentSwitch implements Network {
 
     @Override
     public Collection<String> getTerminals() {
-        return new HashSet<>(ports.keySet());
+        return new HashSet<>(terminals.keySet());
     }
 
+    /**
+     * Get a fresh connection to the database. Use this in a
+     * try-with-resources block.
+     * 
+     * @return the new connection
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private Connection database() throws SQLException {
         return DriverManager.getConnection(dbConnectionAddress,
                                            dbConnectionConfig);

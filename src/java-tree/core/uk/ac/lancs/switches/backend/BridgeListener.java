@@ -40,6 +40,4 @@ package uk.ac.lancs.switches.backend;
  * 
  * @author simpsons
  */
-public interface Binding {
-
-}
+public interface BridgeListener {}

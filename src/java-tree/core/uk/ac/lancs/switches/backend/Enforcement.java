@@ -41,11 +41,51 @@ package uk.ac.lancs.switches.backend;
  * @author simpsons
  */
 public final class Enforcement {
+    /**
+     * Packets exceeding this rate will be queued.
+     * 
+     * @summary The rate at which to shape traffic leaving by the
+     * associated end point
+     */
     public final double shaping;
+
+    /**
+     * Packets exceeding this rate will be dropped.
+     * 
+     * @summary The rate at which to meter traffic entering by the
+     * associated end point
+     */
     public final double metering;
 
-    public Enforcement(double shaping, double metering) {
+    private Enforcement(double shaping, double metering) {
         this.shaping = shaping;
         this.metering = metering;
+    }
+
+    /**
+     * Create an enforcement.
+     * 
+     * @param shaping the rate at which to shape traffic leaving by the
+     * associated end point
+     * 
+     * @param metering the rate at which to meter traffic entering by
+     * the associated end point
+     * 
+     * @return the requested enforcement
+     */
+    public static Enforcement of(double shaping, double metering) {
+        return new Enforcement(shaping, metering);
+    }
+
+    /**
+     * Create a symmetric enforcement.
+     * 
+     * @param rate the rate at which to shape/meter traffic
+     * leaving/entering by the associated end point
+     * 
+     * @return the requested enforcement
+     */
+    public static Enforcement of(double rate) {
+        return of(rate, rate);
     }
 }
