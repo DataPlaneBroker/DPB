@@ -39,6 +39,8 @@ package uk.ac.lancs.switches.aggregate;
  * Allows a trunk defined within an aggregator to have its resources
  * administratively modified.
  * 
+ * @summary The management interface for an aggregator's trunks
+ * 
  * @author simpsons
  */
 public interface Trunk {
@@ -60,10 +62,10 @@ public interface Trunk {
      * Withdraw bandwidth from this trunk.
      * 
      * @param upstream the amount to deduct from the available bandwidth
-     * in the direction from the start port to the end
+     * in the direction from the start terminal to the end
      * 
      * @param downstream the amount to deduct from the available
-     * bandwidth in the direction from the end port to the start
+     * bandwidth in the direction from the end terminal to the start
      * 
      * @throws IllegalArgumentException if either amount is negative or
      * exceeds the corresponding available level
@@ -87,10 +89,10 @@ public interface Trunk {
      * Provide bandwidth to this trunk.
      * 
      * @param upstream the amount to add to the available bandwidth in
-     * the direction from the start port to the end
+     * the direction from the start terminal to the end
      * 
      * @param downstream the amount to add to the available bandwidth in
-     * the direction from the end port to the start
+     * the direction from the end terminal to the start
      * 
      * @throws IllegalArgumentException if either amount is negative
      */

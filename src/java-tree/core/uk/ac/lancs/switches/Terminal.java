@@ -33,14 +33,37 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.switches;
 
 /**
- * Contains classes for managing hierarchical out-of-band management of
- * services sliced from a physical network. The primary class is
- * {@link uk.ac.lancs.switches.Network}, which allows the creation of
- * {@link uk.ac.lancs.switches.Service}s across it, connecting
- * {@link uk.ac.lancs.switches.EndPoint}s with certain QoS requirements.
+ * A terminal is an accessible interface to a network, and consists of
+ * multiple end points, distinguishable by an integral label.
+ * 
+ * <p>
+ * The {@link Object#toString()} method should fully identify the
+ * terminal.
+ * 
+ * @summary A point of access to a network
  * 
  * @author simpsons
  */
-package uk.ac.lancs.switches;
+public interface Terminal {
+    /**
+     * Get the network directly owning this terminal.
+     * 
+     * @return the owning switch of the terminal
+     */
+    NetworkControl getNetwork();
+
+    /**
+     * Get the end point for a given label applied to traffic through
+     * this terminal.
+     * 
+     * @param label the label subdividing traffic on this terminal
+     * 
+     * @return the end point for the given label
+     */
+    default EndPoint getEndPoint(int label) {
+        return EndPoint.of(this, label);
+    }
+}

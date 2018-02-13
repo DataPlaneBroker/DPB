@@ -15,9 +15,9 @@ trees_initiate-dpb-core += core
 roots_core += uk.ac.lancs.routing.span.Graphs
 roots_core += uk.ac.lancs.routing.span.SpanningTreeComputer
 roots_core += uk.ac.lancs.routing.span.DistanceVectorComputer
-roots_core += uk.ac.lancs.switches.Switch
+roots_core += uk.ac.lancs.switches.Network
 roots_core += uk.ac.lancs.switches.aggregate.Aggregator
-roots_core += uk.ac.lancs.switches.transients.DummySwitch
+roots_core += uk.ac.lancs.switches.transients.DummyNetwork
 roots_core += uk.ac.lancs.switches.transients.TransientAggregator
 
 SELECTED_JARS += initiate-dpb-util

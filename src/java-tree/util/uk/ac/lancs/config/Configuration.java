@@ -1,5 +1,4 @@
 /*
- * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -40,6 +39,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -66,6 +66,63 @@ public interface Configuration {
      * @return the parameter's value, or {@code null} if not present
      */
     String get(String key);
+
+    /**
+     * Obtain a locally referenced configuration.
+     * 
+     * @param key the key used as a base for resolving a relative name
+     * 
+     * @param value the reference to the configuration
+     * 
+     * @return the referenced configuration
+     * 
+     * @throws NullPointerException if <samp>value</samp> is
+     * {@code null}
+     */
+    Configuration reference(String key, String value);
+
+    /**
+     * Convert the properties in this configuration into a conventional
+     * Java properties object.
+     * 
+     * @return a copy of this configuration's properties
+     */
+    default Properties toProperties() {
+        Properties result = new Properties();
+        for (String key : keys())
+            result.setProperty(key, get(key));
+        return result;
+    }
+
+    /**
+     * Obtain a locally referenced configuration, or a default if not
+     * specified.
+     * 
+     * @param key the key used to obtain the reference, and as a base
+     * for resolving a relative name
+     * 
+     * @param defaultValue the configuration to return if not found
+     * 
+     * @return the referenced configuration, or the default
+     */
+    default Configuration reference(String key, Configuration defaultValue) {
+        String value = get(key);
+        if (value == null) return defaultValue;
+        return reference(key, value);
+    }
+
+    /**
+     * Obtain a locally referenced configuration if specified.
+     * 
+     * @param key the key used to obtain the reference, and as a base
+     * for resolving a relative name
+     * 
+     * @return the referenced configuration, or {@code null} if not
+     * specified
+     */
+    default Configuration reference(String key) {
+        return reference(key, (Configuration) null);
+    }
 
     /**
      * Get a subview.
@@ -194,42 +251,52 @@ public interface Configuration {
 
     /**
      * Normalize a node key. Double dots are condensed to single ones.
-     * Leading and trailing dots are removed. <samp>!</samp> eliminates
-     * one prior element, and <samp>!!</samp> eliminates all prior
-     * elements.
+     * Leading and trailing dots are removed.
      * 
      * @param key the node key to normalize
      * 
      * @return the normalized node key
      */
     public static String normalizeKey(String key) {
+        if (key == null) return null;
         List<String> parts =
             new LinkedList<>(Arrays.asList(key.split("\\.+")));
         for (ListIterator<String> iter = parts.listIterator(); iter
             .hasNext();) {
             String val = iter.next();
-            switch (val) {
-            case "":
-                iter.remove();
-                break;
-
-            case "!":
-                iter.remove();
-                if (iter.hasPrevious()) {
-                    iter.previous();
-                    iter.remove();
-                }
-                break;
-
-            case "!!":
-                iter.remove();
-                while (iter.hasPrevious()) {
-                    iter.previous();
-                    iter.remove();
-                }
-                break;
-            }
+            if (val.isEmpty()) iter.remove();
         }
-        return parts.stream().collect(Collectors.joining(".")) + ".";
+        return parts.stream().collect(Collectors.joining("."));
+    }
+
+    /**
+     * Normalize a node key prefix.
+     * 
+     * @param prefix the node key prefix to normalize
+     * 
+     * @return the normalized prefix
+     */
+    public static String normalizePrefix(String prefix) {
+        return prefix == null ? null : normalizeKey(prefix) + '.';
+    }
+
+    /**
+     * Resolve a potentially relative key against a base. If the key
+     * does not begin with a <samp>.</samp>, it is returned unchanged.
+     * Otherwise, everything after the last <samp>.</samp> in the base
+     * is removed, and the key is appended.
+     * 
+     * @param base the base to resolve the key against
+     * 
+     * @param key the key to resolve
+     * 
+     * @return
+     */
+    public static String resolveKey(String base, String key) {
+        if (key.isEmpty()) return "";
+        if (key.charAt(0) != '.') return key;
+        int lastDot = base.lastIndexOf('.');
+        if (lastDot < 0) return key.substring(1);
+        return base.substring(0, lastDot) + key;
     }
 }

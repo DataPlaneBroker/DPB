@@ -36,46 +36,48 @@
 package uk.ac.lancs.switches;
 
 /**
- * Identifies a subdivision of a port, which could be the end point of a
- * connection.
+ * Every end point belongs to a terminal. Get an end point by calling
+ * {@link Terminal#getEndPoint(int)}.
+ * 
+ * @summary A potential termination point of a service
  * 
  * @author simpsons
  */
 public final class EndPoint {
-    private final Port port;
+    private final Terminal terminal;
     private final int label;
 
-    private EndPoint(Port port, int label) {
-        if (port == null) throw new NullPointerException("null port");
-        this.port = port;
+    private EndPoint(Terminal terminal, int label) {
+        if (terminal == null) throw new NullPointerException("null terminal");
+        this.terminal = terminal;
         this.label = label;
     }
 
     /**
-     * Get an end point with a given label on a given port.
+     * Get an end point with a given label on a given terminal.
      * 
-     * @param port the port the end point belongs to
+     * @param terminal the terminal the end point belongs to
      * 
      * @param label the label that distinguishes the end point from
-     * others on the same port
+     * others on the same terminal
      * 
-     * @throws NullPointerException if the port is {@code null}
+     * @throws NullPointerException if the terminal is {@code null}
      */
-    public static EndPoint of(Port port, int label) {
-        return new EndPoint(port, label);
+    static EndPoint of(Terminal terminal, int label) {
+        return new EndPoint(terminal, label);
     }
 
     /**
-     * Get the containing port of the end point.
+     * Get the containing terminal of the end point.
      * 
-     * @return the end point's containing port
+     * @return the end point's containing terminal
      */
-    public Port getPort() {
-        return port;
+    public Terminal getTerminal() {
+        return terminal;
     }
 
     /**
-     * Get the label that subdivides the port to identify the
+     * Get the label that subdivides the terminal to identify the
      * connection.
      * 
      * @return the end-point label
@@ -94,7 +96,8 @@ public final class EndPoint {
         final int prime = 31;
         int result = 1;
         result = prime * result + label;
-        result = prime * result + ((port == null) ? 0 : port.hashCode());
+        result =
+            prime * result + ((terminal == null) ? 0 : terminal.hashCode());
         return result;
     }
 
@@ -113,19 +116,19 @@ public final class EndPoint {
         if (getClass() != obj.getClass()) return false;
         EndPoint other = (EndPoint) obj;
         if (label != other.label) return false;
-        assert port != null;
-        assert other.port != null;
-        return port.equals(other.port);
+        assert terminal != null;
+        assert other.terminal != null;
+        return terminal.equals(other.terminal);
     }
 
     /**
      * Get a string representation of this end point.
      * 
      * @return a string representation of this end point, consisting of
-     * the port and the label
+     * the terminal and the label
      */
     @Override
     public String toString() {
-        return port + ":" + label;
+        return terminal + ":" + label;
     }
 }

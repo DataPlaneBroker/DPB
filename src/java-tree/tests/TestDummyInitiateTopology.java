@@ -1,13 +1,13 @@
 import java.io.PrintWriter;
 
-import uk.ac.lancs.switches.Connection;
-import uk.ac.lancs.switches.ConnectionListener;
-import uk.ac.lancs.switches.ConnectionRequest;
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.Switch;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.aggregate.Aggregator;
 import uk.ac.lancs.switches.aggregate.Trunk;
-import uk.ac.lancs.switches.transients.DummySwitch;
+import uk.ac.lancs.switches.transients.DummyNetwork;
 import uk.ac.lancs.switches.transients.TransientAggregator;
 
 /*
@@ -52,11 +52,11 @@ import uk.ac.lancs.switches.transients.TransientAggregator;
  * @author simpsons
  */
 public class TestDummyInitiateTopology {
-    private static Trunk link(Aggregator aggregator, Switch zwitch1,
-                              String port1, Switch zwitch2, String port2,
+    private static Trunk link(Aggregator aggregator, Network zwitch1,
+                              String port1, Network zwitch2, String port2,
                               double bandwidth, int baseTag, int tagCount) {
-        Port p1 = zwitch1.getPort(port1);
-        Port p2 = zwitch2.getPort(port2);
+        Terminal p1 = zwitch1.getTerminal(port1);
+        Terminal p2 = zwitch2.getTerminal(port2);
         Trunk result = aggregator.addTrunk(p1, p2);
         result.provideBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
@@ -69,27 +69,27 @@ public class TestDummyInitiateTopology {
      */
     public static void main(String[] args) {
         /* Model the Corsas at each site. */
-        DummySwitch slough = new DummySwitch(IdleExecutor.INSTANCE, "slough");
+        DummyNetwork slough = new DummyNetwork(IdleExecutor.INSTANCE, "slough");
         slough.addPort("vms");
         slough.addPort("bristol");
         slough.addPort("kcl");
         slough.addPort("edin");
         slough.addPort("lancs");
 
-        DummySwitch bristol =
-            new DummySwitch(IdleExecutor.INSTANCE, "bristol");
+        DummyNetwork bristol =
+            new DummyNetwork(IdleExecutor.INSTANCE, "bristol");
         bristol.addPort("vms");
         bristol.addPort("slough");
 
-        DummySwitch kcl = new DummySwitch(IdleExecutor.INSTANCE, "kcl");
+        DummyNetwork kcl = new DummyNetwork(IdleExecutor.INSTANCE, "kcl");
         kcl.addPort("vms");
         kcl.addPort("slough");
 
-        DummySwitch edin = new DummySwitch(IdleExecutor.INSTANCE, "edin");
+        DummyNetwork edin = new DummyNetwork(IdleExecutor.INSTANCE, "edin");
         edin.addPort("vms");
         edin.addPort("slough");
 
-        DummySwitch lancs = new DummySwitch(IdleExecutor.INSTANCE, "lancs");
+        DummyNetwork lancs = new DummyNetwork(IdleExecutor.INSTANCE, "lancs");
         lancs.addPort("vms");
         lancs.addPort("slough");
 
@@ -98,11 +98,11 @@ public class TestDummyInitiateTopology {
             new TransientAggregator(IdleExecutor.INSTANCE, "initiate");
 
         /* Expose inferior switches' unlinked ports. */
-        aggregator.addPort("lancs.vms", lancs.getPort("vms"));
-        aggregator.addPort("bristol.vms", bristol.getPort("vms"));
-        aggregator.addPort("kcl.vms", kcl.getPort("vms"));
-        aggregator.addPort("edin.vms", edin.getPort("vms"));
-        aggregator.addPort("slough.vms", slough.getPort("vms"));
+        aggregator.addPort("lancs.vms", lancs.getTerminal("vms"));
+        aggregator.addPort("bristol.vms", bristol.getTerminal("vms"));
+        aggregator.addPort("kcl.vms", kcl.getTerminal("vms"));
+        aggregator.addPort("edin.vms", edin.getTerminal("vms"));
+        aggregator.addPort("slough.vms", slough.getTerminal("vms"));
 
         /* Link up the inferior switches within the superior. */
         link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);
@@ -112,8 +112,8 @@ public class TestDummyInitiateTopology {
              40);
         link(aggregator, slough, "edin", edin, "slough", 1024.0, 1000, 40);
 
-        Connection c1 = aggregator.getControl().newConnection();
-        class MyListener implements ConnectionListener {
+        Service c1 = aggregator.getControl().newService();
+        class MyListener implements ServiceListener {
             final String name;
 
             MyListener(String name) {
@@ -148,11 +148,11 @@ public class TestDummyInitiateTopology {
         MyListener cl1 = new MyListener("c1");
         c1.addListener(cl1);
 
-        c1.initiate(ConnectionRequest.start().produce(100.0)
-            .add(aggregator.getPort("lancs.vms"), 1234)
-            .add(aggregator.getPort("bristol.vms"), 1111)
-            .add(aggregator.getPort("slough.vms"), 2222)
-            .add(aggregator.getPort("slough.vms"), 2223).create());
+        c1.initiate(ServiceRequest.start().produce(100.0)
+            .add(aggregator.getTerminal("lancs.vms"), 1234)
+            .add(aggregator.getTerminal("bristol.vms"), 1111)
+            .add(aggregator.getTerminal("slough.vms"), 2222)
+            .add(aggregator.getTerminal("slough.vms"), 2223).create());
 
         IdleExecutor.processAll();
 

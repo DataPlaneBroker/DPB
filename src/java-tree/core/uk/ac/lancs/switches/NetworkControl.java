@@ -35,55 +35,49 @@
  */
 package uk.ac.lancs.switches;
 
+import java.util.Collection;
+import java.util.Map;
+
+import uk.ac.lancs.routing.span.Edge;
+
 /**
- * Describes a connection's status. The initial state is
- * {@link #DORMANT}.
+ * Represents a physical network over which services can be established.
  * 
  * @author simpsons
  */
-public enum ConnectionStatus {
+public interface NetworkControl {
     /**
-     * The connection is not in use, and has no associated request. This
-     * is the initial state.
+     * Create a service.
      */
-    DORMANT,
+    Service newService();
 
     /**
-     * The underlying connection resources have not yet been
-     * established.
+     * Get an existing service.
+     * 
+     * @param id the service identifier
+     * 
+     * @return the service with the requested id, or {@code null} if it
+     * does not exist
      */
-    ESTABLISHING,
+    Service getService(int id);
 
     /**
-     * The connection has link resources allocated, but no switch
-     * resources.
+     * Get ids of all open services.
+     * 
+     * @return a set of all open service ids, modifiable by the user
      */
-    INACTIVE,
+    Collection<Integer> getServiceIds();
 
     /**
-     * The connection is in the process of becoming {@link #ACTIVE}.
-     * Some traffic might begin to get through.
+     * Get a model of port interconnectivity given a bandwidth
+     * requirement. Returned weights should always be positive. Atomic
+     * networks should use small values rather than zero.
+     * 
+     * @param minimumBandwidth the threshold below which internal links
+     * shall not be included in computing the model
+     * 
+     * @return a mesh of weighted edges between this network's external
+     * ports summarizing the internal connectivity of the network
      */
-    ACTIVATING,
-
-    /**
-     * The connection is active, and so can carry traffic.
-     */
-    ACTIVE,
-
-    /**
-     * The connection is deactivating. Some traffic might still get
-     * through.
-     */
-    DEACTIVATING,
-
-    /**
-     * The connection has failed outright.
-     */
-    FAILED,
-
-    /**
-     * The connection has been released, and can no longer be used.
-     */
-    RELEASED,
+    Map<Edge<Terminal>, Double> getModel(double minimumBandwidth);
 }

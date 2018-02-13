@@ -33,38 +33,29 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
 
 /**
- * Accepts an allocated connection upon creation.
+ * Provides classes for adapting a high-level switch abstraction to a
+ * physical switch.
+ * 
+ * <p>
+ * A physical switch has <dfn>interfaces</dfn>, which might correspond
+ * to physical ports, or to ports with some sort of tagging, or to port
+ * aggregations. An interface is described by a set of properties
+ * expressed as {@link uk.ac.lancs.config.Configuration}, and
+ * {@link Backend#getPort(uk.ac.lancs.config.Configuration)} can be used
+ * to obtain one.
+ * 
+ * <p>
+ * A physical switch establishes a set of <dfn>bindings</dfn>, each
+ * connecting a subset of its interfaces with outgoing shaping and
+ * incoming metering of bandwidth. A switch can be asked to
+ * <em>ensure</em> that a binding exists with
+ * {@link Backend#bind(BackendListener, java.util.Map)}. Bindings should
+ * be removed by asking the switch to <em>retain</em> all others,
+ * allowing the remote management software of a switch to restart after
+ * breakdown without disrupting any existing bindings.
  * 
  * @author simpsons
  */
-public interface ConnectionListener {
-    /**
-     * The connection has become ready to use, and is inactive.
-     */
-    void ready();
-
-    /**
-     * The connection failed during establishment or activation.
-     * 
-     * @param t the reason for failure
-     */
-    void failed(Throwable t);
-
-    /**
-     * The connection has become active.
-     */
-    void activated();
-
-    /**
-     * The connection has become inactive.
-     */
-    void deactivated();
-
-    /**
-     * The connection has been fully released, and can be used again.
-     */
-    void released();
-}
+package uk.ac.lancs.switches.backend;

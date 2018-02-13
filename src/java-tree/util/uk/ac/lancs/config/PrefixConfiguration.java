@@ -54,7 +54,7 @@ class PrefixConfiguration implements Configuration {
         this.context = context;
         this.location = location;
         this.base = base;
-        this.prefix = Configuration.normalizeKey(prefix);
+        this.prefix = Configuration.normalizePrefix(prefix);
         prefixLength = this.prefix.length();
     }
 
@@ -70,7 +70,7 @@ class PrefixConfiguration implements Configuration {
 
     @Override
     public Configuration subview(String prefix) {
-        prefix = Configuration.normalizeKey(this.prefix + prefix);
+        prefix = Configuration.normalizePrefix(this.prefix + prefix);
         if (prefix.isEmpty()) return base;
         return new PrefixConfiguration(context, location, base, prefix);
     }
@@ -79,5 +79,10 @@ class PrefixConfiguration implements Configuration {
     public Iterable<String> keys() {
         return base.transformedSelectedKeys(s -> s.startsWith(prefix),
                                             s -> s.substring(prefixLength));
+    }
+
+    @Override
+    public Configuration reference(String key, String value) {
+        return base.reference(this.prefix + key, value);
     }
 }

@@ -57,37 +57,37 @@ import uk.ac.lancs.routing.span.FIBSpanGuide;
 import uk.ac.lancs.routing.span.Graphs;
 import uk.ac.lancs.routing.span.SpanningTreeComputer;
 import uk.ac.lancs.routing.span.Way;
-import uk.ac.lancs.switches.Connection;
-import uk.ac.lancs.switches.ConnectionListener;
-import uk.ac.lancs.switches.ConnectionRequest;
-import uk.ac.lancs.switches.ConnectionStatus;
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.SwitchControl;
+import uk.ac.lancs.switches.NetworkControl;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceStatus;
+import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.aggregate.Aggregator;
 import uk.ac.lancs.switches.aggregate.Trunk;
 
 /**
- * Implements a switch aggregator with no persistent state.
+ * Implements a network aggregator with no persistent state.
  * 
  * @author simpsons
  */
 public class TransientAggregator implements Aggregator {
-    private class MyPort implements Port {
+    private class MyTerminal implements Terminal {
         private final String name;
-        private final Port innerPort;
+        private final Terminal innerPort;
 
-        public MyPort(String name, Port innerPort) {
+        public MyTerminal(String name, Terminal innerPort) {
             this.name = name;
             this.innerPort = innerPort;
         }
 
-        public Port innerPort() {
+        public Terminal innerPort() {
             return innerPort;
         }
 
         @Override
-        public SwitchControl getSwitch() {
+        public NetworkControl getNetwork() {
             return getControl();
         }
 
@@ -101,13 +101,13 @@ public class TransientAggregator implements Aggregator {
         }
     }
 
-    private class MyConnection implements Connection {
-        private class Client implements ConnectionListener {
-            final Connection connection;
+    private class MyService implements Service {
+        private class Client implements ServiceListener {
+            final Service connection;
             Throwable error;
             boolean activeIntent;
 
-            Client(Connection connection) {
+            Client(Service connection) {
                 this.connection = connection;
                 this.connection.addListener(this);
             }
@@ -143,21 +143,21 @@ public class TransientAggregator implements Aggregator {
              ***/
 
             void activate() {
-                assert Thread.holdsLock(MyConnection.this);
+                assert Thread.holdsLock(MyService.this);
                 if (activeIntent) return;
                 activeIntent = true;
                 connection.activate();
             }
 
             void deactivate() {
-                assert Thread.holdsLock(MyConnection.this);
+                assert Thread.holdsLock(MyService.this);
                 if (!activeIntent) return;
                 activeIntent = false;
                 if (connection != null) connection.deactivate();
             }
 
             void release() {
-                assert Thread.holdsLock(MyConnection.this);
+                assert Thread.holdsLock(MyService.this);
                 if (connection != null) {
                     connection.release();
                 }
@@ -165,7 +165,7 @@ public class TransientAggregator implements Aggregator {
 
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", connection.status());
-                ConnectionRequest request = connection.getRequest();
+                ServiceRequest request = connection.getRequest();
                 for (EndPoint ep : request.producers().keySet()) {
                     out.printf("%n        %10s %6g %6g", ep,
                                request.producers().get(ep),
@@ -183,7 +183,7 @@ public class TransientAggregator implements Aggregator {
             unresponded--;
             if (unresponded > 0) return;
             if (errored > 0) return;
-            callOut(ConnectionListener::ready);
+            callOut(ServiceListener::ready);
             if (intendedActivity) clients.stream().forEach(Client::activate);
         }
 
@@ -210,50 +210,50 @@ public class TransientAggregator implements Aggregator {
             synchronized (TransientAggregator.this) {
                 connections.remove(id);
             }
-            callOut(ConnectionListener::released);
+            callOut(ServiceListener::released);
         }
 
         synchronized void clientActivated(Client cli) {
             if (tunnels == null) return;
             activeInferiors++;
             if (activeInferiors < clients.size()) return;
-            callOut(ConnectionListener::activated);
+            callOut(ServiceListener::activated);
         }
 
         synchronized void clientDeactivated(Client cli) {
             if (tunnels == null) return;
             activeInferiors--;
             if (activeInferiors > 0) return;
-            callOut(ConnectionListener::deactivated);
+            callOut(ServiceListener::deactivated);
         }
 
         final int id;
-        final Collection<ConnectionListener> listeners = new HashSet<>();
+        final Collection<ServiceListener> listeners = new HashSet<>();
         final List<Client> clients = new ArrayList<>();
 
-        private void callOut(Consumer<? super ConnectionListener> action) {
+        private void callOut(Consumer<? super ServiceListener> action) {
             listeners.stream()
                 .forEach(l -> executor.execute(() -> action.accept(l)));
         }
 
         Map<TrunkControl, EndPoint> tunnels;
-        ConnectionRequest request;
+        ServiceRequest request;
 
         int unresponded, errored;
         int activeInferiors;
         boolean intendedActivity = false, released = false;
 
-        MyConnection(int id) {
+        MyService(int id) {
             this.id = id;
         }
 
         @Override
-        public synchronized void initiate(ConnectionRequest request) {
+        public synchronized void initiate(ServiceRequest request) {
             if (released)
                 throw new IllegalStateException("connection released");
             if (tunnels != null)
                 throw new IllegalStateException("connection in use");
-            request = ConnectionRequest.sanitize(request, 0.01);
+            request = ServiceRequest.sanitize(request, 0.01);
             tunnels = new HashMap<>();
             clients.clear();
             errored = activeInferiors = 0;
@@ -261,15 +261,15 @@ public class TransientAggregator implements Aggregator {
 
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
-            Collection<ConnectionRequest> subrequests = new HashSet<>();
+            Collection<ServiceRequest> subrequests = new HashSet<>();
             plotAsymmetricTree(request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
-            Map<Connection, ConnectionRequest> subcons = subrequests.stream()
-                .collect(Collectors.toMap(r -> r.producers().keySet()
-                    .iterator().next().getPort().getSwitch().newConnection(),
-                                          r -> r));
+            Map<Service, ServiceRequest> subcons = subrequests.stream()
+                .collect(Collectors
+                    .toMap(r -> r.producers().keySet().iterator().next()
+                        .getTerminal().getNetwork().newService(), r -> r));
 
             /* Map<SwitchControl, Collection<EndPoint>> subterminals =
              * new HashMap<>(); plotTree(request.terminals,
@@ -294,15 +294,15 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized ConnectionStatus status() {
-            if (released) return ConnectionStatus.RELEASED;
-            if (errored > 0) return ConnectionStatus.FAILED;
-            if (tunnels == null) return ConnectionStatus.DORMANT;
-            if (unresponded > 0) return ConnectionStatus.ESTABLISHING;
+        public synchronized ServiceStatus status() {
+            if (released) return ServiceStatus.RELEASED;
+            if (errored > 0) return ServiceStatus.FAILED;
+            if (tunnels == null) return ServiceStatus.DORMANT;
+            if (unresponded > 0) return ServiceStatus.ESTABLISHING;
             if (intendedActivity) return activeInferiors < clients.size()
-                ? ConnectionStatus.ACTIVATING : ConnectionStatus.ACTIVE;
-            return activeInferiors > 0 ? ConnectionStatus.DEACTIVATING
-                : ConnectionStatus.INACTIVE;
+                ? ServiceStatus.ACTIVATING : ServiceStatus.ACTIVE;
+            return activeInferiors > 0 ? ServiceStatus.DEACTIVATING
+                : ServiceStatus.INACTIVE;
         }
 
         /* ConnectionListener user, double bandwidth, Map<SwitchControl,
@@ -351,17 +351,17 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void addListener(ConnectionListener events) {
+        public synchronized void addListener(ServiceListener events) {
             listeners.add(events);
         }
 
         @Override
-        public synchronized void removeListener(ConnectionListener events) {
+        public synchronized void removeListener(ServiceListener events) {
             listeners.remove(events);
         }
 
         synchronized void dump(PrintWriter out) {
-            ConnectionStatus status = status();
+            ServiceStatus status = status();
             out.printf("  %3d %-8s", id, status);
             switch (status) {
             case DORMANT:
@@ -384,13 +384,13 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized SwitchControl getSwitch() {
+        public synchronized NetworkControl getSwitch() {
             if (released) return null;
             return control;
         }
 
         @Override
-        public synchronized ConnectionRequest getRequest() {
+        public synchronized ServiceRequest getRequest() {
             return request;
         }
     }
@@ -401,7 +401,7 @@ public class TransientAggregator implements Aggregator {
      * @author simpsons
      */
     final class MyTrunk implements TrunkControl {
-        private final Port start, end;
+        private final Terminal start, end;
         private double delay = 0.0;
         private double upstreamBandwidth = 0.0, downstreamBandwidth = 0.0;
 
@@ -412,7 +412,7 @@ public class TransientAggregator implements Aggregator {
          * 
          * @param end the other end
          */
-        public MyTrunk(Port start, Port end) {
+        public MyTrunk(Terminal start, Terminal end) {
             this.start = start;
             this.end = end;
         }
@@ -440,12 +440,12 @@ public class TransientAggregator implements Aggregator {
         @Override
         public EndPoint getPeer(EndPoint p) {
             synchronized (TransientAggregator.this) {
-                if (p.getPort().equals(start)) {
+                if (p.getTerminal().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
                     if (other == null) return null;
                     return end.getEndPoint(other);
                 }
-                if (p.getPort().equals(end)) {
+                if (p.getTerminal().equals(end)) {
                     Integer other = endToStartMap.get(p.getLabel());
                     if (other == null) return null;
                     return start.getEndPoint(other);
@@ -485,12 +485,12 @@ public class TransientAggregator implements Aggregator {
         @Override
         public void releaseTunnel(EndPoint endPoint) {
             final int startLabel;
-            if (endPoint.getPort().equals(start)) {
+            if (endPoint.getTerminal().equals(start)) {
                 startLabel = endPoint.getLabel();
                 if (!startToEndMap.containsKey(startLabel))
                     throw new IllegalArgumentException("unmapped "
                         + endPoint);
-            } else if (endPoint.getPort().equals(end)) {
+            } else if (endPoint.getTerminal().equals(end)) {
                 int endLabel = endPoint.getLabel();
                 Integer rv = endToStartMap.get(endLabel);
                 if (rv == null) throw new IllegalArgumentException("unmapped "
@@ -523,7 +523,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public List<Port> getPorts() {
+        public List<Terminal> getPorts() {
             return Arrays.asList(start, end);
         }
 
@@ -642,7 +642,7 @@ public class TransientAggregator implements Aggregator {
      */
     public synchronized void dump(PrintWriter out) {
         out.printf("aggregate %s:%n", name);
-        for (MyConnection conn : connections.values())
+        for (MyService conn : connections.values())
             conn.dump(out);
         for (MyTrunk trunk : new HashSet<>(trunks.values())) {
             out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n", trunk.getPorts(),
@@ -656,15 +656,15 @@ public class TransientAggregator implements Aggregator {
     private final Executor executor;
     private final String name;
 
-    private final Map<String, MyPort> ports = new HashMap<>();
-    private final Map<Port, MyTrunk> trunks = new HashMap<>();
-    private final Map<Integer, MyConnection> connections = new HashMap<>();
+    private final Map<String, MyTerminal> ports = new HashMap<>();
+    private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
+    private final Map<Integer, MyService> connections = new HashMap<>();
     private int nextConnectionId;
 
     /**
      * Create an aggregator.
      * 
-     * @param executor used to invoke {@link ConnectionListener}s
+     * @param executor used to invoke {@link ServiceListener}s
      * 
      * @param name the new switch's name
      */
@@ -674,7 +674,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk addTrunk(Port p1, Port p2) {
+    public Trunk addTrunk(Terminal p1, Terminal p2) {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null port(s)");
         if (trunks.containsKey(p1))
@@ -688,7 +688,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk findTrunk(Port p) {
+    public Trunk findTrunk(Terminal p) {
         return trunks.get(p).getManagement();
     }
 
@@ -701,10 +701,10 @@ public class TransientAggregator implements Aggregator {
      * 
      * @return the newly created port
      */
-    public Port addPort(String name, Port inner) {
+    public Terminal addPort(String name, Terminal inner) {
         if (ports.containsKey(name))
             throw new IllegalArgumentException("name in use: " + name);
-        MyPort result = new MyPort(name, inner);
+        MyTerminal result = new MyTerminal(name, inner);
         ports.put(name, result);
         return result;
     }
@@ -719,12 +719,12 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Port getPort(String id) {
+    public Terminal getTerminal(String id) {
         return ports.get(id);
     }
 
     @Override
-    public SwitchControl getControl() {
+    public NetworkControl getControl() {
         return control;
     }
 
@@ -742,9 +742,9 @@ public class TransientAggregator implements Aggregator {
      * submitted to each inferior switch
      */
     synchronized void
-        plotAsymmetricTree(ConnectionRequest request,
+        plotAsymmetricTree(ServiceRequest request,
                            Map<? super TrunkControl, ? super EndPoint> tunnels,
-                           Collection<? super ConnectionRequest> subrequests) {
+                           Collection<? super ServiceRequest> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
         // System.err.printf("Request consumers: %s%n",
@@ -752,16 +752,16 @@ public class TransientAggregator implements Aggregator {
 
         /* Sanity-check the end points, map them to internal ports, and
          * record bandwidth requirements. */
-        Map<Port, List<Double>> bandwidths = new HashMap<>();
+        Map<Terminal, List<Double>> bandwidths = new HashMap<>();
         Map<EndPoint, List<Double>> innerTerminalEndPoints = new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
         for (EndPoint ep : request.producers().keySet()) {
             /* Map this end point to an inferior switch's port. */
-            Port outerPort = ep.getPort();
-            if (!(outerPort instanceof MyPort))
+            Terminal outerPort = ep.getTerminal();
+            if (!(outerPort instanceof MyTerminal))
                 throw new IllegalArgumentException("end point " + ep
                     + " not part of " + name);
-            MyPort myPort = (MyPort) outerPort;
+            MyTerminal myPort = (MyTerminal) outerPort;
             if (myPort.owner() != this)
                 throw new IllegalArgumentException("end point " + ep
                     + " not part of " + name);
@@ -772,7 +772,7 @@ public class TransientAggregator implements Aggregator {
              * same port. */
             double produced = request.producers().get(ep).doubleValue();
             double consumed = request.consumers().get(ep).doubleValue();
-            Port innerPort = myPort.innerPort();
+            Terminal innerPort = myPort.innerPort();
             List<Double> tuple = bandwidths
                 .computeIfAbsent(innerPort, k -> Arrays.asList(0.0, 0.0));
             tuple.set(0, tuple.get(0) + produced);
@@ -799,7 +799,7 @@ public class TransientAggregator implements Aggregator {
         // innerTerminalEndPoints);
 
         /* Get the set of ports to connect. */
-        Collection<Port> innerTerminalPorts = bandwidths.keySet();
+        Collection<Terminal> innerTerminalPorts = bandwidths.keySet();
         // System.err.printf("Inner terminal ports: %s%n",
         // innerTerminalPorts);
 
@@ -816,14 +816,14 @@ public class TransientAggregator implements Aggregator {
 
         /* Get the set of all switches connected to our selected
          * trunks. */
-        Collection<SwitchControl> switches =
+        Collection<NetworkControl> switches =
             adequateTrunks.stream().flatMap(tr -> tr.getPorts().stream())
-                .map(Port::getSwitch).collect(Collectors.toSet());
+                .map(Terminal::getNetwork).collect(Collectors.toSet());
 
         /* Create modifiable routing tables across our network, where
          * the vertices are inner (inferior) ports. */
-        DistanceVectorComputer<Port> fibGraph =
-            new DistanceVectorComputer<Port>();
+        DistanceVectorComputer<Terminal> fibGraph =
+            new DistanceVectorComputer<Terminal>();
 
         /* The terminals are the inner ports of those identified in the
          * request. */
@@ -833,10 +833,10 @@ public class TransientAggregator implements Aggregator {
          * metrics. Also retain a reverse mapping from edge to trunk, so
          * we can test bandwidth availability whenever we find a
          * spanning tree. */
-        Map<Edge<Port>, Double> trunkEdgeWeights = new HashMap<>();
-        Map<Edge<Port>, MyTrunk> trunkEdges = new HashMap<>();
+        Map<Edge<Terminal>, Double> trunkEdgeWeights = new HashMap<>();
+        Map<Edge<Terminal>, MyTrunk> trunkEdges = new HashMap<>();
         for (MyTrunk trunk : adequateTrunks) {
-            Edge<Port> edge = Edge.of(trunk.getPorts());
+            Edge<Terminal> edge = Edge.of(trunk.getPorts());
             trunkEdgeWeights.put(edge, trunk.getDelay());
             trunkEdges.put(edge, trunk);
         }
@@ -846,20 +846,21 @@ public class TransientAggregator implements Aggregator {
         /* The edges include virtual ones constituting models of
          * inferior switches. Also make a note of connected ports within
          * an inferior switch, in case it is a fragmented aggregate. */
-        Map<Edge<Port>, Double> switchEdgeWeights = switches.stream()
+        Map<Edge<Terminal>, Double> switchEdgeWeights = switches.stream()
             .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
         fibGraph.addEdges(switchEdgeWeights);
         // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
-        Map<Port, Collection<Port>> portGroups = Graphs
+        Map<Terminal, Collection<Terminal>> portGroups = Graphs
             .getGroups(Graphs.getAdjacencies(switchEdgeWeights.keySet()));
         // System.err.printf("Port groups: %s%n",
         // new HashSet<>(portGroups.values()));
 
         /* Keep track of the weights of all edges, whether they come
          * from trunks or inferior switches. */
-        Map<Edge<Port>, Double> edgeWeights = new HashMap<>(trunkEdgeWeights);
+        Map<Edge<Terminal>, Double> edgeWeights =
+            new HashMap<>(trunkEdgeWeights);
         edgeWeights.putAll(switchEdgeWeights);
 
         do {
@@ -868,19 +869,21 @@ public class TransientAggregator implements Aggregator {
 
             /* Create terminal-aware weights for each edge, and build a
              * spanning tree. */
-            Map<Port, Map<Port, Way<Port>>> fibs = fibGraph.getFIBs();
-            //Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
-            FIBSpanGuide<Port> guide = new FIBSpanGuide<>(fibs);
-            Collection<Port> reached = new HashSet<>();
-            Collection<Edge<Port>> tree = SpanningTreeComputer
-                .start(Port.class).withEdges(edgeWeights.keySet())
+            Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
+                fibGraph.getFIBs();
+            // Map<Edge<Port>, Double> weightedEdges =
+            // Graphs.flatten(fibs);
+            FIBSpanGuide<Terminal> guide = new FIBSpanGuide<>(fibs);
+            Collection<Terminal> reached = new HashSet<>();
+            Collection<Edge<Terminal>> tree = SpanningTreeComputer
+                .start(Terminal.class).withEdges(edgeWeights.keySet())
                 .withTerminals(innerTerminalPorts).notifying(p -> {
                     guide.reached(p);
                     reached.addAll(portGroups.get(p));
                 }).withEdgePreference(guide::select).eliminating(e -> {
                     /* Permit edges within the same switch. */
-                    SwitchControl first = e.first().getSwitch();
-                    SwitchControl second = e.second().getSwitch();
+                    NetworkControl first = e.first().getNetwork();
+                    NetworkControl second = e.second().getNetwork();
                     if (first == second) return false;
 
                     /* Allow this edge at least one port hasn't been
@@ -909,16 +912,16 @@ public class TransientAggregator implements Aggregator {
              * that don't have enough bandwidth for what is going over
              * them. Identify the worst case. */
             Map<MyTrunk, List<Double>> edgeBandwidths = new HashMap<>();
-            DistanceVectorComputer<Port> routes =
+            DistanceVectorComputer<Terminal> routes =
                 new DistanceVectorComputer<>(innerTerminalPorts, tree.stream()
                     .collect(Collectors.toMap(e -> e, edgeWeights::get)));
             routes.update();
             // System.err.printf("Loads: %s%n", routes.getEdgeLoads());
-            Edge<Port> worstEdge = null;
+            Edge<Terminal> worstEdge = null;
             double worstShortfall = 0.0;
-            for (Map.Entry<Edge<Port>, List<Map<Port, Double>>> entry : routes
+            for (Map.Entry<Edge<Terminal>, List<Map<Terminal, Double>>> entry : routes
                 .getEdgeLoads().entrySet()) {
-                Edge<Port> edge = entry.getKey();
+                Edge<Terminal> edge = entry.getKey();
                 MyTrunk trunk = trunkEdges.get(edge);
                 if (trunk == null) continue;
                 boolean reverse = !trunk.getPorts().equals(edge);
@@ -957,7 +960,7 @@ public class TransientAggregator implements Aggregator {
 
             /* Allocate tunnels along identified trunks. Also gather end
              * points per port group, and bandwidth required on each. */
-            Map<Collection<Port>, Map<EndPoint, List<Double>>> subterminals =
+            Map<Collection<Terminal>, Map<EndPoint, List<Double>>> subterminals =
                 new HashMap<>();
             for (Map.Entry<MyTrunk, List<Double>> trunkReq : edgeBandwidths
                 .entrySet()) {
@@ -968,11 +971,11 @@ public class TransientAggregator implements Aggregator {
                 tunnels.put(trunk, ep1);
                 EndPoint ep2 = trunk.getPeer(ep1);
                 subterminals
-                    .computeIfAbsent(portGroups.get(ep1.getPort()),
+                    .computeIfAbsent(portGroups.get(ep1.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep1, Arrays.asList(downstream, upstream));
                 subterminals
-                    .computeIfAbsent(portGroups.get(ep2.getPort()),
+                    .computeIfAbsent(portGroups.get(ep2.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep2, Arrays.asList(upstream, downstream));
             }
@@ -983,7 +986,7 @@ public class TransientAggregator implements Aggregator {
                 .entrySet()) {
                 EndPoint ep = entry.getKey();
                 subterminals
-                    .computeIfAbsent(portGroups.get(ep.getPort()),
+                    .computeIfAbsent(portGroups.get(ep.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }
@@ -991,7 +994,7 @@ public class TransientAggregator implements Aggregator {
 
             /* For each port group, create a new connection request. */
             for (Map<EndPoint, List<Double>> reqs : subterminals.values()) {
-                subrequests.add(ConnectionRequest.of(reqs));
+                subrequests.add(ServiceRequest.of(reqs));
             }
             return;
         } while (true);
@@ -1018,7 +1021,7 @@ public class TransientAggregator implements Aggregator {
     synchronized void
         plotTree(Collection<? extends EndPoint> terminals, double bandwidth,
                  Map<? super TrunkControl, ? super EndPoint> tunnels,
-                 Map<? super SwitchControl, Collection<EndPoint>> subterminals) {
+                 Map<? super NetworkControl, Collection<EndPoint>> subterminals) {
         // System.err.println("outer terminal end points: " +
         // terminals);
 
@@ -1026,15 +1029,15 @@ public class TransientAggregator implements Aggregator {
          * end points that our topology consists of. */
         Collection<EndPoint> innerTerminalEndPoints =
             terminals.stream().map(t -> {
-                Port p = t.getPort();
-                if (!(p instanceof MyPort))
+                Terminal p = t.getTerminal();
+                if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("end point " + t
                         + " not part of " + name);
-                MyPort xp = (MyPort) p;
+                MyTerminal xp = (MyTerminal) p;
                 if (xp.owner() != this)
                     throw new IllegalArgumentException("end point " + t
                         + " not part of " + name);
-                Port ip = xp.innerPort();
+                Terminal ip = xp.innerPort();
                 return ip.getEndPoint(t.getLabel());
             }).collect(Collectors.toSet());
         // System.err
@@ -1043,13 +1046,13 @@ public class TransientAggregator implements Aggregator {
 
         /* Get the set of ports that will be used as destinations in
          * routing. */
-        Collection<Port> innerTerminalPorts = innerTerminalEndPoints.stream()
-            .map(EndPoint::getPort).collect(Collectors.toSet());
+        Collection<Terminal> innerTerminalPorts = innerTerminalEndPoints
+            .stream().map(EndPoint::getTerminal).collect(Collectors.toSet());
         // System.err.println("inner terminal ports: " +
         // innerTerminalPorts);
 
         /* Create routing tables for each port. */
-        Map<Port, Map<Port, Way<Port>>> fibs =
+        Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
             getFibs(bandwidth, innerTerminalPorts);
         // System.err.println("FIBs: " + fibs);
 
@@ -1061,24 +1064,25 @@ public class TransientAggregator implements Aggregator {
          * set of switches already reached. Edges that connect two
          * distinct switches that have both been reached shall be
          * excluded. */
-        Collection<SwitchControl> reachedSwitches = new HashSet<>();
+        Collection<NetworkControl> reachedSwitches = new HashSet<>();
 
         /* Create the spanning tree, keeping track of reached switches,
          * and rejecting edges connecting two already reached
          * switches. */
-        FIBSpanGuide<Port> guide = new FIBSpanGuide<Port>(fibs);
-        Collection<Edge<Port>> tree = SpanningTreeComputer.start(Port.class)
-            .withEdgePreference(guide::select).eliminating(e -> {
-                SwitchControl first = e.first().getSwitch();
-                SwitchControl second = e.second().getSwitch();
-                if (first == second) return false;
-                if (reachedSwitches.contains(first)
-                    && reachedSwitches.contains(second)) return true;
-                return false;
-            }).notifying(p -> {
-                guide.reached(p);
-                reachedSwitches.add(p.getSwitch());
-            }).create().getSpanningTree(guide.first());
+        FIBSpanGuide<Terminal> guide = new FIBSpanGuide<Terminal>(fibs);
+        Collection<Edge<Terminal>> tree =
+            SpanningTreeComputer.start(Terminal.class)
+                .withEdgePreference(guide::select).eliminating(e -> {
+                    NetworkControl first = e.first().getNetwork();
+                    NetworkControl second = e.second().getNetwork();
+                    if (first == second) return false;
+                    if (reachedSwitches.contains(first)
+                        && reachedSwitches.contains(second)) return true;
+                    return false;
+                }).notifying(p -> {
+                    guide.reached(p);
+                    reachedSwitches.add(p.getNetwork());
+                }).create().getSpanningTree(guide.first());
 
         /* Collection<Edge<Port>> tree2 =
          * Graphs.span(innerTerminalPorts, null, weightedEdges, p ->
@@ -1089,9 +1093,9 @@ public class TransientAggregator implements Aggregator {
          * reachedSwitches.contains(second)) return false; return true;
          * }); */
 
-        for (Edge<Port> edge : tree) {
-            SwitchControl firstSwitch = edge.first().getSwitch();
-            SwitchControl secondSwitch = edge.second().getSwitch();
+        for (Edge<Terminal> edge : tree) {
+            NetworkControl firstSwitch = edge.first().getNetwork();
+            NetworkControl secondSwitch = edge.second().getNetwork();
             if (firstSwitch == secondSwitch) {
                 /* This is an edge across an inferior switch. We don't
                  * handle it directly, but infer it by the edges that
@@ -1110,10 +1114,10 @@ public class TransientAggregator implements Aggregator {
              * correspond to, and add each end point to its switch's
              * respective set of end points. */
             EndPoint ep2 = firstTrunk.getPeer(ep1);
-            subterminals.computeIfAbsent(ep1.getPort().getSwitch(),
+            subterminals.computeIfAbsent(ep1.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep1);
-            subterminals.computeIfAbsent(ep2.getPort().getSwitch(),
+            subterminals.computeIfAbsent(ep2.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep2);
         }
@@ -1121,7 +1125,7 @@ public class TransientAggregator implements Aggregator {
         /* Make sure the caller's end points are included in their
          * switches' corresponding sets. */
         for (EndPoint t : innerTerminalEndPoints)
-            subterminals.computeIfAbsent(t.getPort().getSwitch(),
+            subterminals.computeIfAbsent(t.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);
 
@@ -1142,8 +1146,8 @@ public class TransientAggregator implements Aggregator {
      * 
      * @return a FIB for each port
      */
-    Map<Port, Map<Port, Way<Port>>>
-        getFibs(double bandwidth, Collection<Port> innerTerminalPorts) {
+    Map<Terminal, Map<Terminal, Way<Terminal>>>
+        getFibs(double bandwidth, Collection<Terminal> innerTerminalPorts) {
         assert Thread.holdsLock(this);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
@@ -1155,15 +1159,15 @@ public class TransientAggregator implements Aggregator {
         // System.err.println("Usable trunks: " + adequateTrunks);
 
         /* Get edges representing all suitable trunks. */
-        Map<Edge<Port>, Double> edges =
+        Map<Edge<Terminal>, Double> edges =
             new HashMap<>(adequateTrunks.stream().collect(Collectors
                 .toMap(t -> Edge.of(t.getPorts()), TrunkControl::getDelay)));
         // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */
-        Collection<SwitchControl> switches = adequateTrunks.stream()
-            .flatMap(trunk -> trunk.getPorts().stream().map(Port::getSwitch))
-            .collect(Collectors.toSet());
+        Collection<NetworkControl> switches =
+            adequateTrunks.stream().flatMap(trunk -> trunk.getPorts().stream()
+                .map(Terminal::getNetwork)).collect(Collectors.toSet());
         // System.err.println("Switches: " + switches);
 
         /* Get models of all switches connected to the selected trunks,
@@ -1182,35 +1186,36 @@ public class TransientAggregator implements Aggregator {
         return Graphs.route(innerTerminalPorts, edges);
     }
 
-    synchronized Map<Edge<Port>, Double> getModel(double bandwidth) {
+    synchronized Map<Edge<Terminal>, Double> getModel(double bandwidth) {
         /* Map the set of our end points to the corresponding inner
          * ports that our topology consists of. */
-        Collection<Port> innerTerminalPorts = ports.values().stream()
-            .map(MyPort::innerPort).collect(Collectors.toSet());
+        Collection<Terminal> innerTerminalPorts = ports.values().stream()
+            .map(MyTerminal::innerPort).collect(Collectors.toSet());
 
         /* Create routing tables for each port. */
-        Map<Port, Map<Port, Way<Port>>> fibs =
+        Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
             getFibs(bandwidth, innerTerminalPorts);
 
         /* Convert our exposed ports to a sequence so we can form every
          * combination of two ports. */
-        final List<MyPort> portSeq = new ArrayList<>(ports.values());
+        final List<MyTerminal> portSeq = new ArrayList<>(ports.values());
         final int size = portSeq.size();
 
         /* For every combination of our exposed ports, store the total
          * distance as part of the result. */
-        Map<Edge<Port>, Double> result = new HashMap<>();
+        Map<Edge<Terminal>, Double> result = new HashMap<>();
         for (int i = 0; i + 1 < size; i++) {
-            final MyPort start = portSeq.get(i);
-            final Port innerStart = start.innerPort();
-            final Map<Port, Way<Port>> startFib = fibs.get(innerStart);
+            final MyTerminal start = portSeq.get(i);
+            final Terminal innerStart = start.innerPort();
+            final Map<Terminal, Way<Terminal>> startFib =
+                fibs.get(innerStart);
             if (startFib == null) continue;
             for (int j = i + 1; j < size; j++) {
-                final MyPort end = portSeq.get(j);
-                final Port innerEnd = end.innerPort();
-                final Way<Port> way = startFib.get(innerEnd);
+                final MyTerminal end = portSeq.get(j);
+                final Terminal innerEnd = end.innerPort();
+                final Way<Terminal> way = startFib.get(innerEnd);
                 if (way == null) continue;
-                final Edge<Port> edge = Edge.of(start, end);
+                final Edge<Terminal> edge = Edge.of(start, end);
                 result.put(edge, way.distance);
             }
         }
@@ -1218,37 +1223,37 @@ public class TransientAggregator implements Aggregator {
         return result;
     }
 
-    private final SwitchControl control = new SwitchControl() {
+    private final NetworkControl control = new NetworkControl() {
         @Override
-        public Map<Edge<Port>, Double> getModel(double bandwidth) {
+        public Map<Edge<Terminal>, Double> getModel(double bandwidth) {
             return TransientAggregator.this.getModel(bandwidth);
         }
 
         @Override
-        public Connection getConnection(int id) {
+        public Service getService(int id) {
             synchronized (TransientAggregator.this) {
                 return connections.get(id);
             }
         }
 
         @Override
-        public Connection newConnection() {
+        public Service newService() {
             synchronized (TransientAggregator.this) {
                 int id = nextConnectionId++;
-                MyConnection conn = new MyConnection(id);
+                MyService conn = new MyService(id);
                 connections.put(id, conn);
                 return conn;
             }
         }
 
         @Override
-        public Collection<Integer> getConnectionIds() {
+        public Collection<Integer> getServiceIds() {
             return new HashSet<>(connections.keySet());
         }
     };
 
     @Override
-    public Collection<String> getPorts() {
+    public Collection<String> getTerminals() {
         return new HashSet<>(ports.keySet());
     }
 }

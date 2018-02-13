@@ -89,7 +89,7 @@ public final class DistanceVectorComputer<V> {
      * weights/costs)
      */
     public DistanceVectorComputer(Collection<? extends V> terminals,
-                               Map<? extends Edge<? extends V>, ? extends Number> links) {
+                                  Map<? extends Edge<? extends V>, ? extends Number> links) {
         this.terminals.addAll(terminals);
 
         /* Treat all vertices as having out-of-date FIBs. */

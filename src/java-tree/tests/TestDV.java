@@ -40,7 +40,8 @@ import uk.ac.lancs.routing.span.Edge;
 
 public class TestDV {
     public static void main(String[] args) {
-        DistanceVectorComputer<String> fibData = new DistanceVectorComputer<>();
+        DistanceVectorComputer<String> fibData =
+            new DistanceVectorComputer<>();
         fibData.addTerminal("A");
         fibData.addTerminal("B");
         fibData.addTerminal("C");

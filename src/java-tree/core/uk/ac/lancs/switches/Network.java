@@ -33,14 +33,40 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.switches;
+
+import java.util.Collection;
 
 /**
- * Contains classes for managing hierarchical out-of-band management of
- * services sliced from a physical network. The primary class is
- * {@link uk.ac.lancs.switches.Network}, which allows the creation of
- * {@link uk.ac.lancs.switches.Service}s across it, connecting
- * {@link uk.ac.lancs.switches.EndPoint}s with certain QoS requirements.
+ * Manages a network's terminals.
+ * 
+ * @summary The management interface of a network
  * 
  * @author simpsons
  */
-package uk.ac.lancs.switches;
+public interface Network {
+    /**
+     * Get a terminal on this network.
+     * 
+     * @param id the local terminal name
+     * 
+     * @return the requested terminal, or {@code null} if no such
+     * terminal exists
+     */
+    Terminal getTerminal(String id);
+
+    /**
+     * Get a set of all terminals on this network.
+     * 
+     * @return a mutable collection of names of terminals created by
+     * {@link #getTerminal(String)}
+     */
+    Collection<String> getTerminals();
+
+    /**
+     * Get the controlling interface for this network.
+     * 
+     * @return the network's control interface
+     */
+    NetworkControl getControl();
+}

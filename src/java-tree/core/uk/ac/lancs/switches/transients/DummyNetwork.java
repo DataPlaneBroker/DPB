@@ -46,56 +46,56 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.switches.Connection;
-import uk.ac.lancs.switches.ConnectionListener;
-import uk.ac.lancs.switches.ConnectionRequest;
-import uk.ac.lancs.switches.ConnectionStatus;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.Switch;
-import uk.ac.lancs.switches.SwitchControl;
+import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.Network;
+import uk.ac.lancs.switches.NetworkControl;
 
 /**
- * Implements an entirely virtual switch that does nothing.
+ * Implements an entirely virtual network that does nothing.
  * 
  * @author simpsons
  */
-public class DummySwitch implements Switch {
-    private class MyPort implements Port {
+public class DummyNetwork implements Network {
+    private class MyTerminal implements Terminal {
         private final String name;
 
-        MyPort(String name) {
+        MyTerminal(String name) {
             this.name = name;
         }
 
         @Override
-        public SwitchControl getSwitch() {
+        public NetworkControl getNetwork() {
             return control;
         }
 
         @Override
         public String toString() {
-            return DummySwitch.this.name + ":" + this.name;
+            return DummyNetwork.this.name + ":" + this.name;
         }
 
-        DummySwitch owner() {
-            return DummySwitch.this;
+        DummyNetwork owner() {
+            return DummyNetwork.this;
         }
     }
 
-    private class MyConnection implements Connection {
+    private class MyService implements Service {
         final int id;
-        final Collection<ConnectionListener> listeners = new HashSet<>();
+        final Collection<ServiceListener> listeners = new HashSet<>();
 
-        MyConnection(int id) {
+        MyService(int id) {
             this.id = id;
         }
 
         boolean active, released;
-        ConnectionRequest request;
+        ServiceRequest request;
 
         @Override
-        public synchronized void initiate(ConnectionRequest request) {
+        public synchronized void initiate(ServiceRequest request) {
             if (released)
                 throw new IllegalStateException("connection disused");
             if (this.request != null)
@@ -104,34 +104,34 @@ public class DummySwitch implements Switch {
             /* Sanitize the request such that every end point mentioned
              * in either set is present in both. A minimum bandwidth is
              * applied to all implicit and explicit consumers. */
-            request = ConnectionRequest.sanitize(request, 0.01);
+            request = ServiceRequest.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
             for (EndPoint ep : request.producers().keySet()) {
-                Port p = ep.getPort();
-                if (!(p instanceof MyPort))
+                Terminal p = ep.getTerminal();
+                if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
-                MyPort mp = (MyPort) p;
-                if (mp.owner() != DummySwitch.this)
+                MyTerminal mp = (MyTerminal) p;
+                if (mp.owner() != DummyNetwork.this)
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
             }
             this.request = request;
-            callOut(ConnectionListener::ready);
+            callOut(ServiceListener::ready);
         }
 
         @Override
-        public synchronized void addListener(ConnectionListener events) {
+        public synchronized void addListener(ServiceListener events) {
             listeners.add(events);
         }
 
         @Override
-        public synchronized void removeListener(ConnectionListener events) {
+        public synchronized void removeListener(ServiceListener events) {
             listeners.remove(events);
         }
 
-        private void callOut(Consumer<? super ConnectionListener> action) {
+        private void callOut(Consumer<? super ServiceListener> action) {
             listeners.stream()
                 .forEach(l -> executor.execute(() -> action.accept(l)));
         }
@@ -142,22 +142,21 @@ public class DummySwitch implements Switch {
                 throw new IllegalStateException("connection uninitiated");
             if (active) return;
             active = true;
-            callOut(ConnectionListener::activated);
+            callOut(ServiceListener::activated);
         }
 
         @Override
         public synchronized void deactivate() {
             if (released || request == null || !active) return;
             active = false;
-            callOut(ConnectionListener::deactivated);
+            callOut(ServiceListener::deactivated);
         }
 
         @Override
-        public synchronized ConnectionStatus status() {
-            if (released) return ConnectionStatus.RELEASED;
-            if (request == null) return ConnectionStatus.DORMANT;
-            return active ? ConnectionStatus.ACTIVE
-                : ConnectionStatus.INACTIVE;
+        public synchronized ServiceStatus status() {
+            if (released) return ServiceStatus.RELEASED;
+            if (request == null) return ServiceStatus.DORMANT;
+            return active ? ServiceStatus.ACTIVE : ServiceStatus.INACTIVE;
         }
 
         @Override
@@ -166,7 +165,7 @@ public class DummySwitch implements Switch {
             connections.remove(id);
             request = null;
             released = true;
-            callOut(ConnectionListener::released);
+            callOut(ServiceListener::released);
         }
 
         @Override
@@ -187,21 +186,21 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public synchronized SwitchControl getSwitch() {
+        public synchronized NetworkControl getSwitch() {
             if (released || request == null) return null;
             return control;
         }
 
         @Override
-        public synchronized ConnectionRequest getRequest() {
+        public synchronized ServiceRequest getRequest() {
             return request;
         }
     }
 
     private final Executor executor;
     private final String name;
-    private final Map<String, MyPort> ports = new HashMap<>();
-    private final Map<Integer, MyConnection> connections = new HashMap<>();
+    private final Map<String, MyTerminal> ports = new HashMap<>();
+    private final Map<Integer, MyService> connections = new HashMap<>();
     private int nextConnectionId;
 
     /**
@@ -211,12 +210,12 @@ public class DummySwitch implements Switch {
      * @param out the destination for the status report
      */
     public void dump(PrintWriter out) {
-        Collection<MyConnection> connections;
+        Collection<MyService> connections;
         synchronized (this) {
             connections = new ArrayList<>(this.connections.values());
         }
         out.printf("dummy %s:%n", name);
-        for (MyConnection conn : connections)
+        for (MyService conn : connections)
             conn.dump(out);
         out.flush();
     }
@@ -224,11 +223,11 @@ public class DummySwitch implements Switch {
     /**
      * Create a dummy switch.
      * 
-     * @param executor used to invoke {@link ConnectionListener}s
+     * @param executor used to invoke {@link ServiceListener}s
      * 
      * @param name the new switch's name
      */
-    public DummySwitch(Executor executor, String name) {
+    public DummyNetwork(Executor executor, String name) {
         this.executor = executor;
         this.name = name;
     }
@@ -240,44 +239,45 @@ public class DummySwitch implements Switch {
      * 
      * @return the new port
      */
-    public synchronized Port addPort(String name) {
+    public synchronized Terminal addPort(String name) {
         if (ports.containsKey(name))
             throw new IllegalArgumentException("port name in use: " + name);
-        MyPort port = new MyPort(name);
+        MyTerminal port = new MyTerminal(name);
         ports.put(name, port);
         return port;
     }
 
     @Override
-    public synchronized Port getPort(String id) {
+    public synchronized Terminal getTerminal(String id) {
         return ports.get(id);
     }
 
     @Override
-    public SwitchControl getControl() {
+    public NetworkControl getControl() {
         return control;
     }
 
-    private final SwitchControl control = new SwitchControl() {
+    private final NetworkControl control = new NetworkControl() {
         @Override
-        public Connection newConnection() {
-            synchronized (DummySwitch.this) {
+        public Service newService() {
+            synchronized (DummyNetwork.this) {
                 int id = nextConnectionId++;
-                MyConnection conn = new MyConnection(id);
+                MyService conn = new MyService(id);
                 connections.put(id, conn);
                 return conn;
             }
         }
 
         @Override
-        public Map<Edge<Port>, Double> getModel(double minimumBandwidth) {
-            synchronized (DummySwitch.this) {
-                List<Port> list = new ArrayList<>(ports.values());
-                Map<Edge<Port>, Double> result = new HashMap<>();
+        public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
+            synchronized (DummyNetwork.this) {
+                List<Terminal> list = new ArrayList<>(ports.values());
+                Map<Edge<Terminal>, Double> result = new HashMap<>();
                 int size = list.size();
                 for (int i = 0; i < size - 1; i++) {
                     for (int j = i + 1; j < size; j++) {
-                        Edge<Port> edge = Edge.of(list.get(i), list.get(j));
+                        Edge<Terminal> edge =
+                            Edge.of(list.get(i), list.get(j));
                         result.put(edge, 0.001);
                     }
                 }
@@ -286,14 +286,14 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public Connection getConnection(int id) {
-            synchronized (DummySwitch.this) {
+        public Service getService(int id) {
+            synchronized (DummyNetwork.this) {
                 return connections.get(id);
             }
         }
 
         @Override
-        public Collection<Integer> getConnectionIds() {
+        public Collection<Integer> getServiceIds() {
             return new HashSet<>(connections.keySet());
         }
 
@@ -304,7 +304,7 @@ public class DummySwitch implements Switch {
     };
 
     @Override
-    public Collection<String> getPorts() {
+    public Collection<String> getTerminals() {
         return new HashSet<>(ports.keySet());
     }
 }

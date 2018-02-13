@@ -33,33 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
+package uk.ac.lancs.switches.backend;
 
 /**
- * Models the end of a trunk capable of carrying connections.
  * 
- * <p>
- * The {@link Object#toString()} method should fully identify the port.
  * 
  * @author simpsons
  */
-public interface Port {
-    /**
-     * Get the switch directly owning this port.
-     * 
-     * @return the owning switch of the port
-     */
-    SwitchControl getSwitch();
+public interface Binding {
 
-    /**
-     * Get the end point for a given label applied to traffic through
-     * this port.
-     * 
-     * @param label the label subdividing traffic on this port
-     * 
-     * @return the end point for the given label
-     */
-    default EndPoint getEndPoint(int label) {
-        return EndPoint.of(this, label);
-    }
 }

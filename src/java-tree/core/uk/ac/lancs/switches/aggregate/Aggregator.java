@@ -35,44 +35,48 @@
  */
 package uk.ac.lancs.switches.aggregate;
 
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.Switch;
+import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.Network;
 
 /**
- * Configures a virtual switch that aggregates other switches. An
- * aggregator distinguishes between internal and external ports.
- * External ports are its own, and be obtained from the aggregator's
- * {@link Switch#getPort(String)} method. Internal ports belong to
- * inferior switches, and are used to define trunks. A trunk connects
- * the ports of two different inferior switches together by calling
- * {@link #addTrunk(Port, Port)}. The aggregator uses its knowledge of
- * trunks to plot spanning trees over them, and delegates connections to
- * the switches holding the ports at the ends of the trunks.
+ * An aggregator consists of a set of inferior networks plus a set of
+ * trunks connecting their terminals together. An aggregator
+ * distinguishes between internal and external terminals. External
+ * terminals are its own, and be obtained from the aggregator's
+ * {@link Network#getTerminal(String)} method. Internal terminals belong
+ * to inferior networks, and are used to define trunks. A trunk connects
+ * the terminals of two different inferior terminals together by calling
+ * {@link #addTrunk(Terminal, Terminal)}. The aggregator uses its
+ * knowledge of trunks to plot spanning trees over them, and delegates
+ * service requests to the inferior networks owning the terminals at the
+ * ends of the trunks.
+ * 
+ * @summary A network that is an aggregate of inferior networks
  * 
  * @author simpsons
  */
-public interface Aggregator extends Switch {
+public interface Aggregator extends Network {
     /**
-     * Create a trunk between two internal ports within the switch.
+     * Create a trunk between two internal terminals within the switch.
      * 
-     * @param p1 one of the ports
+     * @param t1 one of the terminals
      * 
-     * @param p2 the other port
+     * @param t2 the other terminal
      * 
-     * @throws NullPointerException if either port is null
+     * @throws NullPointerException if either terminal is null
      */
-    Trunk addTrunk(Port p1, Port p2);
+    Trunk addTrunk(Terminal t1, Terminal t2);
 
     /**
-     * Find an existing trunk connected to a port.
+     * Find an existing trunk connected to a terminal.
      * 
-     * @param p one of the ports of the trunk
+     * @param t one of the terminals of the trunk
      * 
      * @return the requested trunk, or {@code null} if none exist with
      * that end point
      * 
-     * @throws IllegalArgumentException if the port does not belong to
-     * the switch
+     * @throws IllegalArgumentException if the terminal does not belong
+     * to the switch
      */
-    Trunk findTrunk(Port p);
+    Trunk findTrunk(Terminal t);
 }

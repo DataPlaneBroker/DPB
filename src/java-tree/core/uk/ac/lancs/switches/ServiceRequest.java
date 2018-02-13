@@ -45,12 +45,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Describes a required connection in terms of terminal end points and
- * minimum bandwidth allocation.
+ * Describes a service in terms of end points and bandwidth allocations.
  * 
  * @author simpsons
  */
-public interface ConnectionRequest {
+public interface ServiceRequest {
     /**
      * Get the set of producers and their bandwidth contributions. End
      * points not present in the producer keys but present in
@@ -89,10 +88,10 @@ public interface ConnectionRequest {
      * 
      * @return a request consisting of the provided information
      */
-    static ConnectionRequest
+    static ServiceRequest
         of(Map<? extends EndPoint, ? extends Number> producers,
            Map<? extends EndPoint, ? extends Number> consumers) {
-        return new ConnectionRequest() {
+        return new ServiceRequest() {
             @Override
             public Map<? extends EndPoint, ? extends Number> consumers() {
                 return consumers;
@@ -113,7 +112,7 @@ public interface ConnectionRequest {
      * 
      * @return a request consisting of the provided information
      */
-    static ConnectionRequest
+    static ServiceRequest
         of(Map<? extends EndPoint, ? extends List<? extends Number>> input) {
         Map<EndPoint, Number> producers =
             input.entrySet().stream().collect(Collectors
@@ -134,8 +133,8 @@ public interface ConnectionRequest {
     };
 
     /**
-     * Accumulates connection request data. Obtain one with
-     * {@link ConnectionRequest#start()}.
+     * Accumulates service request data. Obtain one with
+     * {@link ServiceRequest#start()}.
      * 
      * @author simpsons
      */
@@ -148,47 +147,47 @@ public interface ConnectionRequest {
 
         /**
          * Set the default production bandwidth for
-         * {@link #add(EndPoint)} and {@link #add(Port, int)}.
+         * {@link #add(EndPoint)} and {@link #add(Terminal, int)}.
          * 
-         * @param bw the new default
+         * @param bandwidth the new default
          * 
          * @return this object
          */
-        public Builder produce(double bw) {
-            defaultProduction = bw;
+        public Builder produce(double bandwidth) {
+            defaultProduction = bandwidth;
             return this;
         }
 
         /**
          * Add an end point producing the default amount.
          * 
-         * @param ep the end point to add
+         * @param endPoint the end point to add
          * 
          * @return this object
          */
-        public Builder add(EndPoint ep) {
-            return add(ep, defaultProduction);
+        public Builder add(EndPoint endPoint) {
+            return add(endPoint, defaultProduction);
         }
 
         /**
-         * Add an end point specified by port and label, producing the
-         * default amount.
+         * Add an end point specified by terminal and label, producing
+         * the default amount.
          * 
-         * @param p the port containing the end point
+         * @param terminal the terminal containing the end point
          * 
          * @param label the label identifying the end point within the
-         * port
+         * terminal
          * 
          * @return this object
          */
-        public Builder add(Port p, int label) {
-            return add(p.getEndPoint(label));
+        public Builder add(Terminal terminal, int label) {
+            return add(terminal.getEndPoint(label));
         }
 
         /**
          * Add an end point producing and consuming specific amounts.
          * 
-         * @param ep the end point to add
+         * @param endPoint the end point to add
          * 
          * @param produced the maximum the end point will produce
          * 
@@ -196,32 +195,33 @@ public interface ConnectionRequest {
          * 
          * @return this object
          */
-        public Builder add(EndPoint ep, double produced, double consumed) {
-            data.put(ep, Arrays.asList(produced, consumed));
+        public Builder add(EndPoint endPoint, double produced,
+                           double consumed) {
+            data.put(endPoint, Arrays.asList(produced, consumed));
             return this;
         }
 
         /**
          * Add an end point producing a specific amount.
          * 
-         * @param ep the end point to add
+         * @param endPoint the end point to add
          * 
-         * @param bw the maximum the end point will produce
+         * @param bandwidth the maximum the end point will produce
          * 
          * @return this object
          */
-        public Builder add(EndPoint ep, double bw) {
-            return add(ep, bw, Double.MAX_VALUE);
+        public Builder add(EndPoint endPoint, double bandwidth) {
+            return add(endPoint, bandwidth, Double.MAX_VALUE);
         }
 
         /**
-         * Add an end point specified by port and label, producing and
-         * consuming specific amounts.
+         * Add an end point specified by terminal and label, producing
+         * and consuming specific amounts.
          * 
-         * @param p the port containing the end point
+         * @param terminal the terminal containing the end point
          * 
          * @param label the label identifying the end point within the
-         * port
+         * terminal
          * 
          * @param produced the maximum the end point will produce
          * 
@@ -229,34 +229,34 @@ public interface ConnectionRequest {
          * 
          * @return this object
          */
-        public Builder add(Port p, int label, double produced,
+        public Builder add(Terminal terminal, int label, double produced,
                            double consumed) {
-            return add(p.getEndPoint(label), produced, consumed);
+            return add(terminal.getEndPoint(label), produced, consumed);
         }
 
         /**
-         * Add an end point specified by port and label, producing a
+         * Add an end point specified by terminal and label, producing a
          * specific amount.
          * 
-         * @param p the port containing the end point
+         * @param terminal the terminal containing the end point
          * 
          * @param label the label identifying the end point within the
-         * port
+         * terminal
          * 
-         * @param bw the maximum the end point will produce
+         * @param bandwidth the maximum the end point will produce
          * 
          * @return this object
          */
-        public Builder add(Port p, int label, double bw) {
-            return add(p, label, bw, Double.MAX_VALUE);
+        public Builder add(Terminal terminal, int label, double bandwidth) {
+            return add(terminal, label, bandwidth, Double.MAX_VALUE);
         }
 
         /**
-         * Create a connection request from the accumulated data.
+         * Create a service request from the accumulated data.
          * 
-         * @return the corresponding connection request
+         * @return the corresponding service request
          */
-        public ConnectionRequest create() {
+        public ServiceRequest create() {
             return of(data);
         }
     }
@@ -275,8 +275,8 @@ public interface ConnectionRequest {
      * 
      * @return the sanitized request
      */
-    static ConnectionRequest sanitize(ConnectionRequest input,
-                                      double nominalProduction) {
+    static ServiceRequest sanitize(ServiceRequest input,
+                                   double nominalProduction) {
         /* Get the full set of end points. */
         Collection<EndPoint> keys = new HashSet<>(input.producers().keySet());
         keys.addAll(input.consumers().keySet());

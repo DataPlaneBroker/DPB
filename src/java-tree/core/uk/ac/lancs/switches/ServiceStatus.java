@@ -33,14 +33,55 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.switches;
 
 /**
- * Contains classes for managing hierarchical out-of-band management of
- * services sliced from a physical network. The primary class is
- * {@link uk.ac.lancs.switches.Network}, which allows the creation of
- * {@link uk.ac.lancs.switches.Service}s across it, connecting
- * {@link uk.ac.lancs.switches.EndPoint}s with certain QoS requirements.
+ * Describes a service's status. The initial state is {@link #DORMANT}.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.switches;
+public enum ServiceStatus {
+    /**
+     * The service is not in use, and has no associated request. This is
+     * the initial state.
+     */
+    DORMANT,
+
+    /**
+     * The underlying service resources have not yet been established.
+     */
+    ESTABLISHING,
+
+    /**
+     * The service has link resources allocated, but no switch
+     * resources.
+     */
+    INACTIVE,
+
+    /**
+     * The service is in the process of becoming {@link #ACTIVE}. Some
+     * traffic might begin to get through.
+     */
+    ACTIVATING,
+
+    /**
+     * The service is active, and so can carry traffic.
+     */
+    ACTIVE,
+
+    /**
+     * The service is deactivating. Some traffic might still get
+     * through.
+     */
+    DEACTIVATING,
+
+    /**
+     * The service has failed outright.
+     */
+    FAILED,
+
+    /**
+     * The service has been released, and can no longer be used.
+     */
+    RELEASED,
+}

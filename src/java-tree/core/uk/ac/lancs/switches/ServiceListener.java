@@ -35,36 +35,36 @@
  */
 package uk.ac.lancs.switches;
 
-import java.util.Collection;
-
 /**
- * Manages a switch.
+ * Receives notifications of changes to the state of a service.
  * 
  * @author simpsons
  */
-public interface Switch {
+public interface ServiceListener {
     /**
-     * Get a port on this switch.
-     * 
-     * @param id the local port name
-     * 
-     * @return the requested port, or {@code null} if no such port
-     * exists
+     * The service has become ready to use, and is inactive.
      */
-    Port getPort(String id);
+    void ready();
 
     /**
-     * Get a set of all ports on this switch.
+     * The service failed during establishment or activation.
      * 
-     * @return a mutable collection of names of ports created by
-     * {@link #getPort(String)}
+     * @param t the reason for failure
      */
-    Collection<String> getPorts();
+    void failed(Throwable t);
 
     /**
-     * Get the controlling interface for this switch.
-     * 
-     * @return the switch's control interface
+     * The service has become active.
      */
-    SwitchControl getControl();
+    void activated();
+
+    /**
+     * The service has become inactive.
+     */
+    void deactivated();
+
+    /**
+     * The service has been fully released, and can be used again.
+     */
+    void released();
 }

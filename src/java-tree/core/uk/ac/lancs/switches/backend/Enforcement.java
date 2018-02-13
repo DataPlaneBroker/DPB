@@ -33,53 +33,19 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
-
-import java.util.Collection;
-import java.util.Map;
-
-import uk.ac.lancs.routing.span.Edge;
+package uk.ac.lancs.switches.backend;
 
 /**
- * Represents a physical or virtual switch.
+ * Specifies bidirectional bandwidth requirements.
  * 
  * @author simpsons
  */
-public interface SwitchControl {
-    /**
-     * Create a connection.
-     * 
-     * @param request a description of the required connection
-     */
-    Connection newConnection();
+public final class Enforcement {
+    public final double shaping;
+    public final double metering;
 
-    /**
-     * Get an existing connection.
-     * 
-     * @param id the connection identifier
-     * 
-     * @return the connection with the requested id, or {@code null} if
-     * it does not exist
-     */
-    Connection getConnection(int id);
-
-    /**
-     * Get ids of all open connections.
-     * 
-     * @return a set of all open connection ids, modifiable by the user
-     */
-    Collection<Integer> getConnectionIds();
-
-    /**
-     * Get a model of port connections given a bandwidth requirement.
-     * Returned weights should always be positive. Atomic switches
-     * should use extremely small values rather than zero.
-     * 
-     * @param minimumBandwidth the threshold below which internal links
-     * shall not be included in computing the model
-     * 
-     * @return a mesh of weighted edges between this switch's external
-     * ports summarizing the internal connectivity of the switch
-     */
-    Map<Edge<Port>, Double> getModel(double minimumBandwidth);
+    public Enforcement(double shaping, double metering) {
+        this.shaping = shaping;
+        this.metering = metering;
+    }
 }

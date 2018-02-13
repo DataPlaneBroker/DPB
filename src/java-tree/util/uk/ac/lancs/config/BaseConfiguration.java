@@ -79,14 +79,7 @@ final class BaseConfiguration implements Configuration {
             String prefix = m.group(1);
             int seqno = Integer.parseInt(m.group(2));
             URI reference = this.location.resolve(props.getProperty(key));
-            URI page = defragment(reference);
-            String fragment = reference.getFragment();
-            if (false && fragment != null && page.equals(this.location)) {
-                /* Resolve the fragment against our prefix. */
-                fragment =
-                    Configuration.normalizeKey(m.group(1) + '.' + fragment);
-                reference = reference.resolve("#" + fragment);
-            }
+            // TODO: Resolve the fragment against the key?
             inheritance.computeIfAbsent(prefix,
                                         k -> new TreeMap<>((a, b) -> Integer
                                             .compare(b, a)))
@@ -153,7 +146,7 @@ final class BaseConfiguration implements Configuration {
     }
 
     public Configuration subview(String prefix) {
-        prefix = Configuration.normalizeKey(prefix);
+        prefix = Configuration.normalizePrefix(prefix);
         if (prefix.isEmpty()) return this;
         return new PrefixConfiguration(context, location, this, prefix);
     }
@@ -167,5 +160,10 @@ final class BaseConfiguration implements Configuration {
                     .iterator(), k -> !removed.contains(k));
             }
         };
+    }
+
+    @Override
+    public Configuration reference(String key, String value) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }

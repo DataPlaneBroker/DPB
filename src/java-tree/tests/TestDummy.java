@@ -37,11 +37,11 @@
 
 import java.io.PrintWriter;
 
-import uk.ac.lancs.switches.Connection;
-import uk.ac.lancs.switches.ConnectionListener;
-import uk.ac.lancs.switches.ConnectionRequest;
-import uk.ac.lancs.switches.Port;
-import uk.ac.lancs.switches.transients.DummySwitch;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.transients.DummyNetwork;
 
 /**
  * 
@@ -54,18 +54,18 @@ public class TestDummy {
      * @param args
      */
     public static void main(String[] args) {
-        DummySwitch zwitch = new DummySwitch(IdleExecutor.INSTANCE, "dummy");
+        DummyNetwork zwitch = new DummyNetwork(IdleExecutor.INSTANCE, "dummy");
 
-        Port left = zwitch.addPort("left");
-        Port right = zwitch.addPort("right");
-        Port up = zwitch.addPort("up");
-        Port down = zwitch.addPort("down");
+        Terminal left = zwitch.addPort("left");
+        Terminal right = zwitch.addPort("right");
+        Terminal up = zwitch.addPort("up");
+        Terminal down = zwitch.addPort("down");
 
         /* Create a couple of dormant connections. */
-        Connection c1 = zwitch.getControl().newConnection();
-        Connection c2 = zwitch.getControl().newConnection();
+        Service c1 = zwitch.getControl().newService();
+        Service c2 = zwitch.getControl().newService();
 
-        class MyListener implements ConnectionListener {
+        class MyListener implements ServiceListener {
             final String name;
 
             MyListener(String name) {
@@ -103,9 +103,9 @@ public class TestDummy {
         c2.addListener(cl2);
 
         /* Initiate some connections. */
-        c1.initiate(ConnectionRequest.start().add(left, 1, 10.0)
+        c1.initiate(ServiceRequest.start().add(left, 1, 10.0)
             .add(down, 1, 10.0).create());
-        c2.initiate(ConnectionRequest.start().add(left, 4, 7.0)
+        c2.initiate(ServiceRequest.start().add(left, 4, 7.0)
             .add(right, 6, 7.0).add(up, 3, 7.0).create());
 
         /* Wait until there's nothing to do. */

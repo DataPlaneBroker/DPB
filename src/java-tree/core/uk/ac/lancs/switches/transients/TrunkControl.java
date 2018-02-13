@@ -38,7 +38,7 @@ package uk.ac.lancs.switches.transients;
 import java.util.List;
 
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Port;
+import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.aggregate.Trunk;
 
 /**
@@ -57,7 +57,7 @@ interface TrunkControl {
      * 
      * @return the ports of the trunk
      */
-    List<Port> getPorts();
+    List<Terminal> getPorts();
 
     /**
      * Get the upstream bandwidth remaining available on this trunk.

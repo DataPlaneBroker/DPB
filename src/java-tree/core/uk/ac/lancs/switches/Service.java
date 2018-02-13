@@ -37,10 +37,9 @@ package uk.ac.lancs.switches;
 
 /**
  * Represents a connection with allocated resources. A new connection is
- * obtained from {@link SwitchControl#newConnection()}. Each connection
- * has a persistent identifier which can be used to recover the
- * connection object through {@link SwitchControl#getConnection(int)} if
- * lost.
+ * obtained from {@link NetworkControl#newService()}. Each connection has
+ * a persistent identifier which can be used to recover the connection
+ * object through {@link NetworkControl#getService(int)} if lost.
  * 
  * Listeners can be added to a connection to be informed of changes to
  * its state.
@@ -51,23 +50,22 @@ package uk.ac.lancs.switches;
  * subswitches.
  * 
  * <p>
- * Call {@link #initiate(ConnectionRequest)} with connection parameters
+ * Call {@link #initiate(ServiceRequest)} with connection parameters
  * (end points and bandwidth) to initiate a connection.
- * {@link ConnectionListener#ready()} will be invoked if the connection
- * is established (but not yet activated).
- * {@link ConnectionListener#failed(Throwable)} will be invoked on
- * error.
+ * {@link ServiceListener#ready()} will be invoked if the connection is
+ * established (but not yet activated).
+ * {@link ServiceListener#failed(Throwable)} will be invoked on error.
  * 
  * <p>
  * Once established, {@link #activate()} can be called to activate the
  * connection. Inferior resources will be set up, allowing traffic to
- * flow between its end points. {@link ConnectionListener#activated()}
- * will be invoked when activation is complete.
+ * flow between its end points. {@link ServiceListener#activated()} will
+ * be invoked when activation is complete.
  * 
  * <p>
  * A connection can be deactived with {@link #deactivate()}. Inferior
  * resources will be released, and traffic will no longer flow.
- * {@link ConnectionListener#deactivated()} will be invoked when
+ * {@link ServiceListener#deactivated()} will be invoked when
  * de-activation is complete.
  * 
  * <p>
@@ -75,19 +73,19 @@ package uk.ac.lancs.switches;
  * 
  * <p>
  * Calling {@link #release()} ensures the connection is deactivated, and
- * all resources will be released. {@link ConnectionListener#released()}
+ * all resources will be released. {@link ServiceListener#released()}
  * will finally be called.
  * 
  * @author simpsons
  */
-public interface Connection {
+public interface Service {
     /**
      * Get the switch that owns this connection.
      * 
      * @return the owning switch, or {@code null} if the connection has
      * been released
      */
-    SwitchControl getSwitch();
+    NetworkControl getSwitch();
 
     /**
      * Get the request associated with this connection.
@@ -95,28 +93,28 @@ public interface Connection {
      * @return the associated request, or {@code null} if this
      * connection is released or has not been initiated
      */
-    ConnectionRequest getRequest();
+    ServiceRequest getRequest();
 
     /**
      * Initiate allocation of resources.
      * 
      * @param request the connection details
      */
-    void initiate(ConnectionRequest request);
+    void initiate(ServiceRequest request);
 
     /**
      * Add a listener for events.
      * 
      * @param events the listener to be added
      */
-    void addListener(ConnectionListener events);
+    void addListener(ServiceListener events);
 
     /**
      * Remove a listener.
      * 
      * @param events the listener to be removed
      */
-    void removeListener(ConnectionListener events);
+    void removeListener(ServiceListener events);
 
     /**
      * Activate the connection, allowing it to carry traffic. This
@@ -156,7 +154,7 @@ public interface Connection {
      * @throws IllegalStateException if this connection has been
      * released
      */
-    ConnectionStatus status();
+    ServiceStatus status();
 
     /**
      * Release all resources pertaining to this connection. All methods
@@ -170,7 +168,7 @@ public interface Connection {
      * it. The identifier can be used to re-acquire the interface to a
      * connection if the original is lost.
      * 
-     * @see SwitchControl#getConnection(int)
+     * @see NetworkControl#getService(int)
      * 
      * @return the connection identifier
      * 
