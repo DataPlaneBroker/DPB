@@ -41,6 +41,7 @@ import java.util.Map;
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.TrafficFlow;
 
 /**
  * Abstracts a physical switch. This is a simpler interface than
@@ -92,7 +93,7 @@ public interface Switch {
      * @return a reference to the bridge
      */
     Bridge bridge(BridgeListener listener,
-                  Map<? extends EndPoint, ? extends Enforcement> details);
+                  Map<? extends EndPoint, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since

@@ -64,6 +64,7 @@ import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.TrafficFlow;
 import uk.ac.lancs.switches.aggregate.Aggregator;
 import uk.ac.lancs.switches.aggregate.Trunk;
 
@@ -166,10 +167,12 @@ public class TransientAggregator implements Aggregator {
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", connection.status());
                 ServiceDescription request = connection.getRequest();
-                for (EndPoint ep : request.producers().keySet()) {
-                    out.printf("%n        %10s %6g %6g", ep,
-                               request.producers().get(ep),
-                               request.consumers().get(ep));
+                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                    .endPointFlows().entrySet()) {
+                    EndPoint ep = entry.getKey();
+                    TrafficFlow flow = entry.getValue();
+                    out.printf("%n        %10s %6g %6g", ep, flow.ingress,
+                               flow.egress);
                 }
             }
         }
@@ -268,7 +271,7 @@ public class TransientAggregator implements Aggregator {
              * distinct reference of our own for each one. */
             Map<Service, ServiceDescription> subcons = subrequests.stream()
                 .collect(Collectors
-                    .toMap(r -> r.producers().keySet().iterator().next()
+                    .toMap(r -> r.endPointFlows().keySet().iterator().next()
                         .getTerminal().getNetwork().newService(), r -> r));
 
             /* Map<SwitchControl, Collection<EndPoint>> subterminals =
@@ -755,7 +758,11 @@ public class TransientAggregator implements Aggregator {
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
         Map<EndPoint, List<Double>> innerTerminalEndPoints = new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
-        for (EndPoint ep : request.producers().keySet()) {
+        for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+            .endPointFlows().entrySet()) {
+            EndPoint ep = entry.getKey();
+            TrafficFlow flow = entry.getValue();
+
             /* Map this end point to an inferior switch's port. */
             Terminal outerPort = ep.getTerminal();
             if (!(outerPort instanceof MyTerminal))
@@ -770,8 +777,8 @@ public class TransientAggregator implements Aggregator {
              * inferior switch's port. Make sure we aggregate
              * contributions when two or more end points belong to the
              * same port. */
-            double produced = request.producers().get(ep).doubleValue();
-            double consumed = request.consumers().get(ep).doubleValue();
+            double produced = flow.ingress;
+            double consumed = flow.egress;
             Terminal innerPort = myPort.innerPort();
             List<Double> tuple = bandwidths
                 .computeIfAbsent(innerPort, k -> Arrays.asList(0.0, 0.0));

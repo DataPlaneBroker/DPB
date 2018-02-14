@@ -52,6 +52,7 @@ import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.TrafficFlow;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 
@@ -107,7 +108,7 @@ public class DummyNetwork implements Network {
             request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
-            for (EndPoint ep : request.producers().keySet()) {
+            for (EndPoint ep : request.endPointFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
@@ -177,11 +178,15 @@ public class DummyNetwork implements Network {
             out.printf("  %3d %-8s", id,
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
-            if (request != null)
-                for (EndPoint ep : request.producers().keySet())
-                out.printf("%n      %10s %6g %6g", ep,
-                           request.producers().get(ep),
-                           request.consumers().get(ep));
+            if (request != null) {
+                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                    .endPointFlows().entrySet()) {
+                    EndPoint ep = entry.getKey();
+                    TrafficFlow flow = entry.getValue();
+                    out.printf("%n      %10s %6g %6g", ep, flow.ingress,
+                               flow.egress);
+                }
+            }
             out.println();
         }
 

@@ -61,13 +61,13 @@ import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceDescription;
+import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.TrafficFlow;
 import uk.ac.lancs.switches.backend.Bridge;
 import uk.ac.lancs.switches.backend.BridgeListener;
-import uk.ac.lancs.switches.backend.Enforcement;
 import uk.ac.lancs.switches.backend.Switch;
 import uk.ac.lancs.switches.backend.SwitchFactory;
 
@@ -148,7 +148,7 @@ public class PersistentSwitch implements Network {
             request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
-            for (EndPoint ep : request.producers().keySet()) {
+            for (EndPoint ep : request.endPointFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
@@ -182,7 +182,8 @@ public class PersistentSwitch implements Network {
             if (released || request == null)
                 throw new IllegalStateException("service uninitiated");
             if (bridge != null) return;
-            this.bridge = backend.bridge(this, requestToEnforcement(request));
+            this.bridge =
+                backend.bridge(this, mapEndPoints(request.endPointFlows()));
             callOut(ServiceListener::activating);
             /* TODO: This could be a problem if the executor immediately
              * calls its task, instead of queuing it. Maybe have a
@@ -241,25 +242,30 @@ public class PersistentSwitch implements Network {
             return id;
         }
 
-        void recover(Map<EndPoint, Enforcement> details, boolean active) {
+        void recover(Map<EndPoint, TrafficFlow> details, boolean active) {
             assert this.request == null;
 
             /* Convert the details into a service request which we store
              * for the user to retrieve. */
-            this.request = enforcementToRequest(details);
+            this.request = ServiceDescription.create(details);
 
-            if (active) this.bridge = backend.bridge(this, details);
+            if (active)
+                this.bridge = backend.bridge(this, mapEndPoints(details));
         }
 
         synchronized void dump(PrintWriter out) {
             out.printf("  %3d %-8s", id,
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
-            if (request != null)
-                for (EndPoint ep : request.producers().keySet())
-                out.printf("%n      %10s %6g %6g", ep,
-                           request.producers().get(ep),
-                           request.consumers().get(ep));
+            if (request != null) {
+                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                    .endPointFlows().entrySet()) {
+                    EndPoint ep = entry.getKey();
+                    TrafficFlow flow = entry.getValue();
+                    out.printf("%n      %10s %6g %6g", ep, flow.ingress,
+                               flow.egress);
+                }
+            }
             out.println();
         }
 
@@ -509,7 +515,7 @@ public class PersistentSwitch implements Network {
             }
 
             /* Recover service's details. */
-            Map<MyService, Map<EndPoint, Enforcement>> enforcements =
+            Map<MyService, Map<EndPoint, TrafficFlow>> enforcements =
                 new HashMap<>();
             try (PreparedStatement stmt = conn.prepareStatement("SELECT"
                 + " ?.service_id AS service_id," + " ?.name AS terminal_name,"
@@ -538,8 +544,8 @@ public class PersistentSwitch implements Network {
                         final double shaping = rs.getDouble(5);
 
                         final EndPoint endPoint = port.getEndPoint(label);
-                        final Enforcement enf =
-                            Enforcement.of(shaping, metering);
+                        final TrafficFlow enf =
+                            TrafficFlow.of(metering, shaping);
                         enforcements
                             .computeIfAbsent(service, k -> new HashMap<>())
                             .put(endPoint, enf);
@@ -548,7 +554,7 @@ public class PersistentSwitch implements Network {
             }
 
             /* Apply the services' details to the service objects. */
-            for (Map.Entry<MyService, Map<EndPoint, Enforcement>> entry : enforcements
+            for (Map.Entry<MyService, Map<EndPoint, TrafficFlow>> entry : enforcements
                 .entrySet()) {
                 MyService srv = entry.getKey();
                 srv.recover(entry.getValue(), intents.get(srv.id));
@@ -558,52 +564,6 @@ public class PersistentSwitch implements Network {
              * the back-end could have. */
             retainBridges();
         }
-    }
-
-    /**
-     * Convert the switch's description of a bridge end points into a
-     * network's service request.
-     * 
-     * @param enf the switch's bridge description
-     * 
-     * @return the network's service description
-     * 
-     * @see #requestToEnforcement(ServiceDescription)
-     */
-    private static ServiceDescription
-        enforcementToRequest(Map<? extends EndPoint, ? extends Enforcement> enf) {
-        Map<EndPoint, Double> producers =
-            enf.entrySet().stream().collect(Collectors
-                .toMap(Map.Entry::getKey, e -> e.getValue().metering));
-        Map<EndPoint, Double> consumers =
-            enf.entrySet().stream().collect(Collectors
-                .toMap(Map.Entry::getKey, e -> e.getValue().shaping));
-        return ServiceDescription.of(producers, consumers);
-    }
-
-    /**
-     * Convert the network's service description into the switch's
-     * description of bridge end points.
-     * 
-     * @param req the network's service description
-     * 
-     * @return the switch's bridge description
-     * 
-     * @see #enforcementToRequest(Map)
-     */
-    private static Map<EndPoint, Enforcement>
-        requestToEnforcement(ServiceDescription req) {
-        Map<EndPoint, Enforcement> result = new HashMap<>();
-        Collection<EndPoint> allEndPoints =
-            new HashSet<>(req.consumers().keySet());
-        allEndPoints.addAll(req.producers().keySet());
-        for (EndPoint endPoint : allEndPoints) {
-            Enforcement enf =
-                Enforcement.of(req.consumers().get(endPoint).doubleValue(),
-                               req.producers().get(endPoint).doubleValue());
-            result.put(endPoint, enf);
-        }
-        return result;
     }
 
     /**
@@ -736,5 +696,16 @@ public class PersistentSwitch implements Network {
             }
         }
         return result;
+    }
+
+    private EndPoint mapEndPoint(EndPoint ep) {
+        MyTerminal port = (MyTerminal) ep.getTerminal();
+        return port.getInnerEndPoint(ep.getLabel());
+    }
+
+    private <V> Map<EndPoint, V>
+        mapEndPoints(Map<? extends EndPoint, ? extends V> input) {
+        return input.entrySet().stream().collect(Collectors
+            .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
     }
 }

@@ -69,6 +69,7 @@ public interface ServiceDescription {
      * @return a mapping from each producer to its contributing
      * bandwidth
      */
+    @Deprecated
     default Map<? extends EndPoint, ? extends Number> producers() {
         return new AbstractMap<EndPoint, Number>() {
             @Override
@@ -125,6 +126,7 @@ public interface ServiceDescription {
      * @return a mapping from each consumer to its maximum accepted
      * bandwidth
      */
+    @Deprecated
     default Map<? extends EndPoint, ? extends Number> consumers() {
         return new AbstractMap<EndPoint, Number>() {
             @Override
@@ -211,6 +213,26 @@ public interface ServiceDescription {
             public Map<? extends EndPoint, ? extends TrafficFlow>
                 endPointFlows() {
                 return finalResult;
+            }
+        };
+    }
+
+    /**
+     * Create a description view of a mapping from end points to pairs
+     * of bandwidths. The result is simply a view of the same map, and
+     * reflects changes in that map.
+     * 
+     * @param data the mapping from end points to pairs of bandwidths
+     * 
+     * @return the description view of the same map
+     */
+    static ServiceDescription
+        create(Map<? extends EndPoint, ? extends TrafficFlow> data) {
+        return new ServiceDescription() {
+            @Override
+            public Map<? extends EndPoint, ? extends TrafficFlow>
+                endPointFlows() {
+                return data;
             }
         };
     }
