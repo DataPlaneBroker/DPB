@@ -68,6 +68,23 @@ public interface Configuration {
     String get(String key);
 
     /**
+     * Get a configuration parameter, or a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the value to return if the parameter is not
+     * set
+     * 
+     * @return the parameter's value, or <samp>defaultValue</samp> if
+     * not set
+     */
+    default String get(String key, String defaultValue) {
+        String value = get(key);
+        if (value == null) return defaultValue;
+        return value;
+    }
+
+    /**
      * Obtain a locally referenced configuration.
      * 
      * @param key the key used as a base for resolving a relative name

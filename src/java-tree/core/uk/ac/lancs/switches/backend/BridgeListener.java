@@ -36,8 +36,23 @@
 package uk.ac.lancs.switches.backend;
 
 /**
- * 
+ * Receives events about a bridge's status.
  * 
  * @author simpsons
  */
-public interface BridgeListener {}
+public interface BridgeListener {
+    /**
+     * The bridge has been created.
+     */
+    void created();
+
+    /**
+     * The bridge has been destroyed.
+     */
+    void destroyed();
+
+    /**
+     * The bridge could not be created.
+     */
+    void error();
+}

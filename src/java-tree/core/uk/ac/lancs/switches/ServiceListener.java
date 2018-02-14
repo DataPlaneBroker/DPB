@@ -59,9 +59,19 @@ public interface ServiceListener {
     void activated();
 
     /**
+     * The service has started to become active.
+     */
+    default void activating() {}
+
+    /**
      * The service has become inactive.
      */
     void deactivated();
+
+    /**
+     * The service has started to become inactive.
+     */
+    default void deactivating() {}
 
     /**
      * The service has been fully released, and can be used again.

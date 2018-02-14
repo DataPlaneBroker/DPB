@@ -79,7 +79,9 @@ public interface Switch {
     Terminal getInterface(String desc);
 
     /**
-     * Ensure that a bridge exists.
+     * Ensure that a bridge exists. A distinct {@link Bridge} object may
+     * be returned even if the bridge details are the same, as the
+     * listener may be different.
      * 
      * @param listener an object informed about changes to the state of
      * the bridge
@@ -87,13 +89,16 @@ public interface Switch {
      * @param details end points and bandwidth requirements of the
      * bridge
      * 
-     * @return a bridge object
+     * @return a reference to the bridge
      */
     Bridge bridge(BridgeListener listener,
                   Map<? extends EndPoint, ? extends Enforcement> details);
 
     /**
-     * Retain only the specified bridges, discarding all others.
+     * Retain only the specified bridges, discarding all others. Since
+     * two {@link Bridge} objects may refer to the same bridge, a bridge
+     * should be retained as long as at least one {@link Bridge} object
+     * refers to it.
      * 
      * @param bridges the set of bridges to retain
      */
