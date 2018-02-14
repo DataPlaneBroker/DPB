@@ -62,7 +62,7 @@ import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.backend.Bridge;
@@ -126,7 +126,7 @@ public class PersistentSwitch implements Network {
          * Records the description of the service, purely for diagnostic
          * purposes. When this is set, we are no longer dormant.
          */
-        ServiceRequest request;
+        ServiceDescription request;
 
         /**
          * Records our reference into the backend. When set, we are
@@ -137,7 +137,7 @@ public class PersistentSwitch implements Network {
         Bridge bridge;
 
         @Override
-        public synchronized void initiate(ServiceRequest request) {
+        public synchronized void initiate(ServiceDescription request) {
             if (released) throw new IllegalStateException("service disused");
             if (this.request != null)
                 throw new IllegalStateException("service in use");
@@ -145,7 +145,7 @@ public class PersistentSwitch implements Network {
             /* Sanitize the request such that every end point mentioned
              * in either set is present in both. A minimum bandwidth is
              * applied to all implicit and explicit consumers. */
-            request = ServiceRequest.sanitize(request, 0.01);
+            request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
             for (EndPoint ep : request.producers().keySet()) {
@@ -270,7 +270,7 @@ public class PersistentSwitch implements Network {
         }
 
         @Override
-        public synchronized ServiceRequest getRequest() {
+        public synchronized ServiceDescription getRequest() {
             return request;
         }
 
@@ -568,9 +568,9 @@ public class PersistentSwitch implements Network {
      * 
      * @return the network's service description
      * 
-     * @see #requestToEnforcement(ServiceRequest)
+     * @see #requestToEnforcement(ServiceDescription)
      */
-    private static ServiceRequest
+    private static ServiceDescription
         enforcementToRequest(Map<? extends EndPoint, ? extends Enforcement> enf) {
         Map<EndPoint, Double> producers =
             enf.entrySet().stream().collect(Collectors
@@ -578,7 +578,7 @@ public class PersistentSwitch implements Network {
         Map<EndPoint, Double> consumers =
             enf.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().shaping));
-        return ServiceRequest.of(producers, consumers);
+        return ServiceDescription.of(producers, consumers);
     }
 
     /**
@@ -592,7 +592,7 @@ public class PersistentSwitch implements Network {
      * @see #enforcementToRequest(Map)
      */
     private static Map<EndPoint, Enforcement>
-        requestToEnforcement(ServiceRequest req) {
+        requestToEnforcement(ServiceDescription req) {
         Map<EndPoint, Enforcement> result = new HashMap<>();
         Collection<EndPoint> allEndPoints =
             new HashSet<>(req.consumers().keySet());

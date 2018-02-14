@@ -39,7 +39,7 @@ import java.io.PrintWriter;
 
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.transients.DummyNetwork;
 
@@ -103,9 +103,9 @@ public class TestDummy {
         c2.addListener(cl2);
 
         /* Initiate some connections. */
-        c1.initiate(ServiceRequest.start().add(left, 1, 10.0)
+        c1.initiate(ServiceDescription.start().add(left, 1, 10.0)
             .add(down, 1, 10.0).create());
-        c2.initiate(ServiceRequest.start().add(left, 4, 7.0)
+        c2.initiate(ServiceDescription.start().add(left, 4, 7.0)
             .add(right, 6, 7.0).add(up, 3, 7.0).create());
 
         /* Wait until there's nothing to do. */

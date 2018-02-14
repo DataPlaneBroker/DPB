@@ -35,13 +35,17 @@
  */
 package uk.ac.lancs.switches;
 
+import java.util.AbstractMap;
+import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -49,36 +53,133 @@ import java.util.stream.Collectors;
  * 
  * @author simpsons
  */
-public interface ServiceRequest {
+public interface ServiceDescription {
     /**
-     * Get the set of producers and their bandwidth contributions. End
-     * points not present in the producer keys but present in
-     * {@link #consumers()} are assumed to produce a small nominal
-     * bandwidth (e.g., enough to respond to ARPs).
+     * Get the set of end points of the service, and the maximum traffic
+     * at each end point.
+     * 
+     * @return the traffic flows of each end point of the service
+     */
+    Map<? extends EndPoint, ? extends TrafficFlow> endPointFlows();
+
+    /**
+     * Get the set of bandwidth contributions into the service indexed
+     * by end point.
      * 
      * @return a mapping from each producer to its contributing
      * bandwidth
      */
-    Map<? extends EndPoint, ? extends Number> producers();
+    default Map<? extends EndPoint, ? extends Number> producers() {
+        return new AbstractMap<EndPoint, Number>() {
+            @Override
+            public Set<Entry<EndPoint, Number>> entrySet() {
+                return new AbstractSet<Map.Entry<EndPoint, Number>>() {
+                    @Override
+                    public Iterator<Entry<EndPoint, Number>> iterator() {
+                        return new Iterator<Map.Entry<EndPoint, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends EndPoint, ? extends TrafficFlow>> iterator =
+                                endPointFlows().entrySet().iterator();
+
+                            @Override
+                            public boolean hasNext() {
+                                return iterator.hasNext();
+                            }
+
+                            @Override
+                            public Map.Entry<EndPoint, Number> next() {
+                                Map.Entry<? extends EndPoint, ? extends TrafficFlow> next =
+                                    iterator.next();
+                                return new Map.Entry<EndPoint, Number>() {
+                                    @Override
+                                    public EndPoint getKey() {
+                                        return next.getKey();
+                                    }
+
+                                    @Override
+                                    public Number getValue() {
+                                        return next.getValue().ingress;
+                                    }
+
+                                    @Override
+                                    public Number setValue(Number value) {
+                                        throw new UnsupportedOperationException("unimplemented");
+                                    }
+                                };
+                            }
+                        };
+                    }
+
+                    @Override
+                    public int size() {
+                        return endPointFlows().size();
+                    }
+                };
+            }
+        };
+    }
 
     /**
-     * Get the set of consumers and the maximum bandwidth each is
-     * prepared to accept. End points not present in the consumer keys
-     * but present in {@link #producers()} are assumed to accept the sum
-     * of all other producers.
-     * 
-     * <p>
-     * By default, this method returns an immutable empty map.
+     * Get the set of bandwidth tolerances out of the service indexed by
+     * end point.
      * 
      * @return a mapping from each consumer to its maximum accepted
      * bandwidth
      */
     default Map<? extends EndPoint, ? extends Number> consumers() {
-        return Collections.emptyMap();
+        return new AbstractMap<EndPoint, Number>() {
+            @Override
+            public Set<Entry<EndPoint, Number>> entrySet() {
+                return new AbstractSet<Map.Entry<EndPoint, Number>>() {
+                    @Override
+                    public Iterator<Entry<EndPoint, Number>> iterator() {
+                        return new Iterator<Map.Entry<EndPoint, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends EndPoint, ? extends TrafficFlow>> iterator =
+                                endPointFlows().entrySet().iterator();
+
+                            @Override
+                            public boolean hasNext() {
+                                return iterator.hasNext();
+                            }
+
+                            @Override
+                            public Map.Entry<EndPoint, Number> next() {
+                                Map.Entry<? extends EndPoint, ? extends TrafficFlow> next =
+                                    iterator.next();
+                                return new Map.Entry<EndPoint, Number>() {
+                                    @Override
+                                    public EndPoint getKey() {
+                                        return next.getKey();
+                                    }
+
+                                    @Override
+                                    public Number getValue() {
+                                        return next.getValue().egress;
+                                    }
+
+                                    @Override
+                                    public Number setValue(Number value) {
+                                        throw new UnsupportedOperationException("unimplemented");
+                                    }
+                                };
+                            }
+                        };
+                    }
+
+                    @Override
+                    public int size() {
+                        return endPointFlows().size();
+                    }
+                };
+            }
+        };
     }
 
     /**
-     * Create a request from a set of producers and consumers.
+     * Create a description from a set of producers and consumers. The
+     * full set of end points is the union of the two maps' key sets.
+     * Anything missing from one key set but present in the other is
+     * assumed to be zero. The input data are copied, so changes to them
+     * do not affect the resultant object.
      * 
      * @param producers a mapping from each producer to its contributing
      * bandwidth
@@ -86,33 +187,44 @@ public interface ServiceRequest {
      * @param consumers a mapping from each consumer to its maximum
      * accepted bandwidth
      * 
-     * @return a request consisting of the provided information
+     * @return a description consisting of the provided information
      */
-    static ServiceRequest
+    static ServiceDescription
         of(Map<? extends EndPoint, ? extends Number> producers,
            Map<? extends EndPoint, ? extends Number> consumers) {
-        return new ServiceRequest() {
+        Map<EndPoint, TrafficFlow> result = new HashMap<>();
+        Collection<EndPoint> keys = new HashSet<>(producers.keySet());
+        if (consumers != null) keys.addAll(consumers.keySet());
+        for (EndPoint ep : keys) {
+            Number ingressObj = producers.get(ep);
+            double ingress =
+                ingressObj == null ? 0.0 : ingressObj.doubleValue();
+            Number egressObj =
+                consumers == null ? Double.valueOf(0.0) : consumers.get(ep);
+            double egress = egressObj == null ? 0.0 : egressObj.doubleValue();
+            result.put(ep, TrafficFlow.of(ingress, egress));
+        }
+        Map<EndPoint, TrafficFlow> finalResult =
+            Collections.unmodifiableMap(result);
+        return new ServiceDescription() {
             @Override
-            public Map<? extends EndPoint, ? extends Number> consumers() {
-                return consumers;
-            }
-
-            @Override
-            public Map<? extends EndPoint, ? extends Number> producers() {
-                return producers;
+            public Map<? extends EndPoint, ? extends TrafficFlow>
+                endPointFlows() {
+                return finalResult;
             }
         };
     }
 
     /**
-     * Create a request from a mapping from end points to pairs of
+     * Create a description from a mapping from end points to pairs of
      * bandwidths.
      * 
-     * @param input the input map, yeah
+     * @param input a mapping from end point to pairs of numbers, the
+     * first being ingress and the second ingress
      * 
-     * @return a request consisting of the provided information
+     * @return a description consisting of the provided information
      */
-    static ServiceRequest
+    static ServiceDescription
         of(Map<? extends EndPoint, ? extends List<? extends Number>> input) {
         Map<EndPoint, Number> producers =
             input.entrySet().stream().collect(Collectors
@@ -124,17 +236,17 @@ public interface ServiceRequest {
     }
 
     /**
-     * Start accumulating data for a request.
+     * Start accumulating data for a description.
      * 
-     * @return an object to accumulate request data
+     * @return an object to accumulate description data
      */
     static Builder start() {
         return new Builder();
     };
 
     /**
-     * Accumulates service request data. Obtain one with
-     * {@link ServiceRequest#start()}.
+     * Accumulates service description data. Obtain one with
+     * {@link ServiceDescription#start()}.
      * 
      * @author simpsons
      */
@@ -252,31 +364,31 @@ public interface ServiceRequest {
         }
 
         /**
-         * Create a service request from the accumulated data.
+         * Create a service description from the accumulated data.
          * 
-         * @return the corresponding service request
+         * @return the corresponding service description
          */
-        public ServiceRequest create() {
+        public ServiceDescription create() {
             return of(data);
         }
     }
 
     /**
-     * Create an immutable sanitized version of a request. The key sets
-     * of both maps are made identical. Unspecified production is
+     * Create an immutable sanitized version of a description. The key
+     * sets of both maps are made identical. Unspecified production is
      * replaced with a nominal bandwidth. Unspecified consumption is
      * replace with the sum of all production minus the key's own
      * production.
      * 
-     * @param input the unsanitized request
+     * @param input the unsanitized description
      * 
      * @param nominalProduction the production for unspecified keys, and
      * the minimum allowed
      * 
-     * @return the sanitized request
+     * @return the sanitized description
      */
-    static ServiceRequest sanitize(ServiceRequest input,
-                                   double nominalProduction) {
+    static ServiceDescription sanitize(ServiceDescription input,
+                                       double nominalProduction) {
         /* Get the full set of end points. */
         Collection<EndPoint> keys = new HashSet<>(input.producers().keySet());
         keys.addAll(input.consumers().keySet());
@@ -304,8 +416,6 @@ public interface ServiceRequest {
             consumers.put(key, consumption);
         }
 
-        producers = Collections.unmodifiableMap(producers);
-        consumers = Collections.unmodifiableMap(consumers);
         return of(producers, consumers);
     }
 }

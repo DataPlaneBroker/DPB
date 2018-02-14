@@ -48,7 +48,7 @@ import java.util.function.Consumer;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Terminal;
@@ -92,10 +92,10 @@ public class DummyNetwork implements Network {
         }
 
         boolean active, released;
-        ServiceRequest request;
+        ServiceDescription request;
 
         @Override
-        public synchronized void initiate(ServiceRequest request) {
+        public synchronized void initiate(ServiceDescription request) {
             if (released)
                 throw new IllegalStateException("connection disused");
             if (this.request != null)
@@ -104,7 +104,7 @@ public class DummyNetwork implements Network {
             /* Sanitize the request such that every end point mentioned
              * in either set is present in both. A minimum bandwidth is
              * applied to all implicit and explicit consumers. */
-            request = ServiceRequest.sanitize(request, 0.01);
+            request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
             for (EndPoint ep : request.producers().keySet()) {
@@ -192,7 +192,7 @@ public class DummyNetwork implements Network {
         }
 
         @Override
-        public synchronized ServiceRequest getRequest() {
+        public synchronized ServiceDescription getRequest() {
             return request;
         }
     }

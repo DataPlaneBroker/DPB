@@ -50,7 +50,7 @@ package uk.ac.lancs.switches;
  * subswitches.
  * 
  * <p>
- * Call {@link #initiate(ServiceRequest)} with connection parameters
+ * Call {@link #initiate(ServiceDescription)} with connection parameters
  * (end points and bandwidth) to initiate a connection.
  * {@link ServiceListener#ready()} will be invoked if the connection is
  * established (but not yet activated).
@@ -93,14 +93,14 @@ public interface Service {
      * @return the associated request, or {@code null} if this
      * connection is released or has not been initiated
      */
-    ServiceRequest getRequest();
+    ServiceDescription getRequest();
 
     /**
      * Initiate allocation of resources.
      * 
      * @param request the connection details
      */
-    void initiate(ServiceRequest request);
+    void initiate(ServiceDescription request);
 
     /**
      * Add a listener for events.

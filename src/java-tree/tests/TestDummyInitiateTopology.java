@@ -2,7 +2,7 @@ import java.io.PrintWriter;
 
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.aggregate.Aggregator;
@@ -148,7 +148,7 @@ public class TestDummyInitiateTopology {
         MyListener cl1 = new MyListener("c1");
         c1.addListener(cl1);
 
-        c1.initiate(ServiceRequest.start().produce(100.0)
+        c1.initiate(ServiceDescription.start().produce(100.0)
             .add(aggregator.getTerminal("lancs.vms"), 1234)
             .add(aggregator.getTerminal("bristol.vms"), 1111)
             .add(aggregator.getTerminal("slough.vms"), 2222)

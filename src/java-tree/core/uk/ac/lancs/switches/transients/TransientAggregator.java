@@ -61,7 +61,7 @@ import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceRequest;
+import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.aggregate.Aggregator;
@@ -165,7 +165,7 @@ public class TransientAggregator implements Aggregator {
 
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", connection.status());
-                ServiceRequest request = connection.getRequest();
+                ServiceDescription request = connection.getRequest();
                 for (EndPoint ep : request.producers().keySet()) {
                     out.printf("%n        %10s %6g %6g", ep,
                                request.producers().get(ep),
@@ -237,7 +237,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         Map<TrunkControl, EndPoint> tunnels;
-        ServiceRequest request;
+        ServiceDescription request;
 
         int unresponded, errored;
         int activeInferiors;
@@ -248,12 +248,12 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void initiate(ServiceRequest request) {
+        public synchronized void initiate(ServiceDescription request) {
             if (released)
                 throw new IllegalStateException("connection released");
             if (tunnels != null)
                 throw new IllegalStateException("connection in use");
-            request = ServiceRequest.sanitize(request, 0.01);
+            request = ServiceDescription.sanitize(request, 0.01);
             tunnels = new HashMap<>();
             clients.clear();
             errored = activeInferiors = 0;
@@ -261,12 +261,12 @@ public class TransientAggregator implements Aggregator {
 
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
-            Collection<ServiceRequest> subrequests = new HashSet<>();
+            Collection<ServiceDescription> subrequests = new HashSet<>();
             plotAsymmetricTree(request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
-            Map<Service, ServiceRequest> subcons = subrequests.stream()
+            Map<Service, ServiceDescription> subcons = subrequests.stream()
                 .collect(Collectors
                     .toMap(r -> r.producers().keySet().iterator().next()
                         .getTerminal().getNetwork().newService(), r -> r));
@@ -390,7 +390,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized ServiceRequest getRequest() {
+        public synchronized ServiceDescription getRequest() {
             return request;
         }
     }
@@ -742,9 +742,9 @@ public class TransientAggregator implements Aggregator {
      * submitted to each inferior switch
      */
     synchronized void
-        plotAsymmetricTree(ServiceRequest request,
+        plotAsymmetricTree(ServiceDescription request,
                            Map<? super TrunkControl, ? super EndPoint> tunnels,
-                           Collection<? super ServiceRequest> subrequests) {
+                           Collection<? super ServiceDescription> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
         // System.err.printf("Request consumers: %s%n",
@@ -994,7 +994,7 @@ public class TransientAggregator implements Aggregator {
 
             /* For each port group, create a new connection request. */
             for (Map<EndPoint, List<Double>> reqs : subterminals.values()) {
-                subrequests.add(ServiceRequest.of(reqs));
+                subrequests.add(ServiceDescription.of(reqs));
             }
             return;
         } while (true);
