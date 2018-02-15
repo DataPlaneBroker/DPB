@@ -37,9 +37,10 @@ package uk.ac.lancs.switches;
 
 /**
  * Represents a connection with allocated resources. A new connection is
- * obtained from {@link NetworkControl#newService()}. Each connection has
- * a persistent identifier which can be used to recover the connection
- * object through {@link NetworkControl#getService(int)} if lost.
+ * obtained from {@link NetworkControl#newService()}. Each connection
+ * has a persistent identifier which can be used to recover the
+ * connection object through {@link NetworkControl#getService(int)} if
+ * lost.
  * 
  * Listeners can be added to a connection to be informed of changes to
  * its state.
@@ -100,7 +101,7 @@ public interface Service {
      * 
      * @param request the connection details
      */
-    void initiate(ServiceDescription request);
+    void initiate(ServiceDescription request) throws InvalidServiceException;
 
     /**
      * Add a listener for events.

@@ -36,10 +36,13 @@
 package uk.ac.lancs.switches.backend;
 
 /**
- * 
+ * References a bridge established in a switch.
  * 
  * @author simpsons
  */
 public interface Bridge {
-
+    /**
+     * Start building the bridge.
+     */
+    void start();
 }

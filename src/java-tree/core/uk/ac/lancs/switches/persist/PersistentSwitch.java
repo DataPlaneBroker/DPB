@@ -36,7 +36,10 @@
 package uk.ac.lancs.switches.persist;
 
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -58,11 +61,13 @@ import java.util.stream.Collectors;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.InvalidServiceException;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceResourceException;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.TrafficFlow;
@@ -115,7 +120,10 @@ public class PersistentSwitch implements Network {
 
         MyService(int id) {
             this.id = id;
+            self = protect(BridgeListener.class, this);
         }
+
+        final BridgeListener self;
 
         /**
          * Records whether the user has attempted to release us.
@@ -132,33 +140,64 @@ public class PersistentSwitch implements Network {
          * Records our reference into the backend. When set, we are
          * active or activating. When not set, calling
          * {@link PersistentSwitch#retainBridges()} will ensure that our
-         * underlying bridge does not exist.
+         * underlying bridge does not exist. When set, we are either
+         * activating or activated.
          */
         Bridge bridge;
 
         @Override
-        public synchronized void initiate(ServiceDescription request) {
+        public synchronized void initiate(ServiceDescription request)
+            throws InvalidServiceException {
             if (released) throw new IllegalStateException("service disused");
             if (this.request != null)
                 throw new IllegalStateException("service in use");
-
-            /* Sanitize the request such that every end point mentioned
-             * in either set is present in both. A minimum bandwidth is
-             * applied to all implicit and explicit consumers. */
-            request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
             for (EndPoint ep : request.endPointFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
-                    throw new IllegalArgumentException("not my end point: "
-                        + ep);
+                    throw new InvalidServiceException("end point " + ep
+                        + " not part of " + name);
                 MyTerminal mp = (MyTerminal) p;
                 if (mp.owner() != PersistentSwitch.this)
-                    throw new IllegalArgumentException("not my end point: "
-                        + ep);
+                    throw new InvalidServiceException("end point " + ep
+                        + " not part of " + name);
             }
-            this.request = request;
+
+            /* Sanitize the request such that no end point produces less
+             * than a token amount, and that no end point's egress rate
+             * is greater than the sum of the others' ingress rates. */
+            this.request = ServiceDescription.sanitize(request, 0.01);
+
+            /* Add the details to the database. */
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("INSERT INTO ?"
+                        + " (slice, service_id, terminal_id,"
+                        + " label, metering, shaping)"
+                        + " VALUES (?, ?, ?, ?, ?, ?);")) {
+                    stmt.setString(1, endPointTable);
+                    stmt.setString(2, dbSlice);
+                    stmt.setInt(3, this.id);
+                    for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : this.request
+                        .endPointFlows().entrySet()) {
+                        EndPoint endPoint = entry.getKey();
+                        MyTerminal port = (MyTerminal) endPoint.getTerminal();
+                        TrafficFlow flow = entry.getValue();
+                        stmt.setInt(4, port.dbid);
+                        stmt.setInt(5, endPoint.getLabel());
+                        stmt.setDouble(6, flow.ingress);
+                        stmt.setDouble(7, flow.egress);
+                        stmt.execute();
+                    }
+                }
+                conn.commit();
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("persistence failure", ex);
+            }
+
+            /* We are ready as soon as we have the information. */
             callOut(ServiceListener::ready);
         }
 
@@ -173,8 +212,7 @@ public class PersistentSwitch implements Network {
         }
 
         private void callOut(Consumer<? super ServiceListener> action) {
-            listeners.stream()
-                .forEach(l -> executor.execute(() -> action.accept(l)));
+            listeners.stream().forEach(action);
         }
 
         @Override
@@ -182,27 +220,41 @@ public class PersistentSwitch implements Network {
             if (released || request == null)
                 throw new IllegalStateException("service uninitiated");
             if (bridge != null) return;
+
+            /* Record the user's intent for this service. */
+            try (Connection conn = database()) {
+                updateIntent(conn, id, true);
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("failed to store intent",
+                                                   ex);
+            }
+
             this.bridge =
-                backend.bridge(this, mapEndPoints(request.endPointFlows()));
+                backend.bridge(self, mapEndPoints(request.endPointFlows()));
             callOut(ServiceListener::activating);
-            /* TODO: This could be a problem if the executor immediately
-             * calls its task, instead of queuing it. Maybe have a
-             * separate method on Bridge to actually activate the
-             * bridge, then we can call it after calling activating(),
-             * and ensure it is scheduled before created() calls
-             * activated(). */
+            this.bridge.start();
         }
 
         @Override
         public synchronized void deactivate() {
-            /* We're already deactivated if in the states implied by
-             * this condition. */
+            /* We're already deactivated/deactivating if in the states
+             * implied by this condition. */
             if (released || request == null || bridge == null) return;
+
+            /* Record the user's intent for this service. */
+            try (Connection conn = database()) {
+                updateIntent(conn, id, false);
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("failed to store intent",
+                                                   ex);
+            }
 
             /* Make sure that our bridge won't be retained. */
             this.bridge = null;
             callOut(ServiceListener::deactivating);
-            retainBridges();
+            synchronized (PersistentSwitch.this) {
+                retainBridges();
+            }
         }
 
         @Override
@@ -222,13 +274,17 @@ public class PersistentSwitch implements Network {
             if (released) return;
             request = null;
             released = true;
-            if (bridge != null) {
-                bridge = null;
+            Bridge oldBridge = bridge;
+            bridge = null;
+            if (oldBridge != null) {
+                /* We must notify the user before destroying the bridge,
+                 * so that the 'deactivating' event arrives before the
+                 * 'deactivating' one. */
+                callOut(ServiceListener::deactivating);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                     retainBridges();
                 }
-                callOut(ServiceListener::deactivating);
             } else {
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
@@ -238,19 +294,31 @@ public class PersistentSwitch implements Network {
         }
 
         @Override
-        public int id() {
-            return id;
+        public synchronized void error() {
+            throw new UnsupportedOperationException("unimplemented"); // TODO
         }
 
-        void recover(Map<EndPoint, TrafficFlow> details, boolean active) {
-            assert this.request == null;
+        /**
+         * Records the last event we got from the bridge.
+         */
+        boolean active;
 
-            /* Convert the details into a service request which we store
-             * for the user to retrieve. */
-            this.request = ServiceDescription.create(details);
+        @Override
+        public synchronized void created() {
+            if (active) return;
+            active = true;
+            callOut(ServiceListener::activated);
+        }
 
-            if (active)
-                this.bridge = backend.bridge(this, mapEndPoints(details));
+        @Override
+        public synchronized void destroyed() {
+            if (!active) return;
+            active = false;
+            callOut(ServiceListener::deactivated);
+            if (released) {
+                callOut(ServiceListener::released);
+                listeners.clear();
+            }
         }
 
         synchronized void dump(PrintWriter out) {
@@ -281,29 +349,19 @@ public class PersistentSwitch implements Network {
         }
 
         @Override
-        public synchronized void error() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+        public int id() {
+            return id;
         }
 
-        /**
-         * Records the last event we got from the bridge.
-         */
-        boolean active;
+        void recover(Map<EndPoint, TrafficFlow> details, boolean active) {
+            assert this.request == null;
 
-        @Override
-        public synchronized void created() {
-            active = true;
-            callOut(ServiceListener::activated);
-        }
+            /* Convert the details into a service request which we store
+             * for the user to retrieve. */
+            this.request = ServiceDescription.create(details);
 
-        @Override
-        public synchronized void destroyed() {
-            active = false;
-            callOut(ServiceListener::deactivated);
-            if (released) {
-                callOut(ServiceListener::released);
-                listeners.clear();
-            }
+            if (active)
+                this.bridge = backend.bridge(self, mapEndPoints(details));
         }
     }
 
@@ -311,7 +369,6 @@ public class PersistentSwitch implements Network {
     private final String name;
     private final Map<String, MyTerminal> terminals = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
-    private int nextConnectionId;
 
     /**
      * Print out the status of all services and trunks of this switch.
@@ -363,8 +420,8 @@ public class PersistentSwitch implements Network {
      * 
      * </dl>
      * 
-     * @param executor used to invoke {@link ServiceListener}s and
-     * {@link BridgeListener}s
+     * @param executor used to invoke call-backs created by this network
+     * and passed to the backend
      * 
      * @param config the configuration describing the network, the
      * back-end switch, and access to the database
@@ -446,8 +503,8 @@ public class PersistentSwitch implements Network {
         try (Connection conn = database()) {
             try (PreparedStatement stmt =
                 conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
-                    + " (slice VARCHAR(20)," + " terminal_id INT(11) UNSIGNED"
-                    + " AUTO_INCREMENT PRIMARY KEY,"
+                    + " (slice VARCHAR(20),"
+                    + " terminal_id INTEGER PRIMARY KEY,"
                     + " name VARCHAR(20) NOT NULL,"
                     + " config VARCHAR(40) NOT NULL,"
                     + " CONSTRAINT terminals_unique UNIQUE (slice, name));")) {
@@ -457,20 +514,20 @@ public class PersistentSwitch implements Network {
 
             try (PreparedStatement stmt =
                 conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
-                    + " (slice VARCHAR(20)," + " service_id INT(11) UNSIGNED"
-                    + " AUTO_INCREMENT PRIMARY KEY,"
-                    + " intent INT(1) DEFAULT 0);")) {
+                    + " (slice VARCHAR(20),"
+                    + " service_id INTEGER PRIMARY KEY,"
+                    + " intent INT UNSIGNED DEFAULT 0);")) {
                 stmt.setString(1, serviceTable);
                 stmt.execute();
             }
 
             try (PreparedStatement stmt =
                 conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
-                    + " (service_id INT(11) UNSIGNED,"
+                    + " (service_id INTEGER,"
                     + " FOREIGN KEY(service_id) REFERENCES ?(service_id),"
-                    + " terminal_id INT(11) UNSIGNED,"
+                    + " terminal_id INTEGER,"
                     + " FOREIGN KEY(terminal_id) REFERENCES ?(terminal_id),"
-                    + " label INT(5) UNSIGNED, " + " metering DECIMAL(9,3),"
+                    + " label INTEGER UNSIGNED, " + " metering DECIMAL(9,3),"
                     + " shaping DECIMAL(9,3));")) {
                 stmt.setString(1, endPointTable);
                 stmt.setString(2, serviceTable);
@@ -620,6 +677,11 @@ public class PersistentSwitch implements Network {
         return control;
     }
 
+    /**
+     * Provides a controller view of this switch. Most methods simply
+     * call out to a shadow method in the containing class, to reduce
+     * lexical nesting and simplify synchronization.
+     */
     private final NetworkControl control = new NetworkControl() {
         @Override
         public Service newService() {
@@ -648,7 +710,7 @@ public class PersistentSwitch implements Network {
     };
 
     @Override
-    public Collection<String> getTerminals() {
+    public synchronized Collection<String> getTerminals() {
         return new HashSet<>(terminals.keySet());
     }
 
@@ -667,10 +729,30 @@ public class PersistentSwitch implements Network {
 
     // Shadowing NetworkControl
     synchronized Service newService() {
-        int id = nextConnectionId++;
-        MyService conn = new MyService(id);
-        services.put(id, conn);
-        return conn;
+        final int id;
+        try (Connection conn = database();
+            PreparedStatement stmt =
+                conn.prepareStatement("INSERT INTO ? (slice) VALUES (?);",
+                                      Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, serviceTable);
+            stmt.setString(1, dbSlice);
+            stmt.execute();
+            try (ResultSet rs = stmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    id = rs.getInt(1);
+                } else {
+                    throw new RuntimeException("I got no id from "
+                        + "creation of service; WTF?");
+                }
+            }
+        } catch (SQLException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            throw new UnsupportedOperationException("unimplemented", e);
+        }
+        MyService srv = new MyService(id);
+        services.put(id, srv);
+        return srv;
     }
 
     // Shadowing NetworkControl
@@ -707,5 +789,41 @@ public class PersistentSwitch implements Network {
         mapEndPoints(Map<? extends EndPoint, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
+    }
+
+    @SuppressWarnings("unchecked")
+    private <I> I protect(Class<I> type, I base) {
+        InvocationHandler h = new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args)
+                throws Throwable {
+                if (method.getReturnType() != null)
+                    return method.invoke(base, args);
+                executor.execute(() -> {
+                    try {
+                        method.invoke(base, args);
+                    } catch (IllegalAccessException | IllegalArgumentException
+                        | InvocationTargetException e) {
+                        throw new AssertionError("unreachable", e);
+                    }
+                });
+                return null;
+            }
+        };
+        return (I) Proxy.newProxyInstance(type.getClassLoader(),
+                                          new Class<?>[]
+                                          { type }, h);
+    }
+
+    private void updateIntent(Connection conn, int srvid, boolean status)
+        throws SQLException {
+        try (PreparedStatement stmt = conn
+            .prepareStatement("UPDATE ? SET intent = ? WHERE slice = ? AND service_id = ?;")) {
+            stmt.setString(1, serviceTable);
+            stmt.setInt(2, status ? 1 : 0);
+            stmt.setString(3, dbSlice);
+            stmt.setInt(4, srvid);
+            stmt.execute();
+        }
     }
 }

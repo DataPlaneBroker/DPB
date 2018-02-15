@@ -42,19 +42,18 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
-import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceDescription;
-import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Terminal;
-import uk.ac.lancs.switches.TrafficFlow;
 import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceDescription;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceStatus;
+import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.TrafficFlow;
 
 /**
  * Implements an entirely virtual network that does nothing.
@@ -133,8 +132,7 @@ public class DummyNetwork implements Network {
         }
 
         private void callOut(Consumer<? super ServiceListener> action) {
-            listeners.stream()
-                .forEach(l -> executor.execute(() -> action.accept(l)));
+            listeners.stream().forEach(action);
         }
 
         @Override
@@ -202,7 +200,6 @@ public class DummyNetwork implements Network {
         }
     }
 
-    private final Executor executor;
     private final String name;
     private final Map<String, MyTerminal> ports = new HashMap<>();
     private final Map<Integer, MyService> connections = new HashMap<>();
@@ -228,12 +225,9 @@ public class DummyNetwork implements Network {
     /**
      * Create a dummy switch.
      * 
-     * @param executor used to invoke {@link ServiceListener}s
-     * 
      * @param name the new switch's name
      */
-    public DummyNetwork(Executor executor, String name) {
-        this.executor = executor;
+    public DummyNetwork(String name) {
         this.name = name;
     }
 

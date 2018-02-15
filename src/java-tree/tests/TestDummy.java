@@ -36,10 +36,12 @@
  */
 
 import java.io.PrintWriter;
+import java.util.Collection;
 
+import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceDescription;
+import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.transients.DummyNetwork;
 
@@ -53,8 +55,8 @@ public class TestDummy {
     /**
      * @param args
      */
-    public static void main(String[] args) {
-        DummyNetwork zwitch = new DummyNetwork(IdleExecutor.INSTANCE, "dummy");
+    public static void main(String[] args) throws Exception {
+        DummyNetwork zwitch = new DummyNetwork("dummy");
 
         Terminal left = zwitch.addPort("left");
         Terminal right = zwitch.addPort("right");
@@ -83,8 +85,9 @@ public class TestDummy {
             }
 
             @Override
-            public void failed(Throwable t) {
-                System.out.println(name + " failed: " + t);
+            public void failed(Collection<? extends EndPoint> locations,
+                               Throwable t) {
+                System.out.println(name + " failed");
             }
 
             @Override

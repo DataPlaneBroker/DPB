@@ -1,10 +1,12 @@
 import java.io.PrintWriter;
+import java.util.Collection;
 
-import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.ServiceDescription;
-import uk.ac.lancs.switches.Terminal;
+import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Network;
+import uk.ac.lancs.switches.Service;
+import uk.ac.lancs.switches.ServiceDescription;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.aggregate.Aggregator;
 import uk.ac.lancs.switches.aggregate.Trunk;
 import uk.ac.lancs.switches.transients.DummyNetwork;
@@ -67,29 +69,28 @@ public class TestDummyInitiateTopology {
     /**
      * @param args
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         /* Model the Corsas at each site. */
-        DummyNetwork slough = new DummyNetwork(IdleExecutor.INSTANCE, "slough");
+        DummyNetwork slough = new DummyNetwork("slough");
         slough.addPort("vms");
         slough.addPort("bristol");
         slough.addPort("kcl");
         slough.addPort("edin");
         slough.addPort("lancs");
 
-        DummyNetwork bristol =
-            new DummyNetwork(IdleExecutor.INSTANCE, "bristol");
+        DummyNetwork bristol = new DummyNetwork("bristol");
         bristol.addPort("vms");
         bristol.addPort("slough");
 
-        DummyNetwork kcl = new DummyNetwork(IdleExecutor.INSTANCE, "kcl");
+        DummyNetwork kcl = new DummyNetwork("kcl");
         kcl.addPort("vms");
         kcl.addPort("slough");
 
-        DummyNetwork edin = new DummyNetwork(IdleExecutor.INSTANCE, "edin");
+        DummyNetwork edin = new DummyNetwork("edin");
         edin.addPort("vms");
         edin.addPort("slough");
 
-        DummyNetwork lancs = new DummyNetwork(IdleExecutor.INSTANCE, "lancs");
+        DummyNetwork lancs = new DummyNetwork("lancs");
         lancs.addPort("vms");
         lancs.addPort("slough");
 
@@ -131,8 +132,9 @@ public class TestDummyInitiateTopology {
             }
 
             @Override
-            public void failed(Throwable t) {
-                System.out.println(name + " failed: " + t);
+            public void failed(Collection<? extends EndPoint> locations,
+                               Throwable t) {
+                System.out.println(name + " failed");
             }
 
             @Override

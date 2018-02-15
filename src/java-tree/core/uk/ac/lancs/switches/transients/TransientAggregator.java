@@ -36,6 +36,10 @@
 package uk.ac.lancs.switches.transients;
 
 import java.io.PrintWriter;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -58,6 +62,7 @@ import uk.ac.lancs.routing.span.Graphs;
 import uk.ac.lancs.routing.span.SpanningTreeComputer;
 import uk.ac.lancs.routing.span.Way;
 import uk.ac.lancs.switches.EndPoint;
+import uk.ac.lancs.switches.InvalidServiceException;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceListener;
@@ -110,7 +115,8 @@ public class TransientAggregator implements Aggregator {
 
             Client(Service connection) {
                 this.connection = connection;
-                this.connection.addListener(this);
+                this.connection
+                    .addListener(protect(ServiceListener.class, this));
             }
 
             @Override
@@ -119,8 +125,9 @@ public class TransientAggregator implements Aggregator {
             }
 
             @Override
-            public void failed(Throwable t) {
-                clientFailed(this, t);
+            public void failed(Collection<? extends EndPoint> locations,
+                               Throwable t) {
+                clientFailed(this, locations, t);
             }
 
             @Override
@@ -190,15 +197,16 @@ public class TransientAggregator implements Aggregator {
             if (intendedActivity) clients.stream().forEach(Client::activate);
         }
 
-        synchronized void clientFailed(Client cli, Throwable t) {
+        synchronized void
+            clientFailed(Client cli, Collection<? extends EndPoint> locations,
+                         Throwable t) {
             if (tunnels == null) return;
             if (cli.error != null) return;
-            cli.error = t;
             errored++;
             unresponded--;
             if (errored == 1) {
                 /* This is the first error. */
-                callOut(l -> l.failed(t));
+                callOut(l -> l.failed(locations, t));
             }
         }
 
@@ -251,7 +259,8 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void initiate(ServiceDescription request) {
+        public synchronized void initiate(ServiceDescription request)
+            throws InvalidServiceException {
             if (released)
                 throw new IllegalStateException("connection released");
             if (tunnels != null)
@@ -274,24 +283,15 @@ public class TransientAggregator implements Aggregator {
                     .toMap(r -> r.endPointFlows().keySet().iterator().next()
                         .getTerminal().getNetwork().newService(), r -> r));
 
-            /* Map<SwitchControl, Collection<EndPoint>> subterminals =
-             * new HashMap<>(); plotTree(request.terminals,
-             * request.bandwidth, tunnels, subterminals);
-             * 
-             * Map<Connection, ConnectionRequest> subcons =
-             * subterminals.entrySet().stream() .collect(Collectors
-             * .toMap(e -> e.getKey().newConnection(), e ->
-             * ConnectionRequest.of(e.getValue(),
-             * request.bandwidth))); */
-
             clients.addAll(subcons.keySet().stream().map(Client::new)
                 .collect(Collectors.toList()));
             unresponded = clients.size();
 
             /* Tell each of the subconnections to initiate spanning
              * trees with their respective end points. */
-            subcons.entrySet().stream()
-                .forEach(e -> e.getKey().initiate(e.getValue()));
+            for (Map.Entry<Service, ServiceDescription> entry : subcons
+                .entrySet())
+                entry.getKey().initiate(entry.getValue());
 
             this.request = request;
         }
@@ -667,7 +667,8 @@ public class TransientAggregator implements Aggregator {
     /**
      * Create an aggregator.
      * 
-     * @param executor used to invoke {@link ServiceListener}s
+     * @param executor used to invoke call-backs created by this
+     * aggregator and passed to inferior networks
      * 
      * @param name the new switch's name
      */
@@ -1262,5 +1263,29 @@ public class TransientAggregator implements Aggregator {
     @Override
     public Collection<String> getTerminals() {
         return new HashSet<>(ports.keySet());
+    }
+
+    @SuppressWarnings("unchecked")
+    private <I> I protect(Class<I> type, I base) {
+        InvocationHandler h = new InvocationHandler() {
+            @Override
+            public Object invoke(Object proxy, Method method, Object[] args)
+                throws Throwable {
+                if (method.getReturnType() != null)
+                    return method.invoke(base, args);
+                executor.execute(() -> {
+                    try {
+                        method.invoke(base, args);
+                    } catch (IllegalAccessException | IllegalArgumentException
+                        | InvocationTargetException e) {
+                        throw new AssertionError("unreachable", e);
+                    }
+                });
+                return null;
+            }
+        };
+        return (I) Proxy.newProxyInstance(type.getClassLoader(),
+                                          new Class<?>[]
+                                          { type }, h);
     }
 }

@@ -35,46 +35,47 @@
  */
 package uk.ac.lancs.switches;
 
-import java.util.Collection;
-
 /**
- * Receives notifications of changes to the state of a service.
+ * Indicates immediate detection of an invalid service. This kind of
+ * exception can occur immediately on calling
+ * {@link Service#initiate(ServiceDescription)}}.
  * 
  * @author simpsons
  */
-public interface ServiceListener {
-    /**
-     * The service has become ready to use, and is inactive.
-     */
-    void ready();
+public class InvalidServiceException extends Exception {
+    private static final long serialVersionUID = 1L;
 
     /**
-     * The service failed during establishment or activation.
+     * Create an exception.
      */
-    void failed(Collection<? extends EndPoint> locations, Throwable t);
+    public InvalidServiceException() {}
 
     /**
-     * The service has become active.
+     * Create an exception with a detail message and a cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
      */
-    void activated();
+    public InvalidServiceException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
     /**
-     * The service has started to become active.
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
      */
-    default void activating() {}
+    public InvalidServiceException(String message) {
+        super(message);
+    }
 
     /**
-     * The service has become inactive.
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
      */
-    void deactivated();
-
-    /**
-     * The service has started to become inactive.
-     */
-    default void deactivating() {}
-
-    /**
-     * The service has been fully released, and can be used again.
-     */
-    void released();
+    public InvalidServiceException(Throwable cause) {
+        super(cause);
+    }
 }

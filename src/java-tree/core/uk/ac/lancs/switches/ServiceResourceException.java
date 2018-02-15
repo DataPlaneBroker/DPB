@@ -35,46 +35,45 @@
  */
 package uk.ac.lancs.switches;
 
-import java.util.Collection;
-
 /**
- * Receives notifications of changes to the state of a service.
+ * Indicates an asynchronous failure of a service.
  * 
  * @author simpsons
  */
-public interface ServiceListener {
-    /**
-     * The service has become ready to use, and is inactive.
-     */
-    void ready();
+public class ServiceResourceException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
 
     /**
-     * The service failed during establishment or activation.
+     * Create an exception.
      */
-    void failed(Collection<? extends EndPoint> locations, Throwable t);
+    public ServiceResourceException() {}
 
     /**
-     * The service has become active.
+     * Create an exception with a detail message and a cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
      */
-    void activated();
+    public ServiceResourceException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
     /**
-     * The service has started to become active.
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
      */
-    default void activating() {}
+    public ServiceResourceException(String message) {
+        super(message);
+    }
 
     /**
-     * The service has become inactive.
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
      */
-    void deactivated();
-
-    /**
-     * The service has started to become inactive.
-     */
-    default void deactivating() {}
-
-    /**
-     * The service has been fully released, and can be used again.
-     */
-    void released();
+    public ServiceResourceException(Throwable cause) {
+        super(cause);
+    }
 }
