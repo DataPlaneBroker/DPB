@@ -81,7 +81,7 @@ import uk.ac.lancs.switches.backend.SwitchFactory;
  * 
  * @author simpsons
  */
-public class PersistentSwitch implements Network {
+public class PersistentNetwork implements Network {
     private final Switch backend;
 
     private class MyTerminal implements Terminal {
@@ -106,11 +106,11 @@ public class PersistentSwitch implements Network {
 
         @Override
         public String toString() {
-            return PersistentSwitch.this.name + ":" + this.name;
+            return PersistentNetwork.this.name + ":" + this.name;
         }
 
-        PersistentSwitch owner() {
-            return PersistentSwitch.this;
+        PersistentNetwork owner() {
+            return PersistentNetwork.this;
         }
     }
 
@@ -139,7 +139,7 @@ public class PersistentSwitch implements Network {
         /**
          * Records our reference into the backend. When set, we are
          * active or activating. When not set, calling
-         * {@link PersistentSwitch#retainBridges()} will ensure that our
+         * {@link PersistentNetwork#retainBridges()} will ensure that our
          * underlying bridge does not exist. When set, we are either
          * activating or activated.
          */
@@ -159,7 +159,7 @@ public class PersistentSwitch implements Network {
                     throw new InvalidServiceException("end point " + ep
                         + " not part of " + name);
                 MyTerminal mp = (MyTerminal) p;
-                if (mp.owner() != PersistentSwitch.this)
+                if (mp.owner() != PersistentNetwork.this)
                     throw new InvalidServiceException("end point " + ep
                         + " not part of " + name);
             }
@@ -252,7 +252,7 @@ public class PersistentSwitch implements Network {
             /* Make sure that our bridge won't be retained. */
             this.bridge = null;
             callOut(ServiceListener::deactivating);
-            synchronized (PersistentSwitch.this) {
+            synchronized (PersistentNetwork.this) {
                 retainBridges();
             }
         }
@@ -304,12 +304,12 @@ public class PersistentSwitch implements Network {
                  * so that the 'deactivating' event arrives before the
                  * 'deactivating' one. */
                 callOut(ServiceListener::deactivating);
-                synchronized (PersistentSwitch.this) {
+                synchronized (PersistentNetwork.this) {
                     services.remove(id);
                     retainBridges();
                 }
             } else {
-                synchronized (PersistentSwitch.this) {
+                synchronized (PersistentNetwork.this) {
                     services.remove(id);
                 }
                 callOut(ServiceListener::released);
@@ -467,7 +467,7 @@ public class PersistentSwitch implements Network {
      * @throws InstantiationException if the back-end factory class is
      * abstract
      */
-    public PersistentSwitch(Executor executor, Configuration config)
+    public PersistentNetwork(Executor executor, Configuration config)
         throws InstantiationException,
             IllegalAccessException,
             IllegalArgumentException,
@@ -712,22 +712,22 @@ public class PersistentSwitch implements Network {
     private final NetworkControl control = new NetworkControl() {
         @Override
         public Service newService() {
-            return PersistentSwitch.this.newService();
+            return PersistentNetwork.this.newService();
         }
 
         @Override
         public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
-            return PersistentSwitch.this.getModel(minimumBandwidth);
+            return PersistentNetwork.this.getModel(minimumBandwidth);
         }
 
         @Override
         public Service getService(int id) {
-            return PersistentSwitch.this.getService(id);
+            return PersistentNetwork.this.getService(id);
         }
 
         @Override
         public Collection<Integer> getServiceIds() {
-            return PersistentSwitch.this.getServiceIds();
+            return PersistentNetwork.this.getServiceIds();
         }
 
         @Override

@@ -12,6 +12,7 @@ jars += $(TEST_JARS)
 
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
+deps_core += util
 roots_core += uk.ac.lancs.routing.span.Graphs
 roots_core += uk.ac.lancs.routing.span.SpanningTreeComputer
 roots_core += uk.ac.lancs.routing.span.DistanceVectorComputer
@@ -19,6 +20,7 @@ roots_core += uk.ac.lancs.switches.Network
 roots_core += uk.ac.lancs.switches.aggregate.Aggregator
 roots_core += uk.ac.lancs.switches.transients.DummyNetwork
 roots_core += uk.ac.lancs.switches.transients.TransientAggregator
+roots_core += uk.ac.lancs.switches.persist.PersistentNetwork
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
