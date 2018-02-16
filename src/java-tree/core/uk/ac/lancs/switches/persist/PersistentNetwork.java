@@ -777,10 +777,8 @@ public class PersistentNetwork implements Network {
                         + "creation of service; WTF?");
                 }
             }
-        } catch (SQLException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-            throw new UnsupportedOperationException("unimplemented", e);
+        } catch (SQLException ex) {
+            throw new ServiceResourceException("creating service", ex);
         }
         MyService srv = new MyService(id);
         services.put(id, srv);
