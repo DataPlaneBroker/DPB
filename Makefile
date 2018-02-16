@@ -21,6 +21,7 @@ roots_core += uk.ac.lancs.switches.aggregate.Aggregator
 roots_core += uk.ac.lancs.switches.transients.DummyNetwork
 roots_core += uk.ac.lancs.switches.transients.TransientAggregator
 roots_core += uk.ac.lancs.switches.persist.PersistentNetwork
+roots_core += uk.ac.lancs.switches.backend.DummySwitch
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util

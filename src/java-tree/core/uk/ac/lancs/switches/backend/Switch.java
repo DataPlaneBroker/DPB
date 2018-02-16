@@ -95,7 +95,7 @@ public interface Switch {
      */
     Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<? extends Interface>, ? extends TrafficFlow> details);
+               Map<? extends EndPoint<Interface>, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since

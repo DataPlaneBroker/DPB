@@ -815,7 +815,7 @@ public class PersistentNetwork implements Network {
         return port.getInnerEndPoint(ep.getLabel());
     }
 
-    private <V> Map<EndPoint<? extends Interface>, V>
+    private <V> Map<EndPoint<Interface>, V>
         mapEndPoints(Map<? extends EndPoint<? extends Terminal>, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
