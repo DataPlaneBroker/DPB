@@ -115,7 +115,7 @@ public class TransientAggregator implements Aggregator {
             /**
              * Accumulates errors on each end point.
              */
-            Map<EndPoint, Collection<Throwable>> endPointErrors =
+            Map<EndPoint<? extends Terminal>, Collection<Throwable>> endPointErrors =
                 new HashMap<>();
             Collection<Throwable> globalErrors = new HashSet<>();
             boolean active;
@@ -142,8 +142,9 @@ public class TransientAggregator implements Aggregator {
             }
 
             @Override
-            public void failed(Collection<? extends EndPoint> locations,
-                               Throwable t) {
+            public void
+                failed(Collection<? extends EndPoint<? extends Terminal>> locations,
+                       Throwable t) {
                 clientFailed(this, locations, t);
             }
 
@@ -187,9 +188,9 @@ public class TransientAggregator implements Aggregator {
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", subservice.status());
                 ServiceDescription request = subservice.getRequest();
-                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
-                    EndPoint ep = entry.getKey();
+                    EndPoint<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n        %10s %6g %6g", ep, flow.ingress,
                                flow.egress);
@@ -222,7 +223,8 @@ public class TransientAggregator implements Aggregator {
         }
 
         synchronized void
-            clientFailed(Client cli, Collection<? extends EndPoint> locations,
+            clientFailed(Client cli,
+                         Collection<? extends EndPoint<? extends Terminal>> locations,
                          Throwable t) {
             forceInactive(cli);
 
@@ -234,7 +236,7 @@ public class TransientAggregator implements Aggregator {
             if (locations.isEmpty()) {
                 cli.globalErrors.add(t);
             } else {
-                for (EndPoint ep : locations)
+                for (EndPoint<? extends Terminal> ep : locations)
                     cli.endPointErrors
                         .computeIfAbsent(ep, k -> new HashSet<>()).add(t);
             }
@@ -301,7 +303,7 @@ public class TransientAggregator implements Aggregator {
          * This holds the set of trunks on which we have allocated
          * bandwidth. If {@code null}, the service is not initiated.
          */
-        Map<TrunkControl, EndPoint> tunnels;
+        Map<TrunkControl, EndPoint<? extends Terminal>> tunnels;
         ServiceDescription request;
 
         /**
@@ -499,10 +501,11 @@ public class TransientAggregator implements Aggregator {
                 break;
 
             default:
-                for (Map.Entry<TrunkControl, EndPoint> tunnel : tunnels
+                for (Map.Entry<TrunkControl, EndPoint<? extends Terminal>> tunnel : tunnels
                     .entrySet()) {
-                    EndPoint ep1 = tunnel.getValue();
-                    EndPoint ep2 = tunnel.getKey().getPeer(ep1);
+                    EndPoint<? extends Terminal> ep1 = tunnel.getValue();
+                    EndPoint<? extends Terminal> ep2 =
+                        tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
                 }
                 for (Client cli : clients) {
@@ -568,7 +571,8 @@ public class TransientAggregator implements Aggregator {
             new HashMap<>();
 
         @Override
-        public EndPoint getPeer(EndPoint p) {
+        public EndPoint<? extends Terminal>
+            getPeer(EndPoint<? extends Terminal> p) {
             synchronized (TransientAggregator.this) {
                 if (p.getTerminal().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
@@ -586,8 +590,9 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public EndPoint allocateTunnel(double upstreamBandwidth,
-                                       double downstreamBandwidth) {
+        public EndPoint<? extends Terminal>
+            allocateTunnel(double upstreamBandwidth,
+                           double downstreamBandwidth) {
             /* Sanity-check bandwidth. */
             if (upstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative upstream: "
@@ -613,7 +618,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public void releaseTunnel(EndPoint endPoint) {
+        public void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
             final int startLabel;
             if (endPoint.getTerminal().equals(start)) {
                 startLabel = endPoint.getLabel();
@@ -874,7 +879,7 @@ public class TransientAggregator implements Aggregator {
      */
     synchronized void
         plotAsymmetricTree(ServiceDescription request,
-                           Map<? super TrunkControl, ? super EndPoint> tunnels,
+                           Map<? super TrunkControl, ? super EndPoint<? extends Terminal>> tunnels,
                            Collection<? super ServiceDescription> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
@@ -884,11 +889,12 @@ public class TransientAggregator implements Aggregator {
         /* Sanity-check the end points, map them to internal ports, and
          * record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
-        Map<EndPoint, List<Double>> innerTerminalEndPoints = new HashMap<>();
+        Map<EndPoint<? extends Terminal>, List<Double>> innerTerminalEndPoints =
+            new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
-        for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
             .endPointFlows().entrySet()) {
-            EndPoint ep = entry.getKey();
+            EndPoint<? extends Terminal> ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 
             /* Map this end point to an inferior switch's port. */
@@ -1095,16 +1101,17 @@ public class TransientAggregator implements Aggregator {
 
             /* Allocate tunnels along identified trunks. Also gather end
              * points per port group, and bandwidth required on each. */
-            Map<Collection<Terminal>, Map<EndPoint, List<Double>>> subterminals =
+            Map<Collection<Terminal>, Map<EndPoint<? extends Terminal>, List<Double>>> subterminals =
                 new HashMap<>();
             for (Map.Entry<MyTrunk, List<Double>> trunkReq : edgeBandwidths
                 .entrySet()) {
                 MyTrunk trunk = trunkReq.getKey();
                 double upstream = trunkReq.getValue().get(0);
                 double downstream = trunkReq.getValue().get(1);
-                EndPoint ep1 = trunk.allocateTunnel(upstream, downstream);
+                EndPoint<? extends Terminal> ep1 =
+                    trunk.allocateTunnel(upstream, downstream);
                 tunnels.put(trunk, ep1);
-                EndPoint ep2 = trunk.getPeer(ep1);
+                EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
                     .computeIfAbsent(portGroups.get(ep1.getTerminal()),
                                      k -> new HashMap<>())
@@ -1117,9 +1124,9 @@ public class TransientAggregator implements Aggregator {
 
             /* Ensure the caller's end points are included in the
              * requests to inferior switches. */
-            for (Map.Entry<EndPoint, List<Double>> entry : innerTerminalEndPoints
+            for (Map.Entry<EndPoint<? extends Terminal>, List<Double>> entry : innerTerminalEndPoints
                 .entrySet()) {
-                EndPoint ep = entry.getKey();
+                EndPoint<? extends Terminal> ep = entry.getKey();
                 subterminals
                     .computeIfAbsent(portGroups.get(ep.getTerminal()),
                                      k -> new HashMap<>())
@@ -1128,7 +1135,8 @@ public class TransientAggregator implements Aggregator {
             // System.err.printf("Subterminals: %s%n", subterminals);
 
             /* For each port group, create a new connection request. */
-            for (Map<EndPoint, List<Double>> reqs : subterminals.values()) {
+            for (Map<EndPoint<? extends Terminal>, List<Double>> reqs : subterminals
+                .values()) {
                 subrequests.add(ServiceDescription.of(reqs));
             }
             return;
@@ -1154,15 +1162,16 @@ public class TransientAggregator implements Aggregator {
      * to this switch
      */
     synchronized void
-        plotTree(Collection<? extends EndPoint> terminals, double bandwidth,
-                 Map<? super TrunkControl, ? super EndPoint> tunnels,
-                 Map<? super NetworkControl, Collection<EndPoint>> subterminals) {
+        plotTree(Collection<? extends EndPoint<? extends Terminal>> terminals,
+                 double bandwidth,
+                 Map<? super TrunkControl, ? super EndPoint<? extends Terminal>> tunnels,
+                 Map<? super NetworkControl, Collection<EndPoint<? extends Terminal>>> subterminals) {
         // System.err.println("outer terminal end points: " +
         // terminals);
 
         /* Map the set of caller's end points to the corresponding inner
          * end points that our topology consists of. */
-        Collection<EndPoint> innerTerminalEndPoints =
+        Collection<EndPoint<? extends Terminal>> innerTerminalEndPoints =
             terminals.stream().map(t -> {
                 Terminal p = t.getTerminal();
                 if (!(p instanceof MyTerminal))
@@ -1242,13 +1251,14 @@ public class TransientAggregator implements Aggregator {
             /* Create a tunnel along this trunk, and remember one end of
              * it. */
             TrunkControl firstTrunk = trunks.get(edge.first());
-            EndPoint ep1 = firstTrunk.allocateTunnel(bandwidth, bandwidth);
+            EndPoint<? extends Terminal> ep1 =
+                firstTrunk.allocateTunnel(bandwidth, bandwidth);
             tunnels.put(firstTrunk, ep1);
 
             /* Get both end points, find out what switches they
              * correspond to, and add each end point to its switch's
              * respective set of end points. */
-            EndPoint ep2 = firstTrunk.getPeer(ep1);
+            EndPoint<? extends Terminal> ep2 = firstTrunk.getPeer(ep1);
             subterminals.computeIfAbsent(ep1.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep1);
@@ -1259,7 +1269,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Make sure the caller's end points are included in their
          * switches' corresponding sets. */
-        for (EndPoint t : innerTerminalEndPoints)
+        for (EndPoint<? extends Terminal> t : innerTerminalEndPoints)
             subterminals.computeIfAbsent(t.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);

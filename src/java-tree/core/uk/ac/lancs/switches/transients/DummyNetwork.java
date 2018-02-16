@@ -107,7 +107,8 @@ public class DummyNetwork implements Network {
             request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all end points belong to us. */
-            for (EndPoint ep : request.endPointFlows().keySet()) {
+            for (EndPoint<? extends Terminal> ep : request.endPointFlows()
+                .keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
@@ -184,9 +185,9 @@ public class DummyNetwork implements Network {
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
             if (request != null) {
-                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
-                    EndPoint ep = entry.getKey();
+                    EndPoint<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,
                                flow.egress);

@@ -93,7 +93,7 @@ interface TrunkControl {
      * @throws IllegalArgumentException if the end point does not belong
      * to either port of this trunk
      */
-    EndPoint getPeer(EndPoint p);
+    EndPoint<? extends Terminal> getPeer(EndPoint<? extends Terminal> p);
 
     /**
      * Get the number of tunnels available through this trunk.
@@ -116,8 +116,8 @@ interface TrunkControl {
      * @return the end point at the start of the tunnel, or {@code null}
      * if no further resource remains
      */
-    EndPoint allocateTunnel(double upstreamBandwidth,
-                            double downstreamBandwidth);
+    EndPoint<? extends Terminal> allocateTunnel(double upstreamBandwidth,
+                                                double downstreamBandwidth);
 
     /**
      * Get the fixed delay of this trunk.
@@ -131,7 +131,7 @@ interface TrunkControl {
      * 
      * @param endPoint either of the tunnel end points
      */
-    void releaseTunnel(EndPoint endPoint);
+    void releaseTunnel(EndPoint<? extends Terminal> endPoint);
 
     /**
      * Get the trunk's management interface.

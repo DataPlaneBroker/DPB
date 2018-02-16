@@ -37,17 +37,19 @@ package uk.ac.lancs.switches;
 
 /**
  * Every end point belongs to a terminal. Get an end point by calling
- * {@link Terminal#getEndPoint(int)}.
+ * {@link T#getEndPoint(int)}.
  * 
  * @summary A potential termination point of a service
  * 
+ * @param <T> the terminal type
+ * 
  * @author simpsons
  */
-public final class EndPoint {
-    private final Terminal terminal;
+public final class EndPoint<T> {
+    private final T terminal;
     private final int label;
 
-    private EndPoint(Terminal terminal, int label) {
+    private EndPoint(T terminal, int label) {
         if (terminal == null) throw new NullPointerException("null terminal");
         this.terminal = terminal;
         this.label = label;
@@ -63,8 +65,8 @@ public final class EndPoint {
      * 
      * @throws NullPointerException if the terminal is {@code null}
      */
-    static EndPoint of(Terminal terminal, int label) {
-        return new EndPoint(terminal, label);
+    public static <T> EndPoint<T> of(T terminal, int label) {
+        return new EndPoint<T>(terminal, label);
     }
 
     /**
@@ -72,7 +74,7 @@ public final class EndPoint {
      * 
      * @return the end point's containing terminal
      */
-    public Terminal getTerminal() {
+    public T getTerminal() {
         return terminal;
     }
 
@@ -114,7 +116,7 @@ public final class EndPoint {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        EndPoint other = (EndPoint) obj;
+        EndPoint<?> other = (EndPoint<?>) obj;
         if (label != other.label) return false;
         assert terminal != null;
         assert other.terminal != null;

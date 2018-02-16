@@ -132,8 +132,9 @@ public class TestDummyInitiateTopology {
             }
 
             @Override
-            public void failed(Collection<? extends EndPoint> locations,
-                               Throwable t) {
+            public void
+                failed(Collection<? extends EndPoint<? extends Terminal>> locations,
+                       Throwable t) {
                 System.out.println(name + " failed");
             }
 

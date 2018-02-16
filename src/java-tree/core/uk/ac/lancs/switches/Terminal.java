@@ -63,7 +63,7 @@ public interface Terminal {
      * 
      * @return the end point for the given label
      */
-    default EndPoint getEndPoint(int label) {
+    default EndPoint<Terminal> getEndPoint(int label) {
         return EndPoint.of(this, label);
     }
 }

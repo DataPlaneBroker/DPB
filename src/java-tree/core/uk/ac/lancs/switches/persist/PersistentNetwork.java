@@ -95,7 +95,7 @@ public class PersistentNetwork implements Network {
             this.dbid = dbid;
         }
 
-        EndPoint getInnerEndPoint(int label) {
+        EndPoint<? extends Terminal> getInnerEndPoint(int label) {
             return physicalPort.getEndPoint(label);
         }
 
@@ -139,8 +139,8 @@ public class PersistentNetwork implements Network {
         /**
          * Records our reference into the backend. When set, we are
          * active or activating. When not set, calling
-         * {@link PersistentNetwork#retainBridges()} will ensure that our
-         * underlying bridge does not exist. When set, we are either
+         * {@link PersistentNetwork#retainBridges()} will ensure that
+         * our underlying bridge does not exist. When set, we are either
          * activating or activated.
          */
         Bridge bridge;
@@ -153,7 +153,8 @@ public class PersistentNetwork implements Network {
                 throw new IllegalStateException("service in use");
 
             /* Check that all end points belong to us. */
-            for (EndPoint ep : request.endPointFlows().keySet()) {
+            for (EndPoint<? extends Terminal> ep : request.endPointFlows()
+                .keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new InvalidServiceException("end point " + ep
@@ -180,9 +181,10 @@ public class PersistentNetwork implements Network {
                     stmt.setString(1, endPointTable);
                     stmt.setString(2, dbSlice);
                     stmt.setInt(3, this.id);
-                    for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : this.request
+                    for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : this.request
                         .endPointFlows().entrySet()) {
-                        EndPoint endPoint = entry.getKey();
+                        EndPoint<? extends Terminal> endPoint =
+                            entry.getKey();
                         MyTerminal port = (MyTerminal) endPoint.getTerminal();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(4, port.dbid);
@@ -349,9 +351,9 @@ public class PersistentNetwork implements Network {
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
             if (request != null) {
-                for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
-                    EndPoint ep = entry.getKey();
+                    EndPoint<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,
                                flow.egress);
@@ -376,7 +378,8 @@ public class PersistentNetwork implements Network {
             return id;
         }
 
-        void recover(Map<EndPoint, TrafficFlow> details, boolean active) {
+        void recover(Map<EndPoint<? extends Terminal>, TrafficFlow> details,
+                     boolean active) {
             assert this.request == null;
 
             /* Convert the details into a service request which we store
@@ -597,7 +600,7 @@ public class PersistentNetwork implements Network {
             }
 
             /* Recover service's details. */
-            Map<MyService, Map<EndPoint, TrafficFlow>> enforcements =
+            Map<MyService, Map<EndPoint<? extends Terminal>, TrafficFlow>> enforcements =
                 new HashMap<>();
             try (PreparedStatement stmt = conn.prepareStatement("SELECT"
                 + " ?.service_id AS service_id," + " ?.name AS terminal_name,"
@@ -625,7 +628,8 @@ public class PersistentNetwork implements Network {
                         final double metering = rs.getDouble(4);
                         final double shaping = rs.getDouble(5);
 
-                        final EndPoint endPoint = port.getEndPoint(label);
+                        final EndPoint<? extends Terminal> endPoint =
+                            port.getEndPoint(label);
                         final TrafficFlow enf =
                             TrafficFlow.of(metering, shaping);
                         enforcements
@@ -638,7 +642,7 @@ public class PersistentNetwork implements Network {
             conn.commit();
 
             /* Apply the services' details to the service objects. */
-            for (Map.Entry<MyService, Map<EndPoint, TrafficFlow>> entry : enforcements
+            for (Map.Entry<MyService, Map<EndPoint<? extends Terminal>, TrafficFlow>> entry : enforcements
                 .entrySet()) {
                 MyService srv = entry.getKey();
                 srv.recover(entry.getValue(), intents.get(srv.id));
@@ -807,13 +811,14 @@ public class PersistentNetwork implements Network {
         return result;
     }
 
-    private EndPoint mapEndPoint(EndPoint ep) {
+    private EndPoint<? extends Terminal>
+        mapEndPoint(EndPoint<? extends Terminal> ep) {
         MyTerminal port = (MyTerminal) ep.getTerminal();
         return port.getInnerEndPoint(ep.getLabel());
     }
 
-    private <V> Map<EndPoint, V>
-        mapEndPoints(Map<? extends EndPoint, ? extends V> input) {
+    private <V> Map<EndPoint<? extends Terminal>, V>
+        mapEndPoints(Map<? extends EndPoint<? extends Terminal>, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
     }

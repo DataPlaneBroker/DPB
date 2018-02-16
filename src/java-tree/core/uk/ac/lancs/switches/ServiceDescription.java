@@ -60,7 +60,8 @@ public interface ServiceDescription {
      * 
      * @return the traffic flows of each end point of the service
      */
-    Map<? extends EndPoint, ? extends TrafficFlow> endPointFlows();
+    Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+        endPointFlows();
 
     /**
      * Get the set of bandwidth contributions into the service indexed
@@ -70,15 +71,19 @@ public interface ServiceDescription {
      * bandwidth
      */
     @Deprecated
-    default Map<? extends EndPoint, ? extends Number> producers() {
-        return new AbstractMap<EndPoint, Number>() {
+    default Map<? extends EndPoint<? extends Terminal>, ? extends Number>
+        producers() {
+        return new AbstractMap<EndPoint<? extends Terminal>, Number>() {
             @Override
-            public Set<Entry<EndPoint, Number>> entrySet() {
-                return new AbstractSet<Map.Entry<EndPoint, Number>>() {
+            public Set<Entry<EndPoint<? extends Terminal>, Number>>
+                entrySet() {
+                return new AbstractSet<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
                     @Override
-                    public Iterator<Entry<EndPoint, Number>> iterator() {
-                        return new Iterator<Map.Entry<EndPoint, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends EndPoint, ? extends TrafficFlow>> iterator =
+                    public
+                        Iterator<Entry<EndPoint<? extends Terminal>, Number>>
+                        iterator() {
+                        return new Iterator<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>> iterator =
                                 endPointFlows().entrySet().iterator();
 
                             @Override
@@ -87,12 +92,15 @@ public interface ServiceDescription {
                             }
 
                             @Override
-                            public Map.Entry<EndPoint, Number> next() {
-                                Map.Entry<? extends EndPoint, ? extends TrafficFlow> next =
+                            public
+                                Map.Entry<EndPoint<? extends Terminal>, Number>
+                                next() {
+                                Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<EndPoint, Number>() {
+                                return new Map.Entry<EndPoint<? extends Terminal>, Number>() {
                                     @Override
-                                    public EndPoint getKey() {
+                                    public EndPoint<? extends Terminal>
+                                        getKey() {
                                         return next.getKey();
                                     }
 
@@ -127,15 +135,19 @@ public interface ServiceDescription {
      * bandwidth
      */
     @Deprecated
-    default Map<? extends EndPoint, ? extends Number> consumers() {
-        return new AbstractMap<EndPoint, Number>() {
+    default Map<? extends EndPoint<? extends Terminal>, ? extends Number>
+        consumers() {
+        return new AbstractMap<EndPoint<? extends Terminal>, Number>() {
             @Override
-            public Set<Entry<EndPoint, Number>> entrySet() {
-                return new AbstractSet<Map.Entry<EndPoint, Number>>() {
+            public Set<Entry<EndPoint<? extends Terminal>, Number>>
+                entrySet() {
+                return new AbstractSet<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
                     @Override
-                    public Iterator<Entry<EndPoint, Number>> iterator() {
-                        return new Iterator<Map.Entry<EndPoint, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends EndPoint, ? extends TrafficFlow>> iterator =
+                    public
+                        Iterator<Entry<EndPoint<? extends Terminal>, Number>>
+                        iterator() {
+                        return new Iterator<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>> iterator =
                                 endPointFlows().entrySet().iterator();
 
                             @Override
@@ -144,12 +156,15 @@ public interface ServiceDescription {
                             }
 
                             @Override
-                            public Map.Entry<EndPoint, Number> next() {
-                                Map.Entry<? extends EndPoint, ? extends TrafficFlow> next =
+                            public
+                                Map.Entry<EndPoint<? extends Terminal>, Number>
+                                next() {
+                                Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<EndPoint, Number>() {
+                                return new Map.Entry<EndPoint<? extends Terminal>, Number>() {
                                     @Override
-                                    public EndPoint getKey() {
+                                    public EndPoint<? extends Terminal>
+                                        getKey() {
                                         return next.getKey();
                                     }
 
@@ -192,12 +207,14 @@ public interface ServiceDescription {
      * @return a description consisting of the provided information
      */
     static ServiceDescription
-        of(Map<? extends EndPoint, ? extends Number> producers,
-           Map<? extends EndPoint, ? extends Number> consumers) {
-        Map<EndPoint, TrafficFlow> result = new HashMap<>();
-        Collection<EndPoint> keys = new HashSet<>(producers.keySet());
+        of(Map<? extends EndPoint<? extends Terminal>, ? extends Number> producers,
+           Map<? extends EndPoint<? extends Terminal>, ? extends Number> consumers) {
+        Map<EndPoint<? extends Terminal>, TrafficFlow> result =
+            new HashMap<>();
+        Collection<EndPoint<? extends Terminal>> keys =
+            new HashSet<>(producers.keySet());
         if (consumers != null) keys.addAll(consumers.keySet());
-        for (EndPoint ep : keys) {
+        for (EndPoint<? extends Terminal> ep : keys) {
             Number ingressObj = producers.get(ep);
             double ingress =
                 ingressObj == null ? 0.0 : ingressObj.doubleValue();
@@ -206,11 +223,12 @@ public interface ServiceDescription {
             double egress = egressObj == null ? 0.0 : egressObj.doubleValue();
             result.put(ep, TrafficFlow.of(ingress, egress));
         }
-        Map<EndPoint, TrafficFlow> finalResult =
+        Map<EndPoint<? extends Terminal>, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
         return new ServiceDescription() {
             @Override
-            public Map<? extends EndPoint, ? extends TrafficFlow>
+            public
+                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
                 endPointFlows() {
                 return finalResult;
             }
@@ -227,10 +245,11 @@ public interface ServiceDescription {
      * @return the description view of the same map
      */
     static ServiceDescription
-        create(Map<? extends EndPoint, ? extends TrafficFlow> data) {
+        create(Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> data) {
         return new ServiceDescription() {
             @Override
-            public Map<? extends EndPoint, ? extends TrafficFlow>
+            public
+                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
                 endPointFlows() {
                 return data;
             }
@@ -247,11 +266,11 @@ public interface ServiceDescription {
      * @return a description consisting of the provided information
      */
     static ServiceDescription
-        of(Map<? extends EndPoint, ? extends List<? extends Number>> input) {
-        Map<EndPoint, Number> producers =
+        of(Map<? extends EndPoint<? extends Terminal>, ? extends List<? extends Number>> input) {
+        Map<EndPoint<? extends Terminal>, Number> producers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(0)));
-        Map<EndPoint, Number> consumers =
+        Map<EndPoint<? extends Terminal>, Number> consumers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(1)));
         return of(producers, consumers);
@@ -273,7 +292,8 @@ public interface ServiceDescription {
      * @author simpsons
      */
     class Builder {
-        private Map<EndPoint, List<Number>> data = new HashMap<>();
+        private Map<EndPoint<? extends Terminal>, List<Number>> data =
+            new HashMap<>();
 
         private Builder() {}
 
@@ -299,7 +319,7 @@ public interface ServiceDescription {
          * 
          * @return this object
          */
-        public Builder add(EndPoint endPoint) {
+        public Builder add(EndPoint<? extends Terminal> endPoint) {
             return add(endPoint, defaultProduction);
         }
 
@@ -329,8 +349,8 @@ public interface ServiceDescription {
          * 
          * @return this object
          */
-        public Builder add(EndPoint endPoint, double produced,
-                           double consumed) {
+        public Builder add(EndPoint<? extends Terminal> endPoint,
+                           double produced, double consumed) {
             data.put(endPoint, Arrays.asList(produced, consumed));
             return this;
         }
@@ -344,7 +364,8 @@ public interface ServiceDescription {
          * 
          * @return this object
          */
-        public Builder add(EndPoint endPoint, double bandwidth) {
+        public Builder add(EndPoint<? extends Terminal> endPoint,
+                           double bandwidth) {
             return add(endPoint, bandwidth, Double.MAX_VALUE);
         }
 
@@ -412,14 +433,15 @@ public interface ServiceDescription {
     static ServiceDescription sanitize(ServiceDescription input,
                                        double nominalProduction) {
         /* Get the full set of end points. */
-        Collection<EndPoint> keys = new HashSet<>(input.producers().keySet());
+        Collection<EndPoint<? extends Terminal>> keys =
+            new HashSet<>(input.producers().keySet());
         keys.addAll(input.consumers().keySet());
 
         /* Provide unspecified producers with the nominal amount, and
          * sum all production. */
-        Map<EndPoint, Double> producers = new HashMap<>();
+        Map<EndPoint<? extends Terminal>, Double> producers = new HashMap<>();
         double producerSum = 0.0;
-        for (EndPoint key : keys) {
+        for (EndPoint<? extends Terminal> key : keys) {
             double production = input.producers().containsKey(key)
                 ? Math.max(input.producers().get(key).doubleValue(),
                            nominalProduction)
@@ -429,8 +451,8 @@ public interface ServiceDescription {
         }
 
         /* Compute missing consumptions, and clamp excessive ones. */
-        Map<EndPoint, Double> consumers = new HashMap<>();
-        for (EndPoint key : keys) {
+        Map<EndPoint<? extends Terminal>, Double> consumers = new HashMap<>();
+        for (EndPoint<? extends Terminal> key : keys) {
             double limit = producerSum - producers.get(key);
             double consumption = input.consumers().containsKey(key)
                 ? Math.min(input.consumers().get(key).doubleValue(), limit)

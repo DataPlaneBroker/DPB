@@ -51,7 +51,8 @@ public interface ServiceListener {
     /**
      * The service failed during establishment or activation.
      */
-    void failed(Collection<? extends EndPoint> locations, Throwable t);
+    void failed(Collection<? extends EndPoint<? extends Terminal>> locations,
+                Throwable t);
 
     /**
      * The service has become active.

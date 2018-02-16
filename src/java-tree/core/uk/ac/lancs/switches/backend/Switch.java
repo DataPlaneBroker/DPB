@@ -92,8 +92,9 @@ public interface Switch {
      * 
      * @return a reference to the bridge
      */
-    Bridge bridge(BridgeListener listener,
-                  Map<? extends EndPoint, ? extends TrafficFlow> details);
+    Bridge
+        bridge(BridgeListener listener,
+               Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since
