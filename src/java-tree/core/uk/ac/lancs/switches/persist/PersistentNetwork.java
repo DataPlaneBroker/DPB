@@ -73,6 +73,7 @@ import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.TrafficFlow;
 import uk.ac.lancs.switches.backend.Bridge;
 import uk.ac.lancs.switches.backend.BridgeListener;
+import uk.ac.lancs.switches.backend.Interface;
 import uk.ac.lancs.switches.backend.Switch;
 import uk.ac.lancs.switches.backend.SwitchFactory;
 
@@ -86,7 +87,7 @@ public class PersistentNetwork implements Network {
 
     private class MyTerminal implements Terminal {
         private final String name;
-        private final Terminal physicalPort;
+        private final Interface physicalPort;
         private final int dbid;
 
         MyTerminal(String name, String desc, int dbid) {
@@ -95,7 +96,7 @@ public class PersistentNetwork implements Network {
             this.dbid = dbid;
         }
 
-        EndPoint<? extends Terminal> getInnerEndPoint(int label) {
+        EndPoint<Interface> getInnerEndPoint(int label) {
             return physicalPort.getEndPoint(label);
         }
 
@@ -811,13 +812,12 @@ public class PersistentNetwork implements Network {
         return result;
     }
 
-    private EndPoint<? extends Terminal>
-        mapEndPoint(EndPoint<? extends Terminal> ep) {
+    private EndPoint<Interface> mapEndPoint(EndPoint<? extends Terminal> ep) {
         MyTerminal port = (MyTerminal) ep.getTerminal();
         return port.getInnerEndPoint(ep.getLabel());
     }
 
-    private <V> Map<EndPoint<? extends Terminal>, V>
+    private <V> Map<EndPoint<? extends Interface>, V>
         mapEndPoints(Map<? extends EndPoint<? extends Terminal>, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
