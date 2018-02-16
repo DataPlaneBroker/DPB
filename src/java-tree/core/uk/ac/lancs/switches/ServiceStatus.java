@@ -81,6 +81,11 @@ public enum ServiceStatus {
     FAILED,
 
     /**
+     * The service is deactivated and is being released.
+     */
+
+    RELEASING,
+    /**
      * The service has been released, and can no longer be used.
      */
     RELEASED,

@@ -65,8 +65,9 @@ import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.InvalidServiceException;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceDescription;
+import uk.ac.lancs.switches.ServiceListener;
+import uk.ac.lancs.switches.ServiceResourceException;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.TrafficFlow;
@@ -109,13 +110,29 @@ public class TransientAggregator implements Aggregator {
 
     private class MyService implements Service {
         private class Client implements ServiceListener {
-            final Service connection;
-            Throwable error;
-            boolean activeIntent;
+            final Service subservice;
 
-            Client(Service connection) {
-                this.connection = connection;
-                this.connection
+            /**
+             * Accumulates errors on each end point.
+             */
+            Map<EndPoint, Collection<Throwable>> endPointErrors =
+                new HashMap<>();
+            Collection<Throwable> globalErrors = new HashSet<>();
+            boolean active;
+
+            boolean inErrorState() {
+                return !endPointErrors.isEmpty() || !globalErrors.isEmpty();
+            }
+
+            Client(Service subservice) {
+                this.subservice = subservice;
+            }
+
+            /**
+             * Ensure the subservice can talk back to this client.
+             */
+            void init() {
+                this.subservice
                     .addListener(protect(ServiceListener.class, this));
             }
 
@@ -152,28 +169,24 @@ public class TransientAggregator implements Aggregator {
 
             void activate() {
                 assert Thread.holdsLock(MyService.this);
-                if (activeIntent) return;
-                activeIntent = true;
-                connection.activate();
+                subservice.activate();
             }
 
             void deactivate() {
                 assert Thread.holdsLock(MyService.this);
-                if (!activeIntent) return;
-                activeIntent = false;
-                if (connection != null) connection.deactivate();
+                if (subservice != null) subservice.deactivate();
             }
 
             void release() {
                 assert Thread.holdsLock(MyService.this);
-                if (connection != null) {
-                    connection.release();
+                if (subservice != null) {
+                    subservice.release();
                 }
             }
 
             void dump(PrintWriter out) {
-                out.printf("%n      inferior %s:", connection.status());
-                ServiceDescription request = connection.getRequest();
+                out.printf("%n      inferior %s:", subservice.status());
+                ServiceDescription request = subservice.getRequest();
                 for (Map.Entry<? extends EndPoint, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
                     EndPoint ep = entry.getKey();
@@ -190,52 +203,89 @@ public class TransientAggregator implements Aggregator {
 
         synchronized void clientReady(Client cli) {
             if (tunnels == null) return;
-            unresponded--;
-            if (unresponded > 0) return;
-            if (errored > 0) return;
+
+            /* Determine whether we've got responses from anyone now. */
+            readyCount++;
+            if (readyCount < clients.size()) return;
+
+            /* If all inferior networks have responded, we can report
+             * that we are ready. */
+            assert errorCount == 0;
             callOut(ServiceListener::ready);
-            if (intendedActivity) clients.stream().forEach(Client::activate);
+
+            /* Try to become active now, if the user has prematurely
+             * tried to activate us. */
+            if (intent == Intent.ACTIVE) {
+                callOut(ServiceListener::activating);
+                clients.stream().forEach(Client::activate);
+            }
         }
 
         synchronized void
             clientFailed(Client cli, Collection<? extends EndPoint> locations,
                          Throwable t) {
-            if (tunnels == null) return;
-            if (cli.error != null) return;
-            errored++;
-            unresponded--;
-            if (errored == 1) {
-                /* This is the first error. */
-                callOut(l -> l.failed(locations, t));
+            forceInactive(cli);
+
+            assert tunnels == null;
+
+            /* Record this failure, and keep track of how many
+             * subservices have failed. */
+            boolean oldState = cli.inErrorState();
+            if (locations.isEmpty()) {
+                cli.globalErrors.add(t);
+            } else {
+                for (EndPoint ep : locations)
+                    cli.endPointErrors
+                        .computeIfAbsent(ep, k -> new HashSet<>()).add(t);
             }
+            boolean newState = cli.inErrorState();
+            if (!oldState && newState) errorCount++;
+
+            /* Pass this failure on up. */
+            callOut(l -> l.failed(locations, t));
         }
 
         synchronized void clientReleased(Client cli) {
-            if (tunnels == null) return;
+            forceInactive(cli);
+
+            /* Deplete the set of clients. If they're all gone, we are
+             * released. */
             if (!clients.remove(cli)) return;
             if (!clients.isEmpty()) return;
-            clients.clear();
-            tunnels = null;
-            request = null;
-            released = true;
+            allClientsReleased();
+        }
+
+        private void allClientsReleased() {
+            assert clients.isEmpty();
             synchronized (TransientAggregator.this) {
-                connections.remove(id);
+                services.remove(id);
             }
             callOut(ServiceListener::released);
         }
 
         synchronized void clientActivated(Client cli) {
-            if (tunnels == null) return;
-            activeInferiors++;
-            if (activeInferiors < clients.size()) return;
+            if (cli.active) return;
+            cli.active = true;
+            if (activeCount++ < clients.size()) return;
             callOut(ServiceListener::activated);
         }
 
         synchronized void clientDeactivated(Client cli) {
-            if (tunnels == null) return;
-            activeInferiors--;
-            if (activeInferiors > 0) return;
+            forceInactive(cli);
+        }
+
+        private void forceInactive(Client cli) {
+            assert Thread.holdsLock(this);
+            if (!cli.active) return;
+            cli.active = false;
+            if (activeCount-- > 0) return;
+            completeDeactivation();
+        }
+
+        private void completeDeactivation() {
             callOut(ServiceListener::deactivated);
+            if (intent != Intent.RELEASE) return;
+            releaseInternal();
         }
 
         final int id;
@@ -247,12 +297,34 @@ public class TransientAggregator implements Aggregator {
                 .forEach(l -> executor.execute(() -> action.accept(l)));
         }
 
+        /**
+         * This holds the set of trunks on which we have allocated
+         * bandwidth. If {@code null}, the service is not initiated.
+         */
         Map<TrunkControl, EndPoint> tunnels;
         ServiceDescription request;
 
-        int unresponded, errored;
-        int activeInferiors;
-        boolean intendedActivity = false, released = false;
+        /**
+         * Holds errors not attached to end points of subservices.
+         */
+        Collection<Throwable> globalErrors = new HashSet<>();
+
+        int readyCount;
+        int errorCount;
+
+        /**
+         * Counts the number of active or deactivating
+         * (having-been-active) subservices. Subservices that were
+         * activating but switched to deactivating before becoming
+         * active are not included.
+         */
+        int activeCount;
+
+        /**
+         * Records the user's intent for this service. The default is
+         * {@link Intent#INACTIVE}.
+         */
+        Intent intent = Intent.INACTIVE;
 
         MyService(int id) {
             this.id = id;
@@ -261,15 +333,16 @@ public class TransientAggregator implements Aggregator {
         @Override
         public synchronized void initiate(ServiceDescription request)
             throws InvalidServiceException {
-            if (released)
-                throw new IllegalStateException("connection released");
+
+            if (intent == Intent.RELEASE) if (clients.isEmpty())
+                throw new IllegalStateException("service released");
+            else
+                throw new IllegalStateException("service releasing");
+
             if (tunnels != null)
-                throw new IllegalStateException("connection in use");
+                throw new IllegalStateException("service in use");
             request = ServiceDescription.sanitize(request, 0.01);
             tunnels = new HashMap<>();
-            clients.clear();
-            errored = activeInferiors = 0;
-            intendedActivity = false;
 
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
@@ -283,68 +356,122 @@ public class TransientAggregator implements Aggregator {
                     .toMap(r -> r.endPointFlows().keySet().iterator().next()
                         .getTerminal().getNetwork().newService(), r -> r));
 
+            /* Create a client for each subservice. */
             clients.addAll(subcons.keySet().stream().map(Client::new)
                 .collect(Collectors.toList()));
-            unresponded = clients.size();
+            clients.forEach(Client::init);
 
             /* Tell each of the subconnections to initiate spanning
              * trees with their respective end points. */
-            for (Map.Entry<Service, ServiceDescription> entry : subcons
-                .entrySet())
-                entry.getKey().initiate(entry.getValue());
+            try {
+                for (Map.Entry<Service, ServiceDescription> entry : subcons
+                    .entrySet())
+                    entry.getKey().initiate(entry.getValue());
+            } catch (InvalidServiceException ex) {
+                release();
+                throw ex;
+            }
 
             this.request = request;
         }
 
         @Override
         public synchronized ServiceStatus status() {
-            if (released) return ServiceStatus.RELEASED;
-            if (errored > 0) return ServiceStatus.FAILED;
+            if (intent == Intent.RELEASE) if (clients.isEmpty())
+                return ServiceStatus.RELEASED;
+            else
+                return ServiceStatus.RELEASING;
+            if (errorCount > 0 || !globalErrors.isEmpty())
+                return ServiceStatus.FAILED;
             if (tunnels == null) return ServiceStatus.DORMANT;
-            if (unresponded > 0) return ServiceStatus.ESTABLISHING;
-            if (intendedActivity) return activeInferiors < clients.size()
+            assert errorCount == 0;
+            if (readyCount < clients.size())
+                return ServiceStatus.ESTABLISHING;
+            if (intent == Intent.ACTIVE) return activeCount < clients.size()
                 ? ServiceStatus.ACTIVATING : ServiceStatus.ACTIVE;
-            return activeInferiors > 0 ? ServiceStatus.DEACTIVATING
+            return activeCount > 0 ? ServiceStatus.DEACTIVATING
                 : ServiceStatus.INACTIVE;
         }
 
-        /* ConnectionListener user, double bandwidth, Map<SwitchControl,
-         * Collection<EndPoint>> subterminals, Map<Trunk, EndPoint>
-         * tunnels) { this.id = id; this.user = user; this.bandwidth =
-         * bandwidth; this.tunnels = tunnels; this.clients =
-         * subterminals.entrySet().stream().map(Client::new)
-         * .collect(Collectors.toList()); this.unresponded =
-         * clients.size(); } */
-
         @Override
         public synchronized void activate() {
-            if (errored > 0)
+            /* If anything has already gone wrong, we can do nothing
+             * more. */
+            if (errorCount > 0)
                 throw new IllegalStateException("inferior error(s)");
-            if (intendedActivity) return;
-            intendedActivity = true;
-            if (unresponded > 0) return;
+
+            /* If the user has released us, we can do nothing more. */
+            if (intent == Intent.RELEASE)
+                throw new IllegalStateException("released");
+
+            /* Do nothing if we've already recorded the user's intent,
+             * as we must also have activated inferior services. */
+            if (intent == Intent.ACTIVE) return;
+            intent = Intent.ACTIVE;
+
+            /* Do nothing but record the user's intent, if they haven't
+             * yet provided end-point details. */
+            if (tunnels == null) return;
+
+            callOut(ServiceListener::activating);
             clients.stream().forEach(Client::activate);
         }
 
         @Override
         public synchronized void deactivate() {
-            if (!intendedActivity) return;
-            intendedActivity = false;
-            clients.stream().forEach(Client::deactivate);
+            if (intent != Intent.ACTIVE) return;
+            intent = Intent.INACTIVE;
+            deactivateInternal();
+        }
+
+        private void deactivateInternal() {
+            assert Thread.holdsLock(this);
+
+            /* Indicate that we are starting to deactivate, and then
+             * initiate it if we are not already. */
+            callOut(ServiceListener::deactivating);
+            clients.forEach(Client::deactivate);
+            if (activeCount == 0) completeDeactivation();
         }
 
         @Override
         public synchronized void release() {
-            /* Release switch resources. */
-            clients.stream().forEach(Client::release);
-            clients.clear();
+            /* There's nothing to do if we've already recorded the
+             * user's intent to release the service. */
+            if (intent == Intent.RELEASE) return;
 
-            synchronized (TransientAggregator.this) {
-                /* Release tunnel resources. */
-                tunnels.forEach((k, v) -> k.releaseTunnel(v));
-                connections.remove(id);
+            /* Record the new intent, but remember the old. */
+            Intent oldIntent = intent;
+            intent = Intent.RELEASE;
+
+            /* If the current intent is to be active, trigger
+             * deactivation first. When it completes, and discovers the
+             * release intent, it will start the release process.
+             * Otherwise, we start it now. */
+            if (oldIntent == Intent.ACTIVE) {
+                deactivateInternal();
+            } else {
+                releaseInternal();
             }
+        }
 
+        private void releaseInternal() {
+            assert Thread.holdsLock(this);
+
+            /* If we have no subservices to release, we're ready to
+             * release ourselves. */
+            if (clients.isEmpty())
+                allClientsReleased();
+            else
+                /* Release subservice resources. */
+                clients.stream().forEach(Client::release);
+
+            /* Release tunnel resources and make ourselves
+             * unfindable. */
+            synchronized (TransientAggregator.this) {
+                tunnels.forEach((k, v) -> k.releaseTunnel(v));
+                services.remove(id);
+            }
             tunnels.clear();
         }
 
@@ -388,7 +515,7 @@ public class TransientAggregator implements Aggregator {
 
         @Override
         public synchronized NetworkControl getSwitch() {
-            if (released) return null;
+            if (intent == Intent.RELEASE && clients.isEmpty()) return null;
             return control;
         }
 
@@ -645,7 +772,7 @@ public class TransientAggregator implements Aggregator {
      */
     public synchronized void dump(PrintWriter out) {
         out.printf("aggregate %s:%n", name);
-        for (MyService conn : connections.values())
+        for (MyService conn : services.values())
             conn.dump(out);
         for (MyTrunk trunk : new HashSet<>(trunks.values())) {
             out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n", trunk.getPorts(),
@@ -661,8 +788,8 @@ public class TransientAggregator implements Aggregator {
 
     private final Map<String, MyTerminal> ports = new HashMap<>();
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
-    private final Map<Integer, MyService> connections = new HashMap<>();
-    private int nextConnectionId;
+    private final Map<Integer, MyService> services = new HashMap<>();
+    private int nextServiceId;
 
     /**
      * Create an aggregator.
@@ -912,7 +1039,7 @@ public class TransientAggregator implements Aggregator {
             // return !reached.containsAll(e);
             // });
             if (tree == null)
-                throw new IllegalArgumentException("no tree found");
+                throw new ServiceResourceException("no tree found");
             // System.err.printf("Spanning tree: %s%n", tree);
 
             /* Work out how much bandwidth each trunk edge requires in
@@ -1240,23 +1367,23 @@ public class TransientAggregator implements Aggregator {
         @Override
         public Service getService(int id) {
             synchronized (TransientAggregator.this) {
-                return connections.get(id);
+                return services.get(id);
             }
         }
 
         @Override
         public Service newService() {
             synchronized (TransientAggregator.this) {
-                int id = nextConnectionId++;
+                int id = nextServiceId++;
                 MyService conn = new MyService(id);
-                connections.put(id, conn);
+                services.put(id, conn);
                 return conn;
             }
         }
 
         @Override
         public Collection<Integer> getServiceIds() {
-            return new HashSet<>(connections.keySet());
+            return new HashSet<>(services.keySet());
         }
     };
 
@@ -1287,5 +1414,9 @@ public class TransientAggregator implements Aggregator {
         return (I) Proxy.newProxyInstance(type.getClassLoader(),
                                           new Class<?>[]
                                           { type }, h);
+    }
+
+    private static enum Intent {
+        RELEASE, INACTIVE, ACTIVE;
     }
 }

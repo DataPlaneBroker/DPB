@@ -141,6 +141,7 @@ public class DummyNetwork implements Network {
                 throw new IllegalStateException("connection uninitiated");
             if (active) return;
             active = true;
+            callOut(ServiceListener::activating);
             callOut(ServiceListener::activated);
         }
 
@@ -148,6 +149,7 @@ public class DummyNetwork implements Network {
         public synchronized void deactivate() {
             if (released || request == null || !active) return;
             active = false;
+            callOut(ServiceListener::deactivating);
             callOut(ServiceListener::deactivated);
         }
 
@@ -164,6 +166,11 @@ public class DummyNetwork implements Network {
             connections.remove(id);
             request = null;
             released = true;
+            if (active) {
+                active = false;
+                callOut(ServiceListener::deactivating);
+                callOut(ServiceListener::deactivated);
+            }
             callOut(ServiceListener::released);
         }
 
