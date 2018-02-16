@@ -276,6 +276,29 @@ public class PersistentSwitch implements Network {
             released = true;
             Bridge oldBridge = bridge;
             bridge = null;
+
+            /* Delete entries from the database. */
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM ?"
+                        + " WHERE service_id = ?;")) {
+                    stmt.setString(1, endPointTable);
+                    stmt.setInt(2, id);
+                    stmt.execute();
+                }
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM ?"
+                        + " WHERE service_id = ?;")) {
+                    stmt.setString(1, serviceTable);
+                    stmt.setInt(2, id);
+                    stmt.execute();
+                }
+                conn.commit();
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("releasing", ex);
+            }
+
             if (oldBridge != null) {
                 /* We must notify the user before destroying the bridge,
                  * so that the 'deactivating' event arrives before the
@@ -501,6 +524,8 @@ public class PersistentSwitch implements Network {
 
         /* Ensure the tables exist. */
         try (Connection conn = database()) {
+            conn.setAutoCommit(false);
+
             try (PreparedStatement stmt =
                 conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
                     + " (slice VARCHAR(20),"
@@ -609,6 +634,8 @@ public class PersistentSwitch implements Network {
                     }
                 }
             }
+
+            conn.commit();
 
             /* Apply the services' details to the service objects. */
             for (Map.Entry<MyService, Map<EndPoint, TrafficFlow>> entry : enforcements
