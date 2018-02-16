@@ -36,14 +36,14 @@
 package uk.ac.lancs.switches;
 
 /**
- * Represents a connection with allocated resources. A new connection is
- * obtained from {@link NetworkControl#newService()}. Each connection
- * has a persistent identifier which can be used to recover the
- * connection object through {@link NetworkControl#getService(int)} if
+ * Represents a connectivity service with allocated resources. A new
+ * service is obtained from {@link NetworkControl#newService()}. Each
+ * service has a persistent identifier which can be used to recover the
+ * service object through {@link NetworkControl#getService(int)} if
  * lost.
  * 
- * Listeners can be added to a connection to be informed of changes to
- * its state.
+ * Listeners can be added to a service to be informed of changes to its
+ * state.
  * 
  * <p>
  * A connection has internal state and potentially inferior state, i.e.,
@@ -52,28 +52,31 @@ package uk.ac.lancs.switches;
  * 
  * <p>
  * Call {@link #initiate(ServiceDescription)} with connection parameters
- * (end points and bandwidth) to initiate a connection.
- * {@link ServiceListener#ready()} will be invoked if the connection is
+ * (end points and bandwidth) to initiate a service.
+ * {@link ServiceListener#ready()} will be invoked if the service is
  * established (but not yet activated).
- * {@link ServiceListener#failed(Throwable)} will be invoked on error.
+ * {@link ServiceListener#failed(java.util.Collection, Throwable)} will
+ * be invoked on error.
  * 
  * <p>
  * Once established, {@link #activate()} can be called to activate the
- * connection. Inferior resources will be set up, allowing traffic to
- * flow between its end points. {@link ServiceListener#activated()} will
- * be invoked when activation is complete.
+ * service, allowing traffic to flow.
+ * {@link ServiceListener#activating()} will be invoked as activation
+ * begins, and {@link ServiceListener#activated()} will be invoked when
+ * activation is complete.
  * 
  * <p>
- * A connection can be deactived with {@link #deactivate()}. Inferior
- * resources will be released, and traffic will no longer flow.
+ * A service can be deactived with {@link #deactivate()}, and traffic
+ * will no longer flow. {@link ServiceListener#deactivating()} will be
+ * invoked as deactivation starts, and
  * {@link ServiceListener#deactivated()} will be invoked when
  * de-activation is complete.
  * 
  * <p>
- * A connection can be activated and deactivated any number of times.
+ * A service can be activated and deactivated any number of times.
  * 
  * <p>
- * Calling {@link #release()} ensures the connection is deactivated, and
+ * Calling {@link #release()} ensures the service is deactivated, and
  * all resources will be released. {@link ServiceListener#released()}
  * will finally be called.
  * 
@@ -81,25 +84,25 @@ package uk.ac.lancs.switches;
  */
 public interface Service {
     /**
-     * Get the switch that owns this connection.
+     * Get the network that owns this service.
      * 
-     * @return the owning switch, or {@code null} if the connection has
+     * @return the owning network, or {@code null} if the service has
      * been released
      */
     NetworkControl getSwitch();
 
     /**
-     * Get the request associated with this connection.
+     * Get the request associated with this service.
      * 
-     * @return the associated request, or {@code null} if this
-     * connection is released or has not been initiated
+     * @return the associated request, or {@code null} if this service
+     * is released or has not been initiated
      */
     ServiceDescription getRequest();
 
     /**
      * Initiate allocation of resources.
      * 
-     * @param request the connection details
+     * @param request the service details
      */
     void initiate(ServiceDescription request) throws InvalidServiceException;
 
@@ -118,63 +121,61 @@ public interface Service {
     void removeListener(ServiceListener events);
 
     /**
-     * Activate the connection, allowing it to carry traffic. This
-     * method has no effect if called while the connection is active or
-     * activating.
+     * Activate the service, allowing it to carry traffic. This method
+     * has no effect if called while the service is active or
+     * activating. If called before the service is ready, it is
+     * remembered for when the service has been established, and
+     * triggers activation at that point.
      * 
      * @see #status()
      * 
      * @see #deactivate()
      * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @throws IllegalStateException if this service has been released
      */
     void activate();
 
     /**
-     * Prevent the connection from carrying traffic.
+     * Prevent the service from carrying traffic.
      * 
      * @see #status()
      * 
      * @see #activate()
      * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @throws IllegalStateException if this service has been released
      */
     void deactivate();
 
     /**
-     * Determine whether the connection is active. When
+     * Determine whether the service is active. When
      * 
-     * @return the connection's status
+     * @return the service status
      * 
      * @see #activate()
      * 
      * @see #deactivate()
      * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @throws IllegalStateException if this service has been released
      */
     ServiceStatus status();
 
     /**
-     * Release all resources pertaining to this connection. All methods
-     * on this object will subsequently raise
+     * Release all resources pertaining to this service. All methods on
+     * this object will subsequently raise
      * {@link IllegalStateException}.
      */
     void release();
 
     /**
-     * Get the connection's identifier within the switch that created
-     * it. The identifier can be used to re-acquire the interface to a
-     * connection if the original is lost.
+     * Get the service's identifier within the network that created it.
+     * The identifier can be used to re-acquire the interface to a
+     * service if the original is lost.
      * 
      * @see NetworkControl#getService(int)
      * 
      * @return the connection identifier
      * 
-     * @throws IllegalStateException if this connection has been
-     * released
+     * @throws IllegalStateException if this service has been released
      */
     int id();
 }

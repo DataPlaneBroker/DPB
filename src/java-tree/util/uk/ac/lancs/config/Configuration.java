@@ -307,7 +307,7 @@ public interface Configuration {
      * 
      * @param key the key to resolve
      * 
-     * @return
+     * @return the key resolved against the base
      */
     public static String resolveKey(String base, String key) {
         if (key.isEmpty()) return "";
