@@ -209,7 +209,7 @@ public class DummyNetwork implements Network {
     }
 
     private final String name;
-    private final Map<String, MyTerminal> ports = new HashMap<>();
+    private final Map<String, MyTerminal> terminals = new HashMap<>();
     private final Map<Integer, MyService> connections = new HashMap<>();
     private int nextConnectionId;
 
@@ -240,23 +240,24 @@ public class DummyNetwork implements Network {
     }
 
     /**
-     * Create a port with the given name.
+     * Create a terminal with the given name.
      * 
-     * @param name the new port's name
+     * @param name the new terminal's name
      * 
-     * @return the new port
+     * @return the new terminal
      */
-    public synchronized Terminal addPort(String name) {
-        if (ports.containsKey(name))
-            throw new IllegalArgumentException("port name in use: " + name);
-        MyTerminal port = new MyTerminal(name);
-        ports.put(name, port);
-        return port;
+    public synchronized Terminal addTerminal(String name) {
+        if (terminals.containsKey(name))
+            throw new IllegalArgumentException("terminal name in use: "
+                + name);
+        MyTerminal terminal = new MyTerminal(name);
+        terminals.put(name, terminal);
+        return terminal;
     }
 
     @Override
     public synchronized Terminal getTerminal(String id) {
-        return ports.get(id);
+        return terminals.get(id);
     }
 
     @Override
@@ -278,7 +279,7 @@ public class DummyNetwork implements Network {
         @Override
         public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
             synchronized (DummyNetwork.this) {
-                List<Terminal> list = new ArrayList<>(ports.values());
+                List<Terminal> list = new ArrayList<>(terminals.values());
                 Map<Edge<Terminal>, Double> result = new HashMap<>();
                 int size = list.size();
                 for (int i = 0; i < size - 1; i++) {
@@ -312,6 +313,6 @@ public class DummyNetwork implements Network {
 
     @Override
     public Collection<String> getTerminals() {
-        return new HashSet<>(ports.keySet());
+        return new HashSet<>(terminals.keySet());
     }
 }

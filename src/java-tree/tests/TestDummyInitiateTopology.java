@@ -72,38 +72,38 @@ public class TestDummyInitiateTopology {
     public static void main(String[] args) throws Exception {
         /* Model the Corsas at each site. */
         DummyNetwork slough = new DummyNetwork("slough");
-        slough.addPort("vms");
-        slough.addPort("bristol");
-        slough.addPort("kcl");
-        slough.addPort("edin");
-        slough.addPort("lancs");
+        slough.addTerminal("vms");
+        slough.addTerminal("bristol");
+        slough.addTerminal("kcl");
+        slough.addTerminal("edin");
+        slough.addTerminal("lancs");
 
         DummyNetwork bristol = new DummyNetwork("bristol");
-        bristol.addPort("vms");
-        bristol.addPort("slough");
+        bristol.addTerminal("vms");
+        bristol.addTerminal("slough");
 
         DummyNetwork kcl = new DummyNetwork("kcl");
-        kcl.addPort("vms");
-        kcl.addPort("slough");
+        kcl.addTerminal("vms");
+        kcl.addTerminal("slough");
 
         DummyNetwork edin = new DummyNetwork("edin");
-        edin.addPort("vms");
-        edin.addPort("slough");
+        edin.addTerminal("vms");
+        edin.addTerminal("slough");
 
         DummyNetwork lancs = new DummyNetwork("lancs");
-        lancs.addPort("vms");
-        lancs.addPort("slough");
+        lancs.addTerminal("vms");
+        lancs.addTerminal("slough");
 
         /* Create an aggregator to control the site switches. */
         TransientAggregator aggregator =
             new TransientAggregator(IdleExecutor.INSTANCE, "initiate");
 
         /* Expose inferior switches' unlinked ports. */
-        aggregator.addPort("lancs.vms", lancs.getTerminal("vms"));
-        aggregator.addPort("bristol.vms", bristol.getTerminal("vms"));
-        aggregator.addPort("kcl.vms", kcl.getTerminal("vms"));
-        aggregator.addPort("edin.vms", edin.getTerminal("vms"));
-        aggregator.addPort("slough.vms", slough.getTerminal("vms"));
+        aggregator.addTerminal("lancs.vms", lancs.getTerminal("vms"));
+        aggregator.addTerminal("bristol.vms", bristol.getTerminal("vms"));
+        aggregator.addTerminal("kcl.vms", kcl.getTerminal("vms"));
+        aggregator.addTerminal("edin.vms", edin.getTerminal("vms"));
+        aggregator.addTerminal("slough.vms", slough.getTerminal("vms"));
 
         /* Link up the inferior switches within the superior. */
         link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);

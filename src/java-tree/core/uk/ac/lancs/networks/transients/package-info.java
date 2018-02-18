@@ -36,7 +36,8 @@
 
 /**
  * Provides switch implementations that have no external persisent
- * state.
+ * state. These are intended just for algorithmic testing,
+ * demonstration, etc.
  * 
  * @author simpsons
  */

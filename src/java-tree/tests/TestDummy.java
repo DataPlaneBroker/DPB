@@ -58,10 +58,10 @@ public class TestDummy {
     public static void main(String[] args) throws Exception {
         DummyNetwork zwitch = new DummyNetwork("dummy");
 
-        Terminal left = zwitch.addPort("left");
-        Terminal right = zwitch.addPort("right");
-        Terminal up = zwitch.addPort("up");
-        Terminal down = zwitch.addPort("down");
+        Terminal left = zwitch.addTerminal("left");
+        Terminal right = zwitch.addTerminal("right");
+        Terminal up = zwitch.addTerminal("up");
+        Terminal down = zwitch.addTerminal("down");
 
         /* Create a couple of dormant connections. */
         Service c1 = zwitch.getControl().newService();

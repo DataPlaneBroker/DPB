@@ -43,33 +43,35 @@ import uk.ac.lancs.networks.mgmt.Trunk;
 
 /**
  * Represents a physical link with a fixed delay and a remaining
- * bandwidth connecting two ports. Bandwidth can be allocated and
+ * bandwidth connecting two terminals. Bandwidth can be allocated and
  * released. Tunnels within the trunk can be allocated and released. The
- * two ports are referred to as the start and end, and bandwidth in each
- * direction is allocated independently. Motion from start to end is
- * considered 'upstream', and from end to start 'downstream'.
+ * two terminals are referred to as the start and end, and bandwidth in
+ * each direction is allocated independently. Motion from start to end
+ * is considered 'upstream', and from end to start 'downstream'.
  * 
  * @author simpsons
  */
 interface TrunkControl {
     /**
-     * Get the ports at either end of this trunk.
+     * Get the terminals at either end of this trunk.
      * 
-     * @return the ports of the trunk
+     * @return the terminals of the trunk
      */
-    List<Terminal> getPorts();
+    List<Terminal> getTerminals();
 
     /**
      * Get the upstream bandwidth remaining available on this trunk.
      * 
-     * @return the remaining available bandwidth from start port to end
+     * @return the remaining available bandwidth from start terminal to
+     * end
      */
     double getUpstreamBandwidth();
 
     /**
      * Get the downstream bandwidth remaining available on this trunk.
      * 
-     * @return the remaining available bandwidth from end port to start
+     * @return the remaining available bandwidth from end terminal to
+     * start
      */
     double getDownstreamBandwidth();
 
@@ -91,7 +93,7 @@ interface TrunkControl {
      * has no peer
      * 
      * @throws IllegalArgumentException if the end point does not belong
-     * to either port of this trunk
+     * to either terminal of this trunk
      */
     EndPoint<? extends Terminal> getPeer(EndPoint<? extends Terminal> p);
 
@@ -108,10 +110,10 @@ interface TrunkControl {
      * {@link #getPeer(EndPoint)}.
      * 
      * @param upstreamBandwidth the bandwidth to allocate to the tunnel
-     * in the direction from the start port to the end
+     * in the direction from the start terminal to the end
      * 
      * @param downstreamBandwidth the bandwidth to allocate to the
-     * tunnel in the direction from the end port to the start
+     * tunnel in the direction from the end terminal to the start
      * 
      * @return the end point at the start of the tunnel, or {@code null}
      * if no further resource remains
