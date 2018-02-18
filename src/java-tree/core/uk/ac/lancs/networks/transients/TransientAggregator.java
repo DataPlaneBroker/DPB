@@ -65,7 +65,7 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.PluggableAggregator;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -79,7 +79,7 @@ import uk.ac.lancs.routing.span.Way;
  * 
  * @author simpsons
  */
-public class TransientAggregator implements Aggregator {
+public class TransientAggregator implements PluggableAggregator {
     private class MyTerminal implements Terminal {
         private final String name;
         private final Terminal innerPort;
@@ -828,16 +828,7 @@ public class TransientAggregator implements Aggregator {
         return trunks.get(p).getManagement();
     }
 
-    /**
-     * Add a new external terminal exposing an inferior switch's
-     * terminal.
-     * 
-     * @param name the local name of the terminal
-     * 
-     * @param inner the terminal of an inferior switch
-     * 
-     * @return the newly created terminal
-     */
+    @Override
     public synchronized Terminal addTerminal(String name, Terminal inner) {
         if (terminals.containsKey(name))
             throw new IllegalArgumentException("name in use: " + name);
@@ -851,6 +842,7 @@ public class TransientAggregator implements Aggregator {
      * 
      * @param name the terminal's local name
      */
+    @Override
     public synchronized void removeTerminal(String name) {
         terminals.remove(name);
     }

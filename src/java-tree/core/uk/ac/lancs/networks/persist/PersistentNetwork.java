@@ -74,7 +74,7 @@ import uk.ac.lancs.networks.backend.BridgeListener;
 import uk.ac.lancs.networks.backend.Interface;
 import uk.ac.lancs.networks.backend.Switch;
 import uk.ac.lancs.networks.backend.SwitchFactory;
-import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.PluggableNetwork;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -84,7 +84,7 @@ import uk.ac.lancs.routing.span.Edge;
  * 
  * @author simpsons
  */
-public class PersistentNetwork implements Network {
+public class PersistentNetwork implements PluggableNetwork {
     private final Switch backend;
 
     private class MyTerminal implements Terminal {
@@ -188,9 +188,10 @@ public class PersistentNetwork implements Network {
                         .endPointFlows().entrySet()) {
                         EndPoint<? extends Terminal> endPoint =
                             entry.getKey();
-                        MyTerminal port = (MyTerminal) endPoint.getTerminal();
+                        MyTerminal terminal =
+                            (MyTerminal) endPoint.getTerminal();
                         TrafficFlow flow = entry.getValue();
-                        stmt.setInt(4, port.dbid);
+                        stmt.setInt(4, terminal.dbid);
                         stmt.setInt(5, endPoint.getLabel());
                         stmt.setDouble(6, flow.ingress);
                         stmt.setDouble(7, flow.egress);
@@ -667,21 +668,11 @@ public class PersistentNetwork implements Network {
                 .filter(b -> b != null).collect(Collectors.toSet()));
     }
 
-    /**
-     * Create a port with the given name.
-     * 
-     * @param name the new port's name
-     * 
-     * @param desc the back-end description of the port
-     * 
-     * @return the new port
-     * 
-     * @throws SQLException
-     */
-    public synchronized Terminal addPort(String name, String desc)
-        throws SQLException {
+    @Override
+    public synchronized Terminal addTerminal(String name, String desc) {
         if (terminals.containsKey(name))
-            throw new IllegalArgumentException("port name in use: " + name);
+            throw new IllegalArgumentException("terminal name in use: "
+                + name);
         try (Connection conn = database();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO ?"
@@ -694,11 +685,32 @@ public class PersistentNetwork implements Network {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 final int id = rs.getInt(1);
-                MyTerminal port = new MyTerminal(name, desc, id);
-                terminals.put(name, port);
-                return port;
+                MyTerminal terminal = new MyTerminal(name, desc, id);
+                terminals.put(name, terminal);
+                return terminal;
             }
+        } catch (SQLException ex) {
+            throw new RuntimeException("could not create terminal " + name
+                + " on " + desc + " in database", ex);
         }
+    }
+
+    @Override
+    public synchronized void removeTerminal(String name) {
+        MyTerminal terminal = terminals.get(name);
+        if (terminal == null)
+            throw new IllegalArgumentException("no such terminal: " + name);
+        try (Connection conn = database();
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM ?"
+                + " WHERE terminal_id = ?;")) {
+            stmt.setString(1, terminalTable);
+            stmt.setInt(2, terminal.dbid);
+            stmt.execute();
+        } catch (SQLException ex) {
+            throw new RuntimeException("could not remove terminal " + name
+                + " from database", ex);
+        }
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
     @Override
@@ -813,8 +825,8 @@ public class PersistentNetwork implements Network {
     }
 
     private EndPoint<Interface> mapEndPoint(EndPoint<? extends Terminal> ep) {
-        MyTerminal port = (MyTerminal) ep.getTerminal();
-        return port.getInnerEndPoint(ep.getLabel());
+        MyTerminal terminal = (MyTerminal) ep.getTerminal();
+        return terminal.getInnerEndPoint(ep.getLabel());
     }
 
     private <V> Map<EndPoint<Interface>, V>
