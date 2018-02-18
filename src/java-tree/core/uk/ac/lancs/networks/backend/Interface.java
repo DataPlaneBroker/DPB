@@ -43,6 +43,14 @@ import uk.ac.lancs.networks.EndPoint;
  * @author simpsons
  */
 public interface Interface {
+    /**
+     * Get an end point on this interface.
+     * 
+     * @param label the label distinguishing the end point from others
+     * on the same interface
+     * 
+     * @return the requested end point
+     */
     default EndPoint<Interface> getEndPoint(int label) {
         return EndPoint.of(this, label);
     }

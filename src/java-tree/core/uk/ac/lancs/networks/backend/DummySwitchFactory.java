@@ -36,34 +36,17 @@
 package uk.ac.lancs.networks.backend;
 
 import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.scc.jardeps.Service;
 
-/**
- * Creates switches from configuration.
- * 
- * @author simpsons
- */
-public interface SwitchFactory {
-    /**
-     * Determine whether a switch type is recognized by this factory. If
-     * it is, the factory can expect a subsequent call to
-     * {@link #makeSwitch(SwitchContext, Configuration)}.
-     * 
-     * @param type the switch type
-     * 
-     * @return {@code true} iff the switch type is recognized
-     */
-    boolean recognize(String type);
+@Service(SwitchFactory.class)
+final class DummySwitchFactory implements SwitchFactory {
+    @Override
+    public boolean recognize(String type) {
+        return "dummy".equals(type);
+    }
 
-    /**
-     * Create a switch from configuration. The only reserved key is
-     * <samp>class</samp>.
-     * 
-     * @param config the switch configuration
-     * 
-     * @param ctxt run-time resources potentially useful in implementing
-     * the switch
-     * 
-     * @return the configured switch
-     */
-    Switch makeSwitch(SwitchContext ctxt, Configuration config);
+    @Override
+    public Switch makeSwitch(SwitchContext ctxt, Configuration config) {
+        return new DummySwitch();
+    }
 }

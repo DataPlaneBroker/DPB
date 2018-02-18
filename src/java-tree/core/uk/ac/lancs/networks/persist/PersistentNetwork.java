@@ -54,6 +54,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -73,6 +74,7 @@ import uk.ac.lancs.networks.backend.Bridge;
 import uk.ac.lancs.networks.backend.BridgeListener;
 import uk.ac.lancs.networks.backend.Interface;
 import uk.ac.lancs.networks.backend.Switch;
+import uk.ac.lancs.networks.backend.SwitchContext;
 import uk.ac.lancs.networks.backend.SwitchFactory;
 import uk.ac.lancs.networks.mgmt.PluggableNetwork;
 import uk.ac.lancs.routing.span.Edge;
@@ -430,9 +432,14 @@ public class PersistentNetwork implements PluggableNetwork {
      * <dd>The name of the switch, used to form the fully qualified
      * names of its terminals
      * 
-     * <dt><samp>backend.class</samp></dt>
+     * <dt><samp>backend.type</samp></dt>
      * 
-     * <dd>The name of the class implementing the back end
+     * <dd>The back-end type to be recognized by
+     * {@link SwitchFactory#recognize(String)}
+     * 
+     * <dt><samp>backend.<var>misc</var></samp></dt>
+     * 
+     * <dd>Other parameters used to configure the backend
      * 
      * <dt><samp>db.service</samp></dt>
      * 
@@ -456,47 +463,31 @@ public class PersistentNetwork implements PluggableNetwork {
      * @param config the configuration describing the network, the
      * back-end switch, and access to the database
      * 
-     * @throws ClassNotFoundException if the back-end factory class was
-     * not found
-     * 
-     * @throws SecurityException if the back-end factory class or its
-     * constructor are inaccessible because of security restrictions
-     * 
-     * @throws NoSuchMethodException if the back-end factory class has
-     * no default constructor
-     * 
-     * @throws InvocationTargetException if the back-end factory
-     * constructor throws an exception
-     * 
-     * @throws IllegalAccessException if the back-end factory
-     * constructor is inaccessible
-     * 
-     * @throws InstantiationException if the back-end factory class is
-     * abstract
+     * @throws IllegalArgumentException if no factory recognizes the
+     * back-end type
      */
-    public PersistentNetwork(Executor executor, Configuration config)
-        throws InstantiationException,
-            IllegalAccessException,
-            IllegalArgumentException,
-            InvocationTargetException,
-            NoSuchMethodException,
-            SecurityException,
-            ClassNotFoundException {
+    public PersistentNetwork(Executor executor, Configuration config) {
         this.executor = executor;
         this.name = config.get("name");
 
         /* Create the backend. */
         Configuration beConfig = config.subview("backend");
-        try {
-            this.backend = Class.forName(beConfig.get("class"))
-                .asSubclass(SwitchFactory.class).getConstructor()
-                .newInstance().makeSwitch(executor, beConfig);
-        } catch (IllegalArgumentException ex) {
-            /* This should not happen, because we ask for a
-             * zero-argument constructor, and pass no arguments to
-             * it. */
-            throw new AssertionError("unreachable");
+        String type = beConfig.get("type");
+        Switch zwitch = null;
+        for (SwitchFactory factory : ServiceLoader
+            .load(SwitchFactory.class)) {
+            if (!factory.recognize(type)) continue;
+            SwitchContext ctxt = new SwitchContext() {
+                @Override
+                public Executor executor() {
+                    return executor;
+                }
+            };
+            zwitch = factory.makeSwitch(ctxt, beConfig);
+            break;
         }
+        if (zwitch == null) throw new IllegalArgumentException();
+        this.backend = zwitch;
 
         /* Record how we talk to the database. */
         Configuration dbConfig = config.subview("db");

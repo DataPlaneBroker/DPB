@@ -23,6 +23,8 @@ roots_core += uk.ac.lancs.networks.transients.DummyNetwork
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentNetwork
 roots_core += uk.ac.lancs.networks.backend.DummySwitch
+roots_core += uk.ac.lancs.networks.backend.DummySwitchFactory
+roots_core += uk.ac.lancs.networks.backend.SwitchFactory
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
@@ -50,6 +52,7 @@ DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
+DOC_PKGS += uk.ac.lancs.networks.backend
 DOC_PKGS += uk.ac.lancs.config
 
 DOC_OVERVIEW=src/java-overview.html

@@ -35,35 +35,19 @@
  */
 package uk.ac.lancs.networks.backend;
 
-import uk.ac.lancs.config.Configuration;
+import java.util.concurrent.Executor;
 
 /**
- * Creates switches from configuration.
+ * @summary A set of resources a switch might need in its implementation
  * 
  * @author simpsons
  */
-public interface SwitchFactory {
+public interface SwitchContext {
     /**
-     * Determine whether a switch type is recognized by this factory. If
-     * it is, the factory can expect a subsequent call to
-     * {@link #makeSwitch(SwitchContext, Configuration)}.
+     * Get the executor to be used by this switch for any callbacks it
+     * sets up.
      * 
-     * @param type the switch type
-     * 
-     * @return {@code true} iff the switch type is recognized
+     * @return the switch's executor
      */
-    boolean recognize(String type);
-
-    /**
-     * Create a switch from configuration. The only reserved key is
-     * <samp>class</samp>.
-     * 
-     * @param config the switch configuration
-     * 
-     * @param ctxt run-time resources potentially useful in implementing
-     * the switch
-     * 
-     * @return the configured switch
-     */
-    Switch makeSwitch(SwitchContext ctxt, Configuration config);
+    Executor executor();
 }
