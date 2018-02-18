@@ -36,22 +36,19 @@
 package uk.ac.lancs.switches;
 
 /**
- * Represents a connectivity service with allocated resources. A new
- * service is obtained from {@link NetworkControl#newService()}. Each
- * service has a persistent identifier which can be used to recover the
- * service object through {@link NetworkControl#getService(int)} if
- * lost.
- * 
- * Listeners can be added to a service to be informed of changes to its
- * state.
+ * A new service is obtained from {@link NetworkControl#newService()}.
+ * Each service has a persistent identifier which can be used to recover
+ * the service object through {@link NetworkControl#getService(int)} if
+ * lost. Listeners can be added to a service to be informed of changes
+ * to its state.
  * 
  * <p>
- * A connection has internal state and potentially inferior state, i.e.,
+ * A service has internal state and potentially inferior state, i.e.,
  * that which is held by inferior or subservient entities, e.g.,
  * subswitches.
  * 
  * <p>
- * Call {@link #initiate(ServiceDescription)} with connection parameters
+ * Call {@link #initiate(ServiceDescription)} with service parameters
  * (end points and bandwidth) to initiate a service.
  * {@link ServiceListener#ready()} will be invoked if the service is
  * established (but not yet activated).
@@ -79,6 +76,8 @@ package uk.ac.lancs.switches;
  * Calling {@link #release()} ensures the service is deactivated, and
  * all resources will be released. {@link ServiceListener#released()}
  * will finally be called.
+ * 
+ * @summary A connectivity service with QoS guarantees
  * 
  * @author simpsons
  */
@@ -173,7 +172,7 @@ public interface Service {
      * 
      * @see NetworkControl#getService(int)
      * 
-     * @return the connection identifier
+     * @return the service identifier
      * 
      * @throws IllegalStateException if this service has been released
      */

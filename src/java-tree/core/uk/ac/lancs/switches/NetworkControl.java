@@ -41,7 +41,20 @@ import java.util.Map;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
- * Represents a physical network over which services can be established.
+ * Represents a physical or abstract network over which services can be
+ * established.
+ * 
+ * <p>
+ * This interface is designed to be used hierarchically, modelling both
+ * a physical switch as well as a graph of connected switches forming a
+ * network. As a physical switch, the network's terminals are the
+ * switch's ports or interfaces (including VLAN-tagged ones, or port
+ * aggregates). With several physical switches' ports physically
+ * connected, the remaining unconnected ports can be regarded as the
+ * terminals of an aggregate network, over which services can be
+ * instantiated. As the abstraction is the same at either level, the
+ * physical switches within the aggregate network are just inferior
+ * networks, and could instead be aggregates themselves.
  * 
  * @author simpsons
  */

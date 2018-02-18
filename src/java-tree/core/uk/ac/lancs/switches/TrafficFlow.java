@@ -36,7 +36,10 @@
 package uk.ac.lancs.switches;
 
 /**
- * Describes traffic flow through a point on a surface.
+ * A bidirectional flow is modelled, having distinct ingress and egress
+ * flow rates.
+ * 
+ * @summary A description of traffic flow through a point on a surface
  * 
  * @author simpsons
  */
@@ -58,12 +61,20 @@ public final class TrafficFlow {
      * @param ingress the flow of traffic into the surface
      * 
      * @param egress the flow of traffic out of the surface
+     * 
+     * @throws IllegalArgumentException if either flow is negative
      */
     public static TrafficFlow of(double ingress, double egress) {
         return new TrafficFlow(ingress, egress);
     }
 
     private TrafficFlow(double ingress, double egress) {
+        if (ingress < 0.0)
+            throw new IllegalArgumentException("illegal negative"
+                + " flow (ingress): " + ingress);
+        if (egress < 0.0)
+            throw new IllegalArgumentException("illegal negative"
+                + " flow (egress): " + egress);
         this.ingress = ingress;
         this.egress = egress;
     }
@@ -79,11 +90,53 @@ public final class TrafficFlow {
 
     /**
      * Get a string representation of this traffic flow description.
+     * This takes the form
+     * <samp>&lt;+<var>in</var>,-<var>out</var>&gt;</samp>, where
+     * <var>in</var> is the ingress rate and <var>out</var> is the
+     * egress rate.
      * 
      * @return a string representation of this flow description
      */
     @Override
     public String toString() {
-        return "<in:" + ingress + ",out:" + egress + ">";
+        return "<+" + ingress + ",-" + egress + ">";
+    }
+
+    /**
+     * Get the hash code for this object.
+     * 
+     * @return the object's hash code
+     */
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        long temp;
+        temp = Double.doubleToLongBits(egress);
+        result = prime * result + (int) (temp ^ (temp >>> 32));
+        temp = Double.doubleToLongBits(ingress);
+        result = prime * result + (int) (temp ^ (temp >>> 32));
+        return result;
+    }
+
+    /**
+     * Determine whether this object equals another object.
+     * 
+     * @param obj the other object
+     * 
+     * @return {@code true} iff the other object is a traffic flow with
+     * the same rates as this one
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        TrafficFlow other = (TrafficFlow) obj;
+        if (Double.doubleToLongBits(egress) != Double
+            .doubleToLongBits(other.egress)) return false;
+        if (Double.doubleToLongBits(ingress) != Double
+            .doubleToLongBits(other.ingress)) return false;
+        return true;
     }
 }

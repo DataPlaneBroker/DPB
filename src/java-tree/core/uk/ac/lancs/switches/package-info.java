@@ -35,12 +35,15 @@
  */
 
 /**
- * Contains classes for managing hierarchical out-of-band management of
- * services sliced from a physical network. The primary class is
- * {@link uk.ac.lancs.switches.NetworkControl}, which allows the
- * creation of {@link uk.ac.lancs.switches.Service}s across it,
- * connecting {@link uk.ac.lancs.switches.EndPoint}s with certain QoS
- * requirements.
+ * The primary class is {@link uk.ac.lancs.switches.NetworkControl},
+ * which allows the creation of {@link uk.ac.lancs.switches.Service}s
+ * across it, connecting {@link uk.ac.lancs.switches.EndPoint}s with
+ * certain QoS requirements. End points are numbered subdivisions of
+ * {@link uk.ac.lancs.switches.Terminal}s, points of access for traffic
+ * into and out of a network.
+ * 
+ * @summary Hierarchical out-of-band management of services sliced from
+ * a physical network
  * 
  * @author simpsons
  */

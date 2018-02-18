@@ -41,14 +41,16 @@ import uk.ac.lancs.switches.Terminal;
  * An aggregator consists of a set of inferior networks plus a set of
  * trunks connecting their terminals together. An aggregator
  * distinguishes between internal and external terminals. External
- * terminals are its own, and be obtained from the aggregator's
+ * terminals are its own, and can be obtained from the aggregator's
  * {@link Network#getTerminal(String)} method. Internal terminals belong
- * to inferior networks, and are used to define trunks. A trunk connects
- * the terminals of two different inferior terminals together by calling
- * {@link #addTrunk(Terminal, Terminal)}. The aggregator uses its
- * knowledge of trunks to plot spanning trees over them, and delegates
- * service requests to the inferior networks owning the terminals at the
- * ends of the trunks.
+ * to inferior networks, and are used to define trunks, or can be
+ * associated with external terminals. A trunk connects the terminals of
+ * two different inferior networks together by calling
+ * {@link #addTrunk(Terminal, Terminal)}. To implement a service, the
+ * aggregator uses its knowledge of trunk topology to plot spanning
+ * trees over its trunks, and delegates service requests to the inferior
+ * networks owning the terminals at the ends of the trunks that
+ * contribute to the spanning tree.
  * 
  * @summary A network that is an aggregate of inferior networks
  * 

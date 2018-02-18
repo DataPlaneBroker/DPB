@@ -36,7 +36,10 @@
 package uk.ac.lancs.switches;
 
 /**
- * Describes a service's status. The initial state is {@link #DORMANT}.
+ * The initial state is {@link #DORMANT}.
+ * 
+ * @summary A service status, distinguishing between dormant, inactive,
+ * active and released states, including intermediate states
  * 
  * @author simpsons
  */

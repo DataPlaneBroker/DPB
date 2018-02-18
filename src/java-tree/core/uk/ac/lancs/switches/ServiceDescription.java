@@ -49,7 +49,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Describes a service in terms of end points and bandwidth allocations.
+ * Describes a service by its set of end points and their QoS
+ * requirements.
  * 
  * @author simpsons
  */
@@ -69,6 +70,8 @@ public interface ServiceDescription {
      * 
      * @return a mapping from each producer to its contributing
      * bandwidth
+     * 
+     * @deprecated This method will be removed.
      */
     @Deprecated
     default Map<? extends EndPoint<? extends Terminal>, ? extends Number>
@@ -133,6 +136,8 @@ public interface ServiceDescription {
      * 
      * @return a mapping from each consumer to its maximum accepted
      * bandwidth
+     * 
+     * @deprecated This method will be removed.
      */
     @Deprecated
     default Map<? extends EndPoint<? extends Terminal>, ? extends Number>

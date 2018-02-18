@@ -78,7 +78,9 @@ import uk.ac.lancs.switches.backend.SwitchFactory;
 import uk.ac.lancs.switches.mgmt.Network;
 
 /**
- * Implements a switch that retains its state in a database.
+ * Implements a network that retains its state in a database. The
+ * network relies on a {@link Switch} back end to establish bridges on a
+ * physical switch in a vendor-specific way.
  * 
  * @author simpsons
  */

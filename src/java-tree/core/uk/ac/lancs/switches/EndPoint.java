@@ -35,9 +35,17 @@
  */
 package uk.ac.lancs.switches;
 
+import uk.ac.lancs.switches.backend.Interface;
+
 /**
- * Every end point belongs to a terminal. Get an end point by calling
- * {@link T#getEndPoint(int)}.
+ * Every end point belongs to a terminal, and is distinguished from
+ * other end points of the same terminal by an integer label. Get an end
+ * point by calling {@link EndPoint#of(Object, int)}.
+ * 
+ * <p>
+ * The terminal type is generic because (a) it can be, and (b) it could
+ * be a {@link Terminal} on a network or an {@link Interface} on a
+ * back-end switch.
  * 
  * @summary A potential termination point of a service
  * 

@@ -41,7 +41,8 @@ import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Terminal;
 
 /**
- * Manages a network's terminals.
+ * Operations include querying terminals and obtaining the control
+ * interface.
  * 
  * @summary The management interface of a network
  * 
