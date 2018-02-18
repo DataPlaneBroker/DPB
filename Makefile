@@ -25,6 +25,7 @@ roots_core += uk.ac.lancs.networks.persist.PersistentNetwork
 roots_core += uk.ac.lancs.networks.backend.DummySwitch
 roots_core += uk.ac.lancs.networks.backend.DummySwitchFactory
 roots_core += uk.ac.lancs.networks.backend.SwitchFactory
+roots_core += uk.ac.lancs.networks.util.Commander
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
@@ -49,6 +50,7 @@ include jardeps.mk
 DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
+DOC_PKGS += uk.ac.lancs.networks.util
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
