@@ -65,5 +65,5 @@ public interface NetworkFactory {
      * 
      * @return the new network
      */
-    UnpluggableNetwork makeNetwork(Executor executor, Configuration conf);
+    Network makeNetwork(Executor executor, Configuration conf);
 }

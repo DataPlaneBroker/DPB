@@ -67,10 +67,11 @@ import uk.ac.lancs.networks.mgmt.UnpluggableNetwork;
  * @author simpsons
  */
 public final class Commander {
-    Map<String, UnpluggableNetwork> networks = new HashMap<>();
+    Map<String, Network> networks = new HashMap<>();
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
-    UnpluggableNetwork network = null;
+    Network network = null;
+    UnpluggableNetwork unpluggableNetwork = null;
     PluggableNetwork baseNetwork = null;
     PluggableAggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
@@ -88,7 +89,7 @@ public final class Commander {
                 for (NetworkFactory factory : ServiceLoader
                     .load(NetworkFactory.class)) {
                     if (!factory.recognize(type)) continue;
-                    UnpluggableNetwork nw =
+                    Network nw =
                         factory.makeNetwork(IdleExecutor.INSTANCE, nwc);
                     String name = nwc.get("name");
                     networks.put(name, nw);
@@ -105,12 +106,16 @@ public final class Commander {
                 System.err.printf("Unknown network: %s%n", name);
                 System.exit(1);
             }
-            if (network instanceof PluggableNetwork)
-                baseNetwork = (PluggableNetwork) network;
+            if (network instanceof UnpluggableNetwork)
+                unpluggableNetwork = (UnpluggableNetwork) network;
+            else
+                unpluggableNetwork = null;
+            if (unpluggableNetwork instanceof PluggableNetwork)
+                baseNetwork = (PluggableNetwork) unpluggableNetwork;
             else
                 baseNetwork = null;
-            if (network instanceof PluggableAggregator)
-                aggregator = (PluggableAggregator) network;
+            if (unpluggableNetwork instanceof PluggableAggregator)
+                aggregator = (PluggableAggregator) unpluggableNetwork;
             else
                 aggregator = null;
             service = null;
@@ -137,7 +142,7 @@ public final class Commander {
         if ("-s".equals(arg)) {
             String sid = iter.next();
             int id = Integer.parseInt(sid);
-            service = network.getControl().getService(id);
+            service = unpluggableNetwork.getControl().getService(id);
             return;
         }
 
@@ -173,7 +178,7 @@ public final class Commander {
 
         if ("+t".equals(arg)) {
             String name = iter.next();
-            network.removeTerminal(name);
+            unpluggableNetwork.removeTerminal(name);
             return;
         }
 
@@ -219,10 +224,10 @@ public final class Commander {
             throw new IllegalArgumentException("not an end point: " + name);
         String terminalName = m.group(1);
         int label = Integer.parseInt(m.group(2));
-        if (network == null)
+        if (unpluggableNetwork == null)
             throw new IllegalArgumentException("network not set"
                 + " to find end point: " + name);
-        Terminal terminal = network.getTerminal(terminalName);
+        Terminal terminal = unpluggableNetwork.getTerminal(terminalName);
         return terminal.getEndPoint(label);
     }
 

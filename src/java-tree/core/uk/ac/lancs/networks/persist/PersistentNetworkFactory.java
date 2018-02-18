@@ -38,8 +38,8 @@ package uk.ac.lancs.networks.persist;
 import java.util.concurrent.Executor;
 
 import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.networks.mgmt.UnpluggableNetwork;
 import uk.ac.lancs.scc.jardeps.Service;
 
 @Service(NetworkFactory.class)
@@ -50,7 +50,7 @@ final class PersistentNetworkFactory implements NetworkFactory {
     }
 
     @Override
-    public UnpluggableNetwork makeNetwork(Executor executor,
+    public Network makeNetwork(Executor executor,
                                           Configuration conf) {
         return new PersistentNetwork(executor, conf);
     }
