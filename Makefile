@@ -16,13 +16,13 @@ deps_core += util
 roots_core += uk.ac.lancs.routing.span.Graphs
 roots_core += uk.ac.lancs.routing.span.SpanningTreeComputer
 roots_core += uk.ac.lancs.routing.span.DistanceVectorComputer
-roots_core += uk.ac.lancs.switches.NetworkControl
-roots_core += uk.ac.lancs.switches.mgmt.Aggregator
-roots_core += uk.ac.lancs.switches.mgmt.Network
-roots_core += uk.ac.lancs.switches.transients.DummyNetwork
-roots_core += uk.ac.lancs.switches.transients.TransientAggregator
-roots_core += uk.ac.lancs.switches.persist.PersistentNetwork
-roots_core += uk.ac.lancs.switches.backend.DummySwitch
+roots_core += uk.ac.lancs.networks.NetworkControl
+roots_core += uk.ac.lancs.networks.mgmt.Aggregator
+roots_core += uk.ac.lancs.networks.mgmt.Network
+roots_core += uk.ac.lancs.networks.transients.DummyNetwork
+roots_core += uk.ac.lancs.networks.transients.TransientAggregator
+roots_core += uk.ac.lancs.networks.persist.PersistentNetwork
+roots_core += uk.ac.lancs.networks.backend.DummySwitch
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
@@ -46,10 +46,10 @@ include jardeps.mk
 
 DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
-DOC_PKGS += uk.ac.lancs.switches
-DOC_PKGS += uk.ac.lancs.switches.mgmt
-DOC_PKGS += uk.ac.lancs.switches.transients
-DOC_PKGS += uk.ac.lancs.switches.persist
+DOC_PKGS += uk.ac.lancs.networks
+DOC_PKGS += uk.ac.lancs.networks.mgmt
+DOC_PKGS += uk.ac.lancs.networks.transients
+DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.config
 
 DOC_OVERVIEW=src/java-overview.html

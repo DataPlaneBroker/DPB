@@ -1,16 +1,16 @@
 import java.io.PrintWriter;
 import java.util.Collection;
 
-import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Service;
-import uk.ac.lancs.switches.ServiceDescription;
-import uk.ac.lancs.switches.ServiceListener;
-import uk.ac.lancs.switches.Terminal;
-import uk.ac.lancs.switches.mgmt.Aggregator;
-import uk.ac.lancs.switches.mgmt.Network;
-import uk.ac.lancs.switches.mgmt.Trunk;
-import uk.ac.lancs.switches.transients.DummyNetwork;
-import uk.ac.lancs.switches.transients.TransientAggregator;
+import uk.ac.lancs.networks.EndPoint;
+import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.ServiceListener;
+import uk.ac.lancs.networks.Terminal;
+import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.transients.DummyNetwork;
+import uk.ac.lancs.networks.transients.TransientAggregator;
 
 /*
  * Copyright 2017, Regents of the University of Lancaster
