@@ -44,6 +44,7 @@ import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.transients.DummyNetwork;
+import uk.ac.lancs.networks.util.IdleExecutor;
 
 /**
  * 

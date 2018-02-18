@@ -142,6 +142,23 @@ public interface Configuration {
     }
 
     /**
+     * Obtain locally referenced configurations from a space- or
+     * comma-separated list.
+     * 
+     * @param key the key used to obtain the references, and as a base
+     * for resolving relative names
+     * 
+     * @return a list of configurations corresponding to the references
+     * in the specified parameter, or {@code null} if not specified
+     */
+    default List<Configuration> references(String key) {
+        String value = get(key);
+        if (value == null) return null;
+        return Arrays.asList(value.split("[\\s,]+")).stream()
+            .map(s -> reference(key, s)).collect(Collectors.toList());
+    }
+
+    /**
      * Get a subview.
      * 
      * @param prefix the additional prefix to narrow down the available

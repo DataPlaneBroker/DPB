@@ -11,6 +11,7 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.transients.DummyNetwork;
 import uk.ac.lancs.networks.transients.TransientAggregator;
+import uk.ac.lancs.networks.util.IdleExecutor;
 
 /*
  * Copyright 2017, Regents of the University of Lancaster

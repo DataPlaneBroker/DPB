@@ -139,4 +139,28 @@ public final class TrafficFlow {
             .doubleToLongBits(other.ingress)) return false;
         return true;
     }
+
+    /**
+     * Get a new traffic flow with the same ingress rate but a new
+     * egress rate.
+     * 
+     * @param egress the new egress rate
+     * 
+     * @return the new traffic flow with the specified egress rate
+     */
+    public TrafficFlow withEgress(double egress) {
+        return new TrafficFlow(ingress, egress);
+    }
+
+    /**
+     * Get a new traffic flow with the same egress rate but a new
+     * ingress rate.
+     * 
+     * @param ingress the new ingress rate
+     * 
+     * @return the new traffic flow with the specified ingress rate
+     */
+    public TrafficFlow withIngress(double ingress) {
+        return new TrafficFlow(ingress, egress);
+    }
 }

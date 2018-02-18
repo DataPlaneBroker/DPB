@@ -34,31 +34,68 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
+package uk.ac.lancs.networks.util;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executor;
+
 /**
- * Provides classes for adapting a network abstraction to a physical
- * switch.
- * 
- * <p>
- * The {@link uk.ac.lancs.networks.Terminal}s of a physical switch are
- * <dfn>interfaces</dfn>, which might correspond to physical ports, or
- * to ports with some sort of tagging, or to port aggregations. An
- * interface is described by an implemenation-defined string, and
- * {@link uk.ac.lancs.networks.backend.Switch#getInterface(String)} can
- * be used to obtain one.
- * 
- * <p>
- * A physical switch establishes a set of <dfn>bridges</dfn>, each
- * connecting {@link uk.ac.lancs.networks.EndPoint}s of a subset of its
- * interfaces with outgoing shaping and incoming metering of bandwidth
- * (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch can be asked
- * to <em>ensure</em> that a bridge exists with
- * {@link uk.ac.lancs.networks.backend.Switch#bridge(BridgeListener, Map)}.
- * Bridges should be removed by asking the switch to <em>retain</em> all
- * others, allowing the remote management software of a switch to
- * restart after breakdown without disrupting any existing bridges.
+ * Runs tasks later on the same thread.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.backend;
+public final class IdleExecutor implements Executor {
+    private IdleExecutor() {}
 
-import java.util.Map;
+    /**
+     * @summary The sole instance of this executor
+     */
+    public static final IdleExecutor INSTANCE = new IdleExecutor();
+
+    private final ThreadLocal<List<Runnable>> queue = new ThreadLocal<>() {
+        @Override
+        protected List<Runnable> initialValue() {
+            return new ArrayList<>();
+        }
+    };
+
+    /**
+     * Schedule an action for execution.
+     * 
+     * @param command the action to be executed
+     */
+    @Override
+    public void execute(Runnable command) {
+        queue.get().add(command);
+    }
+
+    private boolean internalProcess() {
+        List<Runnable> q = queue.get();
+        if (q.isEmpty()) return false;
+        q.remove(0).run();
+        return true;
+    }
+
+    /**
+     * Run at most one task now. The first task off the thread's queue
+     * is removed and executed.
+     * 
+     * @return {@code true} if a task was executed
+     */
+    public static boolean process() {
+        return INSTANCE.internalProcess();
+    }
+
+    /**
+     * Run all tasks until exhausted.
+     * 
+     * @return {@code true} if at least one task was executed
+     */
+    public static boolean processAll() {
+        if (!process()) return false;
+        while (process())
+            ;
+        return true;
+    }
+}

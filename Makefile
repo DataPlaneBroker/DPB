@@ -22,6 +22,7 @@ roots_core += uk.ac.lancs.networks.mgmt.PluggableNetwork
 roots_core += uk.ac.lancs.networks.transients.DummyNetwork
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentNetwork
+roots_core += uk.ac.lancs.networks.persist.PersistentNetworkFactory
 roots_core += uk.ac.lancs.networks.backend.DummySwitch
 roots_core += uk.ac.lancs.networks.backend.DummySwitchFactory
 roots_core += uk.ac.lancs.networks.backend.SwitchFactory

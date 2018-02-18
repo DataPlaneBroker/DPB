@@ -1,7 +1,3 @@
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Executor;
-
 /*
  * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
@@ -37,55 +33,37 @@ import java.util.concurrent.Executor;
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.networks.mgmt;
+
+import java.util.concurrent.Executor;
+
+import uk.ac.lancs.config.Configuration;
 
 /**
- * Runs tasks later on the same thread.
+ * Creates networks from configuration.
  * 
  * @author simpsons
  */
-public final class IdleExecutor implements Executor {
-    private IdleExecutor() {}
-
-    public static final IdleExecutor INSTANCE = new IdleExecutor();
-
-    private final ThreadLocal<List<Runnable>> queue = new ThreadLocal<>() {
-        @Override
-        protected List<Runnable> initialValue() {
-            return new ArrayList<>();
-        }
-    };
-
-    @Override
-    public void execute(Runnable command) {
-        queue.get().add(command);
-    }
-
-    private boolean internalProcess() {
-        List<Runnable> q = queue.get();
-        if (q.isEmpty()) return false;
-        q.remove(0).run();
-        return true;
-    }
+public interface NetworkFactory {
+    /**
+     * Detect whether this factory can create networks of a certain
+     * type.
+     * 
+     * @param type the network type
+     * 
+     * @return {@code true} iff this factory can create networks of the
+     * specified type
+     */
+    boolean recognize(String type);
 
     /**
-     * Run at most one task now. The first task off the thread's queue
-     * is removed and executed.
+     * Create a network.
      * 
-     * @return {@code true} if a task was executed
-     */
-    public static boolean process() {
-        return INSTANCE.internalProcess();
-    }
-
-    /**
-     * Run all tasks until exhausted.
+     * @param executor an executor to build the network's callbacks
      * 
-     * @return {@code true} if at least one task was executed
+     * @param conf the network configuration
+     * 
+     * @return the new network
      */
-    public static boolean processAll() {
-        if (!process()) return false;
-        while (process())
-            ;
-        return true;
-    }
+    UnpluggableNetwork makeNetwork(Executor executor, Configuration conf);
 }

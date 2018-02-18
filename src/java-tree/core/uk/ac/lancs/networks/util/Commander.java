@@ -40,10 +40,20 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
+import uk.ac.lancs.networks.EndPoint;
+import uk.ac.lancs.networks.InvalidServiceException;
+import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
+import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.networks.mgmt.PluggableAggregator;
 import uk.ac.lancs.networks.mgmt.PluggableNetwork;
 import uk.ac.lancs.networks.mgmt.UnpluggableNetwork;
@@ -63,11 +73,28 @@ public final class Commander {
     UnpluggableNetwork network = null;
     PluggableNetwork baseNetwork = null;
     PluggableAggregator aggregator = null;
+    TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
+    Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
+    Service service = null;
 
-    void process(Iterator<? extends String> iter) throws IOException {
+    void process(Iterator<? extends String> iter)
+        throws IOException,
+            InvalidServiceException {
         final String arg = iter.next();
         if (config == null) {
             config = configCtxt.get(arg);
+            for (Configuration nwc : config.references("networks")) {
+                String type = nwc.get("type");
+                for (NetworkFactory factory : ServiceLoader
+                    .load(NetworkFactory.class)) {
+                    if (!factory.recognize(type)) continue;
+                    UnpluggableNetwork nw =
+                        factory.makeNetwork(IdleExecutor.INSTANCE, nwc);
+                    String name = nwc.get("name");
+                    networks.put(name, nw);
+                    break;
+                }
+            }
             return;
         }
 
@@ -86,6 +113,61 @@ public final class Commander {
                 aggregator = (PluggableAggregator) network;
             else
                 aggregator = null;
+            service = null;
+            return;
+        }
+
+        if ("--in".equals(arg)) {
+            double rate = Double.parseDouble(iter.next());
+            nextFlow = nextFlow.withIngress(rate);
+            return;
+        }
+
+        if ("--out".equals(arg)) {
+            double rate = Double.parseDouble(iter.next());
+            nextFlow = nextFlow.withEgress(rate);
+            return;
+        }
+
+        if ("-w".equals(arg)) {
+            IdleExecutor.processAll();
+            return;
+        }
+
+        if ("-s".equals(arg)) {
+            String sid = iter.next();
+            int id = Integer.parseInt(sid);
+            service = network.getControl().getService(id);
+            return;
+        }
+
+        if ("-e".equals(arg)) {
+            String epid = iter.next();
+            EndPoint<Terminal> ep = findEndPoint(epid);
+            endPoints.put(ep, nextFlow);
+            return;
+        }
+
+        if ("-i".equals(arg)) {
+            service.initiate(ServiceDescription.create(endPoints));
+            endPoints.clear();
+            nextFlow = TrafficFlow.of(0.0, 0.0);
+            return;
+        }
+
+        if ("-a".equals(arg)) {
+            service.activate();
+            return;
+        }
+
+        if ("+a".equals(arg)) {
+            service.deactivate();
+            return;
+        }
+
+        if ("-d".equals(arg)) {
+            service.release();
+            service = null;
             return;
         }
 
@@ -112,8 +194,36 @@ public final class Commander {
         }
     }
 
+    private static final Pattern terminalPattern =
+        Pattern.compile("^([^:]+):([^:]+)$");
+
     private Terminal findTerminal(String name) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        Matcher m = terminalPattern.matcher(name);
+        if (!m.matches())
+            throw new IllegalArgumentException("not a terminal: " + name);
+        String networkName = m.group(1);
+        String terminalName = m.group(2);
+        Network network = this.networks.get(networkName);
+        if (network == null)
+            throw new IllegalArgumentException("unknown network in terminal: "
+                + name);
+        return network.getTerminal(terminalName);
+    }
+
+    private static final Pattern endPointPattern =
+        Pattern.compile("^([^:]+):([\\d]+)$");
+
+    private EndPoint<Terminal> findEndPoint(String name) {
+        Matcher m = endPointPattern.matcher(name);
+        if (!m.matches())
+            throw new IllegalArgumentException("not an end point: " + name);
+        String terminalName = m.group(1);
+        int label = Integer.parseInt(m.group(2));
+        if (network == null)
+            throw new IllegalArgumentException("network not set"
+                + " to find end point: " + name);
+        Terminal terminal = network.getTerminal(terminalName);
+        return terminal.getEndPoint(label);
     }
 
     /**
@@ -142,5 +252,6 @@ public final class Commander {
             .hasNext();) {
             me.process(iter);
         }
+        IdleExecutor.processAll();
     }
 }
