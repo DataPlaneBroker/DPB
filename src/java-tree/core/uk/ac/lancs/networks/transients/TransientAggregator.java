@@ -810,7 +810,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk addTrunk(Terminal p1, Terminal p2) {
+    public synchronized Trunk addTrunk(Terminal p1, Terminal p2) {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null port(s)");
         if (trunks.containsKey(p1))
@@ -824,7 +824,7 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk findTrunk(Terminal p) {
+    public synchronized Trunk findTrunk(Terminal p) {
         return trunks.get(p).getManagement();
     }
 
@@ -837,7 +837,7 @@ public class TransientAggregator implements Aggregator {
      * 
      * @return the newly created port
      */
-    public Terminal addPort(String name, Terminal inner) {
+    public synchronized Terminal addPort(String name, Terminal inner) {
         if (ports.containsKey(name))
             throw new IllegalArgumentException("name in use: " + name);
         MyTerminal result = new MyTerminal(name, inner);
@@ -850,12 +850,12 @@ public class TransientAggregator implements Aggregator {
      * 
      * @param name the port's local name
      */
-    public void removePort(String name) {
+    public synchronized void removePort(String name) {
         ports.remove(name);
     }
 
     @Override
-    public Terminal getTerminal(String id) {
+    public synchronized Terminal getTerminal(String id) {
         return ports.get(id);
     }
 
