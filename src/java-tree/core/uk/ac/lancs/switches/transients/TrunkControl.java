@@ -39,7 +39,7 @@ import java.util.List;
 
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.Terminal;
-import uk.ac.lancs.switches.aggregate.Trunk;
+import uk.ac.lancs.switches.mgmt.Trunk;
 
 /**
  * Represents a physical link with a fixed delay and a remaining

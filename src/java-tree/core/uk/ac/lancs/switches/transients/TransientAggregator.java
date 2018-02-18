@@ -71,8 +71,8 @@ import uk.ac.lancs.switches.ServiceResourceException;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.TrafficFlow;
-import uk.ac.lancs.switches.aggregate.Aggregator;
-import uk.ac.lancs.switches.aggregate.Trunk;
+import uk.ac.lancs.switches.mgmt.Aggregator;
+import uk.ac.lancs.switches.mgmt.Trunk;
 
 /**
  * Implements a network aggregator with no persistent state.

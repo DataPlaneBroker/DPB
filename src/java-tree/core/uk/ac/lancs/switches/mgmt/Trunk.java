@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.aggregate;
+package uk.ac.lancs.switches.mgmt;
 
 /**
  * Allows a trunk defined within an aggregator to have its resources

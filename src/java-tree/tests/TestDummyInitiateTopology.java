@@ -2,13 +2,13 @@ import java.io.PrintWriter;
 import java.util.Collection;
 
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceDescription;
 import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.Terminal;
-import uk.ac.lancs.switches.aggregate.Aggregator;
-import uk.ac.lancs.switches.aggregate.Trunk;
+import uk.ac.lancs.switches.mgmt.Aggregator;
+import uk.ac.lancs.switches.mgmt.Network;
+import uk.ac.lancs.switches.mgmt.Trunk;
 import uk.ac.lancs.switches.transients.DummyNetwork;
 import uk.ac.lancs.switches.transients.TransientAggregator;
 

@@ -33,40 +33,14 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches;
-
-import java.util.Collection;
 
 /**
- * Manages a network's terminals.
+ * These classes are the management interfaces for networks (allowing
+ * querying of terminals) and aggregators (allowing management of
+ * trunks).
  * 
- * @summary The management interface of a network
+ * @summary Interfaces for managing networks, aggregators and trunks
  * 
  * @author simpsons
  */
-public interface Network {
-    /**
-     * Get a terminal on this network.
-     * 
-     * @param id the local terminal name
-     * 
-     * @return the requested terminal, or {@code null} if no such
-     * terminal exists
-     */
-    Terminal getTerminal(String id);
-
-    /**
-     * Get a set of all terminals on this network.
-     * 
-     * @return a mutable collection of names of terminals created by
-     * {@link #getTerminal(String)}
-     */
-    Collection<String> getTerminals();
-
-    /**
-     * Get the controlling interface for this network.
-     * 
-     * @return the network's control interface
-     */
-    NetworkControl getControl();
-}
+package uk.ac.lancs.switches.mgmt;

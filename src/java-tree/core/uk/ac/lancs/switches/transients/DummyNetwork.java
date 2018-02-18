@@ -46,7 +46,6 @@ import java.util.function.Consumer;
 
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.switches.EndPoint;
-import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceDescription;
@@ -54,6 +53,7 @@ import uk.ac.lancs.switches.ServiceListener;
 import uk.ac.lancs.switches.ServiceStatus;
 import uk.ac.lancs.switches.Terminal;
 import uk.ac.lancs.switches.TrafficFlow;
+import uk.ac.lancs.switches.mgmt.Network;
 
 /**
  * Implements an entirely virtual network that does nothing.

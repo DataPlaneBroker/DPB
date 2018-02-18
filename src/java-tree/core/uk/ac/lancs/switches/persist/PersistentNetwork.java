@@ -62,7 +62,6 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.switches.EndPoint;
 import uk.ac.lancs.switches.InvalidServiceException;
-import uk.ac.lancs.switches.Network;
 import uk.ac.lancs.switches.NetworkControl;
 import uk.ac.lancs.switches.Service;
 import uk.ac.lancs.switches.ServiceDescription;
@@ -76,6 +75,7 @@ import uk.ac.lancs.switches.backend.BridgeListener;
 import uk.ac.lancs.switches.backend.Interface;
 import uk.ac.lancs.switches.backend.Switch;
 import uk.ac.lancs.switches.backend.SwitchFactory;
+import uk.ac.lancs.switches.mgmt.Network;
 
 /**
  * Implements a switch that retains its state in a database.

@@ -33,10 +33,9 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.switches.aggregate;
+package uk.ac.lancs.switches.mgmt;
 
 import uk.ac.lancs.switches.Terminal;
-import uk.ac.lancs.switches.Network;
 
 /**
  * An aggregator consists of a set of inferior networks plus a set of
