@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -77,10 +78,13 @@ public final class Commander {
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
     Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
     Service service = null;
+    String networkName = null;
+    String usage = null;
 
-    void process(Iterator<? extends String> iter)
+    boolean process(Iterator<? extends String> iter)
         throws IOException,
             InvalidServiceException {
+        usage = null;
         final String arg = iter.next();
         if (config == null) {
             config = configCtxt.get(arg);
@@ -96,16 +100,18 @@ public final class Commander {
                     break;
                 }
             }
-            return;
+            return true;
         }
 
         if ("-n".equals(arg)) {
+            usage = arg + " <network>";
             String name = iter.next();
             network = networks.get(name);
             if (network == null) {
                 System.err.printf("Unknown network: %s%n", name);
-                System.exit(1);
+                return false;
             }
+            networkName = name;
             if (network instanceof UnpluggableNetwork)
                 unpluggableNetwork = (UnpluggableNetwork) network;
             else
@@ -119,70 +125,114 @@ public final class Commander {
             else
                 aggregator = null;
             service = null;
-            return;
+            return true;
         }
 
         if ("--in".equals(arg)) {
+            usage = arg + " <rate>";
             double rate = Double.parseDouble(iter.next());
             nextFlow = nextFlow.withIngress(rate);
-            return;
+            return true;
         }
 
         if ("--out".equals(arg)) {
+            usage = arg + " <rate>";
             double rate = Double.parseDouble(iter.next());
             nextFlow = nextFlow.withEgress(rate);
-            return;
+            return true;
         }
 
         if ("-w".equals(arg)) {
             IdleExecutor.processAll();
-            return;
+            return true;
         }
 
         if ("-s".equals(arg)) {
+            usage = arg + " <service-id>";
             String sid = iter.next();
             int id = Integer.parseInt(sid);
             service = unpluggableNetwork.getControl().getService(id);
-            return;
+            return true;
         }
 
         if ("-e".equals(arg)) {
+            usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
             EndPoint<Terminal> ep = findEndPoint(epid);
             endPoints.put(ep, nextFlow);
-            return;
+            return true;
         }
 
         if ("-i".equals(arg)) {
             service.initiate(ServiceDescription.create(endPoints));
             endPoints.clear();
             nextFlow = TrafficFlow.of(0.0, 0.0);
-            return;
+            return true;
         }
 
         if ("-a".equals(arg)) {
             service.activate();
-            return;
+            return true;
         }
 
         if ("+a".equals(arg)) {
             service.deactivate();
-            return;
+            return true;
         }
 
         if ("-d".equals(arg)) {
             service.release();
             service = null;
-            return;
+            return true;
+        }
+
+        if ("-l".equals(arg)) {
+            if (aggregator == null) {
+                System.err.printf("Network %s is not an aggregator%n",
+                                  networkName);
+                return false;
+            }
+            usage = arg + " <network-id>:<terminal-name>"
+                + " <network-id>:<terminal-name>";
+            String fromName = iter.next();
+            String toName = iter.next();
+            Terminal from = findTerminal(fromName);
+            Terminal to = findTerminal(toName);
+            aggregator.addTrunk(from, to);
+            return true;
+        }
+
+        if ("+l".equals(arg)) {
+            if (aggregator == null) {
+                System.err.printf("Network %s is not an aggregator%n",
+                                  networkName);
+                return false;
+            }
+            usage = arg + " <network-id>:<terminal-name>";
+            String fromName = iter.next();
+            Terminal from = findTerminal(fromName);
+            aggregator.removeTrunk(from);
+            return true;
         }
 
         if ("+t".equals(arg)) {
+            usage = arg + " <terminal-name>";
             String name = iter.next();
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
+            if (unpluggableNetwork == null) {
+                System.err.printf("Can't remove terminals from %s%n",
+                                  networkName);
+                return false;
+            }
             unpluggableNetwork.removeTerminal(name);
-            return;
+            return true;
         }
 
         if ("-t".equals(arg)) {
+            usage = arg + " <terminal-name> <desc>";
             String name = iter.next();
             String desc = iter.next();
             if (aggregator != null) {
@@ -193,10 +243,13 @@ public final class Commander {
             } else {
                 System.err.printf("No network to add terminal to: %s (%s)%n",
                                   name, desc);
-                System.exit(1);
+                return false;
             }
-            return;
+            return true;
         }
+
+        System.err.printf("Unknown command: %s%n", arg);
+        return false;
     }
 
     private static final Pattern terminalPattern =
@@ -231,6 +284,17 @@ public final class Commander {
         return terminal.getEndPoint(label);
     }
 
+    void process(String[] args) throws IOException, InvalidServiceException {
+        try {
+            for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
+                .hasNext();) {
+                if (!process(iter)) break;
+            }
+        } catch (NoSuchElementException ex) {
+            System.err.printf("Usage: %s%n", usage);
+        }
+    }
+
     /**
      * Load networks from configuration, then modify them according to
      * command-line arguments.
@@ -253,10 +317,7 @@ public final class Commander {
      */
     public static void main(String[] args) throws Exception {
         Commander me = new Commander();
-        for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
-            .hasNext();) {
-            me.process(iter);
-        }
+        me.process(args);
         IdleExecutor.processAll();
     }
 }

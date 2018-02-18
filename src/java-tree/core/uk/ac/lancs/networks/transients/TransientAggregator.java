@@ -667,7 +667,9 @@ public class TransientAggregator implements PluggableAggregator {
             return management;
         }
 
-        private final Trunk management = new Trunk() {
+        private final TrunkMgmt management = new TrunkMgmt();
+
+        class TrunkMgmt implements Trunk {
             @Override
             public void withdrawBandwidth(double upstream,
                                           double downstream) {
@@ -821,6 +823,13 @@ public class TransientAggregator implements PluggableAggregator {
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
         return trunk.getManagement();
+    }
+
+    @Override
+    public synchronized void removeTrunk(Terminal p) {
+        MyTrunk t = trunks.get(p);
+        if (t == null) return; // TODO: error?
+        trunks.keySet().removeAll(t.getTerminals());
     }
 
     @Override

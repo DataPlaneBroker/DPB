@@ -58,7 +58,7 @@ import uk.ac.lancs.networks.Terminal;
  */
 public interface Aggregator extends Network {
     /**
-     * Create a trunk between two internal terminals within the switch.
+     * Create a trunk between two internal terminals within the network.
      * 
      * @param t1 one of the terminals
      * 
@@ -69,6 +69,14 @@ public interface Aggregator extends Network {
     Trunk addTrunk(Terminal t1, Terminal t2);
 
     /**
+     * Remove and delete a trunk between two internal terminals with the
+     * network.
+     * 
+     * @param terminal either of the trunk's terminals
+     */
+    void removeTrunk(Terminal terminal);
+
+    /**
      * Find an existing trunk connected to a terminal.
      * 
      * @param t one of the terminals of the trunk
@@ -77,7 +85,7 @@ public interface Aggregator extends Network {
      * that end point
      * 
      * @throws IllegalArgumentException if the terminal does not belong
-     * to the switch
+     * to the network
      */
     Trunk findTrunk(Terminal t);
 }
