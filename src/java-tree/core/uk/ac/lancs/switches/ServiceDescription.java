@@ -417,49 +417,59 @@ public interface ServiceDescription {
     }
 
     /**
-     * Create an immutable sanitized version of a description. The key
-     * sets of both maps are made identical. Unspecified production is
-     * replaced with a nominal bandwidth. Unspecified consumption is
-     * replace with the sum of all production minus the key's own
-     * production.
+     * Create an immutable sanitized version of a description.
+     * Production is clamped to a nominal minimum. Consumption is
+     * clamped to a maximum computed as the sum of sanitized productions
+     * minus the end point's own production.
      * 
      * @param input the unsanitized description
      * 
-     * @param nominalProduction the production for unspecified keys, and
-     * the minimum allowed
+     * @param minimumProduction the minimum production
      * 
      * @return the sanitized description
      */
     static ServiceDescription sanitize(ServiceDescription input,
-                                       double nominalProduction) {
-        /* Get the full set of end points. */
-        Collection<EndPoint<? extends Terminal>> keys =
-            new HashSet<>(input.producers().keySet());
-        keys.addAll(input.consumers().keySet());
-
+                                       double minimumProduction) {
         /* Provide unspecified producers with the nominal amount, and
          * sum all production. */
         Map<EndPoint<? extends Terminal>, Double> producers = new HashMap<>();
         double producerSum = 0.0;
-        for (EndPoint<? extends Terminal> key : keys) {
-            double production = input.producers().containsKey(key)
-                ? Math.max(input.producers().get(key).doubleValue(),
-                           nominalProduction)
-                : nominalProduction;
-            producers.put(key, production);
+        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : input
+            .endPointFlows().entrySet()) {
+            final double production =
+                Math.max(entry.getValue().ingress, minimumProduction);
             producerSum += production;
+            producers.put(entry.getKey(), production);
         }
 
-        /* Compute missing consumptions, and clamp excessive ones. */
+        /* Limit consumption to the production sum minus the end point's
+         * production. */
         Map<EndPoint<? extends Terminal>, Double> consumers = new HashMap<>();
-        for (EndPoint<? extends Terminal> key : keys) {
-            double limit = producerSum - producers.get(key);
-            double consumption = input.consumers().containsKey(key)
-                ? Math.min(input.consumers().get(key).doubleValue(), limit)
-                : limit;
-            consumers.put(key, consumption);
+        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : input
+            .endPointFlows().entrySet()) {
+            TrafficFlow flow = entry.getValue();
+            final double maximum = producerSum - flow.ingress;
+            final double consumption = Math.min(maximum, flow.egress);
+            consumers.put(entry.getKey(), consumption);
         }
 
-        return of(producers, consumers);
+        Map<EndPoint<? extends Terminal>, TrafficFlow> result =
+            new HashMap<>();
+        for (EndPoint<? extends Terminal> key : producers.keySet()) {
+            TrafficFlow flow =
+                TrafficFlow.of(producers.get(key), consumers.get(key));
+            result.put(key, flow);
+        }
+
+        Map<EndPoint<? extends Terminal>, TrafficFlow> finalResult =
+            Collections.unmodifiableMap(result);
+        return new ServiceDescription() {
+            @Override
+            public
+                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+                endPointFlows() {
+                return finalResult;
+            }
+        };
     }
 }
