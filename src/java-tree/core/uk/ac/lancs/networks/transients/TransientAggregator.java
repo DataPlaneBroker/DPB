@@ -721,6 +721,28 @@ public class TransientAggregator implements PluggableAggregator {
             }
 
             @Override
+            public void revokeStartLabelRange(int startBase, int amount) {
+                synchronized (TransientAggregator.this) {
+                    for (int i = startBase; i < startBase + amount; i++) {
+                        Integer o = startToEndMap.remove(i);
+                        if (o == null) continue;
+                        endToStartMap.remove(o);
+                    }
+                }
+            }
+
+            @Override
+            public void revokeEndLabelRange(int endBase, int amount) {
+                synchronized (TransientAggregator.this) {
+                    for (int i = endBase; i < endBase + amount; i++) {
+                        Integer o = endToStartMap.remove(i);
+                        if (o == null) continue;
+                        startToEndMap.remove(o);
+                    }
+                }
+            }
+
+            @Override
             public void defineLabelRange(int startBase, int amount,
                                          int endBase) {
                 synchronized (TransientAggregator.this) {
@@ -749,7 +771,7 @@ public class TransientAggregator implements PluggableAggregator {
                         .collect(Collectors
                             .<Integer, Integer, Integer>toMap(Integer::intValue,
                                                               k -> k
-                                                                  .shortValue()
+                                                                  .intValue()
                                                                   + endBase
                                                                   - startBase)));
                     availableTunnels.set(startBase, startBase + amount);
@@ -758,10 +780,15 @@ public class TransientAggregator implements PluggableAggregator {
                         .collect(Collectors
                             .<Integer, Integer, Integer>toMap(Integer::intValue,
                                                               k -> k
-                                                                  .shortValue()
+                                                                  .intValue()
                                                                   + endBase
                                                                   - startBase)));
                 }
+            }
+
+            @Override
+            public int position(Terminal term) {
+                return getTerminals().indexOf(term);
             }
         };
 

@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import uk.ac.lancs.networks.Terminal;
+
 /**
  * Allows a trunk defined within an aggregator to have its resources
  * administratively modified.
@@ -99,6 +101,16 @@ public interface Trunk {
     void provideBandwidth(double upstream, double downstream);
 
     /**
+     * Identify which end of the trunk its terminal belongs.
+     * 
+     * @param term the terminal sought
+     * 
+     * @return 0 if the terminal is considered at start; 1 if at the
+     * end; -1 if the terminal does not define the trunk
+     */
+    int position(Terminal term);
+
+    /**
      * Provide bandwidth to this trunk.
      * 
      * @param amount the amount to add to the available bandwidth in
@@ -141,4 +153,24 @@ public interface Trunk {
     default void defineLabelRange(int startBase, int amount) {
         defineLabelRange(startBase, amount, startBase);
     }
+
+    /**
+     * Revoke availability of a range of labels.
+     * 
+     * @param startBase the first label to remove at the start side of
+     * the link
+     * 
+     * @param amount the number of labels to remove
+     */
+    void revokeStartLabelRange(int startBase, int amount);
+
+    /**
+     * Revoke availability of a range of labels.
+     * 
+     * @param endBase the first label to remove at the end side of the
+     * link
+     * 
+     * @param amount the number of labels to remove
+     */
+    void revokeEndLabelRange(int endBase, int amount);
 }

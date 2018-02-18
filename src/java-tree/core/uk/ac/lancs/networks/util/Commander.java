@@ -57,6 +57,7 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.networks.mgmt.PluggableAggregator;
 import uk.ac.lancs.networks.mgmt.PluggableNetwork;
+import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.UnpluggableNetwork;
 
 /**
@@ -142,7 +143,78 @@ public final class Commander {
             return true;
         }
 
-        if ("-w".equals(arg)) {
+        if ("close".equals(arg)) {
+            usage = arg + " <terminal-name> <label>-<label>";
+            Terminal term = findTerminal(iter.next());
+            String rangeText = iter.next();
+            Matcher m = labelRangePattern.matcher(rangeText);
+            if (!m.matches()) {
+                System.err.printf("Illegal range: %s%n", rangeText);
+                return false;
+            }
+            int start = Integer.parseInt(m.group(1));
+            int amount = Integer.parseInt(m.group(2)) - start + 1;
+
+            Trunk tr = aggregator.findTrunk(term);
+            if (tr.position(term) == 1) {
+                tr.revokeEndLabelRange(start, amount);
+            } else {
+                tr.revokeStartLabelRange(start, amount);
+            }
+            return true;
+        }
+
+        if ("open".equals(arg)) {
+            usage = arg + " <terminal-name> <label>-<label>[:<label>]";
+            Terminal term = findTerminal(iter.next());
+            String rangeText = iter.next();
+            Matcher m = labelMapPattern.matcher(rangeText);
+            if (!m.matches()) {
+                System.err.printf("Illegal map: %s%n", rangeText);
+                return false;
+            }
+            int start = Integer.parseInt(m.group(1));
+            int amount = Integer.parseInt(m.group(2)) - start + 1;
+            int other =
+                m.group(3) == null ? start : Integer.parseInt(m.group(3));
+
+            Trunk tr = aggregator.findTrunk(term);
+            if (tr.position(term) == 1) {
+                int tmp = other;
+                other = start;
+                start = tmp;
+            }
+            tr.defineLabelRange(start, amount, other);
+            return true;
+        }
+
+        if ("provide".equals(arg) || "withdraw".equals(arg)) {
+            boolean add = arg.charAt(0) == 'p';
+            usage = arg + " <terminal-name> <rate>[:<rate>]";
+            Terminal term = findTerminal(iter.next());
+            String rateText = iter.next();
+            Matcher m = bandwidthPattern.matcher(rateText);
+            if (!m.matches()) {
+                System.err.printf("Unrecognized rate: %s%n", rateText);
+                return false;
+            }
+            double uprate = Double.parseDouble(m.group(1));
+            double downrate =
+                m.group(2) == null ? uprate : Double.parseDouble(m.group(2));
+            Trunk tr = aggregator.findTrunk(term);
+            if (tr.position(term) == 1) {
+                double tmp = uprate;
+                uprate = downrate;
+                downrate = tmp;
+            }
+            if (add)
+                tr.provideBandwidth(uprate, downrate);
+            else
+                tr.withdrawBandwidth(uprate, downrate);
+            return true;
+        }
+
+        if ("wait".equals(arg)) {
             IdleExecutor.processAll();
             return true;
         }
@@ -163,30 +235,30 @@ public final class Commander {
             return true;
         }
 
-        if ("-i".equals(arg)) {
+        if ("initiate".equals(arg)) {
             service.initiate(ServiceDescription.create(endPoints));
             endPoints.clear();
             nextFlow = TrafficFlow.of(0.0, 0.0);
             return true;
         }
 
-        if ("-a".equals(arg)) {
+        if ("activate".equals(arg)) {
             service.activate();
             return true;
         }
 
-        if ("+a".equals(arg)) {
+        if ("deactivate".equals(arg)) {
             service.deactivate();
             return true;
         }
 
-        if ("-d".equals(arg)) {
+        if ("release".equals(arg)) {
             service.release();
             service = null;
             return true;
         }
 
-        if ("-l".equals(arg)) {
+        if ("add-trunk".equals(arg)) {
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
                                   networkName);
@@ -202,7 +274,7 @@ public final class Commander {
             return true;
         }
 
-        if ("+l".equals(arg)) {
+        if ("remove-trunk".equals(arg)) {
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
                                   networkName);
@@ -215,7 +287,7 @@ public final class Commander {
             return true;
         }
 
-        if ("+t".equals(arg)) {
+        if ("remove-terminal".equals(arg)) {
             usage = arg + " <terminal-name>";
             String name = iter.next();
             if (network == null) {
@@ -231,8 +303,12 @@ public final class Commander {
             return true;
         }
 
-        if ("-t".equals(arg)) {
-            usage = arg + " <terminal-name> <desc>";
+        if ("add-terminal".equals(arg)) {
+            usage = arg + " <terminal-name>";
+            if (aggregator == null)
+                usage += " <desc>";
+            else
+                usage += " <inner-terminal-name>";
             String name = iter.next();
             String desc = iter.next();
             if (aggregator != null) {
@@ -251,6 +327,12 @@ public final class Commander {
         System.err.printf("Unknown command: %s%n", arg);
         return false;
     }
+
+    private static final String realPattern =
+        "[0-9]*\\\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
+
+    private static final Pattern bandwidthPattern =
+        Pattern.compile("^(" + realPattern + ")(?::(" + realPattern + "))?$");
 
     private static final Pattern terminalPattern =
         Pattern.compile("^([^:]+):([^:]+)$");
@@ -284,6 +366,12 @@ public final class Commander {
         return terminal.getEndPoint(label);
     }
 
+    private static final Pattern labelRangePattern =
+        Pattern.compile("^(\\d+)-(\\d+)$");
+
+    private static final Pattern labelMapPattern =
+        Pattern.compile("^(\\d+)-(\\d+)(?::(\\d+))$");
+
     void process(String[] args) throws IOException, InvalidServiceException {
         try {
             for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
@@ -308,10 +396,70 @@ public final class Commander {
      * 
      * <dd>Apply subsequent commands to the specified network.
      * 
-     * <dt><samp>+t <var>terminal</var></samp>
+     * <dt><samp>-s <var>service</var></samp>
      * 
-     * <dd>Remove the specified terminal from the current network. The
-     * name of the terminal is local to the network.
+     * <dd>Select the numbered service of the current network.
+     * 
+     * <dt><samp>add-terminal <var>name</var> <var>mapping</var></samp>
+     * 
+     * <dd>Add a terminal with the specified name and mapping. For an
+     * aggregator, <var>mapping</var> is an inferior network's terminal.
+     * Otherwise, <var>mapping</var> is a back-end interface
+     * description.
+     * 
+     * <dt><samp>remove-terminal <var>name</var></samp>
+     * 
+     * <dd>Remove the named terminal.
+     * 
+     * <dt><samp>add-trunk</samp> <var>network</var>:<var>terminal</var>
+     * <var>network</var>:<var>terminal</var></samp>
+     * 
+     * <dd>Create a trunk in the current aggregator connecting two
+     * terminals of inferior networks.
+     * 
+     * <dt><samp>remove-trunk
+     * <var>network</var>:<var>terminal</var></samp>
+     * 
+     * <dd>Remove a trunk in the current aggregator connecting the
+     * specified terminal.
+     * 
+     * <dt><samp>provide <var>terminal</var>
+     * <var>rate[</var>:<var>]rate</var></samp>
+     * <dt><samp>withdraw <var>terminal</var>
+     * <var>rate[</var>:<var>]rate</var></samp>
+     * 
+     * <dd>Provide/withdraw bandwidth to/from the trunk connecting the
+     * specified terminal. The first rate is from the terminal to its
+     * peer, and the second vice versa. The second rate defaults to the
+     * first.
+     * 
+     * <dt><samp>open <var>terminal</var>
+     * <var>low</var>-<var>high[</var>:<var>peer-low]</var></samp>
+     * 
+     * <dd>Make labels <var>low</var> to <var>high</var> available on
+     * the trunk at the specified terminal. Map <var>low</var> to
+     * <var>peer-low</var> on the peer terminal.
+     * 
+     * <dt><samp>--in <var>rate</var></samp>
+     * <dt><samp>--out <var>rate</var></samp>
+     * 
+     * <dd>Set the ingress/egress rate of subsequent end points.
+     * 
+     * <dt><samp>-e <var>terminal</var>:<var>label</var></samp>
+     * 
+     * <dd>Add an end point with the current rate settings to the set
+     * used to initiate a service.
+     * 
+     * <dt><samp>initiate</samp>
+     * 
+     * <dd>Initiate the current service with the current set of end
+     * points and rates.
+     * 
+     * <dt><samp>activate</samp>
+     * <dt><samp>deactivate</samp>
+     * <dt><samp>release</samp>
+     * 
+     * <dd>Activate, deactivate or release the current service.
      * 
      * </dl>
      */
