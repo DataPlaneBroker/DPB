@@ -38,8 +38,22 @@ package uk.ac.lancs.networks.backend;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.scc.jardeps.Service;
 
+/**
+ * Creates dummy switches.
+ * 
+ * @see DummySwitch
+ * 
+ * @author simpsons
+ */
 @Service(SwitchFactory.class)
-final class DummySwitchFactory implements SwitchFactory {
+public final class DummySwitchFactory implements SwitchFactory {
+    /**
+     * {@inheritDoc}
+     * 
+     * <p>
+     * This implementation recognizes only the string
+     * <samp>dummy</samp>.
+     */
     @Override
     public boolean recognize(String type) {
         return "dummy".equals(type);

@@ -35,6 +35,7 @@
  */
 package uk.ac.lancs.networks.persist;
 
+import java.sql.SQLException;
 import java.util.concurrent.Executor;
 
 import uk.ac.lancs.config.Configuration;
@@ -42,16 +43,35 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.scc.jardeps.Service;
 
+/**
+ * Creates persistent base networks.
+ * 
+ * @see PersistentNetwork
+ * 
+ * @author simpsons
+ */
 @Service(NetworkFactory.class)
-final class PersistentNetworkFactory implements NetworkFactory {
+public final class PersistentNetworkFactory implements NetworkFactory {
+    /**
+     * {@inheritDoc}
+     * 
+     * <p>
+     * This implementation recognizes only the string
+     * <samp>persistent</samp>.
+     */
     @Override
     public boolean recognize(String type) {
         return "persistent".equals(type);
     }
 
     @Override
-    public Network makeNetwork(Executor executor,
-                                          Configuration conf) {
-        return new PersistentNetwork(executor, conf);
+    public Network makeNetwork(Executor executor, Configuration conf) {
+        PersistentNetwork result = new PersistentNetwork(executor, conf);
+        try {
+            result.init();
+        } catch (SQLException ex) {
+            throw new RuntimeException("initializing", ex);
+        }
+        return result;
     }
 }
