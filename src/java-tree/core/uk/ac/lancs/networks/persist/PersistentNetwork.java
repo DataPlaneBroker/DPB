@@ -179,13 +179,12 @@ public class PersistentNetwork implements PluggableNetwork {
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("INSERT INTO ?"
+                    conn.prepareStatement("INSERT INTO " + endPointTable
                         + " (slice, service_id, terminal_id,"
                         + " label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?, ?);")) {
-                    stmt.setString(1, endPointTable);
-                    stmt.setString(2, dbSlice);
-                    stmt.setInt(3, this.id);
+                    stmt.setString(1, dbSlice);
+                    stmt.setInt(2, this.id);
                     for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : this.request
                         .endPointFlows().entrySet()) {
                         EndPoint<? extends Terminal> endPoint =
@@ -193,10 +192,10 @@ public class PersistentNetwork implements PluggableNetwork {
                         MyTerminal terminal =
                             (MyTerminal) endPoint.getTerminal();
                         TrafficFlow flow = entry.getValue();
-                        stmt.setInt(4, terminal.dbid);
-                        stmt.setInt(5, endPoint.getLabel());
-                        stmt.setDouble(6, flow.ingress);
-                        stmt.setDouble(7, flow.egress);
+                        stmt.setInt(3, terminal.dbid);
+                        stmt.setInt(4, endPoint.getLabel());
+                        stmt.setDouble(5, flow.ingress);
+                        stmt.setDouble(6, flow.egress);
                         stmt.execute();
                     }
                 }
@@ -289,17 +288,15 @@ public class PersistentNetwork implements PluggableNetwork {
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM ?"
+                    conn.prepareStatement("DELETE FROM " + endPointTable
                         + " WHERE service_id = ?;")) {
-                    stmt.setString(1, endPointTable);
-                    stmt.setInt(2, id);
+                    stmt.setInt(1, id);
                     stmt.execute();
                 }
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM ?"
+                    conn.prepareStatement("DELETE FROM " + serviceTable
                         + " WHERE service_id = ?;")) {
-                    stmt.setString(1, serviceTable);
-                    stmt.setInt(2, id);
+                    stmt.setInt(1, id);
                     stmt.execute();
                 }
                 conn.commit();
@@ -524,46 +521,31 @@ public class PersistentNetwork implements PluggableNetwork {
         try (Connection conn = database()) {
             conn.setAutoCommit(false);
 
-            try (PreparedStatement stmt =
-                conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + terminalTable
                     + " (slice VARCHAR(20),"
                     + " terminal_id INTEGER PRIMARY KEY,"
                     + " name VARCHAR(20) NOT NULL,"
                     + " config VARCHAR(40) NOT NULL,"
-                    + " CONSTRAINT terminals_unique UNIQUE (slice, name));")) {
-                stmt.setString(1, terminalTable);
-                stmt.execute();
-            }
-
-            try (PreparedStatement stmt =
-                conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
+                    + " CONSTRAINT terminals_unique UNIQUE (slice, name));");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
                     + " (slice VARCHAR(20),"
                     + " service_id INTEGER PRIMARY KEY,"
-                    + " intent INT UNSIGNED DEFAULT 0);")) {
-                stmt.setString(1, serviceTable);
-                stmt.execute();
-            }
-
-            try (PreparedStatement stmt =
-                conn.prepareStatement("CREATE TABLE IF NOT EXISTS ?"
-                    + " (service_id INTEGER,"
-                    + " FOREIGN KEY(service_id) REFERENCES ?(service_id),"
-                    + " terminal_id INTEGER,"
-                    + " FOREIGN KEY(terminal_id) REFERENCES ?(terminal_id),"
-                    + " label INTEGER UNSIGNED, " + " metering DECIMAL(9,3),"
-                    + " shaping DECIMAL(9,3));")) {
-                stmt.setString(1, endPointTable);
-                stmt.setString(2, serviceTable);
-                stmt.setString(3, terminalTable);
-                stmt.execute();
+                    + " intent INT UNSIGNED DEFAULT 0);");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
+                    + " (service_id INTEGER," + " terminal_id INTEGER,"
+                    + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
+                    + " shaping DECIMAL(9,3)," + " FOREIGN KEY(service_id)"
+                    + " REFERENCES services(service_id),"
+                    + " FOREIGN KEY(terminal_id)"
+                    + " REFERENCES terminals(terminal_id));");
             }
 
             /* Recreate terminals from entries in our tables. */
             try (PreparedStatement stmt =
                 conn.prepareStatement("SELECT terminal_id, name, config"
-                    + " FROM ? WHERE slice = ?;")) {
-                stmt.setString(1, terminalTable);
-                stmt.setString(2, dbSlice);
+                    + " FROM " + terminalTable + " WHERE slice = ?;")) {
+                stmt.setString(1, dbSlice);
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         final int id = rs.getInt(1);
@@ -579,10 +561,9 @@ public class PersistentNetwork implements PluggableNetwork {
             /* Recreate empty services from entries in our tables. */
             BitSet intents = new BitSet();
             try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT service_id, intent"
-                    + " FROM ? WHERE slice = ?;")) {
-                stmt.setString(1, serviceTable);
-                stmt.setString(2, dbSlice);
+                conn.prepareStatement("SELECT service_id, intent" + " FROM "
+                    + serviceTable + " WHERE slice = ?;")) {
+                stmt.setString(1, dbSlice);
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         final int id = rs.getInt(1);
@@ -597,23 +578,16 @@ public class PersistentNetwork implements PluggableNetwork {
             /* Recover service's details. */
             Map<MyService, Map<EndPoint<? extends Terminal>, TrafficFlow>> enforcements =
                 new HashMap<>();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-                + " ?.service_id AS service_id," + " ?.name AS terminal_name,"
-                + " ?.label AS label," + " ?.metering AS metering,"
-                + " ?.shaping AS shaping" + " FROM ?"
-                + " LEFT JOIN ? ON ?.terminal_id = ?.terminal_id"
-                + " WHERE ?.slice = ?;")) {
-                stmt.setString(1, serviceTable);
-                stmt.setString(2, terminalTable);
-                stmt.setString(3, serviceTable);
-                stmt.setString(4, serviceTable);
-                stmt.setString(5, serviceTable);
-                stmt.setString(6, endPointTable);
-                stmt.setString(7, terminalTable);
-                stmt.setString(8, serviceTable);
-                stmt.setString(9, terminalTable);
-                stmt.setString(10, terminalTable);
-                stmt.setString(11, dbSlice);
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
+                + endPointTable + ".service_id AS service_id, "
+                + terminalTable + ".name AS terminal_name, " + endPointTable
+                + ".label AS label, " + endPointTable
+                + ".metering AS metering, " + endPointTable
+                + ".shaping AS shaping" + " FROM " + endPointTable
+                + " LEFT JOIN " + terminalTable + " ON " + terminalTable
+                + ".terminal_id = " + endPointTable + ".terminal_id"
+                + " WHERE " + terminalTable + ".slice = ?;")) {
+                stmt.setString(1, dbSlice);
                 try (ResultSet rs = stmt.executeQuery()) {
                     while (rs.next()) {
                         final MyService service = services.get(rs.getInt(1));
@@ -666,13 +640,12 @@ public class PersistentNetwork implements PluggableNetwork {
                 + name);
         try (Connection conn = database();
             PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO ?"
+                conn.prepareStatement("INSERT INTO " + terminalTable
                     + " (slice, name, config)" + " VALUES (?, ?, ?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, terminalTable);
-            stmt.setString(2, dbSlice);
-            stmt.setString(3, name);
-            stmt.setString(4, desc);
+            stmt.setString(1, dbSlice);
+            stmt.setString(2, name);
+            stmt.setString(3, desc);
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 final int id = rs.getInt(1);
@@ -692,10 +665,9 @@ public class PersistentNetwork implements PluggableNetwork {
         if (terminal == null)
             throw new IllegalArgumentException("no such terminal: " + name);
         try (Connection conn = database();
-            PreparedStatement stmt = conn.prepareStatement("DELETE FROM ?"
-                + " WHERE terminal_id = ?;")) {
-            stmt.setString(1, terminalTable);
-            stmt.setInt(2, terminal.dbid);
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + terminalTable + " WHERE terminal_id = ?;")) {
+            stmt.setInt(1, terminal.dbid);
             stmt.execute();
         } catch (SQLException ex) {
             throw new RuntimeException("could not remove terminal " + name
@@ -769,9 +741,9 @@ public class PersistentNetwork implements PluggableNetwork {
         final int id;
         try (Connection conn = database();
             PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO ? (slice) VALUES (?);",
+                conn.prepareStatement("INSERT INTO " + serviceTable
+                    + " (slice) VALUES (?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, serviceTable);
             stmt.setString(1, dbSlice);
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
@@ -852,13 +824,27 @@ public class PersistentNetwork implements PluggableNetwork {
 
     private void updateIntent(Connection conn, int srvid, boolean status)
         throws SQLException {
-        try (PreparedStatement stmt = conn
-            .prepareStatement("UPDATE ? SET intent = ? WHERE slice = ? AND service_id = ?;")) {
-            stmt.setString(1, serviceTable);
-            stmt.setInt(2, status ? 1 : 0);
-            stmt.setString(3, dbSlice);
-            stmt.setInt(4, srvid);
+        try (PreparedStatement stmt =
+            conn.prepareStatement("UPDATE " + serviceTable
+                + " SET intent = ? WHERE slice = ? AND service_id = ?;")) {
+            stmt.setInt(1, status ? 1 : 0);
+            stmt.setString(2, dbSlice);
+            stmt.setInt(3, srvid);
             stmt.execute();
         }
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean debugStatement(Statement stmt, String text)
+        throws SQLException {
+        // System.err.printf("Executing %s%n", text);
+        return stmt.execute(text);
+    }
+
+    @SuppressWarnings("unused")
+    private static PreparedStatement
+        debugStatement(Connection conn, String text) throws SQLException {
+        // System.err.printf("Preparing: %s%n", text);
+        return conn.prepareStatement(text);
     }
 }
