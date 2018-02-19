@@ -66,25 +66,28 @@ DOC_CORE=dataplanebroker$(DOC_CORE_SFX)
 all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 
 testdv: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDV
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestDV
 
 testoddspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestOddSpan
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestOddSpan
 
 testinitspan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestInitSpan
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestInitSpan
 
 testdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDummy
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestDummy
 
 testinitdummy: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestDummyInitiateTopology
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestDummyInitiateTopology
 
 testgeospan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar TestGeographicSpan
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestGeographicSpan
+
+dummypersistent: all
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.util.Commander scratch/dummypersistent.properties
 
 testconfig: all
-	$(JAVA) -cp $(JARDEPS_OUTDIR)/initiate-dpb-util.jar uk.ac.lancs.config.ConfigurationContext scratch/test.properties
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-util.jar" uk.ac.lancs.config.ConfigurationContext scratch/test.properties
 
 #blank:: clean
 

@@ -98,6 +98,8 @@ public final class Commander {
                         factory.makeNetwork(IdleExecutor.INSTANCE, nwc);
                     String name = nwc.get("name");
                     networks.put(name, nw);
+                    System.out.printf("Creating network %s as %s%n", name,
+                                      type);
                     break;
                 }
             }

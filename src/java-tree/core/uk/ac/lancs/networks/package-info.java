@@ -42,8 +42,8 @@
  * {@link uk.ac.lancs.networks.Terminal}s, points of access for traffic
  * into and out of a network.
  * 
- * @summary Hierarchical out-of-band management of services sliced from
- * a physical network
+ * @summary Hierarchical out-of-band management of connectivity services
+ * sliced from a physical network
  * 
  * @author simpsons
  */
