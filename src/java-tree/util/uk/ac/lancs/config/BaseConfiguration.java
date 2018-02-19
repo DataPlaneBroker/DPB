@@ -164,6 +164,6 @@ final class BaseConfiguration implements Configuration {
 
     @Override
     public Configuration reference(String key, String value) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        return subview(Configuration.resolveKey(key, value));
     }
 }
