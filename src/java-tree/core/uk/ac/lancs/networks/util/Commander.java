@@ -230,6 +230,12 @@ public final class Commander {
             return true;
         }
 
+        if ("new".equals(arg)) {
+            service = managedNetwork.getControl().newService();
+            System.out.printf("Created new service: %d on %s%n", service.id(),
+                              networkName);
+            return true;
+        }
         if ("-e".equals(arg)) {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
@@ -451,6 +457,10 @@ public final class Commander {
      * <dd>Make labels <var>low</var> to <var>high</var> available on
      * the trunk at the specified terminal. Map <var>low</var> to
      * <var>peer-low</var> on the peer terminal.
+     * 
+     * <dt><samp>new</samp>
+     * 
+     * <dd>Create a new service for the current network.
      * 
      * <dt><samp>--in <var>rate</var></samp>
      * <dt><samp>--out <var>rate</var></samp>
