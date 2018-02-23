@@ -35,8 +35,11 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.io.PrintWriter;
+
 /**
- * @summary A network from which terminals can be removed
+ * @summary A network from which terminals can be removed, and status
+ * can be dumped
  * 
  * @author simpsons
  */
@@ -49,4 +52,12 @@ public interface ManagedNetwork extends Network {
      * @throws IllegalStateException if the named terminal is in use
      */
     void removeTerminal(String name);
+
+    /**
+     * Dump status.
+     * 
+     * @param out the destination for the textual description of the
+     * network's status
+     */
+    void dumpStatus(PrintWriter out);
 }

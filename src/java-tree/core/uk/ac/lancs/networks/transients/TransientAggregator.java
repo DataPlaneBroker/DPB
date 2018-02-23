@@ -804,7 +804,8 @@ public class TransientAggregator implements ManagedAggregator {
      * 
      * @param out the destination for the status report
      */
-    public synchronized void dump(PrintWriter out) {
+    @Override
+    public synchronized void dumpStatus(PrintWriter out) {
         out.printf("aggregate %s:%n", name);
         for (MyService conn : services.values())
             conn.dump(out);

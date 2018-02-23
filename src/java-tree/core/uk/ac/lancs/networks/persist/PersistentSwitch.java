@@ -144,8 +144,8 @@ public class PersistentSwitch implements ManagedSwitch {
         /**
          * Records our reference into the backend. When set, we are
          * active or activating. When not set, calling
-         * {@link PersistentSwitch#retainBridges()} will ensure that
-         * our underlying bridge does not exist. When set, we are either
+         * {@link PersistentSwitch#retainBridges()} will ensure that our
+         * underlying bridge does not exist. When set, we are either
          * activating or activated.
          */
         Bridge bridge;
@@ -404,7 +404,8 @@ public class PersistentSwitch implements ManagedSwitch {
      * 
      * @param out the destination for the status report
      */
-    public void dump(PrintWriter out) {
+    @Override
+    public void dumpStatus(PrintWriter out) {
         Collection<MyService> services;
         synchronized (this) {
             services = new ArrayList<>(this.services.values());

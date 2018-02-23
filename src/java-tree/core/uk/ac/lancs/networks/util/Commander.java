@@ -53,12 +53,12 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.mgmt.ManagedAggregator;
+import uk.ac.lancs.networks.mgmt.ManagedNetwork;
+import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.networks.mgmt.ManagedAggregator;
-import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.mgmt.ManagedNetwork;
 
 /**
  * Instantiates networks according to configuration, and allows
@@ -73,8 +73,8 @@ public final class Commander {
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
     Network network = null;
-    ManagedNetwork unpluggableNetwork = null;
-    ManagedSwitch baseNetwork = null;
+    ManagedNetwork managedNetwork = null;
+    ManagedSwitch zwitch = null;
     ManagedAggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
     Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
@@ -116,15 +116,15 @@ public final class Commander {
             }
             networkName = name;
             if (network instanceof ManagedNetwork)
-                unpluggableNetwork = (ManagedNetwork) network;
+                managedNetwork = (ManagedNetwork) network;
             else
-                unpluggableNetwork = null;
-            if (unpluggableNetwork instanceof ManagedSwitch)
-                baseNetwork = (ManagedSwitch) unpluggableNetwork;
+                managedNetwork = null;
+            if (managedNetwork instanceof ManagedSwitch)
+                zwitch = (ManagedSwitch) managedNetwork;
             else
-                baseNetwork = null;
-            if (unpluggableNetwork instanceof ManagedAggregator)
-                aggregator = (ManagedAggregator) unpluggableNetwork;
+                zwitch = null;
+            if (managedNetwork instanceof ManagedAggregator)
+                aggregator = (ManagedAggregator) managedNetwork;
             else
                 aggregator = null;
             service = null;
@@ -225,7 +225,7 @@ public final class Commander {
             usage = arg + " <service-id>";
             String sid = iter.next();
             int id = Integer.parseInt(sid);
-            service = unpluggableNetwork.getControl().getService(id);
+            service = managedNetwork.getControl().getService(id);
             return true;
         }
 
@@ -296,12 +296,12 @@ public final class Commander {
                 System.err.println("Network unspecified");
                 return false;
             }
-            if (unpluggableNetwork == null) {
+            if (managedNetwork == null) {
                 System.err.printf("Can't remove terminals from %s%n",
                                   networkName);
                 return false;
             }
-            unpluggableNetwork.removeTerminal(name);
+            managedNetwork.removeTerminal(name);
             return true;
         }
 
@@ -316,11 +316,19 @@ public final class Commander {
             if (aggregator != null) {
                 Terminal inner = findTerminal(desc);
                 aggregator.addTerminal(name, inner);
-            } else if (baseNetwork != null) {
-                baseNetwork.addTerminal(name, desc);
+            } else if (zwitch != null) {
+                zwitch.addTerminal(name, desc);
             } else {
                 System.err.printf("No network to add terminal to: %s (%s)%n",
                                   name, desc);
+                return false;
+            }
+            return true;
+        }
+
+        if ("dump".equals(arg)) {
+            if (managedNetwork == null) {
+                System.err.printf("No network to dump%n");
                 return false;
             }
             return true;
@@ -361,10 +369,10 @@ public final class Commander {
             throw new IllegalArgumentException("not an end point: " + name);
         String terminalName = m.group(1);
         int label = Integer.parseInt(m.group(2));
-        if (unpluggableNetwork == null)
+        if (managedNetwork == null)
             throw new IllegalArgumentException("network not set"
                 + " to find end point: " + name);
-        Terminal terminal = unpluggableNetwork.getTerminal(terminalName);
+        Terminal terminal = managedNetwork.getTerminal(terminalName);
         return terminal.getEndPoint(label);
     }
 
@@ -462,6 +470,10 @@ public final class Commander {
      * <dt><samp>release</samp>
      * 
      * <dd>Activate, deactivate or release the current service.
+     * 
+     * <dt><samp>dump</samp>
+     * 
+     * <dd>Dump the current network's status.
      * 
      * </dl>
      */

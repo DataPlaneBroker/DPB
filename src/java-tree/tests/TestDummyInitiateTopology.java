@@ -160,6 +160,6 @@ public class TestDummyInitiateTopology {
 
         IdleExecutor.processAll();
 
-        aggregator.dump(new PrintWriter(System.out));
+        aggregator.dumpStatus(new PrintWriter(System.out));
     }
 }
