@@ -37,8 +37,8 @@ package uk.ac.lancs.networks.transients;
 
 import java.util.List;
 
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.Terminal;
+import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Trunk;
 
 /**

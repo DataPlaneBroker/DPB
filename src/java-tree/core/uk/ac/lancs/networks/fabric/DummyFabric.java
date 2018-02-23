@@ -44,8 +44,8 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 
 /**
  * Does nothing but report on requested changes.

@@ -55,7 +55,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
@@ -65,6 +64,7 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.ManagedAggregator;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
@@ -356,7 +356,7 @@ public class TransientAggregator implements ManagedAggregator {
             Map<Service, ServiceDescription> subcons = subrequests.stream()
                 .collect(Collectors
                     .toMap(r -> r.endPointFlows().keySet().iterator().next()
-                        .getTerminal().getNetwork().newService(), r -> r));
+                        .getBundle().getNetwork().newService(), r -> r));
 
             /* Create a client for each subservice. */
             clients.addAll(subcons.keySet().stream().map(Client::new)
@@ -574,12 +574,12 @@ public class TransientAggregator implements ManagedAggregator {
         public EndPoint<? extends Terminal>
             getPeer(EndPoint<? extends Terminal> p) {
             synchronized (TransientAggregator.this) {
-                if (p.getTerminal().equals(start)) {
+                if (p.getBundle().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
                     if (other == null) return null;
                     return end.getEndPoint(other);
                 }
-                if (p.getTerminal().equals(end)) {
+                if (p.getBundle().equals(end)) {
                     Integer other = endToStartMap.get(p.getLabel());
                     if (other == null) return null;
                     return start.getEndPoint(other);
@@ -620,12 +620,12 @@ public class TransientAggregator implements ManagedAggregator {
         @Override
         public void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
             final int startLabel;
-            if (endPoint.getTerminal().equals(start)) {
+            if (endPoint.getBundle().equals(start)) {
                 startLabel = endPoint.getLabel();
                 if (!startToEndMap.containsKey(startLabel))
                     throw new IllegalArgumentException("unmapped "
                         + endPoint);
-            } else if (endPoint.getTerminal().equals(end)) {
+            } else if (endPoint.getBundle().equals(end)) {
                 int endLabel = endPoint.getLabel();
                 Integer rv = endToStartMap.get(endLabel);
                 if (rv == null) throw new IllegalArgumentException("unmapped "
@@ -928,7 +928,7 @@ public class TransientAggregator implements ManagedAggregator {
             TrafficFlow flow = entry.getValue();
 
             /* Map this end point to an inferior switch's terminal. */
-            Terminal outerPort = ep.getTerminal();
+            Terminal outerPort = ep.getBundle();
             if (!(outerPort instanceof MyTerminal))
                 throw new IllegalArgumentException("end point " + ep
                     + " not part of " + name);
@@ -1146,11 +1146,11 @@ public class TransientAggregator implements ManagedAggregator {
                 tunnels.put(trunk, ep1);
                 EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep1.getTerminal()),
+                    .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
                                      k -> new HashMap<>())
                     .put(ep1, Arrays.asList(downstream, upstream));
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep2.getTerminal()),
+                    .computeIfAbsent(terminalGroups.get(ep2.getBundle()),
                                      k -> new HashMap<>())
                     .put(ep2, Arrays.asList(upstream, downstream));
             }
@@ -1161,7 +1161,7 @@ public class TransientAggregator implements ManagedAggregator {
                 .entrySet()) {
                 EndPoint<? extends Terminal> ep = entry.getKey();
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep.getTerminal()),
+                    .computeIfAbsent(terminalGroups.get(ep.getBundle()),
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }
@@ -1207,7 +1207,7 @@ public class TransientAggregator implements ManagedAggregator {
          * end points that our topology consists of. */
         Collection<EndPoint<? extends Terminal>> innerEndPoints =
             terminals.stream().map(t -> {
-                Terminal p = t.getTerminal();
+                Terminal p = t.getBundle();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("end point " + t
                         + " not part of " + name);
@@ -1225,7 +1225,7 @@ public class TransientAggregator implements ManagedAggregator {
         /* Get the set of terminals that will be used as destinations in
          * routing. */
         Collection<Terminal> innerTerminals = innerEndPoints.stream()
-            .map(EndPoint::getTerminal).collect(Collectors.toSet());
+            .map(EndPoint::getBundle).collect(Collectors.toSet());
         // System.err.println("inner terminal terminals: " +
         // innerTerminalPorts);
 
@@ -1293,10 +1293,10 @@ public class TransientAggregator implements ManagedAggregator {
              * correspond to, and add each end point to its switch's
              * respective set of end points. */
             EndPoint<? extends Terminal> ep2 = firstTrunk.getPeer(ep1);
-            subterminals.computeIfAbsent(ep1.getTerminal().getNetwork(),
+            subterminals.computeIfAbsent(ep1.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep1);
-            subterminals.computeIfAbsent(ep2.getTerminal().getNetwork(),
+            subterminals.computeIfAbsent(ep2.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep2);
         }
@@ -1304,7 +1304,7 @@ public class TransientAggregator implements ManagedAggregator {
         /* Make sure the caller's end points are included in their
          * switches' corresponding sets. */
         for (EndPoint<? extends Terminal> t : innerEndPoints)
-            subterminals.computeIfAbsent(t.getTerminal().getNetwork(),
+            subterminals.computeIfAbsent(t.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);
 

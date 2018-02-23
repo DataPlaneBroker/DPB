@@ -37,7 +37,7 @@
 /**
  * The primary class is {@link uk.ac.lancs.networks.NetworkControl},
  * which allows the creation of {@link uk.ac.lancs.networks.Service}s
- * across it, connecting {@link uk.ac.lancs.networks.EndPoint}s with
+ * across it, connecting {@link uk.ac.lancs.networks.end_points.EndPoint}s with
  * certain QoS requirements. End points are numbered subdivisions of
  * {@link uk.ac.lancs.networks.Terminal}s, points of access for traffic
  * into and out of a network.

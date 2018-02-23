@@ -60,7 +60,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
@@ -70,6 +69,7 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
@@ -165,7 +165,7 @@ public class PersistentSwitch implements ManagedSwitch {
             /* Check that all end points belong to us. */
             for (EndPoint<? extends Terminal> ep : request.endPointFlows()
                 .keySet()) {
-                Terminal p = ep.getTerminal();
+                Terminal p = ep.getBundle();
                 if (!(p instanceof MyTerminal))
                     throw new InvalidServiceException("end point " + ep
                         + " not part of " + name);
@@ -194,7 +194,7 @@ public class PersistentSwitch implements ManagedSwitch {
                         EndPoint<? extends Terminal> endPoint =
                             entry.getKey();
                         MyTerminal terminal =
-                            (MyTerminal) endPoint.getTerminal();
+                            (MyTerminal) endPoint.getBundle();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(2, terminal.dbid);
                         stmt.setInt(3, endPoint.getLabel());
@@ -796,7 +796,7 @@ public class PersistentSwitch implements ManagedSwitch {
     }
 
     private EndPoint<Interface> mapEndPoint(EndPoint<? extends Terminal> ep) {
-        MyTerminal terminal = (MyTerminal) ep.getTerminal();
+        MyTerminal terminal = (MyTerminal) ep.getBundle();
         return terminal.getInnerEndPoint(ep.getLabel());
     }
 

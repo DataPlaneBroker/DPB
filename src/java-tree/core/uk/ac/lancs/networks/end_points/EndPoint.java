@@ -33,61 +33,54 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks;
-
-import uk.ac.lancs.networks.fabric.Interface;
+package uk.ac.lancs.networks.end_points;
 
 /**
- * Every end point belongs to a terminal, and is distinguished from
- * other end points of the same terminal by an integer label. Get an end
- * point by calling {@link EndPoint#of(Object, int)}.
+ * Every end point belongs to a bundle, and is distinguished from other
+ * end points of the same bundle by an integer label. Get an end point
+ * by calling {@link Bundle#getEndPoint(int)}.
  * 
- * <p>
- * The terminal type is generic because (a) it can be, and (b) it could
- * be a {@link Terminal} on a network or an {@link Interface} on a
- * back-end switch fabric.
+ * @summary A numbered division of a bundle
  * 
- * @summary A potential termination point of a service
- * 
- * @param <T> the terminal type
+ * @param <B> the bundle type
  * 
  * @author simpsons
  */
-public final class EndPoint<T> {
-    private final T terminal;
+public final class EndPoint<B extends Bundle<B>> {
+    private final B bundle;
     private final int label;
 
-    private EndPoint(T terminal, int label) {
-        if (terminal == null) throw new NullPointerException("null terminal");
-        this.terminal = terminal;
+    EndPoint(B bundle, int label) {
+        if (bundle == null) throw new NullPointerException("null bundle");
+        this.bundle = bundle;
         this.label = label;
     }
 
     /**
      * Get an end point with a given label on a given terminal.
      * 
-     * @param terminal the terminal the end point belongs to
+     * @param bundle the bundle the end point belongs to
      * 
      * @param label the label that distinguishes the end point from
-     * others on the same terminal
+     * others on the same bundle
      * 
-     * @throws NullPointerException if the terminal is {@code null}
+     * @throws NullPointerException if the bundle is {@code null}
      */
-    public static <T> EndPoint<T> of(T terminal, int label) {
-        return new EndPoint<T>(terminal, label);
+    static <B extends Bundle<B>> EndPoint<B> of(B bundle, int label) {
+        return new EndPoint<B>(bundle, label);
     }
 
     /**
-     * Get the containing terminal of the end point.
+     * Get the containing bundle of the end point.
      * 
-     * @return the end point's containing terminal
+     * @return the end point's containing bundle
      */
-    public T getTerminal() {
-        return terminal;
+    public B getBundle() {
+        return bundle;
     }
 
     /**
-     * Get the label that subdivides the terminal to identify the
+     * Get the label that subdivides the bundle to identify the
      * connection.
      * 
      * @return the end-point label
@@ -106,8 +99,7 @@ public final class EndPoint<T> {
         final int prime = 31;
         int result = 1;
         result = prime * result + label;
-        result =
-            prime * result + ((terminal == null) ? 0 : terminal.hashCode());
+        result = prime * result + ((bundle == null) ? 0 : bundle.hashCode());
         return result;
     }
 
@@ -126,19 +118,19 @@ public final class EndPoint<T> {
         if (getClass() != obj.getClass()) return false;
         EndPoint<?> other = (EndPoint<?>) obj;
         if (label != other.label) return false;
-        assert terminal != null;
-        assert other.terminal != null;
-        return terminal.equals(other.terminal);
+        assert bundle != null;
+        assert other.bundle != null;
+        return bundle.equals(other.bundle);
     }
 
     /**
      * Get a string representation of this end point.
      * 
      * @return a string representation of this end point, consisting of
-     * the terminal and the label
+     * the bundle and the label
      */
     @Override
     public String toString() {
-        return terminal + ":" + label;
+        return bundle + ":" + label;
     }
 }

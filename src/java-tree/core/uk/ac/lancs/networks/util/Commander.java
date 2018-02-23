@@ -48,12 +48,12 @@ import java.util.regex.Pattern;
 
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.ManagedAggregator;
 import uk.ac.lancs.networks.mgmt.ManagedNetwork;
 import uk.ac.lancs.networks.mgmt.ManagedSwitch;

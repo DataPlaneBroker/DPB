@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
@@ -52,6 +51,7 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -109,7 +109,7 @@ public class DummySwitch implements Network {
             /* Check that all end points belong to us. */
             for (EndPoint<? extends Terminal> ep : request.endPointFlows()
                 .keySet()) {
-                Terminal p = ep.getTerminal();
+                Terminal p = ep.getBundle();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my end point: "
                         + ep);

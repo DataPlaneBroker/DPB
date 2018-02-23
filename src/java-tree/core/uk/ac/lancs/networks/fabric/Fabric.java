@@ -38,10 +38,10 @@ package uk.ac.lancs.networks.fabric;
 import java.util.Collection;
 import java.util.Map;
 
-import uk.ac.lancs.networks.EndPoint;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.end_points.EndPoint;
 
 /**
  * Abstracts a physical switch. This is a simpler interface than

@@ -33,13 +33,14 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
-
-import uk.ac.lancs.networks.end_points.Bundle;
 
 /**
- * Identifies a partitionable interface of a back-end switch.
+ * Models bundles of numbered end points. A bundle could be a terminal
+ * of a network, or an interface of a switch, or a VLAN-tagged interface
+ * of a switch. An end point could then identify VLAN-tagged traffic on
+ * a network terminal or a switch interface, or double-tagged traffic on
+ * a switch interface.
  * 
  * @author simpsons
  */
-public interface Interface extends Bundle<Interface> {}
+package uk.ac.lancs.networks.end_points;

@@ -37,6 +37,8 @@ package uk.ac.lancs.networks;
 
 import java.util.Collection;
 
+import uk.ac.lancs.networks.end_points.EndPoint;
+
 /**
  * Receives notifications of changes to the state of a service.
  * 

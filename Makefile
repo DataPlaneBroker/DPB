@@ -50,6 +50,7 @@ include jardeps.mk
 
 DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
+DOC_PKGS += uk.ac.lancs.networks.end_points
 DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.util
 DOC_PKGS += uk.ac.lancs.networks.mgmt

@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks;
 
+import uk.ac.lancs.networks.end_points.Bundle;
+
 /**
  * A terminal is an accessible interface to a network, and consists of
  * multiple end points, distinguishable by an integral label.
@@ -47,23 +49,11 @@ package uk.ac.lancs.networks;
  * 
  * @author simpsons
  */
-public interface Terminal {
+public interface Terminal extends Bundle<Terminal> {
     /**
      * Get the network directly owning this terminal.
      * 
      * @return the owning switch of the terminal
      */
     NetworkControl getNetwork();
-
-    /**
-     * Get the end point for a given label applied to traffic through
-     * this terminal.
-     * 
-     * @param label the label subdividing traffic on this terminal
-     * 
-     * @return the end point for the given label
-     */
-    default EndPoint<Terminal> getEndPoint(int label) {
-        return EndPoint.of(this, label);
-    }
 }

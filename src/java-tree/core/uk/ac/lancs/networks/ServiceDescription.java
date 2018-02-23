@@ -48,6 +48,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import uk.ac.lancs.networks.end_points.EndPoint;
+
 /**
  * Describes a service by its set of end points and their QoS
  * requirements.

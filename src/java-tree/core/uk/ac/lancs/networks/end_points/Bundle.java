@@ -33,13 +33,26 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
-
-import uk.ac.lancs.networks.end_points.Bundle;
+package uk.ac.lancs.networks.end_points;
 
 /**
- * Identifies a partitionable interface of a back-end switch.
+ * @summary A bundle of end points
+ * 
+ * @param <B> the specific bundle type
  * 
  * @author simpsons
  */
-public interface Interface extends Bundle<Interface> {}
+public interface Bundle<B extends Bundle<B>> {
+    /**
+     * Get the end point for a given label applied to traffic through
+     * this bundle.
+     * 
+     * @param label the label subdividing traffic on this bundle
+     * 
+     * @return the end point for the given label
+     */
+    @SuppressWarnings("unchecked")
+    default EndPoint<B> getEndPoint(int label) {
+        return new EndPoint<B>((B) this, label);
+    }
+}
