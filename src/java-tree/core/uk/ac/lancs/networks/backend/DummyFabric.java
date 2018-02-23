@@ -52,7 +52,7 @@ import uk.ac.lancs.networks.TrafficFlow;
  * 
  * @author simpsons
  */
-public final class DummySwitch implements Switch {
+public final class DummyFabric implements Fabric {
     private static class MyInterface implements Interface {
         final String config;
 
@@ -103,11 +103,11 @@ public final class DummySwitch implements Switch {
         }
 
         void start() {
-            DummySwitch.this.start(this);
+            DummyFabric.this.start(this);
         }
 
         void stop() {
-            assert Thread.holdsLock(DummySwitch.this);
+            assert Thread.holdsLock(DummyFabric.this);
 
             System.out.printf("Bridge starting: %s%n%s%n", name, details);
 
@@ -140,8 +140,8 @@ public final class DummySwitch implements Switch {
             instance.start();
         }
 
-        DummySwitch owner() {
-            return DummySwitch.this;
+        DummyFabric owner() {
+            return DummyFabric.this;
         }
     }
 

@@ -65,7 +65,7 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.mgmt.PluggableAggregator;
+import uk.ac.lancs.networks.mgmt.ManagedAggregator;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -79,7 +79,7 @@ import uk.ac.lancs.routing.span.Way;
  * 
  * @author simpsons
  */
-public class TransientAggregator implements PluggableAggregator {
+public class TransientAggregator implements ManagedAggregator {
     private class MyTerminal implements Terminal {
         private final String name;
         private final Terminal innerPort;

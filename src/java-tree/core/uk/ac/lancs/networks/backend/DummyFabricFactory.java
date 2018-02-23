@@ -41,12 +41,12 @@ import uk.ac.lancs.scc.jardeps.Service;
 /**
  * Creates dummy switches.
  * 
- * @see DummySwitch
+ * @see DummyFabric
  * 
  * @author simpsons
  */
-@Service(SwitchFactory.class)
-public final class DummySwitchFactory implements SwitchFactory {
+@Service(FabricFactory.class)
+public final class DummyFabricFactory implements FabricFactory {
     /**
      * {@inheritDoc}
      * 
@@ -60,7 +60,7 @@ public final class DummySwitchFactory implements SwitchFactory {
     }
 
     @Override
-    public Switch makeSwitch(SwitchContext ctxt, Configuration config) {
-        return new DummySwitch();
+    public Fabric makeSwitch(FabricContext ctxt, Configuration config) {
+        return new DummyFabric();
     }
 }

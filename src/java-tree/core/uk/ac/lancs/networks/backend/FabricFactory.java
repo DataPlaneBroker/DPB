@@ -33,20 +33,37 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
+package uk.ac.lancs.networks.backend;
+
+import uk.ac.lancs.config.Configuration;
 
 /**
- * @summary A network from which terminals can be removed
+ * Creates switches from configuration.
  * 
  * @author simpsons
  */
-public interface UnpluggableNetwork extends Network {
+public interface FabricFactory {
     /**
-     * Remove a terminal from a network.
+     * Determine whether a switch type is recognized by this factory. If
+     * it is, the factory can expect a subsequent call to
+     * {@link #makeSwitch(FabricContext, Configuration)}.
      * 
-     * @param name the name of the terminal
+     * @param type the switch type
      * 
-     * @throws IllegalStateException if the named terminal is in use
+     * @return {@code true} iff the switch type is recognized
      */
-    void removeTerminal(String name);
+    boolean recognize(String type);
+
+    /**
+     * Create a switch from configuration. The only reserved key is
+     * <samp>class</samp>.
+     * 
+     * @param config the switch configuration
+     * 
+     * @param ctxt run-time resources potentially useful in implementing
+     * the switch
+     * 
+     * @return the configured switch
+     */
+    Fabric makeSwitch(FabricContext ctxt, Configuration config);
 }

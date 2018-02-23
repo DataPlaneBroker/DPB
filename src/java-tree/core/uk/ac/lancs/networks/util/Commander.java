@@ -55,10 +55,10 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.networks.mgmt.PluggableAggregator;
-import uk.ac.lancs.networks.mgmt.PluggableNetwork;
+import uk.ac.lancs.networks.mgmt.ManagedAggregator;
+import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.mgmt.UnpluggableNetwork;
+import uk.ac.lancs.networks.mgmt.ManagedNetwork;
 
 /**
  * Instantiates networks according to configuration, and allows
@@ -73,9 +73,9 @@ public final class Commander {
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
     Network network = null;
-    UnpluggableNetwork unpluggableNetwork = null;
-    PluggableNetwork baseNetwork = null;
-    PluggableAggregator aggregator = null;
+    ManagedNetwork unpluggableNetwork = null;
+    ManagedSwitch baseNetwork = null;
+    ManagedAggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
     Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
     Service service = null;
@@ -115,16 +115,16 @@ public final class Commander {
                 return false;
             }
             networkName = name;
-            if (network instanceof UnpluggableNetwork)
-                unpluggableNetwork = (UnpluggableNetwork) network;
+            if (network instanceof ManagedNetwork)
+                unpluggableNetwork = (ManagedNetwork) network;
             else
                 unpluggableNetwork = null;
-            if (unpluggableNetwork instanceof PluggableNetwork)
-                baseNetwork = (PluggableNetwork) unpluggableNetwork;
+            if (unpluggableNetwork instanceof ManagedSwitch)
+                baseNetwork = (ManagedSwitch) unpluggableNetwork;
             else
                 baseNetwork = null;
-            if (unpluggableNetwork instanceof PluggableAggregator)
-                aggregator = (PluggableAggregator) unpluggableNetwork;
+            if (unpluggableNetwork instanceof ManagedAggregator)
+                aggregator = (ManagedAggregator) unpluggableNetwork;
             else
                 aggregator = null;
             service = null;

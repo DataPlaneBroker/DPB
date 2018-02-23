@@ -60,7 +60,7 @@ import uk.ac.lancs.routing.span.Edge;
  * 
  * @author simpsons
  */
-public class DummyNetwork implements Network {
+public class DummySwitch implements Network {
     private class MyTerminal implements Terminal {
         private final String name;
 
@@ -75,11 +75,11 @@ public class DummyNetwork implements Network {
 
         @Override
         public String toString() {
-            return DummyNetwork.this.name + ":" + this.name;
+            return DummySwitch.this.name + ":" + this.name;
         }
 
-        DummyNetwork owner() {
-            return DummyNetwork.this;
+        DummySwitch owner() {
+            return DummySwitch.this;
         }
     }
 
@@ -114,7 +114,7 @@ public class DummyNetwork implements Network {
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
                 MyTerminal mp = (MyTerminal) p;
-                if (mp.owner() != DummyNetwork.this)
+                if (mp.owner() != DummySwitch.this)
                     throw new IllegalArgumentException("not my end point: "
                         + ep);
             }
@@ -235,7 +235,7 @@ public class DummyNetwork implements Network {
      * 
      * @param name the new switch's name
      */
-    public DummyNetwork(String name) {
+    public DummySwitch(String name) {
         this.name = name;
     }
 
@@ -268,7 +268,7 @@ public class DummyNetwork implements Network {
     private final NetworkControl control = new NetworkControl() {
         @Override
         public Service newService() {
-            synchronized (DummyNetwork.this) {
+            synchronized (DummySwitch.this) {
                 int id = nextConnectionId++;
                 MyService conn = new MyService(id);
                 connections.put(id, conn);
@@ -278,7 +278,7 @@ public class DummyNetwork implements Network {
 
         @Override
         public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
-            synchronized (DummyNetwork.this) {
+            synchronized (DummySwitch.this) {
                 List<Terminal> list = new ArrayList<>(terminals.values());
                 Map<Edge<Terminal>, Double> result = new HashMap<>();
                 int size = list.size();
@@ -295,7 +295,7 @@ public class DummyNetwork implements Network {
 
         @Override
         public Service getService(int id) {
-            synchronized (DummyNetwork.this) {
+            synchronized (DummySwitch.this) {
                 return connections.get(id);
             }
         }

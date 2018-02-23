@@ -9,7 +9,7 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.transients.DummyNetwork;
+import uk.ac.lancs.networks.transients.DummySwitch;
 import uk.ac.lancs.networks.transients.TransientAggregator;
 import uk.ac.lancs.networks.util.IdleExecutor;
 
@@ -72,26 +72,26 @@ public class TestDummyInitiateTopology {
      */
     public static void main(String[] args) throws Exception {
         /* Model the Corsas at each site. */
-        DummyNetwork slough = new DummyNetwork("slough");
+        DummySwitch slough = new DummySwitch("slough");
         slough.addTerminal("vms");
         slough.addTerminal("bristol");
         slough.addTerminal("kcl");
         slough.addTerminal("edin");
         slough.addTerminal("lancs");
 
-        DummyNetwork bristol = new DummyNetwork("bristol");
+        DummySwitch bristol = new DummySwitch("bristol");
         bristol.addTerminal("vms");
         bristol.addTerminal("slough");
 
-        DummyNetwork kcl = new DummyNetwork("kcl");
+        DummySwitch kcl = new DummySwitch("kcl");
         kcl.addTerminal("vms");
         kcl.addTerminal("slough");
 
-        DummyNetwork edin = new DummyNetwork("edin");
+        DummySwitch edin = new DummySwitch("edin");
         edin.addTerminal("vms");
         edin.addTerminal("slough");
 
-        DummyNetwork lancs = new DummyNetwork("lancs");
+        DummySwitch lancs = new DummySwitch("lancs");
         lancs.addTerminal("vms");
         lancs.addTerminal("slough");
 

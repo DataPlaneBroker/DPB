@@ -33,45 +33,20 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.persist;
-
-import java.sql.SQLException;
-import java.util.concurrent.Executor;
-
-import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.scc.jardeps.Service;
+package uk.ac.lancs.networks.mgmt;
 
 /**
- * Creates persistent base networks.
- * 
- * @see PersistentNetwork
+ * @summary A network from which terminals can be removed
  * 
  * @author simpsons
  */
-@Service(NetworkFactory.class)
-public final class PersistentNetworkFactory implements NetworkFactory {
+public interface ManagedNetwork extends Network {
     /**
-     * {@inheritDoc}
+     * Remove a terminal from a network.
      * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>persistent</samp>.
+     * @param name the name of the terminal
+     * 
+     * @throws IllegalStateException if the named terminal is in use
      */
-    @Override
-    public boolean recognize(String type) {
-        return "persistent".equals(type);
-    }
-
-    @Override
-    public Network makeNetwork(Executor executor, Configuration conf) {
-        PersistentNetwork result = new PersistentNetwork(executor, conf);
-        try {
-            result.init();
-        } catch (SQLException ex) {
-            throw new RuntimeException("initializing", ex);
-        }
-        return result;
-    }
+    void removeTerminal(String name);
 }

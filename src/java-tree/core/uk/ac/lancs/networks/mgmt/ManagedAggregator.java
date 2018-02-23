@@ -33,37 +33,26 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.Terminal;
 
 /**
- * Creates switches from configuration.
+ * @summary An aggregator to which new terminals can be added mapping to
+ * inferior networks' terminals
  * 
  * @author simpsons
  */
-public interface SwitchFactory {
+public interface ManagedAggregator extends Aggregator, ManagedNetwork {
     /**
-     * Determine whether a switch type is recognized by this factory. If
-     * it is, the factory can expect a subsequent call to
-     * {@link #makeSwitch(SwitchContext, Configuration)}.
+     * Add a new external terminal exposing an inferior switch's
+     * terminal.
      * 
-     * @param type the switch type
+     * @param name the local name of the terminal
      * 
-     * @return {@code true} iff the switch type is recognized
+     * @param inner the terminal of an inferior switch
+     * 
+     * @return the newly created terminal
      */
-    boolean recognize(String type);
-
-    /**
-     * Create a switch from configuration. The only reserved key is
-     * <samp>class</samp>.
-     * 
-     * @param config the switch configuration
-     * 
-     * @param ctxt run-time resources potentially useful in implementing
-     * the switch
-     * 
-     * @return the configured switch
-     */
-    Switch makeSwitch(SwitchContext ctxt, Configuration config);
+    Terminal addTerminal(String name, Terminal inner);
 }

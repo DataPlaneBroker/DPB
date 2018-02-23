@@ -33,21 +33,45 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.persist;
 
+import java.sql.SQLException;
 import java.util.concurrent.Executor;
 
+import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkFactory;
+import uk.ac.lancs.scc.jardeps.Service;
+
 /**
- * @summary A set of resources a switch might need in its implementation
+ * Creates persistent base networks.
+ * 
+ * @see PersistentSwitch
  * 
  * @author simpsons
  */
-public interface SwitchContext {
+@Service(NetworkFactory.class)
+public final class PersistentSwitchFactory implements NetworkFactory {
     /**
-     * Get the executor to be used by this switch for any callbacks it
-     * sets up.
+     * {@inheritDoc}
      * 
-     * @return the switch's executor
+     * <p>
+     * This implementation recognizes only the string
+     * <samp>persistent</samp>.
      */
-    Executor executor();
+    @Override
+    public boolean recognize(String type) {
+        return "persistent".equals(type);
+    }
+
+    @Override
+    public Network makeNetwork(Executor executor, Configuration conf) {
+        PersistentSwitch result = new PersistentSwitch(executor, conf);
+        try {
+            result.init();
+        } catch (SQLException ex) {
+            throw new RuntimeException("initializing", ex);
+        }
+        return result;
+    }
 }

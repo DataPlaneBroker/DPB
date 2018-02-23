@@ -33,24 +33,21 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
+package uk.ac.lancs.networks.backend;
 
-import uk.ac.lancs.networks.Terminal;
+import java.util.concurrent.Executor;
 
 /**
- * @summary A network which allows terminals to be added
+ * @summary A set of resources a switch might need in its implementation
  * 
  * @author simpsons
  */
-public interface PluggableNetwork extends UnpluggableNetwork {
+public interface FabricContext {
     /**
-     * Add a terminal mapping to an internal resource.
+     * Get the executor to be used by this switch for any callbacks it
+     * sets up.
      * 
-     * @param name the new terminal's name
-     * 
-     * @param desc a description to locate the internal resource
-     * 
-     * @return the new terminal
+     * @return the switch's executor
      */
-    Terminal addTerminal(String name, String desc);
+    Executor executor();
 }

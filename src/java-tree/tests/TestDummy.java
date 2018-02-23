@@ -43,7 +43,7 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.transients.DummyNetwork;
+import uk.ac.lancs.networks.transients.DummySwitch;
 import uk.ac.lancs.networks.util.IdleExecutor;
 
 /**
@@ -57,7 +57,7 @@ public class TestDummy {
      * @param args
      */
     public static void main(String[] args) throws Exception {
-        DummyNetwork zwitch = new DummyNetwork("dummy");
+        DummySwitch zwitch = new DummySwitch("dummy");
 
         Terminal left = zwitch.addTerminal("left");
         Terminal right = zwitch.addTerminal("right");
