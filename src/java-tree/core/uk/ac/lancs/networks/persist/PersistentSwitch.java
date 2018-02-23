@@ -123,6 +123,11 @@ public class PersistentSwitch implements ManagedSwitch {
         final int id;
         final Collection<ServiceListener> listeners = new HashSet<>();
 
+        @Override
+        public String toString() {
+            return PersistentSwitch.this.name + ":" + id;
+        }
+
         MyService(int id) {
             this.id = id;
             self = protect(BridgeListener.class, this);
@@ -388,8 +393,11 @@ public class PersistentSwitch implements ManagedSwitch {
              * for the user to retrieve. */
             this.request = ServiceDescription.create(details);
 
-            if (active)
+            if (active) {
+                this.active = true;
                 this.bridge = backend.bridge(self, mapEndPoints(details));
+                this.bridge.start();
+            }
         }
     }
 
