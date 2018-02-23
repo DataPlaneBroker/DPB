@@ -109,7 +109,7 @@ public final class DummyFabric implements Fabric {
         void stop() {
             assert Thread.holdsLock(DummyFabric.this);
 
-            System.out.printf("Bridge starting: %s%n%s%n", name, details);
+            System.out.printf("Bridge stopping: %s%n%s%n", name, details);
 
             callOut(BridgeListener::destroyed);
         }
