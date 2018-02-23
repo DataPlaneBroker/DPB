@@ -70,12 +70,12 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.backend.Bridge;
-import uk.ac.lancs.networks.backend.BridgeListener;
-import uk.ac.lancs.networks.backend.Interface;
-import uk.ac.lancs.networks.backend.Fabric;
-import uk.ac.lancs.networks.backend.FabricContext;
-import uk.ac.lancs.networks.backend.FabricFactory;
+import uk.ac.lancs.networks.fabric.Bridge;
+import uk.ac.lancs.networks.fabric.BridgeListener;
+import uk.ac.lancs.networks.fabric.Fabric;
+import uk.ac.lancs.networks.fabric.FabricContext;
+import uk.ac.lancs.networks.fabric.FabricFactory;
+import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.routing.span.Edge;
 

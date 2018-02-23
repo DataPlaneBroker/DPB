@@ -33,25 +33,21 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.fabric;
 
-import uk.ac.lancs.networks.EndPoint;
+import java.util.concurrent.Executor;
 
 /**
- * Identifies a partitionable interface of a back-end switch.
+ * @summary A set of resources a switch might need in its implementation
  * 
  * @author simpsons
  */
-public interface Interface {
+public interface FabricContext {
     /**
-     * Get an end point on this interface.
+     * Get the executor to be used by this switch for any callbacks it
+     * sets up.
      * 
-     * @param label the label distinguishing the end point from others
-     * on the same interface
-     * 
-     * @return the requested end point
+     * @return the switch's executor
      */
-    default EndPoint<Interface> getEndPoint(int label) {
-        return EndPoint.of(this, label);
-    }
+    Executor executor();
 }

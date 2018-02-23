@@ -33,21 +33,34 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.fabric;
 
-import java.util.concurrent.Executor;
+import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * @summary A set of resources a switch might need in its implementation
+ * Creates dummy switches.
+ * 
+ * @see DummyFabric
  * 
  * @author simpsons
  */
-public interface FabricContext {
+@Service(FabricFactory.class)
+public final class DummyFabricFactory implements FabricFactory {
     /**
-     * Get the executor to be used by this switch for any callbacks it
-     * sets up.
+     * {@inheritDoc}
      * 
-     * @return the switch's executor
+     * <p>
+     * This implementation recognizes only the string
+     * <samp>dummy</samp>.
      */
-    Executor executor();
+    @Override
+    public boolean recognize(String type) {
+        return "dummy".equals(type);
+    }
+
+    @Override
+    public Fabric makeSwitch(FabricContext ctxt, Configuration config) {
+        return new DummyFabric();
+    }
 }

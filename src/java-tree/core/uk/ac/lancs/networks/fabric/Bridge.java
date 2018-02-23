@@ -33,34 +33,16 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
-
-import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.scc.jardeps.Service;
+package uk.ac.lancs.networks.fabric;
 
 /**
- * Creates dummy switches.
- * 
- * @see DummyFabric
+ * References a bridge established in a switch.
  * 
  * @author simpsons
  */
-@Service(FabricFactory.class)
-public final class DummyFabricFactory implements FabricFactory {
+public interface Bridge {
     /**
-     * {@inheritDoc}
-     * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>dummy</samp>.
+     * Start building the bridge.
      */
-    @Override
-    public boolean recognize(String type) {
-        return "dummy".equals(type);
-    }
-
-    @Override
-    public Fabric makeSwitch(FabricContext ctxt, Configuration config) {
-        return new DummyFabric();
-    }
+    void start();
 }

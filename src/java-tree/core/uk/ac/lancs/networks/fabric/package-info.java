@@ -43,7 +43,7 @@
  * <dfn>interfaces</dfn>, which might correspond to physical ports, or
  * to ports with some sort of tagging, or to port aggregations. An
  * interface is described by an implemenation-defined string, and
- * {@link uk.ac.lancs.networks.backend.Fabric#getInterface(String)} can
+ * {@link uk.ac.lancs.networks.fabric.Fabric#getInterface(String)} can
  * be used to obtain one.
  * 
  * <p>
@@ -52,13 +52,13 @@
  * interfaces with outgoing shaping and incoming metering of bandwidth
  * (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch can be asked
  * to <em>ensure</em> that a bridge exists with
- * {@link uk.ac.lancs.networks.backend.Fabric#bridge(BridgeListener, Map)}.
+ * {@link uk.ac.lancs.networks.fabric.Fabric#bridge(BridgeListener, Map)}.
  * Bridges should be removed by asking the switch to <em>retain</em> all
  * others, allowing the remote management software of a switch to
  * restart after breakdown without disrupting any existing bridges.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.fabric;
 
 import java.util.Map;

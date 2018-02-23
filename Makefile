@@ -23,9 +23,9 @@ roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentSwitch
 roots_core += uk.ac.lancs.networks.persist.PersistentSwitchFactory
-roots_core += uk.ac.lancs.networks.backend.DummyFabric
-roots_core += uk.ac.lancs.networks.backend.DummyFabricFactory
-roots_core += uk.ac.lancs.networks.backend.FabricFactory
+roots_core += uk.ac.lancs.networks.fabric.DummyFabric
+roots_core += uk.ac.lancs.networks.fabric.DummyFabricFactory
+roots_core += uk.ac.lancs.networks.fabric.FabricFactory
 roots_core += uk.ac.lancs.networks.util.Commander
 
 SELECTED_JARS += initiate-dpb-util
@@ -55,7 +55,7 @@ DOC_PKGS += uk.ac.lancs.networks.util
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
-DOC_PKGS += uk.ac.lancs.networks.backend
+DOC_PKGS += uk.ac.lancs.networks.fabric
 DOC_PKGS += uk.ac.lancs.config
 
 DOC_OVERVIEW=src/java-overview.html

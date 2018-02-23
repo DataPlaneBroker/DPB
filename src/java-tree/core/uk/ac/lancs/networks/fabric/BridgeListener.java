@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.fabric;
 
 /**
  * Receives events about a bridge's status.

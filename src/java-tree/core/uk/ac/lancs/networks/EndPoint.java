@@ -35,7 +35,7 @@
  */
 package uk.ac.lancs.networks;
 
-import uk.ac.lancs.networks.backend.Interface;
+import uk.ac.lancs.networks.fabric.Interface;
 
 /**
  * Every end point belongs to a terminal, and is distinguished from
@@ -45,7 +45,7 @@ import uk.ac.lancs.networks.backend.Interface;
  * <p>
  * The terminal type is generic because (a) it can be, and (b) it could
  * be a {@link Terminal} on a network or an {@link Interface} on a
- * back-end switch.
+ * back-end switch fabric.
  * 
  * @summary A potential termination point of a service
  * 

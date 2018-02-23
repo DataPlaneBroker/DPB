@@ -33,16 +33,25 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.backend;
+package uk.ac.lancs.networks.fabric;
+
+import uk.ac.lancs.networks.EndPoint;
 
 /**
- * References a bridge established in a switch.
+ * Identifies a partitionable interface of a back-end switch.
  * 
  * @author simpsons
  */
-public interface Bridge {
+public interface Interface {
     /**
-     * Start building the bridge.
+     * Get an end point on this interface.
+     * 
+     * @param label the label distinguishing the end point from others
+     * on the same interface
+     * 
+     * @return the requested end point
      */
-    void start();
+    default EndPoint<Interface> getEndPoint(int label) {
+        return EndPoint.of(this, label);
+    }
 }
