@@ -36,6 +36,7 @@
 package uk.ac.lancs.networks.util;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -331,6 +332,7 @@ public final class Commander {
                 System.err.printf("No network to dump%n");
                 return false;
             }
+            managedNetwork.dumpStatus(new PrintWriter(System.out));
             return true;
         }
 
