@@ -44,7 +44,8 @@ import uk.ac.lancs.networks.Terminal;
  * Operations include querying terminals and obtaining the control
  * interface.
  * 
- * @summary The management interface of a network
+ * @summary A network that supports the creation of connectivity
+ * services across its terminals
  * 
  * @author simpsons
  */

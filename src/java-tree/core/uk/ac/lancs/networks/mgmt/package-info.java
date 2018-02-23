@@ -35,11 +35,30 @@
  */
 
 /**
- * These classes are the management interfaces for networks (allowing
- * querying of terminals) and aggregators (allowing management of
- * trunks).
+ * A network is a set of terminals across which connectivity services
+ * can be established with QoS guarantees. A switch is a network whose
+ * terminals are physical interfaces, aggregate interfaces or VLAN tags
+ * within those interfaces. An aggregator is a network that delegates to
+ * other (inferior) networks connected by trunks, and is responsible for
+ * finding spanning trees across the graph of trunks and inferior
+ * switches.
  * 
- * @summary Interfaces for managing networks, aggregators and trunks
+ * <p>
+ * A network in general is accessed through a
+ * {@link uk.ac.lancs.networks.mgmt.Network} object, and an aggregator
+ * through a specialization of that,
+ * {@link uk.ac.lancs.networks.mgmt.Aggregator}. A switch is also
+ * accessed through {@link uk.ac.lancs.networks.mgmt.Network}, needing
+ * no special operations for use. A
+ * {@link uk.ac.lancs.networks.mgmt.ManagedSwitch} interface allows
+ * terminals to be added to and remove from a switch, mapping the
+ * terminals to physical interfaces of an underlying fabric. A
+ * {@link uk.ac.lancs.networks.mgmt.ManagedAggregator} allows terminals
+ * to be added to and removed from an aggregator, mapping them to
+ * inferior switches' terminals that do not form trunks.
+ * 
+ * @summary Interfaces for managing networks, switches, aggregators and
+ * trunks
  * 
  * @author simpsons
  */

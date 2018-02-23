@@ -80,14 +80,14 @@ import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
- * Implements a network that retains its state in a database. The
- * network relies on a {@link Fabric} back end to establish bridges on a
+ * Implements a switch that retains its state in a database. The switch
+ * relies on a {@link Fabric} back end to establish bridges on a
  * physical switch in a vendor-specific way.
  * 
  * @author simpsons
  */
 public class PersistentSwitch implements ManagedSwitch {
-    private final Fabric backend;
+    private final Fabric fabric;
 
     private class MyTerminal implements Terminal {
         private final String name;
@@ -96,7 +96,7 @@ public class PersistentSwitch implements ManagedSwitch {
 
         MyTerminal(String name, String desc, int dbid) {
             this.name = name;
-            this.physicalPort = backend.getInterface(desc);
+            this.physicalPort = fabric.getInterface(desc);
             this.dbid = dbid;
         }
 
@@ -241,7 +241,7 @@ public class PersistentSwitch implements ManagedSwitch {
             }
 
             this.bridge =
-                backend.bridge(self, mapEndPoints(request.endPointFlows()));
+                fabric.bridge(self, mapEndPoints(request.endPointFlows()));
             callOut(ServiceListener::activating);
             this.bridge.start();
         }
@@ -395,7 +395,7 @@ public class PersistentSwitch implements ManagedSwitch {
 
             if (active) {
                 this.active = true;
-                this.bridge = backend.bridge(self, mapEndPoints(details));
+                this.bridge = fabric.bridge(self, mapEndPoints(details));
                 this.bridge.start();
             }
         }
@@ -478,7 +478,7 @@ public class PersistentSwitch implements ManagedSwitch {
         /* Create the backend. */
         Configuration beConfig = config.subview("backend");
         String type = beConfig.get("type");
-        Fabric zwitch = null;
+        Fabric fabric = null;
         for (FabricFactory factory : ServiceLoader
             .load(FabricFactory.class)) {
             if (!factory.recognize(type)) continue;
@@ -488,11 +488,11 @@ public class PersistentSwitch implements ManagedSwitch {
                     return executor;
                 }
             };
-            zwitch = factory.makeSwitch(ctxt, beConfig);
+            fabric = factory.makeFabric(ctxt, beConfig);
             break;
         }
-        if (zwitch == null) throw new IllegalArgumentException();
-        this.backend = zwitch;
+        if (fabric == null) throw new IllegalArgumentException();
+        this.fabric = fabric;
 
         /* Record how we talk to the database. */
         Configuration dbConfig = config.subview("db");
@@ -636,9 +636,8 @@ public class PersistentSwitch implements ManagedSwitch {
      */
     private void retainBridges() {
         assert Thread.holdsLock(this);
-        backend
-            .retainBridges(services.values().stream().map(srv -> srv.bridge)
-                .filter(b -> b != null).collect(Collectors.toSet()));
+        fabric.retainBridges(services.values().stream().map(srv -> srv.bridge)
+            .filter(b -> b != null).collect(Collectors.toSet()));
     }
 
     @Override

@@ -36,7 +36,7 @@
 package uk.ac.lancs.networks.fabric;
 
 /**
- * References a bridge established in a switch.
+ * References a bridge established in a switch fabric.
  * 
  * @author simpsons
  */

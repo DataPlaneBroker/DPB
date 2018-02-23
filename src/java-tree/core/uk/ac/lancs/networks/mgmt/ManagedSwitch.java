@@ -38,7 +38,8 @@ package uk.ac.lancs.networks.mgmt;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary A network which allows terminals to be added
+ * @summary A network which allows terminals to be added and mapped to a
+ * fabric interface
  * 
  * @author simpsons
  */
@@ -46,11 +47,12 @@ public interface ManagedSwitch extends ManagedNetwork {
     /**
      * Add a terminal mapping to an internal resource.
      * 
-     * @param name the new terminal's name
+     * @param terminalName the new terminal's name
      * 
-     * @param desc a description to locate the internal resource
+     * @param interfaceName the name of the fabric interface the
+     * terminal maps to
      * 
      * @return the new terminal
      */
-    Terminal addTerminal(String name, String desc);
+    Terminal addTerminal(String terminalName, String interfaceName);
 }

@@ -56,7 +56,7 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
- * Implements an entirely virtual network that does nothing.
+ * Implements an entirely virtual switch that does nothing.
  * 
  * @author simpsons
  */

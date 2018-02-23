@@ -60,7 +60,7 @@ public final class DummyFabricFactory implements FabricFactory {
     }
 
     @Override
-    public Fabric makeSwitch(FabricContext ctxt, Configuration config) {
+    public Fabric makeFabric(FabricContext ctxt, Configuration config) {
         return new DummyFabric();
     }
 }

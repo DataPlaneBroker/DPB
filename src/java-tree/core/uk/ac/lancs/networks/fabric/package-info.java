@@ -48,14 +48,16 @@
  * 
  * <p>
  * A physical switch establishes a set of <dfn>bridges</dfn>, each
- * connecting {@link uk.ac.lancs.networks.end_points.EndPoint}s of a subset of its
- * interfaces with outgoing shaping and incoming metering of bandwidth
- * (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch can be asked
- * to <em>ensure</em> that a bridge exists with
+ * connecting {@link uk.ac.lancs.networks.end_points.EndPoint}s of a
+ * subset of its interfaces with outgoing shaping and incoming metering
+ * of bandwidth (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch
+ * can be asked to <em>ensure</em> that a bridge exists with
  * {@link uk.ac.lancs.networks.fabric.Fabric#bridge(BridgeListener, Map)}.
  * Bridges should be removed by asking the switch to <em>retain</em> all
  * others, allowing the remote management software of a switch to
  * restart after breakdown without disrupting any existing bridges.
+ * 
+ * @summary Switching-fabric API
  * 
  * @author simpsons
  */

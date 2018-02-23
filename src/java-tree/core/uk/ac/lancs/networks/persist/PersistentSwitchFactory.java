@@ -44,7 +44,7 @@ import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * Creates persistent base networks.
+ * Creates persistent network switches.
  * 
  * @see PersistentSwitch
  * 

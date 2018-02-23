@@ -38,32 +38,32 @@ package uk.ac.lancs.networks.fabric;
 import uk.ac.lancs.config.Configuration;
 
 /**
- * Creates switches from configuration.
+ * Creates switch fabrics from configuration.
  * 
  * @author simpsons
  */
 public interface FabricFactory {
     /**
-     * Determine whether a switch type is recognized by this factory. If
+     * Determine whether a fabric type is recognized by this factory. If
      * it is, the factory can expect a subsequent call to
-     * {@link #makeSwitch(FabricContext, Configuration)}.
+     * {@link #makeFabric(FabricContext, Configuration)}.
      * 
-     * @param type the switch type
+     * @param type the switch fabric type
      * 
-     * @return {@code true} iff the switch type is recognized
+     * @return {@code true} iff the fabric type is recognized
      */
     boolean recognize(String type);
 
     /**
-     * Create a switch from configuration. The only reserved key is
-     * <samp>class</samp>.
+     * Create a switch fabric from configuration. The only reserved key
+     * is <samp>class</samp>.
      * 
-     * @param config the switch configuration
+     * @param config the fabric configuration
      * 
      * @param ctxt run-time resources potentially useful in implementing
-     * the switch
+     * the fabric
      * 
-     * @return the configured switch
+     * @return the configured switch fabric
      */
-    Fabric makeSwitch(FabricContext ctxt, Configuration config);
+    Fabric makeFabric(FabricContext ctxt, Configuration config);
 }

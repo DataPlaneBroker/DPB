@@ -38,8 +38,8 @@ package uk.ac.lancs.networks.mgmt;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary An aggregator to which new terminals can be added mapping to
- * inferior networks' terminals
+ * @summary An aggregator to which new terminals can be added and mapped
+ * to inferior networks' terminals
  * 
  * @author simpsons
  */

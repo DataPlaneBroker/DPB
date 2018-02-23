@@ -35,8 +35,8 @@
  */
 
 /**
- * Provides switch implementations that retain connection information in
- * a database.
+ * Provides network implementations that retain connection information
+ * in a database.
  * 
  * @author simpsons
  */

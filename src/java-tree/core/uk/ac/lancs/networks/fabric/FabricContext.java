@@ -38,16 +38,17 @@ package uk.ac.lancs.networks.fabric;
 import java.util.concurrent.Executor;
 
 /**
- * @summary A set of resources a switch might need in its implementation
+ * @summary A set of resources a switch fabric might need in its
+ * implementation
  * 
  * @author simpsons
  */
 public interface FabricContext {
     /**
-     * Get the executor to be used by this switch for any callbacks it
+     * Get the executor to be used by this fabric for any callbacks it
      * sets up.
      * 
-     * @return the switch's executor
+     * @return the fabric's executor
      */
     Executor executor();
 }

@@ -38,7 +38,7 @@ package uk.ac.lancs.networks.fabric;
 import uk.ac.lancs.networks.end_points.Bundle;
 
 /**
- * Identifies a partitionable interface of a back-end switch.
+ * @summary A partitionable interface of a back-end switch
  * 
  * @author simpsons
  */
