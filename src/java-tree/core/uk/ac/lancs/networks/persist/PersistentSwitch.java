@@ -180,11 +180,10 @@ public class PersistentSwitch implements ManagedSwitch {
                 conn.setAutoCommit(false);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("INSERT INTO " + endPointTable
-                        + " (slice, service_id, terminal_id,"
+                        + " (service_id, terminal_id,"
                         + " label, metering, shaping)"
-                        + " VALUES (?, ?, ?, ?, ?, ?);")) {
-                    stmt.setString(1, dbSlice);
-                    stmt.setInt(2, this.id);
+                        + " VALUES (?, ?, ?, ?, ?);")) {
+                    stmt.setInt(1, this.id);
                     for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : this.request
                         .endPointFlows().entrySet()) {
                         EndPoint<? extends Terminal> endPoint =
@@ -192,10 +191,10 @@ public class PersistentSwitch implements ManagedSwitch {
                         MyTerminal terminal =
                             (MyTerminal) endPoint.getTerminal();
                         TrafficFlow flow = entry.getValue();
-                        stmt.setInt(3, terminal.dbid);
-                        stmt.setInt(4, endPoint.getLabel());
-                        stmt.setDouble(5, flow.ingress);
-                        stmt.setDouble(6, flow.egress);
+                        stmt.setInt(2, terminal.dbid);
+                        stmt.setInt(3, endPoint.getLabel());
+                        stmt.setDouble(4, flow.ingress);
+                        stmt.setDouble(5, flow.egress);
                         stmt.execute();
                     }
                 }
