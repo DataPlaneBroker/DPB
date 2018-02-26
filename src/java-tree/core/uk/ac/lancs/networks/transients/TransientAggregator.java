@@ -1085,8 +1085,6 @@ public class TransientAggregator implements ManagedAggregator {
              * spanning tree. */
             Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
                 fibGraph.getFIBs();
-            // Map<Edge<Port>, Double> weightedEdges =
-            // Graphs.flatten(fibs);
             FIBSpanGuide<Terminal> guide = new FIBSpanGuide<>(fibs);
             Collection<Terminal> reached = new HashSet<>();
             Collection<Edge<Terminal>> tree = SpanningTreeComputer
@@ -1104,19 +1102,6 @@ public class TransientAggregator implements ManagedAggregator {
                      * been reached. */
                     return reached.containsAll(e);
                 }).create().getSpanningTree(guide.first());
-            // Collection<Edge<Port>> tree2 =
-            // Graphs.span(innerTerminalPorts, null, weightedEdges,
-            // p -> reached.addAll(terminalGroups.get(p)), e -> {
-            // /* Permit edges within the same
-            // * switch. */
-            // SwitchControl first = e.first().getSwitch();
-            // SwitchControl second = e.second().getSwitch();
-            // if (first == second) return true;
-            //
-            // /* Allow this edge at least one terminal
-            // * hasn't been reached. */
-            // return !reached.containsAll(e);
-            // });
             if (tree == null)
                 throw new ServiceResourceException("no tree found");
             // System.err.printf("Spanning tree: %s%n", tree);
@@ -1275,10 +1260,6 @@ public class TransientAggregator implements ManagedAggregator {
             getFibs(bandwidth, innerTerminals);
         // System.err.println("FIBs: " + fibs);
 
-        /* Create terminal-aware weights for each edge. */
-        // Map<Edge<Port>, Double> weightedEdges = Graphs.flatten(fibs);
-        // System.err.println("Edges: " + weightedEdges);
-
         /* To impose additional constraints on the spanning tree, keep a
          * set of switches already reached. Edges that connect two
          * distinct switches that have both been reached shall be
@@ -1302,15 +1283,6 @@ public class TransientAggregator implements ManagedAggregator {
                     guide.reached(p);
                     reachedSwitches.add(p.getNetwork());
                 }).create().getSpanningTree(guide.first());
-
-        /* Collection<Edge<Port>> tree2 =
-         * Graphs.span(innerTerminalPorts, null, weightedEdges, p ->
-         * reachedSwitches.add(p.getSwitch()), e -> { SwitchControl
-         * first = e.first().getSwitch(); SwitchControl second =
-         * e.second().getSwitch(); if (first == second) return true; if
-         * (reachedSwitches.contains(first) &&
-         * reachedSwitches.contains(second)) return false; return true;
-         * }); */
 
         for (Edge<Terminal> edge : tree) {
             NetworkControl firstSwitch = edge.first().getNetwork();
