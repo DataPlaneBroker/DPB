@@ -303,7 +303,7 @@ public class TransientAggregator implements ManagedAggregator {
          * This holds the set of trunks on which we have allocated
          * bandwidth. If {@code null}, the service is not initiated.
          */
-        Map<TrunkControl, EndPoint<? extends Terminal>> tunnels;
+        Map<MyTrunk, EndPoint<? extends Terminal>> tunnels;
         ServiceDescription request;
 
         /**
@@ -354,9 +354,9 @@ public class TransientAggregator implements ManagedAggregator {
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
             Map<Service, ServiceDescription> subcons = subrequests.stream()
-                .collect(Collectors
-                    .toMap(r -> r.endPointFlows().keySet().iterator().next()
-                        .getBundle().getNetwork().newService(), r -> r));
+                .collect(Collectors.toMap(r -> r.endPointFlows().keySet()
+                    .iterator().next().getBundle().getNetwork().newService(),
+                                          r -> r));
 
             /* Create a client for each subservice. */
             clients.addAll(subcons.keySet().stream().map(Client::new)
@@ -501,7 +501,7 @@ public class TransientAggregator implements ManagedAggregator {
                 break;
 
             default:
-                for (Map.Entry<TrunkControl, EndPoint<? extends Terminal>> tunnel : tunnels
+                for (Map.Entry<MyTrunk, EndPoint<? extends Terminal>> tunnel : tunnels
                     .entrySet()) {
                     EndPoint<? extends Terminal> ep1 = tunnel.getValue();
                     EndPoint<? extends Terminal> ep2 =
@@ -533,7 +533,7 @@ public class TransientAggregator implements ManagedAggregator {
      * 
      * @author simpsons
      */
-    final class MyTrunk implements TrunkControl {
+    final class MyTrunk implements Trunk {
         private final Terminal start, end;
         private double delay = 0.0;
         private double upstreamBandwidth = 0.0, downstreamBandwidth = 0.0;
@@ -545,19 +545,39 @@ public class TransientAggregator implements ManagedAggregator {
          * 
          * @param end the other end
          */
-        public MyTrunk(Terminal start, Terminal end) {
+        MyTrunk(Terminal start, Terminal end) {
             this.start = start;
             this.end = end;
         }
 
-        @Override
-        public double getUpstreamBandwidth() {
+        /**
+         * Get the upstream bandwidth remaining available on this trunk.
+         * 
+         * @return the remaining available bandwidth from start terminal
+         * to end
+         */
+        double getUpstreamBandwidth() {
             return upstreamBandwidth;
         }
 
-        @Override
-        public double getDownstreamBandwidth() {
+        /**
+         * Get the downstream bandwidth remaining available on this
+         * trunk.
+         * 
+         * @return the remaining available bandwidth from end terminal
+         * to start
+         */
+        double getDownstreamBandwidth() {
             return downstreamBandwidth;
+        }
+
+        /**
+         * Get the maximum of the upstream and downstream bandwidths.
+         * 
+         * @return the best bandwidth available on this trunk
+         */
+        double getMaximumBandwidth() {
+            return Math.max(getUpstreamBandwidth(), getDownstreamBandwidth());
         }
 
         private final NavigableMap<Integer, Integer> startToEndMap =
@@ -570,9 +590,18 @@ public class TransientAggregator implements ManagedAggregator {
         private final Map<Integer, Double> downstreamAllocations =
             new HashMap<>();
 
-        @Override
-        public EndPoint<? extends Terminal>
-            getPeer(EndPoint<? extends Terminal> p) {
+        /**
+         * Get the peer of an end point.
+         * 
+         * @param p the end point whose peer is requested
+         * 
+         * @return the peer of the supplied end point, or {@code null}
+         * if it has no peer
+         * 
+         * @throws IllegalArgumentException if the end point does not
+         * belong to either terminal of this trunk
+         */
+        EndPoint<? extends Terminal> getPeer(EndPoint<? extends Terminal> p) {
             synchronized (TransientAggregator.this) {
                 if (p.getBundle().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
@@ -589,8 +618,21 @@ public class TransientAggregator implements ManagedAggregator {
             }
         }
 
-        @Override
-        public EndPoint<? extends Terminal>
+        /**
+         * Allocate a tunnel through this trunk. If successful, only one
+         * end of the tunnel is returned. The other can be obtained with
+         * {@link #getPeer(EndPoint)}.
+         * 
+         * @param upstreamBandwidth the bandwidth to allocate to the
+         * tunnel in the direction from the start terminal to the end
+         * 
+         * @param downstreamBandwidth the bandwidth to allocate to the
+         * tunnel in the direction from the end terminal to the start
+         * 
+         * @return the end point at the start of the tunnel, or
+         * {@code null} if no further resource remains
+         */
+        EndPoint<? extends Terminal>
             allocateTunnel(double upstreamBandwidth,
                            double downstreamBandwidth) {
             /* Sanity-check bandwidth. */
@@ -617,8 +659,12 @@ public class TransientAggregator implements ManagedAggregator {
             return start.getEndPoint(startLabel);
         }
 
-        @Override
-        public void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
+        /**
+         * Release a tunnel through this trunk.
+         * 
+         * @param endPoint either of the tunnel end points
+         */
+        void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
             final int startLabel;
             if (endPoint.getBundle().equals(start)) {
                 startLabel = endPoint.getLabel();
@@ -647,150 +693,145 @@ public class TransientAggregator implements ManagedAggregator {
             availableTunnels.set(startLabel);
         }
 
-        @Override
-        public int getAvailableTunnelCount() {
+        /**
+         * Get the number of tunnels available through this trunk.
+         * 
+         * @return the number of available tunnels
+         */
+        int getAvailableTunnelCount() {
             return availableTunnels.cardinality();
         }
 
+        /**
+         * Get the fixed delay of this trunk.
+         * 
+         * @return the trunk's fixed delay
+         */
         @Override
         public double getDelay() {
-            return delay;
+            synchronized (TransientAggregator.this) {
+                return delay;
+            }
         }
 
-        @Override
-        public List<Terminal> getTerminals() {
+        /**
+         * Get the terminals at either end of this trunk.
+         * 
+         * @return the terminals of the trunk
+         */
+        List<Terminal> getTerminals() {
             return Arrays.asList(start, end);
         }
 
         @Override
-        public Trunk getManagement() {
-            return management;
+        public void withdrawBandwidth(double upstream, double downstream) {
+            synchronized (TransientAggregator.this) {
+                if (upstream < 0)
+                    throw new IllegalArgumentException("negative upstream: "
+                        + upstream);
+                if (upstream > upstreamBandwidth)
+                    throw new IllegalArgumentException("request upstream "
+                        + upstream + " exceeds " + upstreamBandwidth);
+                if (downstream < 0)
+                    throw new IllegalArgumentException("negative downstream: "
+                        + downstream);
+                if (downstream > downstreamBandwidth)
+                    throw new IllegalArgumentException("request downstream "
+                        + downstream + " exceeds " + downstreamBandwidth);
+
+                upstreamBandwidth -= upstream;
+                downstreamBandwidth -= downstream;
+            }
         }
 
-        private final TrunkMgmt management = new TrunkMgmt();
+        @Override
+        public void provideBandwidth(double upstream, double downstream) {
+            synchronized (TransientAggregator.this) {
+                if (upstream < 0)
+                    throw new IllegalArgumentException("negative upstream: "
+                        + upstream);
+                if (downstream < 0)
+                    throw new IllegalArgumentException("negative downstream: "
+                        + downstream);
+                upstreamBandwidth += upstream;
+                downstreamBandwidth += downstream;
+            }
+        }
 
-        class TrunkMgmt implements Trunk {
-            @Override
-            public void withdrawBandwidth(double upstream,
-                                          double downstream) {
-                synchronized (TransientAggregator.this) {
-                    if (upstream < 0)
-                        throw new IllegalArgumentException("negative upstream: "
-                            + upstream);
-                    if (upstream > upstreamBandwidth)
-                        throw new IllegalArgumentException("request upstream "
-                            + upstream + " exceeds " + upstreamBandwidth);
-                    if (downstream < 0)
-                        throw new IllegalArgumentException("negative downstream: "
-                            + downstream);
-                    if (downstream > downstreamBandwidth)
-                        throw new IllegalArgumentException("request downstream "
-                            + downstream + " exceeds " + downstreamBandwidth);
+        @Override
+        public void setDelay(double delay) {
+            synchronized (TransientAggregator.this) {
+                MyTrunk.this.delay = delay;
+            }
+        }
 
-                    upstreamBandwidth -= upstream;
-                    downstreamBandwidth -= downstream;
+        @Override
+        public void revokeStartLabelRange(int startBase, int amount) {
+            synchronized (TransientAggregator.this) {
+                for (int i = startBase; i < startBase + amount; i++) {
+                    Integer o = startToEndMap.remove(i);
+                    if (o == null) continue;
+                    endToStartMap.remove(o);
                 }
             }
+        }
 
-            @Override
-            public void provideBandwidth(double upstream, double downstream) {
-                synchronized (TransientAggregator.this) {
-                    if (upstream < 0)
-                        throw new IllegalArgumentException("negative upstream: "
-                            + upstream);
-                    if (downstream < 0)
-                        throw new IllegalArgumentException("negative downstream: "
-                            + downstream);
-                    upstreamBandwidth += upstream;
-                    downstreamBandwidth += downstream;
+        @Override
+        public void revokeEndLabelRange(int endBase, int amount) {
+            synchronized (TransientAggregator.this) {
+                for (int i = endBase; i < endBase + amount; i++) {
+                    Integer o = endToStartMap.remove(i);
+                    if (o == null) continue;
+                    startToEndMap.remove(o);
                 }
             }
+        }
 
-            @Override
-            public void setDelay(double delay) {
-                synchronized (TransientAggregator.this) {
-                    MyTrunk.this.delay = delay;
-                }
+        @Override
+        public void defineLabelRange(int startBase, int amount, int endBase) {
+            synchronized (TransientAggregator.this) {
+                if (startBase + amount < startBase)
+                    throw new IllegalArgumentException("illegal start range "
+                        + startBase + " plus " + amount);
+                if (endBase + amount < endBase)
+                    throw new IllegalArgumentException("illegal end range "
+                        + endBase + " plus " + amount);
+
+                /* Check that all numbers are available. */
+                Map<Integer, Integer> startExisting =
+                    startToEndMap.subMap(startBase, startBase + amount);
+                if (!startExisting.isEmpty())
+                    throw new IllegalArgumentException("start range in use "
+                        + startExisting.keySet());
+                Map<Integer, Integer> endExisting =
+                    endToStartMap.subMap(endBase, endBase + amount);
+                if (!endExisting.isEmpty())
+                    throw new IllegalArgumentException("end range in use "
+                        + endExisting.keySet());
+
+                /* Add all the labels. */
+                startToEndMap.putAll(IntStream
+                    .range(startBase, startBase + amount).boxed()
+                    .collect(Collectors
+                        .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                          k -> k.intValue()
+                                                              + endBase
+                                                              - startBase)));
+                availableTunnels.set(startBase, startBase + amount);
+                endToStartMap.putAll(IntStream
+                    .range(endBase, endBase + amount).boxed()
+                    .collect(Collectors
+                        .<Integer, Integer, Integer>toMap(Integer::intValue,
+                                                          k -> k.intValue()
+                                                              + endBase
+                                                              - startBase)));
             }
+        }
 
-            @Override
-            public double getDelay() {
-                synchronized (TransientAggregator.this) {
-                    return delay;
-                }
-            }
-
-            @Override
-            public void revokeStartLabelRange(int startBase, int amount) {
-                synchronized (TransientAggregator.this) {
-                    for (int i = startBase; i < startBase + amount; i++) {
-                        Integer o = startToEndMap.remove(i);
-                        if (o == null) continue;
-                        endToStartMap.remove(o);
-                    }
-                }
-            }
-
-            @Override
-            public void revokeEndLabelRange(int endBase, int amount) {
-                synchronized (TransientAggregator.this) {
-                    for (int i = endBase; i < endBase + amount; i++) {
-                        Integer o = endToStartMap.remove(i);
-                        if (o == null) continue;
-                        startToEndMap.remove(o);
-                    }
-                }
-            }
-
-            @Override
-            public void defineLabelRange(int startBase, int amount,
-                                         int endBase) {
-                synchronized (TransientAggregator.this) {
-                    if (startBase + amount < startBase)
-                        throw new IllegalArgumentException("illegal start range "
-                            + startBase + " plus " + amount);
-                    if (endBase + amount < endBase)
-                        throw new IllegalArgumentException("illegal end range "
-                            + endBase + " plus " + amount);
-
-                    /* Check that all numbers are available. */
-                    Map<Integer, Integer> startExisting =
-                        startToEndMap.subMap(startBase, startBase + amount);
-                    if (!startExisting.isEmpty())
-                        throw new IllegalArgumentException("start range in use "
-                            + startExisting.keySet());
-                    Map<Integer, Integer> endExisting =
-                        endToStartMap.subMap(endBase, endBase + amount);
-                    if (!endExisting.isEmpty())
-                        throw new IllegalArgumentException("end range in use "
-                            + endExisting.keySet());
-
-                    /* Add all the labels. */
-                    startToEndMap.putAll(IntStream
-                        .range(startBase, startBase + amount).boxed()
-                        .collect(Collectors
-                            .<Integer, Integer, Integer>toMap(Integer::intValue,
-                                                              k -> k
-                                                                  .intValue()
-                                                                  + endBase
-                                                                  - startBase)));
-                    availableTunnels.set(startBase, startBase + amount);
-                    endToStartMap.putAll(IntStream
-                        .range(endBase, endBase + amount).boxed()
-                        .collect(Collectors
-                            .<Integer, Integer, Integer>toMap(Integer::intValue,
-                                                              k -> k
-                                                                  .intValue()
-                                                                  + endBase
-                                                                  - startBase)));
-                }
-            }
-
-            @Override
-            public int position(Terminal term) {
-                return getTerminals().indexOf(term);
-            }
-        };
+        @Override
+        public int position(Terminal term) {
+            return getTerminals().indexOf(term);
+        }
 
         @Override
         public String toString() {
@@ -850,7 +891,7 @@ public class TransientAggregator implements ManagedAggregator {
         MyTrunk trunk = new MyTrunk(p1, p2);
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
-        return trunk.getManagement();
+        return trunk;
     }
 
     @Override
@@ -862,7 +903,7 @@ public class TransientAggregator implements ManagedAggregator {
 
     @Override
     public synchronized Trunk findTrunk(Terminal p) {
-        return trunks.get(p).getManagement();
+        return trunks.get(p);
     }
 
     @Override
@@ -909,7 +950,7 @@ public class TransientAggregator implements ManagedAggregator {
      */
     synchronized void
         plotAsymmetricTree(ServiceDescription request,
-                           Map<? super TrunkControl, ? super EndPoint<? extends Terminal>> tunnels,
+                           Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
                            Collection<? super ServiceDescription> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
@@ -1198,7 +1239,7 @@ public class TransientAggregator implements ManagedAggregator {
     synchronized void
         plotTree(Collection<? extends EndPoint<? extends Terminal>> terminals,
                  double bandwidth,
-                 Map<? super TrunkControl, ? super EndPoint<? extends Terminal>> tunnels,
+                 Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
                  Map<? super NetworkControl, Collection<EndPoint<? extends Terminal>>> subterminals) {
         // System.err.println("outer terminal end points: " +
         // terminals);
@@ -1284,7 +1325,7 @@ public class TransientAggregator implements ManagedAggregator {
 
             /* Create a tunnel along this trunk, and remember one end of
              * it. */
-            TrunkControl firstTrunk = trunks.get(edge.first());
+            MyTrunk firstTrunk = trunks.get(edge.first());
             EndPoint<? extends Terminal> ep1 =
                 firstTrunk.allocateTunnel(bandwidth, bandwidth);
             tunnels.put(firstTrunk, ep1);
@@ -1338,9 +1379,9 @@ public class TransientAggregator implements ManagedAggregator {
         // System.err.println("Usable trunks: " + adequateTrunks);
 
         /* Get edges representing all suitable trunks. */
-        Map<Edge<Terminal>, Double> edges = new HashMap<>(adequateTrunks
-            .stream().collect(Collectors.toMap(t -> Edge.of(t.getTerminals()),
-                                               TrunkControl::getDelay)));
+        Map<Edge<Terminal>, Double> edges =
+            new HashMap<>(adequateTrunks.stream().collect(Collectors
+                .toMap(t -> Edge.of(t.getTerminals()), MyTrunk::getDelay)));
         // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */
