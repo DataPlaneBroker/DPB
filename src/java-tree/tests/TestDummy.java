@@ -117,7 +117,7 @@ public class TestDummy {
         IdleExecutor.processAll();
 
         /* Show the current status. */
-        zwitch.dump(new PrintWriter(System.out));
+        zwitch.dumpStatus(new PrintWriter(System.out));
 
         System.out.println("End of program");
     }

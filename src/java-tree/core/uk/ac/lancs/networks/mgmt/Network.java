@@ -35,18 +35,36 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.io.PrintWriter;
+
 import uk.ac.lancs.networks.NetworkControl;
 
 /**
- * Operations include querying terminals and obtaining the control
- * interface.
+ * Operations include removing terminals, dumping status and obtaining
+ * the control interface.
  * 
- * @summary A network that supports the creation of connectivity
- * services across its terminals
+ * @summary A basic commandable network
  * 
  * @author simpsons
  */
 public interface Network {
+    /**
+     * Remove a terminal from a network.
+     * 
+     * @param name the name of the terminal
+     * 
+     * @throws IllegalStateException if the named terminal is in use
+     */
+    void removeTerminal(String name);
+
+    /**
+     * Dump status.
+     * 
+     * @param out the destination for the textual description of the
+     * network's status
+     */
+    void dumpStatus(PrintWriter out);
+
     /**
      * Get the controlling interface for this network.
      * 

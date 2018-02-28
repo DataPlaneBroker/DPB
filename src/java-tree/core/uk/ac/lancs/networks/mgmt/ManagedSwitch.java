@@ -43,7 +43,7 @@ import uk.ac.lancs.networks.Terminal;
  * 
  * @author simpsons
  */
-public interface ManagedSwitch extends ManagedNetwork {
+public interface ManagedSwitch extends Network {
     /**
      * Add a terminal mapping to an internal resource.
      * 

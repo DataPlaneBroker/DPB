@@ -58,7 +58,6 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.ManagedAggregator;
-import uk.ac.lancs.networks.mgmt.ManagedNetwork;
 import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkContext;
@@ -78,7 +77,6 @@ public final class Commander {
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
     Network network = null;
-    ManagedNetwork managedNetwork = null;
     ManagedSwitch zwitch = null;
     ManagedAggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
@@ -131,16 +129,12 @@ public final class Commander {
                 return false;
             }
             networkName = name;
-            if (network instanceof ManagedNetwork)
-                managedNetwork = (ManagedNetwork) network;
-            else
-                managedNetwork = null;
-            if (managedNetwork instanceof ManagedSwitch)
-                zwitch = (ManagedSwitch) managedNetwork;
+            if (network instanceof ManagedSwitch)
+                zwitch = (ManagedSwitch) network;
             else
                 zwitch = null;
-            if (managedNetwork instanceof ManagedAggregator)
-                aggregator = (ManagedAggregator) managedNetwork;
+            if (network instanceof ManagedAggregator)
+                aggregator = (ManagedAggregator) network;
             else
                 aggregator = null;
             service = null;
@@ -241,12 +235,12 @@ public final class Commander {
             usage = arg + " <service-id>";
             String sid = iter.next();
             int id = Integer.parseInt(sid);
-            service = managedNetwork.getControl().getService(id);
+            service = network.getControl().getService(id);
             return true;
         }
 
         if ("new".equals(arg)) {
-            service = managedNetwork.getControl().newService();
+            service = network.getControl().newService();
             System.out.printf("Created new service: %d on %s%n", service.id(),
                               networkName);
             return true;
@@ -318,12 +312,7 @@ public final class Commander {
                 System.err.println("Network unspecified");
                 return false;
             }
-            if (managedNetwork == null) {
-                System.err.printf("Can't remove terminals from %s%n",
-                                  networkName);
-                return false;
-            }
-            managedNetwork.removeTerminal(name);
+            network.removeTerminal(name);
             return true;
         }
 
@@ -349,11 +338,11 @@ public final class Commander {
         }
 
         if ("dump".equals(arg)) {
-            if (managedNetwork == null) {
+            if (network == null) {
                 System.err.printf("No network to dump%n");
                 return false;
             }
-            managedNetwork.dumpStatus(new PrintWriter(System.out));
+            network.dumpStatus(new PrintWriter(System.out));
             return true;
         }
 
@@ -392,11 +381,10 @@ public final class Commander {
             throw new IllegalArgumentException("not an end point: " + name);
         String terminalName = m.group(1);
         int label = Integer.parseInt(m.group(2));
-        if (managedNetwork == null)
+        if (network == null)
             throw new IllegalArgumentException("network not set"
                 + " to find end point: " + name);
-        Terminal terminal =
-            managedNetwork.getControl().getTerminal(terminalName);
+        Terminal terminal = network.getControl().getTerminal(terminalName);
         return terminal.getEndPoint(label);
     }
 

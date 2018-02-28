@@ -43,7 +43,7 @@ import uk.ac.lancs.networks.Terminal;
  * 
  * @author simpsons
  */
-public interface ManagedAggregator extends Aggregator, ManagedNetwork {
+public interface ManagedAggregator extends Aggregator {
     /**
      * Add a new external terminal exposing an inferior switch's
      * terminal.

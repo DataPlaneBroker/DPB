@@ -219,7 +219,8 @@ public class DummySwitch implements Network {
      * 
      * @param out the destination for the status report
      */
-    public void dump(PrintWriter out) {
+    @Override
+    public void dumpStatus(PrintWriter out) {
         Collection<MyService> connections;
         synchronized (this) {
             connections = new ArrayList<>(this.connections.values());
@@ -253,6 +254,11 @@ public class DummySwitch implements Network {
         MyTerminal terminal = new MyTerminal(name);
         terminals.put(name, terminal);
         return terminal;
+    }
+
+    @Override
+    public synchronized void removeTerminal(String name) {
+        terminals.remove(name);
     }
 
     @Override

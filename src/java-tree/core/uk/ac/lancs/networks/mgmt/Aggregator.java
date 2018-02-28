@@ -35,6 +35,7 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 
 /**
@@ -42,8 +43,8 @@ import uk.ac.lancs.networks.Terminal;
  * trunks connecting their terminals together. An aggregator
  * distinguishes between internal and external terminals. External
  * terminals are its own, and can be obtained from the aggregator's
- * {@link Network#getTerminal(String)} method. Internal terminals belong
- * to inferior networks, and are used to define trunks, or can be
+ * {@link NetworkControl#getTerminal(String)} method. Internal terminals
+ * belong to inferior networks, and are used to define trunks, or can be
  * associated with external terminals. A trunk connects the terminals of
  * two different inferior networks together by calling
  * {@link #addTrunk(Terminal, Terminal)}. To implement a service, the
