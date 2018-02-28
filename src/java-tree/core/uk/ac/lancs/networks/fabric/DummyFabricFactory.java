@@ -48,15 +48,20 @@ import uk.ac.lancs.scc.jardeps.Service;
 @Service(FabricFactory.class)
 public final class DummyFabricFactory implements FabricFactory {
     /**
+     * @undocumented
+     */
+    public static final String TYPE_NAME = "dummy";
+
+    /**
      * {@inheritDoc}
      * 
      * <p>
      * This implementation recognizes only the string
-     * <samp>dummy</samp>.
+     * <samp>{@value #TYPE_NAME}</samp>.
      */
     @Override
     public boolean recognize(String type) {
-        return "dummy".equals(type);
+        return TYPE_NAME.equals(type);
     }
 
     @Override
