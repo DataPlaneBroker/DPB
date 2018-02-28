@@ -35,7 +35,6 @@
  */
 package uk.ac.lancs.networks.persist;
 
-import java.sql.SQLException;
 import java.util.concurrent.Executor;
 
 import uk.ac.lancs.config.Configuration;
@@ -44,18 +43,16 @@ import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * Creates persistent network switches.
- * 
- * @see PersistentSwitch
+ * Creates persistent network aggregators.
  * 
  * @author simpsons
  */
 @Service(NetworkFactory.class)
-public final class PersistentSwitchFactory implements NetworkFactory {
+public final class PersistentAggregatorFactory implements NetworkFactory {
     /**
      * @undocumented
      */
-    public static final String TYPE_NAME = "persistent-switch";
+    public static final String TYPE_NAME = "persistent-aggregator";
 
     /**
      * {@inheritDoc}
@@ -71,12 +68,8 @@ public final class PersistentSwitchFactory implements NetworkFactory {
 
     @Override
     public Network makeNetwork(Executor executor, Configuration conf) {
-        PersistentSwitch result = new PersistentSwitch(executor, conf);
-        try {
-            result.init();
-        } catch (SQLException ex) {
-            throw new RuntimeException("initializing", ex);
-        }
-        return result;
+        PersistentAggregator network =
+            new PersistentAggregator(executor, conf);
+        return network;
     }
 }
