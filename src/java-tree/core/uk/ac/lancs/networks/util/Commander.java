@@ -43,12 +43,15 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.InvalidServiceException;
+import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
@@ -58,6 +61,7 @@ import uk.ac.lancs.networks.mgmt.ManagedAggregator;
 import uk.ac.lancs.networks.mgmt.ManagedNetwork;
 import uk.ac.lancs.networks.mgmt.ManagedSwitch;
 import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkContext;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.networks.mgmt.Trunk;
 
@@ -92,11 +96,22 @@ public final class Commander {
             config = configCtxt.get(arg);
             for (Configuration nwc : config.references("networks")) {
                 String type = nwc.get("type");
+                NetworkContext ctxt = new NetworkContext() {
+                    @Override
+                    public Function<? super String, ? extends NetworkControl>
+                        inferiors() {
+                        return s -> networks.get(s).getControl();
+                    }
+
+                    @Override
+                    public Executor executor() {
+                        return IdleExecutor.INSTANCE;
+                    }
+                };
                 for (NetworkFactory factory : ServiceLoader
                     .load(NetworkFactory.class)) {
                     if (!factory.recognize(type)) continue;
-                    Network nw =
-                        factory.makeNetwork(IdleExecutor.INSTANCE, nwc);
+                    Network nw = factory.makeNetwork(ctxt, nwc);
                     String name = nwc.get("name");
                     networks.put(name, nw);
                     System.out.printf("Creating network %s as %s%n", name,

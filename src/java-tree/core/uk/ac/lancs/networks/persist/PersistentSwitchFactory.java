@@ -36,10 +36,10 @@
 package uk.ac.lancs.networks.persist;
 
 import java.sql.SQLException;
-import java.util.concurrent.Executor;
 
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkContext;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.scc.jardeps.Service;
 
@@ -70,8 +70,8 @@ public final class PersistentSwitchFactory implements NetworkFactory {
     }
 
     @Override
-    public Network makeNetwork(Executor executor, Configuration conf) {
-        PersistentSwitch result = new PersistentSwitch(executor, conf);
+    public Network makeNetwork(NetworkContext ctxt, Configuration conf) {
+        PersistentSwitch result = new PersistentSwitch(ctxt.executor(), conf);
         try {
             result.init();
         } catch (SQLException ex) {

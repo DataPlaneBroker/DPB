@@ -52,6 +52,7 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -877,10 +878,16 @@ public class PersistentAggregator implements ManagedAggregator {
      * @param executor used to invoke call-backs created by this
      * aggregator and passed to inferior networks
      * 
+     * @param inferiors a mapping from names to networks, so that this
+     * aggregator can find inferior networks and the terminals and ports
+     * on them
+     * 
      * @param config the configuration describing the network and access
      * to the database
      */
-    public PersistentAggregator(Executor executor, Configuration config) {
+    public PersistentAggregator(Executor executor,
+                                Function<? super String, ? extends NetworkControl> inferiors,
+                                Configuration config) {
         this.executor = executor;
         this.name = config.get("name");
     }

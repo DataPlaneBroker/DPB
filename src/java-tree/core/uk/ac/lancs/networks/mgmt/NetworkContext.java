@@ -33,42 +33,32 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.persist;
+package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkContext;
-import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.scc.jardeps.Service;
+import java.util.concurrent.Executor;
+import java.util.function.Function;
+
+import uk.ac.lancs.networks.NetworkControl;
 
 /**
- * Creates persistent network aggregators.
+ * Provides run-time resources to a network instance.
  * 
  * @author simpsons
  */
-@Service(NetworkFactory.class)
-public final class PersistentAggregatorFactory implements NetworkFactory {
+public interface NetworkContext {
     /**
-     * @undocumented
-     */
-    public static final String TYPE_NAME = "persistent-aggregator";
-
-    /**
-     * {@inheritDoc}
+     * Get the executor to be used by this network for any callbacks it
+     * sets up.
      * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp>.
+     * @return the network's executor
      */
-    @Override
-    public boolean recognize(String type) {
-        return TYPE_NAME.equals(type);
-    }
+    Executor executor();
 
-    @Override
-    public Network makeNetwork(NetworkContext ctxt, Configuration conf) {
-        PersistentAggregator network =
-            new PersistentAggregator(ctxt.executor(), ctxt.inferiors(), conf);
-        return network;
-    }
+    /**
+     * Get the mapping of name to network. An aggregator may use this to
+     * identify end points of inferior networks.
+     * 
+     * @return the mapping from network name to network
+     */
+    Function<? super String, ? extends NetworkControl> inferiors();
 }

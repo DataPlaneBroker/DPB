@@ -38,8 +38,7 @@ package uk.ac.lancs.networks.fabric;
 import java.util.concurrent.Executor;
 
 /**
- * @summary A set of resources a switch fabric might need in its
- * implementation
+ * Provides run-time resources to a switch fabric instance.
  * 
  * @author simpsons
  */

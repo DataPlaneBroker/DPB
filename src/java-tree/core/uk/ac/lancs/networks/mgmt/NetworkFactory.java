@@ -35,8 +35,6 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import java.util.concurrent.Executor;
-
 import uk.ac.lancs.config.Configuration;
 
 /**
@@ -59,11 +57,11 @@ public interface NetworkFactory {
     /**
      * Create a network.
      * 
-     * @param executor an executor to build the network's callbacks
+     * @param ctxt run-time resources for new network instances
      * 
      * @param conf the network configuration
      * 
      * @return the new network
      */
-    Network makeNetwork(Executor executor, Configuration conf);
+    Network makeNetwork(NetworkContext ctxt, Configuration conf);
 }
