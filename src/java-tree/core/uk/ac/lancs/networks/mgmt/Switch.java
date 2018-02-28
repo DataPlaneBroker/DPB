@@ -38,21 +38,21 @@ package uk.ac.lancs.networks.mgmt;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary An aggregator to which new terminals can be added and mapped
- * to inferior networks' terminals
+ * @summary A network switch which allows terminals to be added and
+ * mapped to a fabric interface
  * 
  * @author simpsons
  */
-public interface ManagedAggregator extends Aggregator {
+public interface Switch extends Network {
     /**
-     * Add a new external terminal exposing an inferior switch's
-     * terminal.
+     * Add a terminal mapping to an internal resource.
      * 
-     * @param name the local name of the terminal
+     * @param terminalName the new terminal's name
      * 
-     * @param inner the terminal of an inferior switch
+     * @param interfaceName the name of the fabric interface the
+     * terminal maps to
      * 
-     * @return the newly created terminal
+     * @return the new terminal
      */
-    Terminal addTerminal(String name, Terminal inner);
+    Terminal addTerminal(String terminalName, String interfaceName);
 }

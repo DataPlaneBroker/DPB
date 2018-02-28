@@ -57,11 +57,11 @@ import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.end_points.EndPoint;
-import uk.ac.lancs.networks.mgmt.ManagedAggregator;
-import uk.ac.lancs.networks.mgmt.ManagedSwitch;
+import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkContext;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
+import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.Trunk;
 
 /**
@@ -77,8 +77,8 @@ public final class Commander {
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
     Network network = null;
-    ManagedSwitch zwitch = null;
-    ManagedAggregator aggregator = null;
+    Switch zwitch = null;
+    Aggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
     Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
     Service service = null;
@@ -129,12 +129,12 @@ public final class Commander {
                 return false;
             }
             networkName = name;
-            if (network instanceof ManagedSwitch)
-                zwitch = (ManagedSwitch) network;
+            if (network instanceof Switch)
+                zwitch = (Switch) network;
             else
                 zwitch = null;
-            if (network instanceof ManagedAggregator)
-                aggregator = (ManagedAggregator) network;
+            if (network instanceof Aggregator)
+                aggregator = (Aggregator) network;
             else
                 aggregator = null;
             service = null;

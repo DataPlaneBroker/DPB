@@ -40,18 +40,25 @@ import uk.ac.lancs.networks.Terminal;
 
 /**
  * An aggregator consists of a set of inferior networks plus a set of
- * trunks connecting their terminals together. An aggregator
- * distinguishes between internal and external terminals. External
- * terminals are its own, and can be obtained from the aggregator's
- * {@link NetworkControl#getTerminal(String)} method. Internal terminals
- * belong to inferior networks, and are used to define trunks, or can be
- * associated with external terminals. A trunk connects the terminals of
- * two different inferior networks together by calling
- * {@link #addTrunk(Terminal, Terminal)}. To implement a service, the
- * aggregator uses its knowledge of trunk topology to plot spanning
- * trees over its trunks, and delegates service requests to the inferior
- * networks owning the terminals at the ends of the trunks that
- * contribute to the spanning tree.
+ * trunks connecting their terminals together.
+ * 
+ * <p>
+ * An aggregator distinguishes between internal and external terminals.
+ * External terminals are its own, and can be obtained from the
+ * aggregator's {@link NetworkControl#getTerminal(String)} method
+ * through {@link Network#getControl()}. Internal terminals belong to
+ * inferior networks, and are used to define trunks, or can be
+ * associated with external terminals. When creating (external)
+ * terminals on an aggregator, they must be mapped to internal
+ * terminals.
+ * 
+ * <p>
+ * A trunk connects the terminals of two different inferior networks
+ * together by calling {@link #addTrunk(Terminal, Terminal)}. To
+ * implement a service, the aggregator uses its knowledge of trunk
+ * topology to plot spanning trees over its trunks, and delegates
+ * service requests to the inferior networks owning the terminals at the
+ * ends of the trunks that contribute to the spanning tree.
  * 
  * @summary A network that is an aggregate of inferior networks
  * 
@@ -89,4 +96,16 @@ public interface Aggregator extends Network {
      * to the network
      */
     Trunk findTrunk(Terminal t);
+
+    /**
+     * Add a new external terminal exposing an inferior switch's
+     * terminal.
+     * 
+     * @param name the local name of the terminal
+     * 
+     * @param inner the terminal of an inferior switch
+     * 
+     * @return the newly created terminal
+     */
+    Terminal addTerminal(String name, Terminal inner);
 }

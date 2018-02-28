@@ -76,7 +76,7 @@ import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.FabricContext;
 import uk.ac.lancs.networks.fabric.FabricFactory;
 import uk.ac.lancs.networks.fabric.Interface;
-import uk.ac.lancs.networks.mgmt.ManagedSwitch;
+import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -86,7 +86,7 @@ import uk.ac.lancs.routing.span.Edge;
  * 
  * @author simpsons
  */
-public class PersistentSwitch implements ManagedSwitch {
+public class PersistentSwitch implements Switch {
     private final Fabric fabric;
 
     private class MyTerminal implements Terminal {

@@ -67,7 +67,7 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.end_points.EndPoint;
-import uk.ac.lancs.networks.mgmt.ManagedAggregator;
+import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -84,7 +84,7 @@ import uk.ac.lancs.routing.span.Way;
  * 
  * @author simpsons
  */
-public class PersistentAggregator implements ManagedAggregator {
+public class PersistentAggregator implements Aggregator {
     private class MyTerminal implements Terminal {
         private final String name;
         private final Terminal innerPort;
