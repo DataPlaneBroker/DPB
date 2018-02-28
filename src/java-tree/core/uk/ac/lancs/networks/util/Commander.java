@@ -380,7 +380,7 @@ public final class Commander {
         if (network == null)
             throw new IllegalArgumentException("unknown network in terminal: "
                 + name);
-        return network.getTerminal(terminalName);
+        return network.getControl().getTerminal(terminalName);
     }
 
     private static final Pattern endPointPattern =
@@ -395,7 +395,8 @@ public final class Commander {
         if (managedNetwork == null)
             throw new IllegalArgumentException("network not set"
                 + " to find end point: " + name);
-        Terminal terminal = managedNetwork.getTerminal(terminalName);
+        Terminal terminal =
+            managedNetwork.getControl().getTerminal(terminalName);
         return terminal.getEndPoint(label);
     }
 

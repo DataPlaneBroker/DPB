@@ -58,8 +58,8 @@ public class TestDummyInitiateTopology {
     private static Trunk link(Aggregator aggregator, Network zwitch1,
                               String port1, Network zwitch2, String port2,
                               double bandwidth, int baseTag, int tagCount) {
-        Terminal p1 = zwitch1.getTerminal(port1);
-        Terminal p2 = zwitch2.getTerminal(port2);
+        Terminal p1 = zwitch1.getControl().getTerminal(port1);
+        Terminal p2 = zwitch2.getControl().getTerminal(port2);
         Trunk result = aggregator.addTrunk(p1, p2);
         result.provideBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
@@ -100,11 +100,16 @@ public class TestDummyInitiateTopology {
             new TransientAggregator(IdleExecutor.INSTANCE, "initiate");
 
         /* Expose inferior switches' unlinked ports. */
-        aggregator.addTerminal("lancs.vms", lancs.getTerminal("vms"));
-        aggregator.addTerminal("bristol.vms", bristol.getTerminal("vms"));
-        aggregator.addTerminal("kcl.vms", kcl.getTerminal("vms"));
-        aggregator.addTerminal("edin.vms", edin.getTerminal("vms"));
-        aggregator.addTerminal("slough.vms", slough.getTerminal("vms"));
+        aggregator.addTerminal("lancs.vms",
+                               lancs.getControl().getTerminal("vms"));
+        aggregator.addTerminal("bristol.vms",
+                               bristol.getControl().getTerminal("vms"));
+        aggregator.addTerminal("kcl.vms",
+                               kcl.getControl().getTerminal("vms"));
+        aggregator.addTerminal("edin.vms",
+                               edin.getControl().getTerminal("vms"));
+        aggregator.addTerminal("slough.vms",
+                               slough.getControl().getTerminal("vms"));
 
         /* Link up the inferior switches within the superior. */
         link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);
@@ -153,10 +158,11 @@ public class TestDummyInitiateTopology {
         c1.addListener(cl1);
 
         c1.initiate(ServiceDescription.start().produce(100.0)
-            .add(aggregator.getTerminal("lancs.vms"), 1234)
-            .add(aggregator.getTerminal("bristol.vms"), 1111)
-            .add(aggregator.getTerminal("slough.vms"), 2222)
-            .add(aggregator.getTerminal("slough.vms"), 2223).create());
+            .add(aggregator.getControl().getTerminal("lancs.vms"), 1234)
+            .add(aggregator.getControl().getTerminal("bristol.vms"), 1111)
+            .add(aggregator.getControl().getTerminal("slough.vms"), 2222)
+            .add(aggregator.getControl().getTerminal("slough.vms"), 2223)
+            .create());
 
         IdleExecutor.processAll();
 

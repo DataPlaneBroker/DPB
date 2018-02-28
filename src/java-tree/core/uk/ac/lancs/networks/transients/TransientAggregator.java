@@ -926,11 +926,6 @@ public class TransientAggregator implements ManagedAggregator {
     }
 
     @Override
-    public synchronized Terminal getTerminal(String id) {
-        return terminals.get(id);
-    }
-
-    @Override
     public NetworkControl getControl() {
         return control;
     }
@@ -1418,6 +1413,20 @@ public class TransientAggregator implements ManagedAggregator {
 
     private final NetworkControl control = new NetworkControl() {
         @Override
+        public Terminal getTerminal(String id) {
+            synchronized (TransientAggregator.this) {
+                return terminals.get(id);
+            }
+        }
+
+        @Override
+        public Collection<String> getTerminals() {
+            synchronized (TransientAggregator.this) {
+                return new HashSet<>(terminals.keySet());
+            }
+        }
+
+        @Override
         public Map<Edge<Terminal>, Double> getModel(double bandwidth) {
             return TransientAggregator.this.getModel(bandwidth);
         }
@@ -1444,11 +1453,6 @@ public class TransientAggregator implements ManagedAggregator {
             return new HashSet<>(services.keySet());
         }
     };
-
-    @Override
-    public Collection<String> getTerminals() {
-        return new HashSet<>(terminals.keySet());
-    }
 
     @SuppressWarnings("unchecked")
     private <I> I protect(Class<I> type, I base) {

@@ -60,6 +60,24 @@ import uk.ac.lancs.routing.span.Edge;
  */
 public interface NetworkControl {
     /**
+     * Get a terminal on this network.
+     * 
+     * @param id the local terminal name
+     * 
+     * @return the requested terminal, or {@code null} if no such
+     * terminal exists
+     */
+    Terminal getTerminal(String id);
+
+    /**
+     * Get a set of all terminals on this network.
+     * 
+     * @return a mutable collection of names of terminals created by
+     * {@link #getTerminal(String)}
+     */
+    Collection<String> getTerminals();
+
+    /**
      * Create a service.
      */
     Service newService();

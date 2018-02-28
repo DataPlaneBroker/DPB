@@ -683,8 +683,7 @@ public class PersistentSwitch implements ManagedSwitch {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
-    @Override
-    public synchronized Terminal getTerminal(String id) {
+    private synchronized Terminal getTerminal(String id) {
         return terminals.get(id);
     }
 
@@ -699,6 +698,16 @@ public class PersistentSwitch implements ManagedSwitch {
      * lexical nesting and simplify synchronization.
      */
     private final NetworkControl control = new NetworkControl() {
+        @Override
+        public Terminal getTerminal(String id) {
+            return PersistentSwitch.this.getTerminal(id);
+        }
+
+        @Override
+        public Collection<String> getTerminals() {
+            return PersistentSwitch.this.getTerminals();
+        }
+
         @Override
         public Service newService() {
             return PersistentSwitch.this.newService();
@@ -725,8 +734,7 @@ public class PersistentSwitch implements ManagedSwitch {
         }
     };
 
-    @Override
-    public synchronized Collection<String> getTerminals() {
+    private synchronized Collection<String> getTerminals() {
         return new HashSet<>(terminals.keySet());
     }
 

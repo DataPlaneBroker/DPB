@@ -256,16 +256,25 @@ public class DummySwitch implements Network {
     }
 
     @Override
-    public synchronized Terminal getTerminal(String id) {
-        return terminals.get(id);
-    }
-
-    @Override
     public NetworkControl getControl() {
         return control;
     }
 
     private final NetworkControl control = new NetworkControl() {
+        @Override
+        public Terminal getTerminal(String id) {
+            synchronized (DummySwitch.this) {
+                return terminals.get(id);
+            }
+        }
+
+        @Override
+        public Collection<String> getTerminals() {
+            synchronized (DummySwitch.this) {
+                return new HashSet<>(terminals.keySet());
+            }
+        }
+
         @Override
         public Service newService() {
             synchronized (DummySwitch.this) {
@@ -310,9 +319,4 @@ public class DummySwitch implements Network {
             return "ctrl:" + name;
         }
     };
-
-    @Override
-    public Collection<String> getTerminals() {
-        return new HashSet<>(terminals.keySet());
-    }
 }

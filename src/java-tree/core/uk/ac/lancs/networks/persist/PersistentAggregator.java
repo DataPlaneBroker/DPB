@@ -938,11 +938,6 @@ public class PersistentAggregator implements ManagedAggregator {
     }
 
     @Override
-    public synchronized Terminal getTerminal(String id) {
-        return terminals.get(id);
-    }
-
-    @Override
     public NetworkControl getControl() {
         return control;
     }
@@ -1435,6 +1430,20 @@ public class PersistentAggregator implements ManagedAggregator {
         }
 
         @Override
+        public Terminal getTerminal(String id) {
+            synchronized (PersistentAggregator.this) {
+                return terminals.get(id);
+            }
+        }
+
+        @Override
+        public Collection<String> getTerminals() {
+            synchronized (PersistentAggregator.this) {
+                return new HashSet<>(terminals.keySet());
+            }
+        }
+
+        @Override
         public Service getService(int id) {
             synchronized (PersistentAggregator.this) {
                 return services.get(id);
@@ -1456,11 +1465,6 @@ public class PersistentAggregator implements ManagedAggregator {
             return new HashSet<>(services.keySet());
         }
     };
-
-    @Override
-    public Collection<String> getTerminals() {
-        return new HashSet<>(terminals.keySet());
-    }
 
     @SuppressWarnings("unchecked")
     private <I> I protect(Class<I> type, I base) {

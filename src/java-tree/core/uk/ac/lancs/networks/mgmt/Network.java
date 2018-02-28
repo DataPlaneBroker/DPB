@@ -35,10 +35,7 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import java.util.Collection;
-
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Terminal;
 
 /**
  * Operations include querying terminals and obtaining the control
@@ -50,24 +47,6 @@ import uk.ac.lancs.networks.Terminal;
  * @author simpsons
  */
 public interface Network {
-    /**
-     * Get a terminal on this network.
-     * 
-     * @param id the local terminal name
-     * 
-     * @return the requested terminal, or {@code null} if no such
-     * terminal exists
-     */
-    Terminal getTerminal(String id);
-
-    /**
-     * Get a set of all terminals on this network.
-     * 
-     * @return a mutable collection of names of terminals created by
-     * {@link #getTerminal(String)}
-     */
-    Collection<String> getTerminals();
-
     /**
      * Get the controlling interface for this network.
      * 
