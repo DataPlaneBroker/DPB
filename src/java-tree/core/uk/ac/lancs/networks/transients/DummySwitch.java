@@ -324,5 +324,10 @@ public class DummySwitch implements Network {
         public String toString() {
             return "ctrl:" + name;
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     };
 }

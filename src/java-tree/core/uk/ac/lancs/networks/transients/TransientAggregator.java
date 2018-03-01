@@ -1452,6 +1452,11 @@ public class TransientAggregator implements Aggregator {
         public Collection<Integer> getServiceIds() {
             return new HashSet<>(services.keySet());
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     };
 
     @SuppressWarnings("unchecked")

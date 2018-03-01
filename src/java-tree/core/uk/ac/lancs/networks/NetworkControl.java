@@ -60,6 +60,13 @@ import uk.ac.lancs.routing.span.Edge;
  */
 public interface NetworkControl {
     /**
+     * Get this network's name.
+     * 
+     * @return the network's name
+     */
+    String name();
+
+    /**
      * Get a terminal on this network.
      * 
      * @param id the local terminal name

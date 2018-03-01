@@ -732,6 +732,11 @@ public class PersistentSwitch implements Switch {
         public String toString() {
             return "ctrl:" + name;
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     };
 
     private synchronized Collection<String> getTerminals() {
