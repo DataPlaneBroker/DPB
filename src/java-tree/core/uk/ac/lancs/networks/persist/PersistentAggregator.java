@@ -1178,6 +1178,14 @@ public class PersistentAggregator implements Aggregator {
 
     private final Function<? super String, ? extends NetworkControl> inferiors;
 
+    /**
+     * Initialize the aggregator. Ensure the necessary tables exist in
+     * the database. Recreate the internal service records mentioned in
+     * the tables. Obtain subservices used to build these services.
+     * 
+     * @throws SQLException if there was an error in accessing the
+     * database
+     */
     public synchronized void init() throws SQLException {
         try (Connection conn = database()) {
             conn.setAutoCommit(false);

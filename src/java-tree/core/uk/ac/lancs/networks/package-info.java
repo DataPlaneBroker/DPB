@@ -37,10 +37,23 @@
 /**
  * The primary class is {@link uk.ac.lancs.networks.NetworkControl},
  * which allows the creation of {@link uk.ac.lancs.networks.Service}s
- * across it, connecting {@link uk.ac.lancs.networks.end_points.EndPoint}s with
- * certain QoS requirements. End points are numbered subdivisions of
+ * across it, connecting
+ * {@link uk.ac.lancs.networks.end_points.EndPoint}s with certain QoS
+ * requirements. End points are numbered subdivisions of
  * {@link uk.ac.lancs.networks.Terminal}s, points of access for traffic
  * into and out of a network.
+ * 
+ * <p>
+ * This API is intended for an ordinary user who has no control over the
+ * internal topology of the underlay he is using to build his overlays.
+ * At this level, all network types (aggregators and switches) look the
+ * same. A network has a number of terminals, and the user may request a
+ * service that connects a subset of end points of these terminals
+ * together.
+ * 
+ * <p>
+ * Port and link management should be done through
+ * {@link uk.ac.lancs.networks.mgmt}.
  * 
  * @summary Hierarchical out-of-band management of connectivity services
  * sliced from a physical network

@@ -4,6 +4,23 @@
   are used to manage the Corsa DP2*00s that sit at each site, to
   produce wide-area Ethernet segments.
 
+  <p>A command-line utility {@link
+  uk.ac.lancs.networks.util.Commander} is intended as the user front
+  end.  It takes a configuration file, which identifies networks to be
+  instantiated, along with database access parameters.  It then obeys
+  commands on the command line to add terminals to networks, link
+  terminals between networks, allocate bandwidth and labels, and
+  create and modify services.  It is intended to be used with the
+  persistent network implementations in {@link
+  uk.ac.lancs.networks.persist}, which will store their state in a
+  database, as it quits as soon as all commands have executed.</p>
+
+  <p>The main programmatic interfaces are in {@link
+  uk.ac.lancs.networks.end_points} (for the concept of end points,
+  numbered subdivisions of access points), {@link
+  uk.ac.lancs.networks} (user-oriented service creation) and {@link
+  uk.ac.lancs.networks.mgmt} (management of terminals and links).</p>
+
   @title Data-plane broker for INITIATE
 
   @group core Core packages
