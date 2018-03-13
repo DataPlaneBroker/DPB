@@ -40,6 +40,12 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -48,13 +54,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
-import java.util.TreeMap;
+import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.InvalidServiceException;
@@ -88,10 +92,12 @@ public class PersistentAggregator implements Aggregator {
     private class MyTerminal implements Terminal {
         private final String name;
         private final Terminal innerPort;
+        private final int dbid;
 
-        public MyTerminal(String name, Terminal innerPort) {
+        MyTerminal(String name, Terminal innerPort, int dbid) {
             this.name = name;
             this.innerPort = innerPort;
+            this.dbid = dbid;
         }
 
         public Terminal innerPort() {
@@ -110,6 +116,11 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public String toString() {
             return PersistentAggregator.this.name + ":" + name;
+        }
+
+        @Override
+        public String name() {
+            return name;
         }
     }
 
@@ -167,11 +178,6 @@ public class PersistentAggregator implements Aggregator {
             public void released() {
                 clientReleased(this);
             }
-
-            /***
-             * These methods are only to be called while synchronized on
-             * the containing connection.
-             ***/
 
             void activate() {
                 assert Thread.holdsLock(MyService.this);
@@ -354,7 +360,7 @@ public class PersistentAggregator implements Aggregator {
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
             Collection<ServiceDescription> subrequests = new HashSet<>();
-            plotAsymmetricTree(request, tunnels, subrequests);
+            plotAsymmetricTree(this, request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
@@ -384,20 +390,30 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public synchronized ServiceStatus status() {
-            if (intent == Intent.RELEASE) if (clients.isEmpty())
-                return ServiceStatus.RELEASED;
-            else
-                return ServiceStatus.RELEASING;
+            if (intent == Intent.RELEASE) {
+                if (clients.isEmpty())
+                    return ServiceStatus.RELEASED;
+                else
+                    return ServiceStatus.RELEASING;
+            }
             if (errorCount > 0 || !globalErrors.isEmpty())
                 return ServiceStatus.FAILED;
             if (tunnels == null) return ServiceStatus.DORMANT;
             assert errorCount == 0;
             if (readyCount < clients.size())
                 return ServiceStatus.ESTABLISHING;
-            if (intent == Intent.ACTIVE) return activeCount < clients.size()
-                ? ServiceStatus.ACTIVATING : ServiceStatus.ACTIVE;
-            return activeCount > 0 ? ServiceStatus.DEACTIVATING
-                : ServiceStatus.INACTIVE;
+
+            if (intent == Intent.ACTIVE) {
+                if (activeCount < clients.size())
+                    return ServiceStatus.ACTIVATING;
+                else
+                    return ServiceStatus.ACTIVE;
+            }
+
+            if (activeCount > 0)
+                return ServiceStatus.DEACTIVATING;
+            else
+                return ServiceStatus.INACTIVE;
         }
 
         @Override
@@ -414,6 +430,12 @@ public class PersistentAggregator implements Aggregator {
             /* Do nothing if we've already recorded the user's intent,
              * as we must also have activated inferior services. */
             if (intent == Intent.ACTIVE) return;
+            try (Connection conn = database()) {
+                updateIntent(conn, id, true);
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("failed to store intent",
+                                                   ex);
+            }
             intent = Intent.ACTIVE;
 
             /* Do nothing but record the user's intent, if they haven't
@@ -427,6 +449,12 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public synchronized void deactivate() {
             if (intent != Intent.ACTIVE) return;
+            try (Connection conn = database()) {
+                updateIntent(conn, id, false);
+            } catch (SQLException ex) {
+                throw new ServiceResourceException("failed to store intent",
+                                                   ex);
+            }
             intent = Intent.INACTIVE;
             deactivateInternal();
         }
@@ -477,6 +505,28 @@ public class PersistentAggregator implements Aggregator {
              * unfindable. */
             synchronized (PersistentAggregator.this) {
                 tunnels.forEach((k, v) -> k.releaseTunnel(v));
+                try (Connection conn = database()) {
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + subserviceTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + endPointTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + serviceTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                } catch (SQLException ex) {
+                    // Erm?
+                }
                 services.remove(id);
             }
             tunnels.clear();
@@ -531,6 +581,48 @@ public class PersistentAggregator implements Aggregator {
         public synchronized ServiceDescription getRequest() {
             return request;
         }
+
+        void recover(boolean active,
+                     Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                     Collection<? extends Service> subservices,
+                     Map<MyTrunk, EndPoint<? extends Terminal>> tunnels) {
+            request = ServiceDescription.create(endPoints);
+
+            this.tunnels = tunnels;
+
+            intent = active ? Intent.ACTIVE : Intent.INACTIVE;
+            clients.clear();
+            for (Service srv : subservices) {
+                Client cli = new Client(srv);
+                clients.add(cli);
+            }
+            errorCount = 0;
+            activeCount = 0;
+            clients.forEach(Client::init);
+
+            for (Client cli : clients) {
+                switch (cli.subservice.status()) {
+                case INACTIVE:
+                case ACTIVATING:
+                case DEACTIVATING:
+                    readyCount++;
+                    break;
+                case ACTIVE:
+                    readyCount++;
+                    activeCount++;
+                    cli.active = true;
+                    break;
+                case FAILED:
+                    errorCount++;
+                    break;
+                case RELEASED:
+                    clients.remove(cli);
+                    break;
+                default:
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -539,9 +631,10 @@ public class PersistentAggregator implements Aggregator {
      * @author simpsons
      */
     final class MyTrunk implements Trunk {
+        private final int dbid;
         private final Terminal start, end;
         private double delay = 0.0;
-        private double upstreamBandwidth = 0.0, downstreamBandwidth = 0.0;
+        private double upstreamCapacity = 0.0, downstreamCapacity = 0.0;
 
         /**
          * Create a trunk between two terminals.
@@ -550,9 +643,10 @@ public class PersistentAggregator implements Aggregator {
          * 
          * @param end the other end
          */
-        MyTrunk(Terminal start, Terminal end) {
+        MyTrunk(Terminal start, Terminal end, int dbid) {
             this.start = start;
             this.end = end;
+            this.dbid = dbid;
         }
 
         /**
@@ -562,7 +656,8 @@ public class PersistentAggregator implements Aggregator {
          * to end
          */
         double getUpstreamBandwidth() {
-            return upstreamBandwidth;
+            assert Thread.holdsLock(PersistentAggregator.this);
+            return upstreamCapacity;
         }
 
         /**
@@ -573,7 +668,8 @@ public class PersistentAggregator implements Aggregator {
          * to start
          */
         double getDownstreamBandwidth() {
-            return downstreamBandwidth;
+            assert Thread.holdsLock(PersistentAggregator.this);
+            return downstreamCapacity;
         }
 
         /**
@@ -584,16 +680,6 @@ public class PersistentAggregator implements Aggregator {
         double getMaximumBandwidth() {
             return Math.max(getUpstreamBandwidth(), getDownstreamBandwidth());
         }
-
-        private final NavigableMap<Integer, Integer> startToEndMap =
-            new TreeMap<>();
-        private final NavigableMap<Integer, Integer> endToStartMap =
-            new TreeMap<>();
-        private final BitSet availableTunnels = new BitSet();
-        private final Map<Integer, Double> upstreamAllocations =
-            new HashMap<>();
-        private final Map<Integer, Double> downstreamAllocations =
-            new HashMap<>();
 
         /**
          * Get the peer of an end point.
@@ -607,19 +693,32 @@ public class PersistentAggregator implements Aggregator {
          * belong to either terminal of this trunk
          */
         EndPoint<? extends Terminal> getPeer(EndPoint<? extends Terminal> p) {
-            synchronized (PersistentAggregator.this) {
-                if (p.getBundle().equals(start)) {
-                    Integer other = startToEndMap.get(p.getLabel());
-                    if (other == null) return null;
-                    return end.getEndPoint(other);
-                }
-                if (p.getBundle().equals(end)) {
-                    Integer other = endToStartMap.get(p.getLabel());
-                    if (other == null) return null;
-                    return start.getEndPoint(other);
-                }
+            final String indexKey, resultKey;
+            final Terminal base;
+            if (p.getBundle().equals(start)) {
+                indexKey = "start_label";
+                resultKey = "end_label";
+                base = end;
+            } else if (p.getBundle().equals(end)) {
+                indexKey = "end_label";
+                resultKey = "start_label";
+                base = start;
+            } else {
                 throw new IllegalArgumentException("end point does not"
                     + " belong to trunk");
+            }
+            try (Connection conn = database();
+                PreparedStatement stmt = conn.prepareStatement("SELECT "
+                    + resultKey + " FROM " + labelTable
+                    + " WHERE trunk_id = ?" + " AND " + indexKey + " = ?;")) {
+                stmt.setInt(1, dbid);
+                stmt.setInt(2, p.getLabel());
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) return null;
+                    return base.getEndPoint(rs.getInt(1));
+                }
+            } catch (SQLException ex) {
+                throw new RuntimeException("database inaccessible", ex);
             }
         }
 
@@ -638,8 +737,10 @@ public class PersistentAggregator implements Aggregator {
          * {@code null} if no further resource remains
          */
         EndPoint<? extends Terminal>
-            allocateTunnel(double upstreamBandwidth,
+            allocateTunnel(MyService service, double upstreamBandwidth,
                            double downstreamBandwidth) {
+            assert Thread.holdsLock(PersistentAggregator.this);
+
             /* Sanity-check bandwidth. */
             if (upstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative upstream: "
@@ -647,21 +748,56 @@ public class PersistentAggregator implements Aggregator {
             if (downstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative downstream: "
                     + downstreamBandwidth);
-            if (downstreamBandwidth > this.downstreamBandwidth) return null;
-            if (upstreamBandwidth > this.upstreamBandwidth) return null;
+            if (upstreamBandwidth > this.upstreamCapacity) return null;
+            if (downstreamBandwidth > this.downstreamCapacity) return null;
 
-            /* Obtain a tunnel. */
-            if (availableTunnels.isEmpty()) return null;
-            int startLabel = (short) availableTunnels.nextSetBit(0);
-            availableTunnels.clear(startLabel);
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
 
-            /* Allocate bandwidth. */
-            this.downstreamBandwidth -= downstreamBandwidth;
-            downstreamAllocations.put(startLabel, downstreamBandwidth);
-            this.upstreamBandwidth -= upstreamBandwidth;
-            upstreamAllocations.put(startLabel, upstreamBandwidth);
+                /* Find a free label. */
+                final int startLabel;
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT start_label FROM "
+                        + labelTable + " WHERE trunk_id = ?"
+                        + " AND up_alloc = NULL" + " LIMIT 1;")) {
+                    stmt.setInt(1, dbid);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (!rs.next()) return null;
+                        startLabel = rs.getInt(1);
+                    }
+                }
 
-            return start.getEndPoint(startLabel);
+                /* Store the allocation for the label, marking it as
+                 * unavailable/in-use. */
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                    + labelTable + " SET up_alloc = ?," + " down_alloc = ?"
+                    + ", service_id = ? " + " WHERE trunk_id = ?"
+                    + " AND start_label = ?;")) {
+                    stmt.setDouble(1, upstreamBandwidth);
+                    stmt.setDouble(2, downstreamBandwidth);
+                    stmt.setInt(3, service.id);
+                    stmt.setInt(4, dbid);
+                    stmt.setInt(5, startLabel);
+                    stmt.execute();
+                }
+
+                /* Mark our bandwidth as consumed. */
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                    + trunkTable + " SET up_cap = up_cap - ?,"
+                    + " down_cap = down_cap - ?" + " WHERE trunk_id = ?;")) {
+                    stmt.setDouble(1, upstreamBandwidth);
+                    stmt.setDouble(2, downstreamBandwidth);
+                    stmt.setInt(3, dbid);
+                    stmt.execute();
+                }
+
+                conn.commit();
+                this.upstreamCapacity -= upstreamBandwidth;
+                this.downstreamCapacity -= downstreamBandwidth;
+                return start.getEndPoint(startLabel);
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database error", e);
+            }
         }
 
         /**
@@ -670,32 +806,65 @@ public class PersistentAggregator implements Aggregator {
          * @param endPoint either of the tunnel end points
          */
         void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
-            final int startLabel;
+            /* Identify whether we're looking at the start or end of
+             * this tunnel. */
+            final int label = endPoint.getLabel();
+            final String key;
             if (endPoint.getBundle().equals(start)) {
-                startLabel = endPoint.getLabel();
-                if (!startToEndMap.containsKey(startLabel))
-                    throw new IllegalArgumentException("unmapped "
-                        + endPoint);
+                key = "start_label";
             } else if (endPoint.getBundle().equals(end)) {
-                int endLabel = endPoint.getLabel();
-                Integer rv = endToStartMap.get(endLabel);
-                if (rv == null) throw new IllegalArgumentException("unmapped "
-                    + endPoint);
-                startLabel = rv;
+                key = "end_label";
             } else {
-                throw new IllegalArgumentException("end point " + endPoint
-                    + " does not belong to " + start + " or " + end);
+                throw new IllegalArgumentException("not our end point: "
+                    + endPoint);
             }
-            if (availableTunnels.get(startLabel))
-                throw new IllegalArgumentException("unallocated " + endPoint);
-            if (!upstreamAllocations.containsKey(startLabel))
-                throw new IllegalArgumentException("unallocated " + endPoint);
 
-            /* De-allocate resources. */
-            this.upstreamBandwidth += upstreamAllocations.remove(startLabel);
-            this.downstreamBandwidth +=
-                downstreamAllocations.remove(startLabel);
-            availableTunnels.set(startLabel);
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
+
+                /* Find out how much has been allocated. */
+                final double upAlloc, downAlloc;
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT up_alloc," + " down_alloc"
+                        + " FROM " + labelTable + " WHERE trunk_id = ?"
+                        + " AND " + key + " = ?;")) {
+                    stmt.setInt(1, dbid);
+                    stmt.setInt(2, label);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (!rs.next()) return;
+                        Double upObj = (Double) rs.getObject(1);
+                        if (upObj == null) return;
+                        upAlloc = upObj;
+                        downAlloc = rs.getDouble(2);
+                    }
+                }
+
+                /* Mark the amount now available to the trunk. */
+                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                    + trunkTable + " SET up_cap = up_cap + ?,"
+                    + " down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
+                    stmt.setDouble(1, upAlloc);
+                    stmt.setDouble(2, downAlloc);
+                    stmt.setInt(3, dbid);
+                    stmt.execute();
+                }
+
+                /* Mark the tunnel as out-of-use. */
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("UPDATE " + labelTable
+                        + " SET up_alloc = NULL," + " down_alloc = NULL"
+                        + " WHERE trunk_id = ?" + " AND " + key + " = ?")) {
+                    stmt.setInt(1, dbid);
+                    stmt.setInt(2, label);
+                    stmt.execute();
+                }
+
+                conn.commit();
+                this.upstreamCapacity += upAlloc;
+                this.downstreamCapacity += downAlloc;
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database failure", e);
+            }
         }
 
         /**
@@ -704,7 +873,21 @@ public class PersistentAggregator implements Aggregator {
          * @return the number of available tunnels
          */
         int getAvailableTunnelCount() {
-            return availableTunnels.cardinality();
+            try (Connection conn = database();
+                PreparedStatement stmt =
+                    conn.prepareStatement("SELECT * FROM " + labelTable
+                        + " WHERE trunk_id = ?"
+                        + " AND upstream_alloaction IS NULL;")) {
+                stmt.setInt(1, dbid);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    int c = 0;
+                    while (rs.next())
+                        c++;
+                    return c;
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database failure", e);
+            }
         }
 
         /**
@@ -730,53 +913,118 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public void withdrawBandwidth(double upstream, double downstream) {
-            synchronized (PersistentAggregator.this) {
-                if (upstream < 0)
-                    throw new IllegalArgumentException("negative upstream: "
-                        + upstream);
-                if (upstream > upstreamBandwidth)
-                    throw new IllegalArgumentException("request upstream "
-                        + upstream + " exceeds " + upstreamBandwidth);
-                if (downstream < 0)
-                    throw new IllegalArgumentException("negative downstream: "
-                        + downstream);
-                if (downstream > downstreamBandwidth)
-                    throw new IllegalArgumentException("request downstream "
-                        + downstream + " exceeds " + downstreamBandwidth);
+            if (upstream < 0)
+                throw new IllegalArgumentException("negative upstream: "
+                    + upstream);
+            if (downstream < 0)
+                throw new IllegalArgumentException("negative downstream: "
+                    + downstream);
 
-                upstreamBandwidth -= upstream;
-                downstreamBandwidth -= downstream;
+            synchronized (PersistentAggregator.this) {
+                if (upstream > upstreamCapacity)
+                    throw new IllegalArgumentException("request upstream "
+                        + upstream + " exceeds " + upstreamCapacity);
+                if (downstream > downstreamCapacity)
+                    throw new IllegalArgumentException("request downstream "
+                        + downstream + " exceeds " + downstreamCapacity);
+
+                try (Connection conn = database()) {
+                    updateTrunkCapacity(conn, this.dbid, -upstream,
+                                        -downstream);
+
+                    upstreamCapacity -= upstream;
+                    downstreamCapacity -= downstream;
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
+                }
             }
         }
 
         @Override
         public void provideBandwidth(double upstream, double downstream) {
+            if (upstream < 0)
+                throw new IllegalArgumentException("negative upstream: "
+                    + upstream);
+            if (downstream < 0)
+                throw new IllegalArgumentException("negative downstream: "
+                    + downstream);
+
             synchronized (PersistentAggregator.this) {
-                if (upstream < 0)
-                    throw new IllegalArgumentException("negative upstream: "
-                        + upstream);
-                if (downstream < 0)
-                    throw new IllegalArgumentException("negative downstream: "
-                        + downstream);
-                upstreamBandwidth += upstream;
-                downstreamBandwidth += downstream;
+                try (Connection conn = database()) {
+                    updateTrunkCapacity(conn, this.dbid, +upstream,
+                                        +downstream);
+
+                    upstreamCapacity += upstream;
+                    downstreamCapacity += downstream;
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
+                }
             }
         }
 
         @Override
         public void setDelay(double delay) {
             synchronized (PersistentAggregator.this) {
-                MyTrunk.this.delay = delay;
+                try (Connection conn = database();
+                    PreparedStatement stmt =
+                        conn.prepareStatement("UPDATE " + trunkTable
+                            + " SET metric = ?" + " WHERE trunk_id = ?;")) {
+                    stmt.setDouble(1, delay);
+                    stmt.setInt(2, dbid);
+                    stmt.execute();
+                    this.delay = delay;
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
+                }
+            }
+        }
+
+        private void revokeInternalRange(String key, int base, int amount)
+            throws SQLException {
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
+                /* Detect labels that are in use. Fail completely if any
+                 * are found. */
+                try (PreparedStatement stmt = conn.prepareStatement("SELECT "
+                    + key + " FROM " + labelTable + " WHERE trunk_id = ?"
+                    + " AND " + key + " >= ?" + " AND " + key + " <= ?"
+                    + " AND up_alloc IS NOT NULL;")) {
+                    stmt.setInt(1, dbid);
+                    stmt.setInt(2, base);
+                    stmt.setInt(3, base + amount - 1);
+                    BitSet inUse = new BitSet();
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next())
+                            inUse.set(rs.getInt(1));
+                    }
+                    if (!inUse.isEmpty())
+                        throw new RuntimeException("start labels in use: "
+                            + inUse);
+                }
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM " + labelTable
+                        + " WHERE trunk_id = ?" + " AND " + key + " >= ?"
+                        + " AND " + key + " <= ?;")) {
+                    stmt.setInt(1, dbid);
+                    stmt.setInt(2, base);
+                    stmt.setInt(3, base + amount - 1);
+                    stmt.execute();
+                }
+                conn.commit();
             }
         }
 
         @Override
         public void revokeStartLabelRange(int startBase, int amount) {
             synchronized (PersistentAggregator.this) {
-                for (int i = startBase; i < startBase + amount; i++) {
-                    Integer o = startToEndMap.remove(i);
-                    if (o == null) continue;
-                    endToStartMap.remove(o);
+                try {
+                    revokeInternalRange("start_label", startBase, amount);
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
                 }
             }
         }
@@ -784,52 +1032,68 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public void revokeEndLabelRange(int endBase, int amount) {
             synchronized (PersistentAggregator.this) {
-                for (int i = endBase; i < endBase + amount; i++) {
-                    Integer o = endToStartMap.remove(i);
-                    if (o == null) continue;
-                    startToEndMap.remove(o);
+                try {
+                    revokeInternalRange("end_label", endBase, amount);
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
                 }
             }
         }
 
         @Override
         public void defineLabelRange(int startBase, int amount, int endBase) {
+            if (startBase + amount < startBase)
+                throw new IllegalArgumentException("illegal start range "
+                    + startBase + " plus " + amount);
+            if (endBase + amount < endBase)
+                throw new IllegalArgumentException("illegal end range "
+                    + endBase + " plus " + amount);
+
             synchronized (PersistentAggregator.this) {
-                if (startBase + amount < startBase)
-                    throw new IllegalArgumentException("illegal start range "
-                        + startBase + " plus " + amount);
-                if (endBase + amount < endBase)
-                    throw new IllegalArgumentException("illegal end range "
-                        + endBase + " plus " + amount);
+                try (Connection conn = database()) {
+                    conn.setAutoCommit(false);
 
-                /* Check that all numbers are available. */
-                Map<Integer, Integer> startExisting =
-                    startToEndMap.subMap(startBase, startBase + amount);
-                if (!startExisting.isEmpty())
-                    throw new IllegalArgumentException("start range in use "
-                        + startExisting.keySet());
-                Map<Integer, Integer> endExisting =
-                    endToStartMap.subMap(endBase, endBase + amount);
-                if (!endExisting.isEmpty())
-                    throw new IllegalArgumentException("end range in use "
-                        + endExisting.keySet());
+                    /* Check that all numbers are available. */
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("SELECT start_label" + " FROM "
+                            + labelTable + " WHERE trunk_id = ?"
+                            + " (AND start_label >= ?"
+                            + " AND start_label <= ?)" + " OR (end_label >="
+                            + " AND end_label <= ?);")) {
+                        stmt.setInt(1, dbid);
+                        stmt.setInt(2, startBase);
+                        stmt.setInt(3, startBase + amount - 1);
+                        stmt.setInt(4, endBase);
+                        stmt.setInt(5, endBase + amount - 1);
+                        BitSet startInUse = new BitSet();
+                        try (ResultSet rs = stmt.executeQuery()) {
+                            while (rs.next())
+                                startInUse.set(rs.getInt(1));
+                        }
+                        if (!startInUse.isEmpty())
+                            throw new IllegalArgumentException("range in use: "
+                                + startInUse);
+                    }
 
-                /* Add all the labels. */
-                startToEndMap.putAll(IntStream
-                    .range(startBase, startBase + amount).boxed()
-                    .collect(Collectors
-                        .<Integer, Integer, Integer>toMap(Integer::intValue,
-                                                          k -> k.intValue()
-                                                              + endBase
-                                                              - startBase)));
-                availableTunnels.set(startBase, startBase + amount);
-                endToStartMap.putAll(IntStream
-                    .range(endBase, endBase + amount).boxed()
-                    .collect(Collectors
-                        .<Integer, Integer, Integer>toMap(Integer::intValue,
-                                                          k -> k.intValue()
-                                                              + endBase
-                                                              - startBase)));
+                    /* Add all the labels. */
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("INSERT INTO " + labelTable
+                            + " (trunk_id, start_label, end_label)"
+                            + " VALUES (?, ?, ?);")) {
+                        stmt.setInt(1, dbid);
+                        for (int i = 0; i < amount; i++) {
+                            stmt.setInt(2, startBase + i);
+                            stmt.setInt(3, endBase + i);
+                            stmt.execute();
+                        }
+                    }
+
+                    conn.commit();
+                } catch (SQLException e) {
+                    throw new RuntimeException("unexpected database failure",
+                                               e);
+                }
             }
         }
 
@@ -841,6 +1105,12 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public String toString() {
             return start + "+" + end;
+        }
+
+        void recoverCapacities(double upCap, double downCap, double delay2) {
+            this.upstreamCapacity = upCap;
+            this.downstreamCapacity = downCap;
+            this.delay = delay2;
         }
     }
 
@@ -869,6 +1139,7 @@ public class PersistentAggregator implements Aggregator {
 
     private final Map<String, MyTerminal> terminals = new HashMap<>();
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
+    private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
     private int nextServiceId;
 
@@ -889,8 +1160,266 @@ public class PersistentAggregator implements Aggregator {
                                 Function<? super String, ? extends NetworkControl> inferiors,
                                 Configuration config) {
         this.executor = executor;
+        this.inferiors = inferiors;
         this.name = config.get("name");
+
+        /* Record how we talk to the database. */
+        Configuration dbConfig = config.subview("db");
+        this.dbConnectionAddress = dbConfig.get("service");
+        this.dbConnectionConfig = dbConfig.toProperties();
+        this.endPointTable = dbConfig.get("end-points.table", "end_points");
+        this.terminalTable = dbConfig.get("terminals.table", "terminal_map");
+        this.serviceTable = dbConfig.get("services.table", "services");
+        this.subserviceTable = dbConfig.get("services.table", "subservices");
+        this.trunkTable = dbConfig.get("trunks.table", "trunks");
+        this.labelTable = dbConfig.get("labels.table", "label_map");
+        this.dbSlice = dbConfig.get("slice", this.name);
     }
+
+    private final Function<? super String, ? extends NetworkControl> inferiors;
+
+    public synchronized void init() throws SQLException {
+        try (Connection conn = database()) {
+            conn.setAutoCommit(false);
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + terminalTable
+                    + " (slice VARCHAR(20),"
+                    + " terminal_id INTEGER PRIMARY KEY,"
+                    + " name VARCHAR(20) NOT NULL,"
+                    + " subnetwork VARCHAR(40) NOT NULL,"
+                    + " subname VARCHAR(40) NOT NULL,"
+                    + " CONSTRAINT terminals_unique UNIQUE (slice, name));");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
+                    + " (slice VARCHAR(20),"
+                    + " service_id INTEGER PRIMARY KEY,"
+                    + " intent INT UNSIGNED DEFAULT 0);");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + subserviceTable
+                    + " (service_id INTEGER," + " subservice_id INTEGER,"
+                    + " subnetwork_name VARCHAR(20),"
+                    + " FORIEGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id));");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + trunkTable
+                    + " (slice VARCHAR(20),"
+                    + " trunk_id INTEGER PRIMARY KEY,"
+                    + " start_network VARCHAR(20),"
+                    + " start_terminal VARCHAR(20),"
+                    + " end_network VARCHAR(20),"
+                    + " end_terminal VARCHAR(20),"
+                    + " up_cap DECIMAL(9,3) DEFAULT 0.0,"
+                    + " down_cap DECIMAL(9,3) DEFAULT 0.0,"
+                    + " metric DECIMAL(9,3) DEFAULT 0.1,"
+                    + " commissioned VARCHAR(1) DEFAULT 1);");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + labelTable
+                    + " (trunk_id INTEGER," + " start_label INTEGER,"
+                    + " end_label INTEGER,"
+                    + " up_alloc DECIMAL(9,3) DEFAULT NULL,"
+                    + " down_alloc DECIMAL(9,3) DEFAULT NULL,"
+                    + " service_id INTEGER DEFAULT NULL"
+                    + " PRIMARY KEY(trunk_id, start_label, end_label),"
+                    + " UNIQUE(trunk_id, start_label),"
+                    + " UNIQUE(trunk_id, end_label),"
+                    + " FOREIGN KEY(trunk_id) REFERENCES " + trunkTable
+                    + "(trunk_id))" + " FOREIGN KEY(service_id) REFERENCES "
+                    + serviceTable + "(service_id));");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
+                    + " (service_id INTEGER," + " terminal_id INTEGER,"
+                    + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
+                    + " shaping DECIMAL(9,3),"
+                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id),"
+                    + " FOREIGN KEY(terminal_id) REFERENCES " + terminalTable
+                    + "(terminal_id));");
+            }
+
+            /* Recreate terminals from entries in our tables. */
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT terminal_id, name,"
+                    + " subnetwork, subname" + " FROM " + terminalTable
+                    + " WHERE slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final int id = rs.getInt(1);
+                        final String name = rs.getString(2);
+                        final String subnetworkName = rs.getString(3);
+                        final String subname = rs.getString(4);
+
+                        NetworkControl subnetwork =
+                            inferiors.apply(subnetworkName);
+                        Terminal innerPort = subnetwork.getTerminal(subname);
+                        MyTerminal port = new MyTerminal(name, innerPort, id);
+                        terminals.put(name, port);
+                    }
+                }
+            }
+
+            /* Recover a list of trunks. */
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT" + " trunk_id,"
+                    + " start_network," + " start_terminal," + " end_network,"
+                    + " end_terminal," + " up_cap," + " down_cap,"
+                    + " metric FROM " + trunkTable + " WHERE slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final int id = rs.getInt(1);
+                        final String startNetworkName = rs.getString(2);
+                        final String startTerminalName = rs.getString(3);
+                        final String endNetworkName = rs.getString(4);
+                        final String endTerminalName = rs.getString(5);
+                        final double upCap = rs.getDouble(6);
+                        final double downCap = rs.getDouble(7);
+                        final double delay = rs.getDouble(8);
+
+                        Terminal start = inferiors.apply(startNetworkName)
+                            .getTerminal(startTerminalName);
+                        Terminal end = inferiors.apply(endNetworkName)
+                            .getTerminal(endTerminalName);
+                        MyTrunk trunk = new MyTrunk(start, end, id);
+                        trunkIndex.put(id, trunk);
+                        trunks.put(start, trunk);
+                        trunks.put(end, trunk);
+                        trunk.recoverCapacities(upCap, downCap, delay);
+                    }
+                }
+            }
+
+            /* Collect details of each services. */
+            class ServiceDetails {
+                Map<EndPoint<? extends Terminal>, TrafficFlow> endPoints =
+                    new HashMap<>();
+                boolean active;
+                Collection<Service> subservices = new ArrayList<>();
+                Map<MyTrunk, EndPoint<? extends Terminal>> tunnels =
+                    new HashMap<>();
+            }
+            Map<MyService, ServiceDetails> details = new HashMap<>();
+
+            /* Recreate empty services from entries in our tables. */
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT service_id, intent" + " FROM "
+                    + serviceTable + " WHERE slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final int id = rs.getInt(1);
+                        final boolean intent = rs.getBoolean(2);
+                        MyService service = new MyService(id);
+                        services.put(id, service);
+                        details
+                            .computeIfAbsent(service,
+                                             k -> new ServiceDetails()).active =
+                                                 intent;
+                    }
+                }
+            }
+
+            /* Recover services' details. */
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
+                + endPointTable + ".service_id AS service_id, "
+                + terminalTable + ".name AS terminal_name, " + endPointTable
+                + ".label AS label, " + endPointTable
+                + ".metering AS metering, " + endPointTable
+                + ".shaping AS shaping" + " FROM " + endPointTable
+                + " LEFT JOIN " + terminalTable + " ON " + terminalTable
+                + ".terminal_id = " + endPointTable + ".terminal_id"
+                + " WHERE " + terminalTable + ".slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final MyService service = services.get(rs.getInt(1));
+                        final MyTerminal port =
+                            terminals.get(rs.getString(2));
+                        final int label = rs.getInt(3);
+                        final double metering = rs.getDouble(4);
+                        final double shaping = rs.getDouble(5);
+
+                        final EndPoint<? extends Terminal> endPoint =
+                            port.getEndPoint(label);
+                        final TrafficFlow enf =
+                            TrafficFlow.of(metering, shaping);
+                        details
+                            .computeIfAbsent(service,
+                                             k -> new ServiceDetails()).endPoints
+                                                 .put(endPoint, enf);
+                    }
+                }
+            }
+
+            /* Recover subservice details. */
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
+                + serviceTable + ".service_id AS service_id, " + serviceTable
+                + ".subservice_id AS subservice_id, " + serviceTable
+                + ".subnetwork_name AS subnetwork_name" + " FROM "
+                + subserviceTable + " LEFT JOIN " + serviceTable + " ON "
+                + serviceTable + ".service_id = " + subserviceTable
+                + ".service_id" + " WHERE " + serviceTable + ".slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final int srvid = rs.getInt(1);
+                        final int subsrvid = rs.getInt(2);
+                        final String subnwname = rs.getString(3);
+
+                        NetworkControl subnw = inferiors.apply(subnwname);
+                        Service subsrv = subnw.getService(subsrvid);
+                        MyService srv = services.get(srvid);
+                        details
+                            .computeIfAbsent(srv,
+                                             k -> new ServiceDetails()).subservices
+                                                 .add(subsrv);
+                    }
+                }
+            }
+
+            /* Recover tunnel details. */
+            try (PreparedStatement stmt = conn
+                .prepareStatement("SELECT" + " lt.service_id AS service_id,"
+                    + " lt.trunk_id AS trunk_id,"
+                    + " lt.start_label AS start_label,"
+                    + " tt.start_network AS start_network,"
+                    + " tt.start_terminal AS start_terminal" + " FROM "
+                    + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
+                    + " AS tt" + " ON tt.trunk_id = lt.trunk_id"
+                    + " WHERE tt.slice = ?;")) {
+                stmt.setString(1, dbSlice);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        final int trid = rs.getInt(1);
+                        final int srvid = rs.getInt(2);
+                        final int label = rs.getInt(3);
+                        final String nwname = rs.getString(4);
+                        final String tname = rs.getString(5);
+                        MyService srv = services.get(srvid);
+                        NetworkControl subnw = inferiors.apply(nwname);
+                        Terminal term = subnw.getTerminal(tname);
+                        MyTrunk trunk = trunkIndex.get(trid);
+                        EndPoint<Terminal> ep = term.getEndPoint(label);
+                        details
+                            .computeIfAbsent(srv,
+                                             k -> new ServiceDetails()).tunnels
+                                                 .put(trunk, ep);
+                    }
+                }
+            }
+
+            /* Pass the recovered data to each service. */
+            for (Map.Entry<MyService, ServiceDetails> entry : details
+                .entrySet()) {
+                ServiceDetails dt = entry.getValue();
+                entry.getKey().recover(dt.active, dt.endPoints,
+                                       dt.subservices, dt.tunnels);
+            }
+
+            conn.commit();
+        }
+    }
+
+    private final String dbSlice;
+    private final String endPointTable, terminalTable, serviceTable,
+        subserviceTable, trunkTable, labelTable;
+    private final String dbConnectionAddress;
+    private final Properties dbConnectionConfig;
 
     @Override
     public synchronized Trunk addTrunk(Terminal p1, Terminal p2) {
@@ -900,10 +1429,35 @@ public class PersistentAggregator implements Aggregator {
             throw new IllegalArgumentException("terminal in use: " + p1);
         if (trunks.containsKey(p2))
             throw new IllegalArgumentException("terminal in use: " + p2);
-        MyTrunk trunk = new MyTrunk(p1, p2);
-        trunks.put(p1, trunk);
-        trunks.put(p2, trunk);
-        return trunk;
+        try (Connection conn = database();
+            PreparedStatement stmt =
+                conn.prepareStatement("INSERT INTO " + trunkTable
+                    + " (slice, start_network, start_terminal,"
+                    + " end_network, end_terminal)"
+                    + " VALUES (?, ?, ?, ?, ?);",
+                                      Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, dbSlice);
+            stmt.setString(2, p1.getNetwork().name());
+            stmt.setString(3, p1.name());
+            stmt.setString(4, p2.getNetwork().name());
+            stmt.setString(5, p2.name());
+            stmt.execute();
+            try (ResultSet rs = stmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    final int id = rs.getInt(1);
+                    MyTrunk trunk = new MyTrunk(p1, p2, id);
+                    trunks.put(p1, trunk);
+                    trunks.put(p2, trunk);
+                    return trunk;
+                } else {
+                    throw new RuntimeException("failed to generate id for new trunk "
+                        + p1 + " to " + p2);
+                }
+            }
+        } catch (SQLException ex) {
+            throw new RuntimeException("could not create trunk from " + p1
+                + " to " + p2, ex);
+        }
     }
 
     @Override
@@ -922,9 +1476,25 @@ public class PersistentAggregator implements Aggregator {
     public synchronized Terminal addTerminal(String name, Terminal inner) {
         if (terminals.containsKey(name))
             throw new IllegalArgumentException("name in use: " + name);
-        MyTerminal result = new MyTerminal(name, inner);
-        terminals.put(name, result);
-        return result;
+        try (Connection conn = database();
+            PreparedStatement stmt =
+                conn.prepareStatement("", Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, dbSlice);
+            stmt.setString(2, name);
+            stmt.setString(3, inner.getNetwork().name());
+            stmt.setString(4, inner.name());
+            stmt.execute();
+            try (ResultSet rs = stmt.getGeneratedKeys()) {
+                final int id = rs.getInt(1);
+                MyTerminal result = new MyTerminal(name, inner, id);
+                terminals.put(name, result);
+                return result;
+
+            }
+        } catch (SQLException ex) {
+            throw new RuntimeException("could not create terminal " + name
+                + " on " + inner + " in database", ex);
+        }
     }
 
     /**
@@ -934,7 +1504,19 @@ public class PersistentAggregator implements Aggregator {
      */
     @Override
     public synchronized void removeTerminal(String name) {
-        terminals.remove(name);
+        MyTerminal terminal = terminals.get(name);
+        if (terminal == null)
+            throw new IllegalArgumentException("no such terminal: " + name);
+        try (Connection conn = database();
+            PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + terminalTable + " WHERE terminal_id = ?;")) {
+            stmt.setInt(1, terminal.dbid);
+            stmt.execute();
+            terminals.remove(name);
+        } catch (SQLException ex) {
+            throw new RuntimeException("could not remove terminal " + name
+                + " from database", ex);
+        }
     }
 
     @Override
@@ -946,6 +1528,9 @@ public class PersistentAggregator implements Aggregator {
      * Plot a spanning tree with asymmetric bandwidth requirements
      * across this switch, allocation tunnels on trunks.
      * 
+     * @param service the service which will own the tunnels formed
+     * across trunks
+     * 
      * @param request the request specifying bandwidth at each concerned
      * end point of this switch
      * 
@@ -956,7 +1541,7 @@ public class PersistentAggregator implements Aggregator {
      * submitted to each inferior switch
      */
     synchronized void
-        plotAsymmetricTree(ServiceDescription request,
+        plotAsymmetricTree(MyService service, ServiceDescription request,
                            Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
                            Collection<? super ServiceDescription> subrequests) {
         // System.err.printf("Request producers: %s%n",
@@ -1175,7 +1760,7 @@ public class PersistentAggregator implements Aggregator {
                 double upstream = trunkReq.getValue().get(0);
                 double downstream = trunkReq.getValue().get(1);
                 EndPoint<? extends Terminal> ep1 =
-                    trunk.allocateTunnel(upstream, downstream);
+                    trunk.allocateTunnel(service, upstream, downstream);
                 tunnels.put(trunk, ep1);
                 EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
@@ -1228,6 +1813,7 @@ public class PersistentAggregator implements Aggregator {
      * @throws IllegalArgumentException if any end point does not belong
      * to this switch
      */
+    @SuppressWarnings("unused")
     synchronized void
         plotTree(Collection<? extends EndPoint<? extends Terminal>> terminals,
                  double bandwidth,
@@ -1306,7 +1892,7 @@ public class PersistentAggregator implements Aggregator {
              * it. */
             MyTrunk firstTrunk = trunks.get(edge.first());
             EndPoint<? extends Terminal> ep1 =
-                firstTrunk.allocateTunnel(bandwidth, bandwidth);
+                firstTrunk.allocateTunnel(null, bandwidth, bandwidth);
             tunnels.put(firstTrunk, ep1);
 
             /* Get both end points, find out what switches they
@@ -1497,5 +2083,43 @@ public class PersistentAggregator implements Aggregator {
 
     private static enum Intent {
         RELEASE, INACTIVE, ACTIVE;
+    }
+
+    /**
+     * Get a fresh connection to the database. Use this in a
+     * try-with-resources block.
+     * 
+     * @return the new connection
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
+    private Connection database() throws SQLException {
+        return DriverManager.getConnection(dbConnectionAddress,
+                                           dbConnectionConfig);
+    }
+
+    private void updateIntent(Connection conn, int srvid, boolean status)
+        throws SQLException {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("UPDATE " + serviceTable
+                + " SET intent = ? WHERE slice = ? AND service_id = ?;")) {
+            stmt.setInt(1, status ? 1 : 0);
+            stmt.setString(2, dbSlice);
+            stmt.setInt(3, srvid);
+            stmt.execute();
+        }
+    }
+
+    private void updateTrunkCapacity(Connection conn, int tid, double up,
+                                     double down)
+        throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+            + trunkTable + " SET up_cap = up_cap + ?,"
+            + " SET down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
+            stmt.setInt(3, tid);
+            stmt.setDouble(1, up);
+            stmt.setDouble(2, down);
+            stmt.execute();
+        }
     }
 }

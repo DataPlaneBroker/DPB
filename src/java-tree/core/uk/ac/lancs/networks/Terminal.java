@@ -56,4 +56,11 @@ public interface Terminal extends Bundle<Terminal> {
      * @return the owning switch of the terminal
      */
     NetworkControl getNetwork();
+
+    /**
+     * Get the local name of this terminal within its network.
+     * 
+     * @return the name of the terminal
+     */
+    String name();
 }

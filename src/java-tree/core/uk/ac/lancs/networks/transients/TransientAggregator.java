@@ -106,6 +106,11 @@ public class TransientAggregator implements Aggregator {
         public String toString() {
             return TransientAggregator.this.name + ":" + name;
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     }
 
     private class MyService implements Service {

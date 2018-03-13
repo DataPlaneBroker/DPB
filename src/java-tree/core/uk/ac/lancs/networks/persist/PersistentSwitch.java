@@ -117,6 +117,11 @@ public class PersistentSwitch implements Switch {
         PersistentSwitch owner() {
             return PersistentSwitch.this;
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     }
 
     private class MyService implements Service, BridgeListener {
@@ -544,9 +549,9 @@ public class PersistentSwitch implements Switch {
                     + " (service_id INTEGER," + " terminal_id INTEGER,"
                     + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
                     + " shaping DECIMAL(9,3)," + " FOREIGN KEY(service_id)"
-                    + " REFERENCES services(service_id),"
-                    + " FOREIGN KEY(terminal_id)"
-                    + " REFERENCES terminals(terminal_id));");
+                    + " REFERENCES " + serviceTable + "(service_id),"
+                    + " FOREIGN KEY(terminal_id)" + " REFERENCES "
+                    + terminalTable + "(terminal_id));");
             }
 
             /* Recreate terminals from entries in our tables. */
@@ -655,10 +660,15 @@ public class PersistentSwitch implements Switch {
             stmt.setString(3, desc);
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
-                final int id = rs.getInt(1);
-                MyTerminal terminal = new MyTerminal(name, desc, id);
-                terminals.put(name, terminal);
-                return terminal;
+                if (rs.next()) {
+                    final int id = rs.getInt(1);
+                    MyTerminal terminal = new MyTerminal(name, desc, id);
+                    terminals.put(name, terminal);
+                    return terminal;
+                } else {
+                    throw new RuntimeException("failed to generate id for new terminal "
+                        + name);
+                }
             }
         } catch (SQLException ex) {
             throw new RuntimeException("could not create terminal " + name
@@ -676,11 +686,11 @@ public class PersistentSwitch implements Switch {
                 + terminalTable + " WHERE terminal_id = ?;")) {
             stmt.setInt(1, terminal.dbid);
             stmt.execute();
+            terminals.remove(name);
         } catch (SQLException ex) {
             throw new RuntimeException("could not remove terminal " + name
                 + " from database", ex);
         }
-        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
     private synchronized Terminal getTerminal(String id) {

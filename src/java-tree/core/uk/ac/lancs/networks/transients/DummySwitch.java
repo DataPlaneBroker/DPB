@@ -81,6 +81,11 @@ public class DummySwitch implements Network {
         DummySwitch owner() {
             return DummySwitch.this;
         }
+
+        @Override
+        public String name() {
+            return name;
+        }
     }
 
     private class MyService implements Service {
