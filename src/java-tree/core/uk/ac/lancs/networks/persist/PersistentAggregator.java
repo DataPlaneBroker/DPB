@@ -1171,7 +1171,28 @@ public class PersistentAggregator implements Aggregator {
     private final Map<Integer, MyService> services = new HashMap<>();
 
     /**
-     * Create an aggregator.
+     * Create an aggregator with state backed up in a database.
+     * 
+     * <p>
+     * Configuration consists of the following fields:
+     * 
+     * <dl>
+     * 
+     * <dt><samp>name</samp></dt>
+     * 
+     * <dd>The name of the aggregator network, used to form the fully
+     * qualified names of its terminals
+     * 
+     * <dt><samp>db.service</samp></dt>
+     * 
+     * <dd>The URI of the database service
+     * 
+     * <dt><samp>db.<var>misc</var></samp></dt>
+     * 
+     * <dd>Fields to be passed when connecting to the database service,
+     * e.g., <samp>password</samp>
+     * 
+     * </dl>
      * 
      * @param executor used to invoke call-backs created by this
      * aggregator and passed to inferior networks
