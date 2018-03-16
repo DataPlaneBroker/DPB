@@ -202,7 +202,7 @@ public class DummySwitch implements Network {
         }
 
         @Override
-        public synchronized NetworkControl getSwitch() {
+        public synchronized NetworkControl getNetwork() {
             if (released || request == null) return null;
             return control;
         }

@@ -88,7 +88,7 @@ public interface Service {
      * @return the owning network, or {@code null} if the service has
      * been released
      */
-    NetworkControl getSwitch();
+    NetworkControl getNetwork();
 
     /**
      * Get the request associated with this service.

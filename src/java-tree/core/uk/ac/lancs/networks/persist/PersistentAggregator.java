@@ -385,7 +385,7 @@ public class PersistentAggregator implements Aggregator {
                     stmt.setInt(1, this.id);
                     for (Service subsrv : subcons.keySet()) {
                         stmt.setInt(2, subsrv.id());
-                        stmt.setString(3, subsrv.getSwitch().name());
+                        stmt.setString(3, subsrv.getNetwork().name());
                         stmt.execute();
                     }
                 }
@@ -601,7 +601,7 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized NetworkControl getSwitch() {
+        public synchronized NetworkControl getNetwork() {
             if (intent == Intent.RELEASE && clients.isEmpty()) return null;
             return control;
         }

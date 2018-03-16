@@ -522,7 +522,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized NetworkControl getSwitch() {
+        public synchronized NetworkControl getNetwork() {
             if (intent == Intent.RELEASE && clients.isEmpty()) return null;
             return control;
         }
