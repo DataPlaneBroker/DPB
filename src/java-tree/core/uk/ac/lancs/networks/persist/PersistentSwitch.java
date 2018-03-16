@@ -89,41 +89,6 @@ import uk.ac.lancs.routing.span.Edge;
 public class PersistentSwitch implements Switch {
     private final Fabric fabric;
 
-    private class MyTerminal implements Terminal {
-        private final String name;
-        private final Interface physicalPort;
-        private final int dbid;
-
-        MyTerminal(String name, String desc, int dbid) {
-            this.name = name;
-            this.physicalPort = fabric.getInterface(desc);
-            this.dbid = dbid;
-        }
-
-        EndPoint<Interface> getInnerEndPoint(int label) {
-            return physicalPort.getEndPoint(label);
-        }
-
-        @Override
-        public NetworkControl getNetwork() {
-            return control;
-        }
-
-        @Override
-        public String toString() {
-            return PersistentSwitch.this.name + ":" + this.name;
-        }
-
-        PersistentSwitch owner() {
-            return PersistentSwitch.this;
-        }
-
-        @Override
-        public String name() {
-            return name;
-        }
-    }
-
     private class MyService implements Service, BridgeListener {
         final int id;
         final Collection<ServiceListener> listeners = new HashSet<>();
@@ -171,11 +136,11 @@ public class PersistentSwitch implements Switch {
             for (EndPoint<? extends Terminal> ep : request.endPointFlows()
                 .keySet()) {
                 Terminal p = ep.getBundle();
-                if (!(p instanceof MyTerminal))
+                if (!(p instanceof SwitchTerminal))
                     throw new InvalidServiceException("end point " + ep
                         + " not part of " + name);
-                MyTerminal mp = (MyTerminal) p;
-                if (mp.owner() != PersistentSwitch.this)
+                SwitchTerminal mp = (SwitchTerminal) p;
+                if (mp.getNetwork() != getControl())
                     throw new InvalidServiceException("end point " + ep
                         + " not part of " + name);
             }
@@ -198,10 +163,10 @@ public class PersistentSwitch implements Switch {
                         .endPointFlows().entrySet()) {
                         EndPoint<? extends Terminal> endPoint =
                             entry.getKey();
-                        MyTerminal terminal =
-                            (MyTerminal) endPoint.getBundle();
+                        SwitchTerminal terminal =
+                            (SwitchTerminal) endPoint.getBundle();
                         TrafficFlow flow = entry.getValue();
-                        stmt.setInt(2, terminal.dbid);
+                        stmt.setInt(2, terminal.id());
                         stmt.setInt(3, endPoint.getLabel());
                         stmt.setDouble(4, flow.ingress);
                         stmt.setDouble(5, flow.egress);
@@ -408,7 +373,7 @@ public class PersistentSwitch implements Switch {
 
     private final Executor executor;
     private final String name;
-    private final Map<String, MyTerminal> terminals = new HashMap<>();
+    private final Map<String, SwitchTerminal> terminals = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
 
     /**
@@ -554,7 +519,9 @@ public class PersistentSwitch implements Switch {
                     final String name = rs.getString(2);
                     final String config = rs.getString(3);
 
-                    MyTerminal port = new MyTerminal(name, config, id);
+                    SwitchTerminal port =
+                        new SwitchTerminal(getControl(), name,
+                                           fabric.getInterface(config), id);
                     terminals.put(name, port);
                 }
             }
@@ -586,7 +553,8 @@ public class PersistentSwitch implements Switch {
                         + " ON tt.terminal_id = et.terminal_id;")) {
                 while (rs.next()) {
                     final MyService service = services.get(rs.getInt(1));
-                    final MyTerminal port = terminals.get(rs.getString(2));
+                    final SwitchTerminal port =
+                        terminals.get(rs.getString(2));
                     final int label = rs.getInt(3);
                     final double metering = rs.getDouble(4);
                     final double shaping = rs.getDouble(5);
@@ -640,7 +608,9 @@ public class PersistentSwitch implements Switch {
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     final int id = rs.getInt(1);
-                    MyTerminal terminal = new MyTerminal(name, desc, id);
+                    SwitchTerminal terminal =
+                        new SwitchTerminal(getControl(), name,
+                                           fabric.getInterface(desc), id);
                     terminals.put(name, terminal);
                     return terminal;
                 } else {
@@ -656,13 +626,13 @@ public class PersistentSwitch implements Switch {
 
     @Override
     public synchronized void removeTerminal(String name) {
-        MyTerminal terminal = terminals.get(name);
+        SwitchTerminal terminal = terminals.get(name);
         if (terminal == null)
             throw new IllegalArgumentException("no such terminal: " + name);
         try (Connection conn = database();
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + terminalTable + " WHERE terminal_id = ?;")) {
-            stmt.setInt(1, terminal.dbid);
+            stmt.setInt(1, terminal.id());
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
@@ -793,7 +763,7 @@ public class PersistentSwitch implements Switch {
     }
 
     private EndPoint<Interface> mapEndPoint(EndPoint<? extends Terminal> ep) {
-        MyTerminal terminal = (MyTerminal) ep.getBundle();
+        SwitchTerminal terminal = (SwitchTerminal) ep.getBundle();
         return terminal.getInnerEndPoint(ep.getLabel());
     }
 
