@@ -86,7 +86,8 @@ public interface Aggregator extends Network {
     void removeTrunk(Terminal terminal) throws NetworkManagementException;
 
     /**
-     * Find an existing trunk connected to a terminal.
+     * Find an existing trunk connected to a terminal. If found,
+     * <code>result.{@linkplain Trunk#position(Terminal) position}(t) == 0</code>.
      * 
      * @param t one of the terminals of the trunk
      * 

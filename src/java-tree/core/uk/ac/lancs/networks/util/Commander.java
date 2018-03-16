@@ -170,11 +170,7 @@ public final class Commander {
             int amount = Integer.parseInt(m.group(2)) - start + 1;
 
             Trunk tr = aggregator.findTrunk(term);
-            if (tr.position(term) == 1) {
-                tr.revokeEndLabelRange(start, amount);
-            } else {
-                tr.revokeStartLabelRange(start, amount);
-            }
+            tr.revokeStartLabelRange(start, amount);
             return true;
         }
 
@@ -193,11 +189,6 @@ public final class Commander {
                 m.group(3) == null ? start : Integer.parseInt(m.group(3));
 
             Trunk tr = aggregator.findTrunk(term);
-            if (tr.position(term) == 1) {
-                int tmp = other;
-                other = start;
-                start = tmp;
-            }
             tr.defineLabelRange(start, amount, other);
             return true;
         }
@@ -216,11 +207,6 @@ public final class Commander {
             double downrate =
                 m.group(2) == null ? uprate : Double.parseDouble(m.group(2));
             Trunk tr = aggregator.findTrunk(term);
-            if (tr.position(term) == 1) {
-                double tmp = uprate;
-                uprate = downrate;
-                downrate = tmp;
-            }
             if (add)
                 tr.provideBandwidth(uprate, downrate);
             else
