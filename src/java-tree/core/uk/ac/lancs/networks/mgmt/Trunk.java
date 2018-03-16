@@ -194,4 +194,72 @@ public interface Trunk {
      * @param amount the number of labels to remove
      */
     void revokeEndLabelRange(int endBase, int amount);
+
+    /**
+     * Get a reverse view of this trunk. Notions of upstream/downstream
+     * and start/end are inverted. Delay is unaffected, as it applies to
+     * both directions.
+     * 
+     * @return a reverse view of the trunk
+     */
+    default Trunk reverse() {
+        final Trunk orig = this;
+        return new Trunk() {
+            @Override
+            public void withdrawBandwidth(double upstream, double downstream)
+                throws NetworkManagementException {
+                orig.withdrawBandwidth(downstream, upstream);
+            }
+
+            @Override
+            public void setDelay(double delay) {
+                orig.setDelay(delay);
+            }
+
+            @Override
+            public void revokeStartLabelRange(int startBase, int amount) {
+                orig.revokeEndLabelRange(startBase, amount);
+            }
+
+            @Override
+            public void revokeEndLabelRange(int endBase, int amount) {
+                orig.revokeStartLabelRange(endBase, amount);
+            }
+
+            @Override
+            public Trunk reverse() {
+                return orig;
+            }
+
+            @Override
+            public void provideBandwidth(double upstream, double downstream) {
+                orig.provideBandwidth(downstream, upstream);
+            }
+
+            @Override
+            public int position(Terminal term) {
+                int r = orig.position(term);
+                switch (r) {
+                case 0:
+                    return 1;
+                case 1:
+                    return 0;
+                default:
+                    return r;
+                }
+            }
+
+            @Override
+            public double getDelay() {
+                return orig.getDelay();
+            }
+
+            @Override
+            public void defineLabelRange(int startBase, int amount,
+                                         int endBase)
+                throws NetworkManagementException {
+                orig.defineLabelRange(endBase, amount, startBase);
+            }
+        };
+    }
 }
