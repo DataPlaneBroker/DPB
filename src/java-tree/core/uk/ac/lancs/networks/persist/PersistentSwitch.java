@@ -455,11 +455,6 @@ public class PersistentSwitch implements Switch {
      * 
      * <dd>The URI of the database service
      * 
-     * <dt><samp>db.slice</samp></dt>
-     * 
-     * <dd>The name used to distinguish this network's state in the
-     * database from others'
-     * 
      * <dt><samp>db.<var>misc</var></samp></dt>
      * 
      * <dd>Fields to be passed when connecting to the database service,
@@ -506,10 +501,8 @@ public class PersistentSwitch implements Switch {
         this.endPointTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
-        this.dbSlice = dbConfig.get("slice", this.name);
     }
 
-    private final String dbSlice;
     private final String endPointTable, terminalTable, serviceTable;
     private final String dbConnectionAddress;
     private final Properties dbConnectionConfig;
@@ -536,14 +529,11 @@ public class PersistentSwitch implements Switch {
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + terminalTable
-                    + " (slice VARCHAR(20),"
-                    + " terminal_id INTEGER PRIMARY KEY,"
-                    + " name VARCHAR(20) NOT NULL,"
-                    + " config VARCHAR(40) NOT NULL,"
-                    + " CONSTRAINT terminals_unique UNIQUE (slice, name));");
+                    + " (terminal_id INTEGER PRIMARY KEY,"
+                    + " name VARCHAR(20) NOT NULL UNIQUE,"
+                    + " config VARCHAR(40) NOT NULL);");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
-                    + " (slice VARCHAR(20),"
-                    + " service_id INTEGER PRIMARY KEY,"
+                    + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
                     + " (service_id INTEGER," + " terminal_id INTEGER,"
@@ -555,69 +545,58 @@ public class PersistentSwitch implements Switch {
             }
 
             /* Recreate terminals from entries in our tables. */
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT terminal_id, name, config"
-                    + " FROM " + terminalTable + " WHERE slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int id = rs.getInt(1);
-                        final String name = rs.getString(2);
-                        final String config = rs.getString(3);
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs =
+                    stmt.executeQuery("SELECT terminal_id, name, config"
+                        + " FROM " + terminalTable + ";")) {
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    final String name = rs.getString(2);
+                    final String config = rs.getString(3);
 
-                        MyTerminal port = new MyTerminal(name, config, id);
-                        terminals.put(name, port);
-                    }
+                    MyTerminal port = new MyTerminal(name, config, id);
+                    terminals.put(name, port);
                 }
             }
 
             /* Recreate empty services from entries in our tables. */
             BitSet intents = new BitSet();
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT service_id, intent" + " FROM "
-                    + serviceTable + " WHERE slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int id = rs.getInt(1);
-                        final boolean intent = rs.getBoolean(2);
-                        MyService service = new MyService(id);
-                        services.put(id, service);
-                        if (intent) intents.set(id);
-                    }
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT service_id, intent"
+                    + " FROM " + serviceTable + ";")) {
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    final boolean intent = rs.getBoolean(2);
+                    MyService service = new MyService(id);
+                    services.put(id, service);
+                    if (intent) intents.set(id);
                 }
             }
 
             /* Recover service's details. */
             Map<MyService, Map<EndPoint<? extends Terminal>, TrafficFlow>> enforcements =
                 new HashMap<>();
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
-                + endPointTable + ".service_id AS service_id, "
-                + terminalTable + ".name AS terminal_name, " + endPointTable
-                + ".label AS label, " + endPointTable
-                + ".metering AS metering, " + endPointTable
-                + ".shaping AS shaping" + " FROM " + endPointTable
-                + " LEFT JOIN " + terminalTable + " ON " + terminalTable
-                + ".terminal_id = " + endPointTable + ".terminal_id"
-                + " WHERE " + terminalTable + ".slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final MyService service = services.get(rs.getInt(1));
-                        final MyTerminal port =
-                            terminals.get(rs.getString(2));
-                        final int label = rs.getInt(3);
-                        final double metering = rs.getDouble(4);
-                        final double shaping = rs.getDouble(5);
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt
+                    .executeQuery("SELECT" + " et.service_id AS service_id,"
+                        + " tt.name AS terminal_name," + " et.label AS label,"
+                        + " et.metering AS metering,"
+                        + " et.shaping AS shaping" + " FROM " + endPointTable
+                        + " AS et" + " LEFT JOIN " + terminalTable + " AS tt"
+                        + " ON tt.terminal_id = et.terminal_id;")) {
+                while (rs.next()) {
+                    final MyService service = services.get(rs.getInt(1));
+                    final MyTerminal port = terminals.get(rs.getString(2));
+                    final int label = rs.getInt(3);
+                    final double metering = rs.getDouble(4);
+                    final double shaping = rs.getDouble(5);
 
-                        final EndPoint<? extends Terminal> endPoint =
-                            port.getEndPoint(label);
-                        final TrafficFlow enf =
-                            TrafficFlow.of(metering, shaping);
-                        enforcements
-                            .computeIfAbsent(service, k -> new HashMap<>())
-                            .put(endPoint, enf);
-                    }
+                    final EndPoint<? extends Terminal> endPoint =
+                        port.getEndPoint(label);
+                    final TrafficFlow enf = TrafficFlow.of(metering, shaping);
+                    enforcements
+                        .computeIfAbsent(service, k -> new HashMap<>())
+                        .put(endPoint, enf);
                 }
             }
 
@@ -653,11 +632,10 @@ public class PersistentSwitch implements Switch {
         try (Connection conn = database();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + terminalTable
-                    + " (slice, name, config)" + " VALUES (?, ?, ?);",
+                    + " (name, config)" + " VALUES (?, ?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, dbSlice);
-            stmt.setString(2, name);
-            stmt.setString(3, desc);
+            stmt.setString(1, name);
+            stmt.setString(2, desc);
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -770,12 +748,9 @@ public class PersistentSwitch implements Switch {
     synchronized Service newService() {
         final int id;
         try (Connection conn = database();
-            PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO " + serviceTable
-                    + " (slice) VALUES (?);",
-                                      Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, dbSlice);
-            stmt.execute();
+            Statement stmt = conn.createStatement()) {
+            stmt.execute("INSERT INTO " + serviceTable + " DEFAULT VALUES;",
+                         Statement.RETURN_GENERATED_KEYS);
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
                     id = rs.getInt(1);
@@ -854,12 +829,10 @@ public class PersistentSwitch implements Switch {
 
     private void updateIntent(Connection conn, int srvid, boolean status)
         throws SQLException {
-        try (PreparedStatement stmt =
-            conn.prepareStatement("UPDATE " + serviceTable
-                + " SET intent = ? WHERE slice = ? AND service_id = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+            + serviceTable + " SET intent = ? WHERE service_id = ?;")) {
             stmt.setInt(1, status ? 1 : 0);
-            stmt.setString(2, dbSlice);
-            stmt.setInt(3, srvid);
+            stmt.setInt(2, srvid);
             stmt.execute();
         }
     }
