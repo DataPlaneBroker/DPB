@@ -83,9 +83,6 @@ import uk.ac.lancs.routing.span.Way;
 /**
  * Implements a network aggregator that retains its state in a database.
  * 
- * <p>
- * TODO: Modify it so it does what it says!
- * 
  * @author simpsons
  */
 public class PersistentAggregator implements Aggregator {
