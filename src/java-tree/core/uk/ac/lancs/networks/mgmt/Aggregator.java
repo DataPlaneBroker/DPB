@@ -90,11 +90,8 @@ public interface Aggregator extends Network {
      * 
      * @param t one of the terminals of the trunk
      * 
-     * @return the requested trunk, or {@code null} if none exist with
-     * that end point
-     * 
-     * @throws IllegalArgumentException if the terminal does not belong
-     * to the network
+     * @return the requested trunk, with the terminal as its start, or
+     * {@code null} if none exist with that terminal
      */
     Trunk findTrunk(Terminal t);
 

@@ -908,7 +908,10 @@ public class TransientAggregator implements Aggregator {
 
     @Override
     public synchronized Trunk findTrunk(Terminal p) {
-        return trunks.get(p);
+        Trunk result = trunks.get(p);
+        if (result == null) return null;
+        if (result.position(p) == 1) return result.reverse();
+        return result;
     }
 
     @Override
