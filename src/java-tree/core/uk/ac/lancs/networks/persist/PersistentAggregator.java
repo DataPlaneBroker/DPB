@@ -86,41 +86,6 @@ import uk.ac.lancs.routing.span.Way;
  * @author simpsons
  */
 public class PersistentAggregator implements Aggregator {
-    private class MyTerminal implements Terminal {
-        private final String name;
-        private final Terminal innerPort;
-        private final int dbid;
-
-        MyTerminal(String name, Terminal innerPort, int dbid) {
-            this.name = name;
-            this.innerPort = innerPort;
-            this.dbid = dbid;
-        }
-
-        public Terminal innerPort() {
-            return innerPort;
-        }
-
-        @Override
-        public NetworkControl getNetwork() {
-            return getControl();
-        }
-
-        PersistentAggregator owner() {
-            return PersistentAggregator.this;
-        }
-
-        @Override
-        public String toString() {
-            return PersistentAggregator.this.name + ":" + name;
-        }
-
-        @Override
-        public String name() {
-            return name;
-        }
-    }
-
     private class MyService implements Service {
         private class Client implements ServiceListener {
             final Service subservice;
@@ -1162,7 +1127,7 @@ public class PersistentAggregator implements Aggregator {
     private final Executor executor;
     private final String name;
 
-    private final Map<String, MyTerminal> terminals = new HashMap<>();
+    private final Map<String, SuperiorTerminal> terminals = new HashMap<>();
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
     private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
@@ -1293,7 +1258,9 @@ public class PersistentAggregator implements Aggregator {
                     NetworkControl subnetwork =
                         inferiors.apply(subnetworkName);
                     Terminal innerPort = subnetwork.getTerminal(subname);
-                    MyTerminal port = new MyTerminal(name, innerPort, id);
+                    SuperiorTerminal port =
+                        new SuperiorTerminal(getControl(), name, innerPort,
+                                             id);
                     terminals.put(name, port);
                 }
             }
@@ -1364,7 +1331,8 @@ public class PersistentAggregator implements Aggregator {
                         + " ON tt.terminal_id = et.terminal_id" + ";")) {
                 while (rs.next()) {
                     final MyService service = services.get(rs.getInt(1));
-                    final MyTerminal port = terminals.get(rs.getString(2));
+                    final SuperiorTerminal port =
+                        terminals.get(rs.getString(2));
                     final int label = rs.getInt(3);
                     final double metering = rs.getDouble(4);
                     final double shaping = rs.getDouble(5);
@@ -1511,7 +1479,8 @@ public class PersistentAggregator implements Aggregator {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 final int id = rs.getInt(1);
-                MyTerminal result = new MyTerminal(name, inner, id);
+                SuperiorTerminal result =
+                    new SuperiorTerminal(getControl(), name, inner, id);
                 terminals.put(name, result);
                 return result;
 
@@ -1529,13 +1498,13 @@ public class PersistentAggregator implements Aggregator {
      */
     @Override
     public synchronized void removeTerminal(String name) {
-        MyTerminal terminal = terminals.get(name);
+        SuperiorTerminal terminal = terminals.get(name);
         if (terminal == null)
             throw new IllegalArgumentException("no such terminal: " + name);
         try (Connection conn = database();
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + terminalTable + " WHERE terminal_id = ?;")) {
-            stmt.setInt(1, terminal.dbid);
+            stmt.setInt(1, terminal.id());
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
@@ -1590,11 +1559,11 @@ public class PersistentAggregator implements Aggregator {
 
             /* Map this end point to an inferior switch's terminal. */
             Terminal outerPort = ep.getBundle();
-            if (!(outerPort instanceof MyTerminal))
+            if (!(outerPort instanceof SuperiorTerminal))
                 throw new IllegalArgumentException("end point " + ep
                     + " not part of " + name);
-            MyTerminal myPort = (MyTerminal) outerPort;
-            if (myPort.owner() != this)
+            SuperiorTerminal myPort = (SuperiorTerminal) outerPort;
+            if (myPort.getNetwork() != getControl())
                 throw new IllegalArgumentException("end point " + ep
                     + " not part of " + name);
 
@@ -1604,7 +1573,7 @@ public class PersistentAggregator implements Aggregator {
              * same terminal. */
             double produced = flow.ingress;
             double consumed = flow.egress;
-            Terminal innerPort = myPort.innerPort();
+            Terminal innerPort = myPort.subterminal();
             List<Double> tuple = bandwidths
                 .computeIfAbsent(innerPort, k -> Arrays.asList(0.0, 0.0));
             tuple.set(0, tuple.get(0) + produced);
@@ -1882,7 +1851,7 @@ public class PersistentAggregator implements Aggregator {
         /* Map the set of our end points to the corresponding inner
          * terminals that our topology consists of. */
         Collection<Terminal> innerTerminalPorts = terminals.values().stream()
-            .map(MyTerminal::innerPort).collect(Collectors.toSet());
+            .map(SuperiorTerminal::subterminal).collect(Collectors.toSet());
 
         /* Create routing tables for each terminal. */
         Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
@@ -1890,21 +1859,22 @@ public class PersistentAggregator implements Aggregator {
 
         /* Convert our exposed terminals to a sequence so we can form
          * every combination of two terminals. */
-        final List<MyTerminal> termSeq = new ArrayList<>(terminals.values());
+        final List<SuperiorTerminal> termSeq =
+            new ArrayList<>(terminals.values());
         final int size = termSeq.size();
 
         /* For every combination of our exposed terminals, store the
          * total distance as part of the result. */
         Map<Edge<Terminal>, Double> result = new HashMap<>();
         for (int i = 0; i + 1 < size; i++) {
-            final MyTerminal start = termSeq.get(i);
-            final Terminal innerStart = start.innerPort();
+            final SuperiorTerminal start = termSeq.get(i);
+            final Terminal innerStart = start.subterminal();
             final Map<Terminal, Way<Terminal>> startFib =
                 fibs.get(innerStart);
             if (startFib == null) continue;
             for (int j = i + 1; j < size; j++) {
-                final MyTerminal end = termSeq.get(j);
-                final Terminal innerEnd = end.innerPort();
+                final SuperiorTerminal end = termSeq.get(j);
+                final Terminal innerEnd = end.subterminal();
                 final Way<Terminal> way = startFib.get(innerEnd);
                 if (way == null) continue;
                 final Edge<Terminal> edge = Edge.of(start, end);
