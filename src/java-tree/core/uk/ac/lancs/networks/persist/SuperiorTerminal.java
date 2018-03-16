@@ -39,8 +39,7 @@ import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary A terminal of an aggregator, which maps to an inferior
- * terminal
+ * @summary A terminal of an aggregator, mapping to an inferior terminal
  * 
  * @author simpsons
  */
@@ -81,6 +80,11 @@ final class SuperiorTerminal implements Terminal {
     }
 
     @Override
+    public String toString() {
+        return network.name() + ':' + name;
+    }
+
+    @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
@@ -96,9 +100,7 @@ final class SuperiorTerminal implements Terminal {
         if (getClass() != obj.getClass()) return false;
         SuperiorTerminal other = (SuperiorTerminal) obj;
         if (dbid != other.dbid) return false;
-        if (network == null) {
-            if (other.network != null) return false;
-        } else if (!network.equals(other.network)) return false;
+        if (!network.equals(other.network)) return false;
         return true;
     }
 }
