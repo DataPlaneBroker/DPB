@@ -74,7 +74,8 @@ public interface Aggregator extends Network {
      * 
      * @throws NullPointerException if either terminal is null
      */
-    Trunk addTrunk(Terminal t1, Terminal t2);
+    Trunk addTrunk(Terminal t1, Terminal t2)
+        throws NetworkManagementException;
 
     /**
      * Remove and delete a trunk between two internal terminals with the
@@ -82,7 +83,7 @@ public interface Aggregator extends Network {
      * 
      * @param terminal either of the trunk's terminals
      */
-    void removeTrunk(Terminal terminal);
+    void removeTrunk(Terminal terminal) throws NetworkManagementException;
 
     /**
      * Find an existing trunk connected to a terminal.
@@ -107,5 +108,6 @@ public interface Aggregator extends Network {
      * 
      * @return the newly created terminal
      */
-    Terminal addTerminal(String name, Terminal inner);
+    Terminal addTerminal(String name, Terminal inner)
+        throws NetworkManagementException;
 }

@@ -61,6 +61,8 @@ public interface Trunk {
      * Set the delay for this trunk.
      * 
      * @param delay the new delay
+     * 
+     * @throws IllegalArgumentException if the delay is negative
      */
     void setDelay(double delay);
 
@@ -73,21 +75,28 @@ public interface Trunk {
      * @param downstream the amount to deduct from the available
      * bandwidth in the direction from the end terminal to the start
      * 
-     * @throws IllegalArgumentException if either amount is negative or
-     * exceeds the corresponding available level
+     * @throws IllegalArgumentException if either amount is negative
+     * 
+     * @throws NetworkManagementException if either amount exceeds the
+     * corresponding available level
      */
-    void withdrawBandwidth(double upstream, double downstream);
+    void withdrawBandwidth(double upstream, double downstream)
+        throws NetworkManagementException;
 
     /**
      * Withdraw bandwidth from this trunk.
      * 
      * @param amount the amount to deduct from the available bandwidth
      * in each direction
+     * @throws NetworkManagementException
      * 
-     * @throws IllegalArgumentException if the amount is negative or
-     * exceeds either available level
+     * @throws IllegalArgumentException if the amount is negative
+     * 
+     * @throws NetworkManagementException if the amount exceeds either
+     * available level
      */
-    default void withdrawBandwidth(double amount) {
+    default void withdrawBandwidth(double amount)
+        throws NetworkManagementException {
         withdrawBandwidth(amount, amount);
     }
 
@@ -137,8 +146,12 @@ public interface Trunk {
      * 
      * @param endBase the first available label at the end side of the
      * link
+     * 
+     * @throws NetworkManagementException if any of the labels are in
+     * use
      */
-    void defineLabelRange(int startBase, int amount, int endBase);
+    void defineLabelRange(int startBase, int amount, int endBase)
+        throws NetworkManagementException;
 
     /**
      * Make a range of labels available.
@@ -153,8 +166,12 @@ public interface Trunk {
      * 
      * @param amount the number of labels from the base to make
      * available
+     * 
+     * @throws NetworkManagementException if any of the labels are in
+     * use
      */
-    default void defineLabelRange(int startBase, int amount) {
+    default void defineLabelRange(int startBase, int amount)
+        throws NetworkManagementException {
         defineLabelRange(startBase, amount, startBase);
     }
 

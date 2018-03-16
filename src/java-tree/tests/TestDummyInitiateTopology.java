@@ -8,6 +8,7 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.transients.DummySwitch;
 import uk.ac.lancs.networks.transients.TransientAggregator;
@@ -57,7 +58,8 @@ import uk.ac.lancs.networks.util.IdleExecutor;
 public class TestDummyInitiateTopology {
     private static Trunk link(Aggregator aggregator, Network zwitch1,
                               String port1, Network zwitch2, String port2,
-                              double bandwidth, int baseTag, int tagCount) {
+                              double bandwidth, int baseTag, int tagCount)
+        throws NetworkManagementException {
         Terminal p1 = zwitch1.getControl().getTerminal(port1);
         Terminal p2 = zwitch2.getControl().getTerminal(port2);
         Trunk result = aggregator.addTrunk(p1, p2);

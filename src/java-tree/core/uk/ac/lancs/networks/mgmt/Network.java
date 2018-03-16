@@ -55,7 +55,7 @@ public interface Network {
      * 
      * @throws IllegalStateException if the named terminal is in use
      */
-    void removeTerminal(String name);
+    void removeTerminal(String name) throws NetworkManagementException;
 
     /**
      * Dump status.

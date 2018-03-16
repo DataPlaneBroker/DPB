@@ -61,6 +61,7 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkContext;
 import uk.ac.lancs.networks.mgmt.NetworkFactory;
+import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.Trunk;
 
@@ -87,7 +88,8 @@ public final class Commander {
 
     boolean process(Iterator<? extends String> iter)
         throws IOException,
-            InvalidServiceException {
+            InvalidServiceException,
+            NetworkManagementException {
         usage = null;
         final String arg = iter.next();
         if (config == null) {
@@ -394,7 +396,10 @@ public final class Commander {
     private static final Pattern labelMapPattern =
         Pattern.compile("^(\\d+)-(\\d+)(?::(\\d+))$");
 
-    void process(String[] args) throws IOException, InvalidServiceException {
+    void process(String[] args)
+        throws IOException,
+            InvalidServiceException,
+            NetworkManagementException {
         try {
             for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
                 .hasNext();) {

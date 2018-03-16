@@ -35,25 +35,45 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
- * @summary A network switch which allows terminals to be added and
- * mapped to a fabric interface
+ * Indicates an error in managing a network.
  * 
  * @author simpsons
  */
-public interface Switch extends Network {
+public class NetworkManagementException extends Exception {
+    private static final long serialVersionUID = 1L;
+
     /**
-     * Add a terminal mapping to an internal resource.
-     * 
-     * @param terminalName the new terminal's name
-     * 
-     * @param interfaceName the name of the fabric interface the
-     * terminal maps to
-     * 
-     * @return the new terminal
+     * Create an exception.
      */
-    Terminal addTerminal(String terminalName, String interfaceName)
-        throws NetworkManagementException;
+    public NetworkManagementException() {}
+
+    /**
+     * Create an exception with a detail message and a cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public NetworkManagementException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public NetworkManagementException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public NetworkManagementException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
