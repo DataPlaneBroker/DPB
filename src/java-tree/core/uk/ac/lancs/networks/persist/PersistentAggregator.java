@@ -357,35 +357,64 @@ public class PersistentAggregator implements Aggregator {
             request = ServiceDescription.sanitize(request, 0.01);
             tunnels = new HashMap<>();
 
-            /* Plot a spanning tree across this switch, allocating
-             * tunnels. */
-            Collection<ServiceDescription> subrequests = new HashSet<>();
-            plotAsymmetricTree(this, request, tunnels, subrequests);
+            Collection<Service> redundantServices = new HashSet<>();
+            try (Connection conn = database()) {
+                conn.setAutoCommit(false);
+                /* Plot a spanning tree across this switch, allocating
+                 * tunnels. */
+                Collection<ServiceDescription> subrequests = new HashSet<>();
+                plotAsymmetricTree(conn, this, request, tunnels, subrequests);
 
-            /* Create connections for each inferior switch, and a
-             * distinct reference of our own for each one. */
-            Map<Service, ServiceDescription> subcons = subrequests.stream()
-                .collect(Collectors.toMap(r -> r.endPointFlows().keySet()
-                    .iterator().next().getBundle().getNetwork().newService(),
-                                          r -> r));
+                /* Create connections for each inferior switch, and a
+                 * distinct reference of our own for each one. */
+                Map<Service, ServiceDescription> subcons =
+                    subrequests.stream()
+                        .collect(Collectors
+                            .toMap(r -> r.endPointFlows().keySet().iterator()
+                                .next().getBundle().getNetwork().newService(),
+                                   r -> r));
 
-            /* Create a client for each subservice. */
-            clients.addAll(subcons.keySet().stream().map(Client::new)
-                .collect(Collectors.toList()));
-            clients.forEach(Client::init);
+                /* If we fail, ensure we release all these resources. */
+                redundantServices.addAll(subcons.keySet());
 
-            /* Tell each of the subconnections to initiate spanning
-             * trees with their respective end points. */
-            try {
-                for (Map.Entry<Service, ServiceDescription> entry : subcons
-                    .entrySet())
-                    entry.getKey().initiate(entry.getValue());
-            } catch (InvalidServiceException ex) {
-                release();
-                throw ex;
+                /* Record the identity of the subservices. */
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("INSERT INTO " + subserviceTable
+                        + " (service_id, subservice_id, subnetwork_name)"
+                        + " VALUES (?, ?, ?);")) {
+                    stmt.setInt(1, this.id);
+                    for (Service subsrv : subcons.keySet()) {
+                        stmt.setInt(2, subsrv.id());
+                        stmt.setString(3, subsrv.getSwitch().name());
+                        stmt.execute();
+                    }
+                }
+
+                /* Create a client for each subservice. */
+                clients.addAll(subcons.keySet().stream().map(Client::new)
+                    .collect(Collectors.toList()));
+                clients.forEach(Client::init);
+
+                /* Tell each of the subconnections to initiate spanning
+                 * trees with their respective end points. */
+                try {
+                    for (Map.Entry<Service, ServiceDescription> entry : subcons
+                        .entrySet())
+                        entry.getKey().initiate(entry.getValue());
+                } catch (InvalidServiceException ex) {
+                    release();
+                    throw ex;
+                }
+
+                this.request = request;
+                conn.commit();
+                redundantServices.clear();
+            } catch (SQLException e) {
+                throw new ServiceResourceException("could not plot"
+                    + " tree across network", e);
+            } finally {
+                redundantServices.forEach(Service::release);
             }
-
-            this.request = request;
         }
 
         @Override
@@ -735,10 +764,13 @@ public class PersistentAggregator implements Aggregator {
          * 
          * @return the end point at the start of the tunnel, or
          * {@code null} if no further resource remains
+         * @throws SQLException
          */
         EndPoint<? extends Terminal>
-            allocateTunnel(MyService service, double upstreamBandwidth,
-                           double downstreamBandwidth) {
+            allocateTunnel(Connection conn, MyService service,
+                           double upstreamBandwidth,
+                           double downstreamBandwidth)
+                throws SQLException {
             assert Thread.holdsLock(PersistentAggregator.this);
 
             /* Sanity-check bandwidth. */
@@ -751,53 +783,49 @@ public class PersistentAggregator implements Aggregator {
             if (upstreamBandwidth > this.upstreamCapacity) return null;
             if (downstreamBandwidth > this.downstreamCapacity) return null;
 
-            try (Connection conn = database()) {
-                conn.setAutoCommit(false);
+            conn.setAutoCommit(false);
 
-                /* Find a free label. */
-                final int startLabel;
-                try (PreparedStatement stmt =
-                    conn.prepareStatement("SELECT start_label FROM "
-                        + labelTable + " WHERE trunk_id = ?"
-                        + " AND up_alloc = NULL" + " LIMIT 1;")) {
-                    stmt.setInt(1, dbid);
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        if (!rs.next()) return null;
-                        startLabel = rs.getInt(1);
-                    }
+            /* Find a free label. */
+            final int startLabel;
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT start_label FROM " + labelTable
+                    + " WHERE trunk_id = ?" + " AND up_alloc = NULL"
+                    + " LIMIT 1;")) {
+                stmt.setInt(1, dbid);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) return null;
+                    startLabel = rs.getInt(1);
                 }
-
-                /* Store the allocation for the label, marking it as
-                 * unavailable/in-use. */
-                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-                    + labelTable + " SET up_alloc = ?," + " down_alloc = ?"
-                    + ", service_id = ? " + " WHERE trunk_id = ?"
-                    + " AND start_label = ?;")) {
-                    stmt.setDouble(1, upstreamBandwidth);
-                    stmt.setDouble(2, downstreamBandwidth);
-                    stmt.setInt(3, service.id);
-                    stmt.setInt(4, dbid);
-                    stmt.setInt(5, startLabel);
-                    stmt.execute();
-                }
-
-                /* Mark our bandwidth as consumed. */
-                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-                    + trunkTable + " SET up_cap = up_cap - ?,"
-                    + " down_cap = down_cap - ?" + " WHERE trunk_id = ?;")) {
-                    stmt.setDouble(1, upstreamBandwidth);
-                    stmt.setDouble(2, downstreamBandwidth);
-                    stmt.setInt(3, dbid);
-                    stmt.execute();
-                }
-
-                conn.commit();
-                this.upstreamCapacity -= upstreamBandwidth;
-                this.downstreamCapacity -= downstreamBandwidth;
-                return start.getEndPoint(startLabel);
-            } catch (SQLException e) {
-                throw new RuntimeException("unexpected database error", e);
             }
+
+            /* Store the allocation for the label, marking it as
+             * unavailable/in-use. */
+            try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                + labelTable + " SET up_alloc = ?," + " down_alloc = ?"
+                + ", service_id = ? " + " WHERE trunk_id = ?"
+                + " AND start_label = ?;")) {
+                stmt.setDouble(1, upstreamBandwidth);
+                stmt.setDouble(2, downstreamBandwidth);
+                stmt.setInt(3, service.id);
+                stmt.setInt(4, dbid);
+                stmt.setInt(5, startLabel);
+                stmt.execute();
+            }
+
+            /* Mark our bandwidth as consumed. */
+            try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                + trunkTable + " SET up_cap = up_cap - ?,"
+                + " down_cap = down_cap - ?" + " WHERE trunk_id = ?;")) {
+                stmt.setDouble(1, upstreamBandwidth);
+                stmt.setDouble(2, downstreamBandwidth);
+                stmt.setInt(3, dbid);
+                stmt.execute();
+            }
+
+            conn.commit();
+            this.upstreamCapacity -= upstreamBandwidth;
+            this.downstreamCapacity -= downstreamBandwidth;
+            return start.getEndPoint(startLabel);
         }
 
         /**
@@ -1141,7 +1169,6 @@ public class PersistentAggregator implements Aggregator {
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
     private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
-    private int nextServiceId;
 
     /**
      * Create an aggregator.
@@ -1173,7 +1200,6 @@ public class PersistentAggregator implements Aggregator {
         this.subserviceTable = dbConfig.get("services.table", "subservices");
         this.trunkTable = dbConfig.get("trunks.table", "trunks");
         this.labelTable = dbConfig.get("labels.table", "label_map");
-        this.dbSlice = dbConfig.get("slice", this.name);
     }
 
     private final Function<? super String, ? extends NetworkControl> inferiors;
@@ -1191,15 +1217,12 @@ public class PersistentAggregator implements Aggregator {
             conn.setAutoCommit(false);
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + terminalTable
-                    + " (slice VARCHAR(20),"
-                    + " terminal_id INTEGER PRIMARY KEY,"
-                    + " name VARCHAR(20) NOT NULL,"
+                    + " (terminal_id INTEGER PRIMARY KEY,"
+                    + " name VARCHAR(20) NOT NULL UNIQUE,"
                     + " subnetwork VARCHAR(40) NOT NULL,"
-                    + " subname VARCHAR(40) NOT NULL,"
-                    + " CONSTRAINT terminals_unique UNIQUE (slice, name));");
+                    + " subname VARCHAR(40) NOT NULL);");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
-                    + " (slice VARCHAR(20),"
-                    + " service_id INTEGER PRIMARY KEY,"
+                    + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + subserviceTable
                     + " (service_id INTEGER," + " subservice_id INTEGER,"
@@ -1207,8 +1230,7 @@ public class PersistentAggregator implements Aggregator {
                     + " FORIEGN KEY(service_id) REFERENCES " + serviceTable
                     + "(service_id));");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + trunkTable
-                    + " (slice VARCHAR(20),"
-                    + " trunk_id INTEGER PRIMARY KEY,"
+                    + " (trunk_id INTEGER PRIMARY KEY,"
                     + " start_network VARCHAR(20),"
                     + " start_terminal VARCHAR(20),"
                     + " end_network VARCHAR(20),"
@@ -1240,55 +1262,49 @@ public class PersistentAggregator implements Aggregator {
             }
 
             /* Recreate terminals from entries in our tables. */
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT terminal_id, name,"
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT terminal_id, name,"
                     + " subnetwork, subname" + " FROM " + terminalTable
-                    + " WHERE slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int id = rs.getInt(1);
-                        final String name = rs.getString(2);
-                        final String subnetworkName = rs.getString(3);
-                        final String subname = rs.getString(4);
+                    + ";")) {
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    final String name = rs.getString(2);
+                    final String subnetworkName = rs.getString(3);
+                    final String subname = rs.getString(4);
 
-                        NetworkControl subnetwork =
-                            inferiors.apply(subnetworkName);
-                        Terminal innerPort = subnetwork.getTerminal(subname);
-                        MyTerminal port = new MyTerminal(name, innerPort, id);
-                        terminals.put(name, port);
-                    }
+                    NetworkControl subnetwork =
+                        inferiors.apply(subnetworkName);
+                    Terminal innerPort = subnetwork.getTerminal(subname);
+                    MyTerminal port = new MyTerminal(name, innerPort, id);
+                    terminals.put(name, port);
                 }
             }
 
             /* Recover a list of trunks. */
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT" + " trunk_id,"
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT" + " trunk_id,"
                     + " start_network," + " start_terminal," + " end_network,"
                     + " end_terminal," + " up_cap," + " down_cap,"
-                    + " metric FROM " + trunkTable + " WHERE slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int id = rs.getInt(1);
-                        final String startNetworkName = rs.getString(2);
-                        final String startTerminalName = rs.getString(3);
-                        final String endNetworkName = rs.getString(4);
-                        final String endTerminalName = rs.getString(5);
-                        final double upCap = rs.getDouble(6);
-                        final double downCap = rs.getDouble(7);
-                        final double delay = rs.getDouble(8);
+                    + " metric FROM " + trunkTable + ";")) {
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    final String startNetworkName = rs.getString(2);
+                    final String startTerminalName = rs.getString(3);
+                    final String endNetworkName = rs.getString(4);
+                    final String endTerminalName = rs.getString(5);
+                    final double upCap = rs.getDouble(6);
+                    final double downCap = rs.getDouble(7);
+                    final double delay = rs.getDouble(8);
 
-                        Terminal start = inferiors.apply(startNetworkName)
-                            .getTerminal(startTerminalName);
-                        Terminal end = inferiors.apply(endNetworkName)
-                            .getTerminal(endTerminalName);
-                        MyTrunk trunk = new MyTrunk(start, end, id);
-                        trunkIndex.put(id, trunk);
-                        trunks.put(start, trunk);
-                        trunks.put(end, trunk);
-                        trunk.recoverCapacities(upCap, downCap, delay);
-                    }
+                    Terminal start = inferiors.apply(startNetworkName)
+                        .getTerminal(startTerminalName);
+                    Terminal end = inferiors.apply(endNetworkName)
+                        .getTerminal(endTerminalName);
+                    MyTrunk trunk = new MyTrunk(start, end, id);
+                    trunkIndex.put(id, trunk);
+                    trunks.put(start, trunk);
+                    trunks.put(end, trunk);
+                    trunk.recoverCapacities(upCap, downCap, delay);
                 }
             }
 
@@ -1304,110 +1320,95 @@ public class PersistentAggregator implements Aggregator {
             Map<MyService, ServiceDetails> details = new HashMap<>();
 
             /* Recreate empty services from entries in our tables. */
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT service_id, intent" + " FROM "
-                    + serviceTable + " WHERE slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int id = rs.getInt(1);
-                        final boolean intent = rs.getBoolean(2);
-                        MyService service = new MyService(id);
-                        services.put(id, service);
-                        details
-                            .computeIfAbsent(service,
-                                             k -> new ServiceDetails()).active =
-                                                 intent;
-                    }
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT service_id, intent"
+                    + " FROM " + serviceTable + ";")) {
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    final boolean intent = rs.getBoolean(2);
+                    MyService service = new MyService(id);
+                    services.put(id, service);
+                    details
+                        .computeIfAbsent(service,
+                                         k -> new ServiceDetails()).active =
+                                             intent;
                 }
             }
 
             /* Recover services' details. */
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
-                + endPointTable + ".service_id AS service_id, "
-                + terminalTable + ".name AS terminal_name, " + endPointTable
-                + ".label AS label, " + endPointTable
-                + ".metering AS metering, " + endPointTable
-                + ".shaping AS shaping" + " FROM " + endPointTable
-                + " LEFT JOIN " + terminalTable + " ON " + terminalTable
-                + ".terminal_id = " + endPointTable + ".terminal_id"
-                + " WHERE " + terminalTable + ".slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final MyService service = services.get(rs.getInt(1));
-                        final MyTerminal port =
-                            terminals.get(rs.getString(2));
-                        final int label = rs.getInt(3);
-                        final double metering = rs.getDouble(4);
-                        final double shaping = rs.getDouble(5);
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt
+                    .executeQuery("SELECT" + " et.service_id AS service_id,"
+                        + " tt.name AS terminal_name," + " et.label AS label,"
+                        + " et.metering AS metering,"
+                        + " et.shaping AS shaping" + " FROM " + endPointTable
+                        + " AS et" + " LEFT JOIN " + terminalTable + " AS tt"
+                        + " ON tt.terminal_id = et.terminal_id" + ";")) {
+                while (rs.next()) {
+                    final MyService service = services.get(rs.getInt(1));
+                    final MyTerminal port = terminals.get(rs.getString(2));
+                    final int label = rs.getInt(3);
+                    final double metering = rs.getDouble(4);
+                    final double shaping = rs.getDouble(5);
 
-                        final EndPoint<? extends Terminal> endPoint =
-                            port.getEndPoint(label);
-                        final TrafficFlow enf =
-                            TrafficFlow.of(metering, shaping);
-                        details
-                            .computeIfAbsent(service,
-                                             k -> new ServiceDetails()).endPoints
-                                                 .put(endPoint, enf);
-                    }
+                    final EndPoint<? extends Terminal> endPoint =
+                        port.getEndPoint(label);
+                    final TrafficFlow enf = TrafficFlow.of(metering, shaping);
+                    details
+                        .computeIfAbsent(service,
+                                         k -> new ServiceDetails()).endPoints
+                                             .put(endPoint, enf);
                 }
             }
 
             /* Recover subservice details. */
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT "
-                + serviceTable + ".service_id AS service_id, " + serviceTable
-                + ".subservice_id AS subservice_id, " + serviceTable
-                + ".subnetwork_name AS subnetwork_name" + " FROM "
-                + subserviceTable + " LEFT JOIN " + serviceTable + " ON "
-                + serviceTable + ".service_id = " + subserviceTable
-                + ".service_id" + " WHERE " + serviceTable + ".slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int srvid = rs.getInt(1);
-                        final int subsrvid = rs.getInt(2);
-                        final String subnwname = rs.getString(3);
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt
+                    .executeQuery("SELECT" + " st.service_id AS service_id, "
+                        + " st.subservice_id AS subservice_id, "
+                        + " sst.subnetwork_name AS subnetwork_name" + " FROM "
+                        + subserviceTable + " AS sst" + " LEFT JOIN "
+                        + serviceTable + " AS st"
+                        + " ON st.service_id = sst.service_id;")) {
+                while (rs.next()) {
+                    final int srvid = rs.getInt(1);
+                    final int subsrvid = rs.getInt(2);
+                    final String subnwname = rs.getString(3);
 
-                        NetworkControl subnw = inferiors.apply(subnwname);
-                        Service subsrv = subnw.getService(subsrvid);
-                        MyService srv = services.get(srvid);
-                        details
-                            .computeIfAbsent(srv,
-                                             k -> new ServiceDetails()).subservices
-                                                 .add(subsrv);
-                    }
+                    NetworkControl subnw = inferiors.apply(subnwname);
+                    Service subsrv = subnw.getService(subsrvid);
+                    MyService srv = services.get(srvid);
+                    details
+                        .computeIfAbsent(srv,
+                                         k -> new ServiceDetails()).subservices
+                                             .add(subsrv);
                 }
             }
 
             /* Recover tunnel details. */
-            try (PreparedStatement stmt = conn
-                .prepareStatement("SELECT" + " lt.service_id AS service_id,"
-                    + " lt.trunk_id AS trunk_id,"
-                    + " lt.start_label AS start_label,"
-                    + " tt.start_network AS start_network,"
-                    + " tt.start_terminal AS start_terminal" + " FROM "
-                    + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
-                    + " AS tt" + " ON tt.trunk_id = lt.trunk_id"
-                    + " WHERE tt.slice = ?;")) {
-                stmt.setString(1, dbSlice);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        final int trid = rs.getInt(1);
-                        final int srvid = rs.getInt(2);
-                        final int label = rs.getInt(3);
-                        final String nwname = rs.getString(4);
-                        final String tname = rs.getString(5);
-                        MyService srv = services.get(srvid);
-                        NetworkControl subnw = inferiors.apply(nwname);
-                        Terminal term = subnw.getTerminal(tname);
-                        MyTrunk trunk = trunkIndex.get(trid);
-                        EndPoint<Terminal> ep = term.getEndPoint(label);
-                        details
-                            .computeIfAbsent(srv,
-                                             k -> new ServiceDetails()).tunnels
-                                                 .put(trunk, ep);
-                    }
+            try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt
+                    .executeQuery("SELECT" + " lt.service_id AS service_id,"
+                        + " lt.trunk_id AS trunk_id,"
+                        + " lt.start_label AS start_label,"
+                        + " tt.start_network AS start_network,"
+                        + " tt.start_terminal AS start_terminal" + " FROM "
+                        + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
+                        + " AS tt" + " ON tt.trunk_id = lt.trunk_id;")) {
+                while (rs.next()) {
+                    final int trid = rs.getInt(1);
+                    final int srvid = rs.getInt(2);
+                    final int label = rs.getInt(3);
+                    final String nwname = rs.getString(4);
+                    final String tname = rs.getString(5);
+                    MyService srv = services.get(srvid);
+                    NetworkControl subnw = inferiors.apply(nwname);
+                    Terminal term = subnw.getTerminal(tname);
+                    MyTrunk trunk = trunkIndex.get(trid);
+                    EndPoint<Terminal> ep = term.getEndPoint(label);
+                    details.computeIfAbsent(srv,
+                                            k -> new ServiceDetails()).tunnels
+                                                .put(trunk, ep);
                 }
             }
 
@@ -1423,7 +1424,6 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
-    private final String dbSlice;
     private final String endPointTable, terminalTable, serviceTable,
         subserviceTable, trunkTable, labelTable;
     private final String dbConnectionAddress;
@@ -1440,15 +1440,13 @@ public class PersistentAggregator implements Aggregator {
         try (Connection conn = database();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + trunkTable
-                    + " (slice, start_network, start_terminal,"
-                    + " end_network, end_terminal)"
-                    + " VALUES (?, ?, ?, ?, ?);",
+                    + " (start_network, start_terminal,"
+                    + " end_network, end_terminal)" + " VALUES (?, ?, ?, ?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, dbSlice);
-            stmt.setString(2, p1.getNetwork().name());
-            stmt.setString(3, p1.name());
-            stmt.setString(4, p2.getNetwork().name());
-            stmt.setString(5, p2.name());
+            stmt.setString(1, p1.getNetwork().name());
+            stmt.setString(2, p1.name());
+            stmt.setString(3, p2.getNetwork().name());
+            stmt.setString(4, p2.name());
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (rs.next()) {
@@ -1486,11 +1484,12 @@ public class PersistentAggregator implements Aggregator {
             throw new IllegalArgumentException("name in use: " + name);
         try (Connection conn = database();
             PreparedStatement stmt =
-                conn.prepareStatement("", Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setString(1, dbSlice);
-            stmt.setString(2, name);
-            stmt.setString(3, inner.getNetwork().name());
-            stmt.setString(4, inner.name());
+                conn.prepareStatement("INSERT INTO " + terminalTable
+                    + " (name, subnetwork, subname)" + " VALUES (?, ?, ?)",
+                                      Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setString(1, name);
+            stmt.setString(2, inner.getNetwork().name());
+            stmt.setString(3, inner.name());
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 final int id = rs.getInt(1);
@@ -1547,11 +1546,14 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @param subrequests a place to store the connection requests to be
      * submitted to each inferior switch
+     * @throws SQLException
      */
     synchronized void
-        plotAsymmetricTree(MyService service, ServiceDescription request,
+        plotAsymmetricTree(Connection conn, MyService service,
+                           ServiceDescription request,
                            Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
-                           Collection<? super ServiceDescription> subrequests) {
+                           Collection<? super ServiceDescription> subrequests)
+            throws SQLException {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
         // System.err.printf("Request consumers: %s%n",
@@ -1768,7 +1770,7 @@ public class PersistentAggregator implements Aggregator {
                 double upstream = trunkReq.getValue().get(0);
                 double downstream = trunkReq.getValue().get(1);
                 EndPoint<? extends Terminal> ep1 =
-                    trunk.allocateTunnel(service, upstream, downstream);
+                    trunk.allocateTunnel(conn, service, upstream, downstream);
                 tunnels.put(trunk, ep1);
                 EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
@@ -1801,128 +1803,6 @@ public class PersistentAggregator implements Aggregator {
             }
             return;
         } while (true);
-    }
-
-    /**
-     * Plot a spanning tree across this switch, allocating tunnels on
-     * trunks.
-     * 
-     * @param terminals the switch's own visible end points to be
-     * connected
-     * 
-     * @param bandwidth the bandwidth required on all tunnels
-     * 
-     * @param tunnels a place to store the set of allocated tunnels,
-     * indicating which trunk they belong to
-     * 
-     * @param subterminals a place to store which internal end points of
-     * which internal switches should be connected
-     * 
-     * @throws IllegalArgumentException if any end point does not belong
-     * to this switch
-     */
-    @SuppressWarnings("unused")
-    synchronized void
-        plotTree(Collection<? extends EndPoint<? extends Terminal>> terminals,
-                 double bandwidth,
-                 Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
-                 Map<? super NetworkControl, Collection<EndPoint<? extends Terminal>>> subterminals) {
-        // System.err.println("outer terminal end points: " +
-        // terminals);
-
-        /* Map the set of caller's end points to the corresponding inner
-         * end points that our topology consists of. */
-        Collection<EndPoint<? extends Terminal>> innerEndPoints =
-            terminals.stream().map(t -> {
-                Terminal p = t.getBundle();
-                if (!(p instanceof MyTerminal))
-                    throw new IllegalArgumentException("end point " + t
-                        + " not part of " + name);
-                MyTerminal xp = (MyTerminal) p;
-                if (xp.owner() != this)
-                    throw new IllegalArgumentException("end point " + t
-                        + " not part of " + name);
-                Terminal ip = xp.innerPort();
-                return ip.getEndPoint(t.getLabel());
-            }).collect(Collectors.toSet());
-        // System.err
-        // .println("inner terminal end points: " +
-        // innerTerminalEndPoints);
-
-        /* Get the set of terminals that will be used as destinations in
-         * routing. */
-        Collection<Terminal> innerTerminals = innerEndPoints.stream()
-            .map(EndPoint::getBundle).collect(Collectors.toSet());
-        // System.err.println("inner terminal terminals: " +
-        // innerTerminalPorts);
-
-        /* Create routing tables for each terminal. */
-        Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
-            getFibs(bandwidth, innerTerminals);
-        // System.err.println("FIBs: " + fibs);
-
-        /* To impose additional constraints on the spanning tree, keep a
-         * set of switches already reached. Edges that connect two
-         * distinct switches that have both been reached shall be
-         * excluded. */
-        Collection<NetworkControl> reachedSwitches = new HashSet<>();
-
-        /* Create the spanning tree, keeping track of reached switches,
-         * and rejecting edges connecting two already reached
-         * switches. */
-        FIBSpanGuide<Terminal> guide = new FIBSpanGuide<Terminal>(fibs);
-        Collection<Edge<Terminal>> tree =
-            SpanningTreeComputer.start(Terminal.class)
-                .withEdgePreference(guide::select).eliminating(e -> {
-                    NetworkControl first = e.first().getNetwork();
-                    NetworkControl second = e.second().getNetwork();
-                    if (first == second) return false;
-                    if (reachedSwitches.contains(first)
-                        && reachedSwitches.contains(second)) return true;
-                    return false;
-                }).notifying(p -> {
-                    guide.reached(p);
-                    reachedSwitches.add(p.getNetwork());
-                }).create().getSpanningTree(guide.first());
-
-        for (Edge<Terminal> edge : tree) {
-            NetworkControl firstSwitch = edge.first().getNetwork();
-            NetworkControl secondSwitch = edge.second().getNetwork();
-            if (firstSwitch == secondSwitch) {
-                /* This is an edge across an inferior switch. We don't
-                 * handle it directly, but infer it by the edges that
-                 * connect to it. */
-                continue;
-            }
-            /* This is an edge runnning along a trunk. */
-
-            /* Create a tunnel along this trunk, and remember one end of
-             * it. */
-            MyTrunk firstTrunk = trunks.get(edge.first());
-            EndPoint<? extends Terminal> ep1 =
-                firstTrunk.allocateTunnel(null, bandwidth, bandwidth);
-            tunnels.put(firstTrunk, ep1);
-
-            /* Get both end points, find out what switches they
-             * correspond to, and add each end point to its switch's
-             * respective set of end points. */
-            EndPoint<? extends Terminal> ep2 = firstTrunk.getPeer(ep1);
-            subterminals.computeIfAbsent(ep1.getBundle().getNetwork(),
-                                         k -> new HashSet<>())
-                .add(ep1);
-            subterminals.computeIfAbsent(ep2.getBundle().getNetwork(),
-                                         k -> new HashSet<>())
-                .add(ep2);
-        }
-
-        /* Make sure the caller's end points are included in their
-         * switches' corresponding sets. */
-        for (EndPoint<? extends Terminal> t : innerEndPoints)
-            subterminals.computeIfAbsent(t.getBundle().getNetwork(),
-                                         k -> new HashSet<>())
-                .add(t);
-
-        return;
     }
 
     /**
@@ -2046,12 +1926,26 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public Service newService() {
-            synchronized (PersistentAggregator.this) {
-                int id = nextServiceId++;
-                MyService conn = new MyService(id);
-                services.put(id, conn);
-                return conn;
+            final int id;
+            try (Connection conn = database();
+                Statement stmt = conn.createStatement()) {
+                stmt.execute("INSERT INTO " + serviceTable
+                    + " DEFAULT VALUES;", Statement.RETURN_GENERATED_KEYS);
+                try (ResultSet rs = stmt.getGeneratedKeys()) {
+                    if (!rs.next())
+                        throw new ServiceResourceException("could not"
+                            + " generate new service id");
+                    id = rs.getInt(1);
+                }
+            } catch (SQLException e) {
+                throw new ServiceResourceException("unable to create new service",
+                                                   e);
             }
+            MyService conn = new MyService(id);
+            synchronized (PersistentAggregator.this) {
+                services.put(id, conn);
+            }
+            return conn;
         }
 
         @Override
@@ -2108,16 +2002,27 @@ public class PersistentAggregator implements Aggregator {
 
     private void updateIntent(Connection conn, int srvid, boolean status)
         throws SQLException {
-        try (PreparedStatement stmt =
-            conn.prepareStatement("UPDATE " + serviceTable
-                + " SET intent = ? WHERE slice = ? AND service_id = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+            + serviceTable + " SET intent = ? WHERE service_id = ?;")) {
             stmt.setInt(1, status ? 1 : 0);
-            stmt.setString(2, dbSlice);
-            stmt.setInt(3, srvid);
+            stmt.setInt(2, srvid);
             stmt.execute();
         }
     }
 
+    /**
+     * Record a change to trunk capacity in the database.
+     * 
+     * @param conn the connection to the database
+     * 
+     * @param tid the id of the trunk to update
+     * 
+     * @param up the change to the the upstream capacity
+     * 
+     * @param down the change to the downstream capacity
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private void updateTrunkCapacity(Connection conn, int tid, double up,
                                      double down)
         throws SQLException {
