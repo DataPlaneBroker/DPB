@@ -35,10 +35,6 @@
  */
 package uk.ac.lancs.networks;
 
-import java.util.Collection;
-
-import uk.ac.lancs.networks.end_points.EndPoint;
-
 /**
  * Receives notifications of changes to the state of a service.
  * 
@@ -46,38 +42,9 @@ import uk.ac.lancs.networks.end_points.EndPoint;
  */
 public interface ServiceListener {
     /**
-     * The service has become ready to use, and is inactive.
+     * Inform the listener of the service's status changing.
+     * 
+     * @param newStatus the new status
      */
-    void ready();
-
-    /**
-     * The service failed during establishment or activation.
-     */
-    void failed(Collection<? extends EndPoint<? extends Terminal>> locations,
-                Throwable t);
-
-    /**
-     * The service has become active.
-     */
-    void activated();
-
-    /**
-     * The service has started to become active.
-     */
-    default void activating() {}
-
-    /**
-     * The service has become inactive.
-     */
-    void deactivated();
-
-    /**
-     * The service has started to become inactive.
-     */
-    default void deactivating() {}
-
-    /**
-     * The service has been fully released, and can be used again.
-     */
-    void released();
+    void newStatus(ServiceStatus newStatus);
 }

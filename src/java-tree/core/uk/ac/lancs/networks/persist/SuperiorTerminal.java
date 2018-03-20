@@ -44,6 +44,8 @@ import uk.ac.lancs.networks.Terminal;
  * @author simpsons
  */
 final class SuperiorTerminal implements Terminal {
+    /* TODO: Make this class serializable on 'network' and 'name'. */
+
     private final NetworkControl network;
     private final String name;
     private final Terminal subterminal;

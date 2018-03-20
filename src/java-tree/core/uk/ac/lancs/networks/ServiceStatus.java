@@ -48,48 +48,115 @@ public enum ServiceStatus {
      * The service is not in use, and has no associated request. This is
      * the initial state.
      */
-    DORMANT,
+    DORMANT {
+        @Override
+        public boolean isStable() {
+            return true;
+        }
+    },
 
     /**
      * The underlying service resources have not yet been established.
      */
-    ESTABLISHING,
+    ESTABLISHING {
+        @Override
+        public boolean isStable() {
+            return false;
+        }
+    },
 
     /**
      * The service has link resources allocated, but no switch
      * resources.
      */
-    INACTIVE,
+    INACTIVE {
+        @Override
+        public boolean isStable() {
+            return true;
+        }
+    },
 
     /**
      * The service is in the process of becoming {@link #ACTIVE}. Some
      * traffic might begin to get through.
      */
-    ACTIVATING,
+    ACTIVATING {
+        @Override
+        public boolean isStable() {
+            return false;
+        }
+    },
 
     /**
      * The service is active, and so can carry traffic.
      */
-    ACTIVE,
+    ACTIVE {
+        @Override
+        public boolean isStable() {
+            return true;
+        }
+    },
 
     /**
      * The service is deactivating. Some traffic might still get
      * through.
      */
-    DEACTIVATING,
+    DEACTIVATING {
+        @Override
+        public boolean isStable() {
+            return false;
+        }
+    },
 
     /**
      * The service has failed outright.
      */
-    FAILED,
+    FAILED {
+        @Override
+        public boolean isStable() {
+            return true;
+        }
+    },
 
     /**
      * The service is deactivated and is being released.
      */
 
-    RELEASING,
+    RELEASING {
+        @Override
+        public boolean isStable() {
+            return false;
+        }
+    },
     /**
      * The service has been released, and can no longer be used.
      */
-    RELEASED,
+    RELEASED {
+        @Override
+        public boolean isStable() {
+            return true;
+        }
+    };
+
+    /**
+     * Determine whether this is a stable state. The following states
+     * are stable:
+     * 
+     * <ul>
+     * 
+     * <li>{@link #DORMANT}
+     * 
+     * <li>{@link #INACTIVE}
+     * 
+     * <li>{@link #ACTIVE}
+     * 
+     * <li>{@link #RELEASED}
+     * 
+     * <li>{@link #FAILED}
+     * 
+     * </ul>
+     * 
+     * @return {@code true} iff this is a stable state
+     */
+    public abstract boolean isStable();
 }

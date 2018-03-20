@@ -38,11 +38,11 @@ package uk.ac.lancs.networks.transients;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
@@ -101,10 +101,9 @@ public class DummySwitch implements Network {
 
         @Override
         public synchronized void initiate(ServiceDescription request) {
-            if (released)
-                throw new IllegalStateException("connection disused");
+            if (released) throw new IllegalStateException("service released");
             if (this.request != null)
-                throw new IllegalStateException("connection in use");
+                throw new IllegalStateException("service in use");
 
             /* Sanitize the request such that every end point mentioned
              * in either set is present in both. A minimum bandwidth is
@@ -124,7 +123,12 @@ public class DummySwitch implements Network {
                         + ep);
             }
             this.request = request;
-            callOut(ServiceListener::ready);
+            callOut(ServiceStatus.ESTABLISHING);
+            callOut(ServiceStatus.INACTIVE);
+            if (active) {
+                callOut(ServiceStatus.ACTIVATING);
+                callOut(ServiceStatus.ACTIVE);
+            }
         }
 
         @Override
@@ -137,26 +141,27 @@ public class DummySwitch implements Network {
             listeners.remove(events);
         }
 
-        private void callOut(Consumer<? super ServiceListener> action) {
-            listeners.stream().forEach(action);
+        private void callOut(ServiceStatus newStatus) {
+            listeners.forEach(l -> l.newStatus(newStatus));
         }
 
         @Override
         public synchronized void activate() {
-            if (released || request == null)
-                throw new IllegalStateException("connection uninitiated");
+            if (released) throw new IllegalStateException("service released");
             if (active) return;
             active = true;
-            callOut(ServiceListener::activating);
-            callOut(ServiceListener::activated);
+            if (request == null) return;
+            callOut(ServiceStatus.ACTIVATING);
+            callOut(ServiceStatus.ACTIVE);
         }
 
         @Override
         public synchronized void deactivate() {
-            if (released || request == null || !active) return;
+            if (released || !active) return;
             active = false;
-            callOut(ServiceListener::deactivating);
-            callOut(ServiceListener::deactivated);
+            if (request == null) return;
+            callOut(ServiceStatus.DEACTIVATING);
+            callOut(ServiceStatus.INACTIVE);
         }
 
         @Override
@@ -174,10 +179,11 @@ public class DummySwitch implements Network {
             released = true;
             if (active) {
                 active = false;
-                callOut(ServiceListener::deactivating);
-                callOut(ServiceListener::deactivated);
+                callOut(ServiceStatus.DEACTIVATING);
+                callOut(ServiceStatus.INACTIVE);
             }
-            callOut(ServiceListener::released);
+            callOut(ServiceStatus.RELEASING);
+            callOut(ServiceStatus.RELEASED);
         }
 
         @Override
@@ -210,6 +216,11 @@ public class DummySwitch implements Network {
         @Override
         public synchronized ServiceDescription getRequest() {
             return request;
+        }
+
+        @Override
+        public Collection<Throwable> errors() {
+            return Collections.emptySet();
         }
     }
 

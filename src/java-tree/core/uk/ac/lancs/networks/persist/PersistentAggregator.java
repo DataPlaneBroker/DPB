@@ -50,13 +50,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -90,55 +90,26 @@ public class PersistentAggregator implements Aggregator {
         private class Client implements ServiceListener {
             final Service subservice;
 
-            /**
-             * Accumulates errors on each end point.
-             */
-            Map<EndPoint<? extends Terminal>, Collection<Throwable>> endPointErrors =
-                new HashMap<>();
-            Collection<Throwable> globalErrors = new HashSet<>();
-            boolean active;
-
-            boolean inErrorState() {
-                return !endPointErrors.isEmpty() || !globalErrors.isEmpty();
-            }
+            @SuppressWarnings("unused")
+            ServiceStatus lastStableStatus = ServiceStatus.DORMANT;
+            ServiceStatus lastStatus = ServiceStatus.DORMANT;
 
             Client(Service subservice) {
                 this.subservice = subservice;
             }
 
+            private ServiceListener protectedSelf;
+
             /**
              * Ensure the subservice can talk back to this client.
              */
             void init() {
-                this.subservice
-                    .addListener(protect(ServiceListener.class, this));
+                protectedSelf = protect(ServiceListener.class, this);
+                this.subservice.addListener(protectedSelf);
             }
 
-            @Override
-            public void ready() {
-                clientReady(this);
-            }
-
-            @Override
-            public void
-                failed(Collection<? extends EndPoint<? extends Terminal>> locations,
-                       Throwable t) {
-                clientFailed(this, locations, t);
-            }
-
-            @Override
-            public void activated() {
-                clientActivated(this);
-            }
-
-            @Override
-            public void deactivated() {
-                clientDeactivated(this);
-            }
-
-            @Override
-            public void released() {
-                clientReleased(this);
+            void term() {
+                this.subservice.removeListener(protectedSelf);
             }
 
             void activate() {
@@ -169,107 +140,232 @@ public class PersistentAggregator implements Aggregator {
                                flow.egress);
                 }
             }
+
+            @Override
+            public void newStatus(ServiceStatus newStatus) {
+                newClientStatus(this, newStatus);
+            }
         }
 
         /***
          * The following methods are to be called by Client objects.
          ***/
 
-        synchronized void clientReady(Client cli) {
-            if (tunnels == null) return;
+        synchronized void newClientStatus(Client cli,
+                                          ServiceStatus newStatus) {
+            if (tunnels == null) {
+                /* We haven't initiated anything yet, so we shouldn't be
+                 * called back by subservices we haven't set up. */
+                return;
+            }
 
-            /* Determine whether we've got responses from anyone now. */
-            readyCount++;
-            if (readyCount < clients.size()) return;
+            /* Ignore some non-sensical reports. */
+            if (newStatus == ServiceStatus.DORMANT) return;
 
-            /* If all inferior networks have responded, we can report
-             * that we are ready. */
-            assert errorCount == 0;
-            callOut(ServiceListener::ready);
+            /* Do nothing if the status hasn't changed. */
+            if (newStatus == cli.lastStatus) return;
 
-            /* Try to become active now, if the user has prematurely
-             * tried to activate us. */
-            if (intent == Intent.ACTIVE) {
-                callOut(ServiceListener::activating);
-                clients.stream().forEach(Client::activate);
+            /* Keep track of which counters have changed. */
+            boolean activeChanged = false, inactiveChanged = false,
+                failedChanged = false, releasedChanged = false;
+            @SuppressWarnings("unused")
+            boolean dormantChanged = false;
+
+            /* Decrement counters for the previous status of this
+             * subservice. */
+            switch (cli.lastStatus) {
+            case DORMANT:
+                dormantCount--;
+                dormantChanged = true;
+                break;
+
+            case INACTIVE:
+                inactiveCount--;
+                inactiveChanged = true;
+                break;
+
+            case ACTIVE:
+                activeCount--;
+                activeChanged = true;
+                break;
+
+            case FAILED:
+                /* After failure, we can only get RELEASED/RELEASING. We
+                 * don't decrement this counter. */
+                break;
+
+            default:
+                /* Nothing else makes sense. */
+                return;
+            }
+
+            switch (newStatus) {
+            case INACTIVE:
+                inactiveCount++;
+                inactiveChanged = true;
+                break;
+
+            case ACTIVE:
+                activeCount++;
+                activeChanged = true;
+                break;
+
+            case FAILED:
+                failedCount++;
+                failedChanged = true;
+                break;
+
+            case RELEASED:
+                releasedCount++;
+                releasedChanged = true;
+                break;
+
+            default:
+                /* Nothing else makes sense. TODO: Log a problem. */
+                break;
+            }
+
+            /* Record the last status and last stable status for this
+             * subservice. */
+            cli.lastStatus = newStatus;
+            if (newStatus.isStable()) cli.lastStableStatus = newStatus;
+
+            /* If any subservice failed, ensure all subservices are
+             * deactivated, release tunnels, and inform the users. */
+            if (failedChanged) {
+                /* Make sure we have all the errors from the failing
+                 * subservice. */
+                errors.addAll(cli.subservice.errors());
+
+                switch (intent) {
+                case ABORT:
+                    /* If we've already recorded that we're aborting, we
+                     * have nothing else to do. */
+                    return;
+
+                case RELEASE:
+                    /* If the user has already tried to release us, we
+                     * have nothing else to do. */
+                    return;
+
+                default:
+                    break;
+                }
+
+                /* Record that we are aborting this service. */
+                intent = Intent.ABORT;
+
+                /* Ensure that all subservices are deactivated. */
+                clients.forEach(Client::deactivate);
+
+                /* Release all trunk resources now. We definitely don't
+                 * need them any more. */
+                synchronized (PersistentAggregator.this) {
+                    tunnels.forEach((trunk, endPoint) -> {
+                        trunk.releaseTunnel(endPoint);
+                    });
+                }
+                tunnels.clear();
+
+                /* Notify the user that we have failed, and the only
+                 * remaining events are RELEASING and RELEASED. */
+                callOut(ServiceStatus.FAILED);
+                return;
+            }
+
+            if (inactiveChanged && inactiveCount == clients.size()) {
+                /* All clients have become inactive. */
+                callOut(ServiceStatus.INACTIVE);
+
+                switch (intent) {
+                case ACTIVE:
+                    /* The clients must have been DORMANT, but the user
+                     * prematurely activated us. */
+                    callOut(ServiceStatus.ACTIVATING);
+                    clients.forEach(Client::activate);
+                    break;
+
+                case RELEASE:
+                    /* The user released the service while it was
+                     * (trying to be) active. Initiate the release
+                     * process. */
+                    startRelease();
+                    break;
+
+                default:
+                    break;
+                }
+
+                return;
+            }
+
+            if (intent == Intent.RELEASE) {
+                if (releasedChanged && releasedCount == clients.size()) {
+                    /* All subservices have been released, so we can
+                     * regard ourselves as fully released now. */
+                    completeRelease();
+                    return;
+                }
+                return;
+            }
+
+            if (activeChanged && activeCount == clients.size()) {
+                if (intent == Intent.ACTIVE) callOut(ServiceStatus.ACTIVE);
+                return;
             }
         }
 
-        synchronized void
-            clientFailed(Client cli,
-                         Collection<? extends EndPoint<? extends Terminal>> locations,
-                         Throwable t) {
-            forceInactive(cli);
+        private void completeRelease() {
+            assert Thread.holdsLock(this);
 
-            assert tunnels == null;
+            /* We should have already dealt with the tunnels, but let's
+             * be thorough. */
+            assert tunnels == null || tunnels.isEmpty();
+            tunnels = null;
 
-            /* Record this failure, and keep track of how many
-             * subservices have failed. */
-            boolean oldState = cli.inErrorState();
-            if (locations.isEmpty()) {
-                cli.globalErrors.add(t);
-            } else {
-                for (EndPoint<? extends Terminal> ep : locations)
-                    cli.endPointErrors
-                        .computeIfAbsent(ep, k -> new HashSet<>()).add(t);
-            }
-            boolean newState = cli.inErrorState();
-            if (!oldState && newState) errorCount++;
+            /* Lose the references to all the subservices, and make sure
+             * they've lost our callbacks. */
+            clients.forEach(Client::term);
+            clients.clear();
 
-            /* Pass this failure on up. */
-            callOut(l -> l.failed(locations, t));
-        }
-
-        synchronized void clientReleased(Client cli) {
-            forceInactive(cli);
-
-            /* Deplete the set of clients. If they're all gone, we are
-             * released. */
-            if (!clients.remove(cli)) return;
-            if (!clients.isEmpty()) return;
-            allClientsReleased();
-        }
-
-        private void allClientsReleased() {
-            assert clients.isEmpty();
+            /* Ensure this service can't be found again by users. */
             synchronized (PersistentAggregator.this) {
+                try (Connection conn = database()) {
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + subserviceTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + endPointTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("DELETE FROM " + serviceTable
+                            + " WHERE service_id = ?;")) {
+                        stmt.setInt(1, id);
+                        stmt.execute();
+                    }
+                } catch (SQLException ex) {
+                    // Erm? Too late to do anything about it now.
+                }
                 services.remove(id);
             }
-            callOut(ServiceListener::released);
-        }
 
-        synchronized void clientActivated(Client cli) {
-            if (cli.active) return;
-            cli.active = true;
-            if (activeCount++ < clients.size()) return;
-            callOut(ServiceListener::activated);
-        }
-
-        synchronized void clientDeactivated(Client cli) {
-            forceInactive(cli);
-        }
-
-        private void forceInactive(Client cli) {
-            assert Thread.holdsLock(this);
-            if (!cli.active) return;
-            cli.active = false;
-            if (activeCount-- > 0) return;
-            completeDeactivation();
-        }
-
-        private void completeDeactivation() {
-            callOut(ServiceListener::deactivated);
-            if (intent != Intent.RELEASE) return;
-            releaseInternal();
+            /* Send our last report to all users. */
+            callOut(ServiceStatus.RELEASED);
+            listeners.clear();
         }
 
         final int id;
         final Collection<ServiceListener> listeners = new HashSet<>();
         final List<Client> clients = new ArrayList<>();
 
-        private void callOut(Consumer<? super ServiceListener> action) {
-            listeners.stream()
-                .forEach(l -> executor.execute(() -> action.accept(l)));
+        private void callOut(ServiceStatus status) {
+            listeners.forEach(l -> l.newStatus(status));
         }
 
         /**
@@ -282,18 +378,12 @@ public class PersistentAggregator implements Aggregator {
         /**
          * Holds errors not attached to end points of subservices.
          */
-        Collection<Throwable> globalErrors = new HashSet<>();
+        final Collection<Throwable> errors = new HashSet<>();
+        final Collection<Throwable> finalErrors =
+            Collections.unmodifiableCollection(errors);
 
-        int readyCount;
-        int errorCount;
-
-        /**
-         * Counts the number of active or deactivating
-         * (having-been-active) subservices. Subservices that were
-         * activating but switched to deactivating before becoming
-         * active are not included.
-         */
-        int activeCount;
+        int dormantCount, inactiveCount, activeCount, failedCount,
+            releasedCount;
 
         /**
          * Records the user's intent for this service. The default is
@@ -387,31 +477,21 @@ public class PersistentAggregator implements Aggregator {
                 else
                     return ServiceStatus.RELEASING;
             }
-            if (errorCount > 0 || !globalErrors.isEmpty())
-                return ServiceStatus.FAILED;
+            if (failedCount > 0) return ServiceStatus.FAILED;
             if (tunnels == null) return ServiceStatus.DORMANT;
-            assert errorCount == 0;
-            if (readyCount < clients.size())
-                return ServiceStatus.ESTABLISHING;
-
-            if (intent == Intent.ACTIVE) {
-                if (activeCount < clients.size())
-                    return ServiceStatus.ACTIVATING;
-                else
-                    return ServiceStatus.ACTIVE;
-            }
-
-            if (activeCount > 0)
-                return ServiceStatus.DEACTIVATING;
-            else
-                return ServiceStatus.INACTIVE;
+            assert failedCount == 0;
+            if (dormantCount > 0) return ServiceStatus.ESTABLISHING;
+            if (intent == Intent.ACTIVE) return activeCount < clients.size()
+                ? ServiceStatus.ACTIVATING : ServiceStatus.ACTIVE;
+            return activeCount > 0 ? ServiceStatus.DEACTIVATING
+                : ServiceStatus.INACTIVE;
         }
 
         @Override
         public synchronized void activate() {
             /* If anything has already gone wrong, we can do nothing
              * more. */
-            if (errorCount > 0)
+            if (failedCount > 0)
                 throw new IllegalStateException("inferior error(s)");
 
             /* If the user has released us, we can do nothing more. */
@@ -421,20 +501,20 @@ public class PersistentAggregator implements Aggregator {
             /* Do nothing if we've already recorded the user's intent,
              * as we must also have activated inferior services. */
             if (intent == Intent.ACTIVE) return;
+            intent = Intent.ACTIVE;
             try (Connection conn = database()) {
                 updateIntent(conn, id, true);
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
             }
-            intent = Intent.ACTIVE;
 
             /* Do nothing but record the user's intent, if they haven't
              * yet provided end-point details. */
             if (tunnels == null) return;
 
-            callOut(ServiceListener::activating);
-            clients.stream().forEach(Client::activate);
+            callOut(ServiceStatus.ACTIVATING);
+            clients.forEach(Client::activate);
         }
 
         @Override
@@ -446,18 +526,12 @@ public class PersistentAggregator implements Aggregator {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
             }
-            intent = Intent.INACTIVE;
-            deactivateInternal();
-        }
-
-        private void deactivateInternal() {
-            assert Thread.holdsLock(this);
-
-            /* Indicate that we are starting to deactivate, and then
-             * initiate it if we are not already. */
-            callOut(ServiceListener::deactivating);
-            clients.forEach(Client::deactivate);
-            if (activeCount == 0) completeDeactivation();
+            callOut(ServiceStatus.DEACTIVATING);
+            if (inactiveCount + failedCount == clients.size()) {
+                callOut(ServiceStatus.INACTIVE);
+            } else {
+                clients.forEach(Client::deactivate);
+            }
         }
 
         @Override
@@ -466,61 +540,46 @@ public class PersistentAggregator implements Aggregator {
              * user's intent to release the service. */
             if (intent == Intent.RELEASE) return;
 
-            /* Record the new intent, but remember the old. */
-            Intent oldIntent = intent;
-            intent = Intent.RELEASE;
-
             /* If the current intent is to be active, trigger
              * deactivation first. When it completes, and discovers the
              * release intent, it will start the release process.
              * Otherwise, we start it now. */
-            if (oldIntent == Intent.ACTIVE) {
-                deactivateInternal();
-            } else {
-                releaseInternal();
+            if (intent == Intent.ACTIVE) {
+                intent = Intent.RELEASE;
+                if (activeCount > 0) {
+                    if (activeCount == clients.size())
+                        callOut(ServiceStatus.DEACTIVATING);
+                    clients.forEach(Client::deactivate);
+                }
+                return;
             }
+
+            /* Record the new intent and initiate the release
+             * process. */
+            intent = Intent.RELEASE;
+            startRelease();
         }
 
-        private void releaseInternal() {
+        private void startRelease() {
             assert Thread.holdsLock(this);
 
-            /* If we have no subservices to release, we're ready to
-             * release ourselves. */
-            if (clients.isEmpty())
-                allClientsReleased();
-            else
-                /* Release subservice resources. */
-                clients.stream().forEach(Client::release);
+            /* Inform users that the release process has started. */
+            callOut(ServiceStatus.RELEASING);
 
-            /* Release tunnel resources and make ourselves
-             * unfindable. */
+            /* Release subservice resources. */
+            clients.forEach(Client::release);
+
+            /* Release tunnel resources. */
             synchronized (PersistentAggregator.this) {
                 tunnels.forEach((k, v) -> k.releaseTunnel(v));
-                try (Connection conn = database()) {
-                    try (PreparedStatement stmt =
-                        conn.prepareStatement("DELETE FROM " + subserviceTable
-                            + " WHERE service_id = ?;")) {
-                        stmt.setInt(1, id);
-                        stmt.execute();
-                    }
-                    try (PreparedStatement stmt =
-                        conn.prepareStatement("DELETE FROM " + endPointTable
-                            + " WHERE service_id = ?;")) {
-                        stmt.setInt(1, id);
-                        stmt.execute();
-                    }
-                    try (PreparedStatement stmt =
-                        conn.prepareStatement("DELETE FROM " + serviceTable
-                            + " WHERE service_id = ?;")) {
-                        stmt.setInt(1, id);
-                        stmt.execute();
-                    }
-                } catch (SQLException ex) {
-                    // Erm?
-                }
-                services.remove(id);
             }
             tunnels.clear();
+
+            if (releasedCount == clients.size()) {
+                /* All subservices are already released. This only
+                 * happens if we were still dormant when released. */
+                completeRelease();
+            }
         }
 
         @Override
@@ -573,10 +632,11 @@ public class PersistentAggregator implements Aggregator {
             return request;
         }
 
-        void recover(boolean active,
-                     Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
-                     Collection<? extends Service> subservices,
-                     Map<MyTrunk, EndPoint<? extends Terminal>> tunnels) {
+        synchronized void
+            recover(boolean active,
+                    Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                    Collection<? extends Service> subservices,
+                    Map<MyTrunk, EndPoint<? extends Terminal>> tunnels) {
             request = ServiceDescription.create(endPoints);
 
             this.tunnels = tunnels;
@@ -587,32 +647,38 @@ public class PersistentAggregator implements Aggregator {
                 Client cli = new Client(srv);
                 clients.add(cli);
             }
-            errorCount = 0;
-            activeCount = 0;
+
+            /* Ensure we receive status updates. We don't receive any
+             * until this synchronized call terminates. */
             clients.forEach(Client::init);
 
             for (Client cli : clients) {
                 switch (cli.subservice.status()) {
+                case DORMANT:
+                    dormantCount++;
+                    break;
                 case INACTIVE:
-                case ACTIVATING:
-                case DEACTIVATING:
-                    readyCount++;
+                    inactiveCount++;
                     break;
                 case ACTIVE:
-                    readyCount++;
                     activeCount++;
-                    cli.active = true;
                     break;
                 case FAILED:
-                    errorCount++;
+                    failedCount++;
+                    errors.addAll(cli.subservice.errors());
                     break;
                 case RELEASED:
-                    clients.remove(cli);
+                    releasedCount++;
                     break;
                 default:
                     break;
                 }
             }
+        }
+
+        @Override
+        public Collection<Throwable> errors() {
+            return finalErrors;
         }
     }
 
@@ -1457,6 +1523,8 @@ public class PersistentAggregator implements Aggregator {
         MyTrunk t = trunks.get(p);
         if (t == null) return; // TODO: error?
         trunks.keySet().removeAll(t.getTerminals());
+        
+        // TODO: Remove trunk from database.
     }
 
     @Override
@@ -1975,7 +2043,7 @@ public class PersistentAggregator implements Aggregator {
     }
 
     private static enum Intent {
-        RELEASE, INACTIVE, ACTIVE;
+        RELEASE, INACTIVE, ACTIVE, ABORT;
     }
 
     /**

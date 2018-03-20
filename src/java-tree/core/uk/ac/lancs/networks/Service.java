@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks;
 
+import java.util.Collection;
+
 /**
  * A new service is obtained from {@link NetworkControl#newService()}.
  * Each service has a persistent identifier which can be used to recover
@@ -50,32 +52,42 @@ package uk.ac.lancs.networks;
  * <p>
  * Call {@link #initiate(ServiceDescription)} with service parameters
  * (end points and bandwidth) to initiate a service.
- * {@link ServiceListener#ready()} will be invoked if the service is
- * established (but not yet activated).
- * {@link ServiceListener#failed(java.util.Collection, Throwable)} will
- * be invoked on error.
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#INACTIVE INACTIVE})</code>
+ * will be invoked if the service is established (but not yet
+ * activated).
  * 
  * <p>
  * Once established, {@link #activate()} can be called to activate the
  * service, allowing traffic to flow.
- * {@link ServiceListener#activating()} will be invoked as activation
- * begins, and {@link ServiceListener#activated()} will be invoked when
- * activation is complete.
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#ACTIVATING ACTIVATING})</code>
+ * will be invoked as activation begins, and
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#ACTIVE ACTIVE})</code>
+ * will be invoked when activation is complete.
  * 
  * <p>
  * A service can be deactived with {@link #deactivate()}, and traffic
- * will no longer flow. {@link ServiceListener#deactivating()} will be
- * invoked as deactivation starts, and
- * {@link ServiceListener#deactivated()} will be invoked when
- * de-activation is complete.
+ * will no longer flow.
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#DEACTIVATING ACTIVATING})</code>
+ * will be invoked as deactivation starts, and
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#INACTIVE INACTIVE})</code>
+ * will be invoked when de-activation is complete.
  * 
  * <p>
  * A service can be activated and deactivated any number of times.
  * 
  * <p>
+ * {@linkplain ServiceListener#newStatus(ServiceStatus)
+ * newStatus}({@link ServiceStatus#FAILED FAILED}) will be invoked on
+ * error, and errors {@link Service#errors()} can be used to get details
+ * on the failure.
+ * 
+ * <p>
  * Calling {@link #release()} ensures the service is deactivated, and
- * all resources will be released. {@link ServiceListener#released()}
- * will finally be called.
+ * all resources will be released.
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#RELEASING RELEASING})</code>
+ * will be called immediately, and then
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#RELEASED RELEASED})</code>
+ * when all resources have been released.
  * 
  * @summary A connectivity service with QoS guarantees
  * 
@@ -157,6 +169,15 @@ public interface Service {
      * @throws IllegalStateException if this service has been released
      */
     ServiceStatus status();
+
+    /**
+     * Get the set of errors that have put this service into the
+     * {@link ServiceStatus#FAILED} state.
+     * 
+     * @return the set of errors causing this service to fail; empty if
+     * it has not failed
+     */
+    Collection<Throwable> errors();
 
     /**
      * Release all resources pertaining to this service. All methods on

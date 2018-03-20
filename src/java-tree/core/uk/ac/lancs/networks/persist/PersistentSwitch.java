@@ -56,7 +56,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.config.Configuration;
@@ -151,8 +150,10 @@ public class PersistentSwitch implements Switch {
             this.request = ServiceDescription.sanitize(request, 0.01);
 
             /* Add the details to the database. */
+            final boolean activated;
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
+                activated = getIntent(conn, id);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("INSERT INTO " + endPointTable
                         + " (service_id, terminal_id,"
@@ -179,7 +180,11 @@ public class PersistentSwitch implements Switch {
             }
 
             /* We are ready as soon as we have the information. */
-            callOut(ServiceListener::ready);
+            callOut(ServiceStatus.ESTABLISHING);
+            callOut(ServiceStatus.INACTIVE);
+            if (activated) {
+                // TODO: Start activation process.
+            }
         }
 
         @Override
@@ -192,18 +197,19 @@ public class PersistentSwitch implements Switch {
             listeners.remove(events);
         }
 
-        private void callOut(Consumer<? super ServiceListener> action) {
-            listeners.stream().forEach(action);
+        private void callOut(ServiceStatus status) {
+            listeners.forEach(l -> l.newStatus(status));
         }
 
         @Override
         public synchronized void activate() {
-            if (released || request == null)
+            if (released)
                 throw new IllegalStateException("service uninitiated");
-            if (bridge != null) return;
 
-            /* Record the user's intent for this service. */
             try (Connection conn = database()) {
+                /* TODO: Check the user's intent. If already activated,
+                 * do nothing. */
+                /* Record the user's intent for this service. */
                 updateIntent(conn, id, true);
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
@@ -212,7 +218,7 @@ public class PersistentSwitch implements Switch {
 
             this.bridge =
                 fabric.bridge(self, mapEndPoints(request.endPointFlows()));
-            callOut(ServiceListener::activating);
+            callOut(ServiceStatus.ACTIVATING);
             this.bridge.start();
         }
 
@@ -232,7 +238,7 @@ public class PersistentSwitch implements Switch {
 
             /* Make sure that our bridge won't be retained. */
             this.bridge = null;
-            callOut(ServiceListener::deactivating);
+            callOut(ServiceStatus.DEACTIVATING);
             synchronized (PersistentSwitch.this) {
                 retainBridges();
             }
@@ -282,7 +288,7 @@ public class PersistentSwitch implements Switch {
                 /* We must notify the user before destroying the bridge,
                  * so that the 'deactivating' event arrives before the
                  * 'deactivating' one. */
-                callOut(ServiceListener::deactivating);
+                callOut(ServiceStatus.DEACTIVATING);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                     retainBridges();
@@ -291,7 +297,7 @@ public class PersistentSwitch implements Switch {
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                 }
-                callOut(ServiceListener::released);
+                callOut(ServiceStatus.RELEASED);
             }
         }
 
@@ -309,16 +315,16 @@ public class PersistentSwitch implements Switch {
         public synchronized void created() {
             if (active) return;
             active = true;
-            callOut(ServiceListener::activated);
+            callOut(ServiceStatus.ACTIVE);
         }
 
         @Override
         public synchronized void destroyed() {
             if (!active) return;
             active = false;
-            callOut(ServiceListener::deactivated);
+            callOut(ServiceStatus.INACTIVE);
             if (released) {
-                callOut(ServiceListener::released);
+                callOut(ServiceStatus.RELEASED);
                 listeners.clear();
             }
         }
@@ -368,6 +374,11 @@ public class PersistentSwitch implements Switch {
                 this.bridge = fabric.bridge(self, mapEndPoints(details));
                 this.bridge.start();
             }
+        }
+
+        @Override
+        public Collection<Throwable> errors() {
+            throw new UnsupportedOperationException("unimplemented"); // TODO
         }
     }
 
@@ -614,11 +625,13 @@ public class PersistentSwitch implements Switch {
                     terminals.put(name, terminal);
                     return terminal;
                 } else {
+                    // TODO: Use NetworkResourceException?
                     throw new RuntimeException("failed to generate id for new terminal "
                         + name);
                 }
             }
         } catch (SQLException ex) {
+            // TODO: Use NetworkResourceException?
             throw new RuntimeException("could not create terminal " + name
                 + " on " + desc + " in database", ex);
         }
@@ -636,6 +649,7 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
+            // TODO: Use NetworkResourceException?
             throw new RuntimeException("could not remove terminal " + name
                 + " from database", ex);
         }
@@ -795,6 +809,19 @@ public class PersistentSwitch implements Switch {
         return (I) Proxy.newProxyInstance(type.getClassLoader(),
                                           new Class<?>[]
                                           { type }, h);
+    }
+
+    private boolean getIntent(Connection conn, int srvid)
+        throws SQLException {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("SELECT intent FROM " + serviceTable
+                + " WHERE service_id = ?;")) {
+            stmt.setInt(1, srvid);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) { return rs.getInt(1) == 0 ? false : true; }
+            }
+        }
+        throw new IllegalArgumentException("service id unknown: " + srvid);
     }
 
     private void updateIntent(Connection conn, int srvid, boolean status)

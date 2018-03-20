@@ -1,11 +1,10 @@
 import java.io.PrintWriter;
-import java.util.Collection;
 
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.ServiceListener;
+import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
@@ -129,31 +128,13 @@ public class TestDummyInitiateTopology {
                 this.name = name;
             }
 
-            @Override
-            public void released() {
-                System.out.println(name + " released");
-            }
+            ServiceStatus lastStableStatus = ServiceStatus.DORMANT;
 
             @Override
-            public void ready() {
-                System.out.println(name + " ready");
-            }
-
-            @Override
-            public void
-                failed(Collection<? extends EndPoint<? extends Terminal>> locations,
-                       Throwable t) {
-                System.out.println(name + " failed");
-            }
-
-            @Override
-            public void deactivated() {
-                System.out.println(name + " deactivated");
-            }
-
-            @Override
-            public void activated() {
-                System.out.println(name + " activated");
+            public void newStatus(ServiceStatus newStatus) {
+                System.out.printf("%s: now %s from %s%n", name, newStatus,
+                                  lastStableStatus);
+                if (newStatus.isStable()) lastStableStatus = newStatus;
             }
         }
         MyListener cl1 = new MyListener("c1");
