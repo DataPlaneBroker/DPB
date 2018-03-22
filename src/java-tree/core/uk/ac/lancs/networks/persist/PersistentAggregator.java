@@ -88,22 +88,43 @@ import uk.ac.lancs.routing.span.Way;
  */
 public class PersistentAggregator implements Aggregator {
     private class MyService implements Service {
+        /**
+         * Ensure all subservices are not providing us with
+         * notifications. Called by
+         * {@link PersistentAggregator#serviceWatcher} when all
+         * references to this service have gone.
+         */
         void cleanUp() {
             clients.forEach(Client::term);
         }
 
+        /**
+         * Accesses a subservice, receives notifications from it, and
+         * records recent state about it.
+         * 
+         * <p>
+         * No locks are held on this object. Instead, the container (our
+         * service) is used. Calls from the container may check that the
+         * calling thread holds the lock on that container. Calls from
+         * subservices are passed on to synchronized methods on the
+         * container.
+         * 
+         * @author simpsons
+         */
         private class Client implements ServiceListener {
             final Service subservice;
+
+            private ServiceListener protectedSelf;
 
             @SuppressWarnings("unused")
             ServiceStatus lastStableStatus = ServiceStatus.DORMANT;
             ServiceStatus lastStatus = ServiceStatus.DORMANT;
 
             Client(Service subservice) {
+                if (subservice == null)
+                    throw new NullPointerException("subservice");
                 this.subservice = subservice;
             }
-
-            private ServiceListener protectedSelf;
 
             /**
              * Ensure the subservice can talk back to this client.
@@ -113,28 +134,29 @@ public class PersistentAggregator implements Aggregator {
                 this.subservice.addListener(protectedSelf);
             }
 
+            /**
+             * Ensure that the subservice does not talk back to this
+             * client.
+             */
             void term() {
                 this.subservice.removeListener(protectedSelf);
             }
 
             void activate() {
-                assert Thread.holdsLock(MyService.this);
                 subservice.activate();
             }
 
             void deactivate() {
-                assert Thread.holdsLock(MyService.this);
-                if (subservice != null) subservice.deactivate();
+                subservice.deactivate();
             }
 
             void release() {
-                assert Thread.holdsLock(MyService.this);
-                if (subservice != null) {
-                    subservice.release();
-                }
+                subservice.release();
             }
 
             void dump(PrintWriter out) {
+                assert Thread.holdsLock(MyService.this);
+
                 out.printf("%n      inferior %s:", subservice.status());
                 ServiceDescription request = subservice.getRequest();
                 for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
@@ -153,17 +175,12 @@ public class PersistentAggregator implements Aggregator {
         }
 
         /***
-         * The following methods are to be called by Client objects.
+         * The following methods are to be called by inner Client
+         * objects.
          ***/
 
         synchronized void newClientStatus(Client cli,
                                           ServiceStatus newStatus) {
-            if (tunnels == null) {
-                /* We haven't initiated anything yet, so we shouldn't be
-                 * called back by subservices we haven't set up. */
-                return;
-            }
-
             /* Ignore some non-sensical reports. */
             if (newStatus == ServiceStatus.DORMANT) return;
 
@@ -235,98 +252,111 @@ public class PersistentAggregator implements Aggregator {
             cli.lastStatus = newStatus;
             if (newStatus.isStable()) cli.lastStableStatus = newStatus;
 
-            /* If any subservice failed, ensure all subservices are
-             * deactivated, release tunnels, and inform the users. */
-            if (failedChanged) {
-                /* Make sure we have all the errors from the failing
-                 * subservice. */
-                errors.addAll(cli.subservice.errors());
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                boolean okayToCommit = true;
 
-                switch (intent) {
-                case ABORT:
-                    /* If we've already recorded that we're aborting, we
-                     * have nothing else to do. */
-                    return;
+                try {
+                    final Intent intent = getIntent(conn, id);
 
-                case RELEASE:
-                    /* If the user has already tried to release us, we
-                     * have nothing else to do. */
-                    return;
+                    /* If any subservice failed, ensure all subservices
+                     * are deactivated, release tunnels, and inform the
+                     * users. */
+                    if (failedChanged) {
+                        /* Make sure we have all the errors from the
+                         * failing subservice. */
+                        errors.addAll(cli.subservice.errors());
 
-                default:
-                    break;
+                        switch (intent) {
+                        case ABORT:
+                            /* If we've already recorded that we're
+                             * aborting, we have nothing else to do. */
+                            return;
+
+                        case RELEASE:
+                            /* If the user has already tried to release
+                             * us, we have nothing else to do. */
+                            return;
+
+                        default:
+                            break;
+                        }
+
+                        /* Record that we are aborting this service. */
+                        setIntent(conn, id, Intent.ABORT);
+
+                        /* Ensure that all subservices are
+                         * deactivated. */
+                        clients.forEach(Client::deactivate);
+
+                        /* Release all trunk resources now. We
+                         * definitely don't need them any more. */
+                        releaseTunnels(conn, this.id);
+
+                        /* Notify the user that we have failed, and the
+                         * only remaining events are RELEASING and
+                         * RELEASED. */
+                        callOut(ServiceStatus.FAILED);
+                        return;
+                    }
+
+                    if (inactiveChanged && inactiveCount == clients.size()) {
+                        /* All clients have become inactive. */
+                        callOut(ServiceStatus.INACTIVE);
+
+                        switch (intent) {
+                        case ACTIVE:
+                            /* The clients must have been DORMANT, but
+                             * the user prematurely activated us. */
+                            callOut(ServiceStatus.ACTIVATING);
+                            clients.forEach(Client::activate);
+                            break;
+
+                        case RELEASE:
+                            /* The user released the service while it
+                             * was (trying to be) active. Initiate the
+                             * release process. */
+                            startRelease(conn);
+                            break;
+
+                        default:
+                            break;
+                        }
+
+                        return;
+                    }
+
+                    if (intent == Intent.RELEASE) {
+                        if (releasedChanged
+                            && releasedCount == clients.size()) {
+                            /* All subservices have been released, so we
+                             * can regard ourselves as fully released
+                             * now. */
+                            completeRelease(conn);
+                            return;
+                        }
+                        return;
+                    }
+
+                    if (activeChanged && activeCount == clients.size()) {
+                        if (intent == Intent.ACTIVE)
+                            callOut(ServiceStatus.ACTIVE);
+                        return;
+                    }
+                } catch (Throwable t) {
+                    okayToCommit = false;
+                    throw t;
+                } finally {
+                    if (okayToCommit) conn.commit();
                 }
-
-                /* Record that we are aborting this service. */
-                intent = Intent.ABORT;
-
-                /* Ensure that all subservices are deactivated. */
-                clients.forEach(Client::deactivate);
-
-                /* Release all trunk resources now. We definitely don't
-                 * need them any more. */
-                synchronized (PersistentAggregator.this) {
-                    tunnels.forEach((trunk, endPoint) -> {
-                        trunk.releaseTunnel(endPoint);
-                    });
-                }
-                tunnels.clear();
-
-                /* Notify the user that we have failed, and the only
-                 * remaining events are RELEASING and RELEASED. */
-                callOut(ServiceStatus.FAILED);
-                return;
-            }
-
-            if (inactiveChanged && inactiveCount == clients.size()) {
-                /* All clients have become inactive. */
-                callOut(ServiceStatus.INACTIVE);
-
-                switch (intent) {
-                case ACTIVE:
-                    /* The clients must have been DORMANT, but the user
-                     * prematurely activated us. */
-                    callOut(ServiceStatus.ACTIVATING);
-                    clients.forEach(Client::activate);
-                    break;
-
-                case RELEASE:
-                    /* The user released the service while it was
-                     * (trying to be) active. Initiate the release
-                     * process. */
-                    startRelease();
-                    break;
-
-                default:
-                    break;
-                }
-
-                return;
-            }
-
-            if (intent == Intent.RELEASE) {
-                if (releasedChanged && releasedCount == clients.size()) {
-                    /* All subservices have been released, so we can
-                     * regard ourselves as fully released now. */
-                    completeRelease();
-                    return;
-                }
-                return;
-            }
-
-            if (activeChanged && activeCount == clients.size()) {
-                if (intent == Intent.ACTIVE) callOut(ServiceStatus.ACTIVE);
-                return;
+            } catch (SQLException e) {
+                throw new RuntimeException("DB failure on"
+                    + " receiving status update", e);
             }
         }
 
-        private void completeRelease() {
+        private void completeRelease(Connection conn) throws SQLException {
             assert Thread.holdsLock(this);
-
-            /* We should have already dealt with the tunnels, but let's
-             * be thorough. */
-            assert tunnels == null || tunnels.isEmpty();
-            tunnels = null;
 
             /* Lose the references to all the subservices, and make sure
              * they've lost our callbacks. */
@@ -334,28 +364,20 @@ public class PersistentAggregator implements Aggregator {
             clients.clear();
 
             /* Ensure this service can't be found again by users. */
-            try (Connection conn = openDatabase()) {
-                try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM " + subserviceTable
-                        + " WHERE service_id = ?;")) {
-                    stmt.setInt(1, id);
-                    stmt.execute();
-                }
-                // TODO: Delete from labelTable too.
-                try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM " + endPointTable
-                        + " WHERE service_id = ?;")) {
-                    stmt.setInt(1, id);
-                    stmt.execute();
-                }
-                try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM " + serviceTable
-                        + " WHERE service_id = ?;")) {
-                    stmt.setInt(1, id);
-                    stmt.execute();
-                }
-            } catch (SQLException ex) {
-                // Erm? Too late to do anything about it now.
+            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + subserviceTable + " WHERE service_id = ?;")) {
+                stmt.setInt(1, id);
+                stmt.execute();
+            }
+            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + endPointTable + " WHERE service_id = ?;")) {
+                stmt.setInt(1, id);
+                stmt.execute();
+            }
+            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + serviceTable + " WHERE service_id = ?;")) {
+                stmt.setInt(1, id);
+                stmt.execute();
             }
 
             /* Send our last report to all users. */
@@ -375,7 +397,8 @@ public class PersistentAggregator implements Aggregator {
          * This holds the set of trunks on which we have allocated
          * bandwidth. If {@code null}, the service is not initiated.
          */
-        Map<MyTrunk, EndPoint<? extends Terminal>> tunnels;
+        // Map<MyTrunk, EndPoint<? extends Terminal>> tunnels;
+
         ServiceDescription request;
 
         /**
@@ -388,12 +411,6 @@ public class PersistentAggregator implements Aggregator {
         int dormantCount, inactiveCount, activeCount, failedCount,
             releasedCount;
 
-        /**
-         * Records the user's intent for this service. The default is
-         * {@link Intent#INACTIVE}.
-         */
-        Intent intent = Intent.INACTIVE;
-
         MyService(int id) {
             this.id = id;
         }
@@ -401,25 +418,36 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public synchronized void initiate(ServiceDescription request)
             throws InvalidServiceException {
-
-            if (intent == Intent.RELEASE) if (clients.isEmpty())
-                throw new IllegalStateException("service released");
-            else
-                throw new IllegalStateException("service releasing");
-
-            if (tunnels != null)
-                throw new IllegalStateException("service in use");
-            request = ServiceDescription.sanitize(request, 0.01);
-            tunnels = new HashMap<>();
-
             Collection<Service> redundantServices = new HashSet<>();
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
 
+                final Intent intent = getIntent(conn, id);
+                if (intent == Intent.RELEASE) {
+                    if (clients.isEmpty())
+                        throw new IllegalStateException("service released");
+                    else
+                        throw new IllegalStateException("service releasing");
+                }
+
+                /* Check that we are not already in use. */
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT * FROM " + endPointTable
+                        + " WHERE service_id = ?" + " LIMIT 1;")) {
+                    stmt.setInt(1, id);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next())
+                            throw new IllegalStateException("service in use");
+                    }
+                }
+
+                /* Make sure the request is sane. */
+                request = ServiceDescription.sanitize(request, 0.01);
+
                 /* Plot a spanning tree across this switch, allocating
                  * tunnels. */
                 Collection<ServiceDescription> subrequests = new HashSet<>();
-                plotAsymmetricTree(conn, this, request, tunnels, subrequests);
+                plotAsymmetricTree(conn, this, request, null, subrequests);
 
                 /* Create connections for each inferior switch, and a
                  * distinct reference of our own for each one. */
@@ -473,22 +501,46 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        @Override
-        public synchronized ServiceStatus status() {
-            if (intent == Intent.RELEASE) {
+        ServiceStatus internalStatus(Connection conn) throws SQLException {
+            final int intent;
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT intent FROM " + serviceTable
+                    + " WHERE service_id = ?;")) {
+                stmt.setInt(1, id);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next())
+                        throw new RuntimeException("service id missing: "
+                            + id);
+                    intent = rs.getInt(1);
+                }
+            }
+            if (intent == Intent.RELEASE.ordinal()) {
                 if (clients.isEmpty())
                     return ServiceStatus.RELEASED;
                 else
                     return ServiceStatus.RELEASING;
             }
             if (failedCount > 0) return ServiceStatus.FAILED;
-            if (tunnels == null) return ServiceStatus.DORMANT;
+            final boolean initiated = testInitiated(conn, id);
+            if (!initiated) return ServiceStatus.DORMANT;
             assert failedCount == 0;
             if (dormantCount > 0) return ServiceStatus.ESTABLISHING;
-            if (intent == Intent.ACTIVE) return activeCount < clients.size()
-                ? ServiceStatus.ACTIVATING : ServiceStatus.ACTIVE;
+            if (intent == Intent.ACTIVE.ordinal())
+                return activeCount < clients.size() ? ServiceStatus.ACTIVATING
+                    : ServiceStatus.ACTIVE;
             return activeCount > 0 ? ServiceStatus.DEACTIVATING
                 : ServiceStatus.INACTIVE;
+        }
+
+        @Override
+        public synchronized ServiceStatus status() {
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                return internalStatus(conn);
+            } catch (SQLException e) {
+                throw new RuntimeException("DB failure getting"
+                    + " status of service " + id, e);
+            }
         }
 
         @Override
@@ -498,16 +550,25 @@ public class PersistentAggregator implements Aggregator {
             if (failedCount > 0)
                 throw new IllegalStateException("inferior error(s)");
 
-            /* If the user has released us, we can do nothing more. */
-            if (intent == Intent.RELEASE)
-                throw new IllegalStateException("released");
-
-            /* Do nothing if we've already recorded the user's intent,
-             * as we must also have activated inferior services. */
-            if (intent == Intent.ACTIVE) return;
-            intent = Intent.ACTIVE;
+            final boolean initiated;
+            final Intent intent;
             try (Connection conn = openDatabase()) {
-                updateIntent(conn, id, true);
+                conn.setAutoCommit(false);
+
+                intent = getIntent(conn, id);
+
+                /* If the user has released us, we can do nothing
+                 * more. */
+                if (intent == Intent.RELEASE)
+                    throw new IllegalStateException("released");
+
+                /* Do nothing if we've already recorded the user's
+                 * intent, as we must also have activated inferior
+                 * services. */
+                if (intent == Intent.ACTIVE) return;
+                setIntent(conn, id, Intent.ACTIVE);
+                initiated = testInitiated(conn, id);
+                conn.commit();
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
@@ -515,7 +576,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Do nothing but record the user's intent, if they haven't
              * yet provided end-point details. */
-            if (tunnels == null) return;
+            if (initiated) return;
 
             callOut(ServiceStatus.ACTIVATING);
             clients.forEach(Client::activate);
@@ -523,9 +584,12 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public synchronized void deactivate() {
-            if (intent != Intent.ACTIVE) return;
             try (Connection conn = openDatabase()) {
-                updateIntent(conn, id, false);
+                conn.setAutoCommit(false);
+                final Intent intent = getIntent(conn, id);
+                if (intent != Intent.ACTIVE) return;
+                setIntent(conn, id, Intent.INACTIVE);
+                conn.commit();
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
@@ -540,31 +604,39 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public synchronized void release() {
-            /* There's nothing to do if we've already recorded the
-             * user's intent to release the service. */
-            if (intent == Intent.RELEASE) return;
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
 
-            /* If the current intent is to be active, trigger
-             * deactivation first. When it completes, and discovers the
-             * release intent, it will start the release process.
-             * Otherwise, we start it now. */
-            if (intent == Intent.ACTIVE) {
-                intent = Intent.RELEASE;
-                if (activeCount > 0) {
-                    if (activeCount == clients.size())
-                        callOut(ServiceStatus.DEACTIVATING);
-                    clients.forEach(Client::deactivate);
+                final Intent intent = getIntent(conn, id);
+                /* There's nothing to do if we've already recorded the
+                 * user's intent to release the service. */
+                if (intent == Intent.RELEASE) return;
+
+                /* If the current intent is to be active, trigger
+                 * deactivation first. When it completes, and discovers
+                 * the release intent, it will start the release
+                 * process. Otherwise, we start it now. */
+                if (intent == Intent.ACTIVE) {
+                    setIntent(conn, id, Intent.RELEASE);
+                    if (activeCount > 0) {
+                        if (activeCount == clients.size())
+                            callOut(ServiceStatus.DEACTIVATING);
+                        clients.forEach(Client::deactivate);
+                    }
+                } else {
+                    /* Record the new intent and initiate the release
+                     * process. */
+                    setIntent(conn, id, Intent.RELEASE);
                 }
-                return;
+                startRelease(conn);
+                conn.commit();
+            } catch (SQLException e) {
+                throw new RuntimeException("DB error" + " releasing service "
+                    + id, e);
             }
-
-            /* Record the new intent and initiate the release
-             * process. */
-            intent = Intent.RELEASE;
-            startRelease();
         }
 
-        private void startRelease() {
+        private void startRelease(Connection conn) throws SQLException {
             assert Thread.holdsLock(this);
 
             /* Inform users that the release process has started. */
@@ -574,15 +646,12 @@ public class PersistentAggregator implements Aggregator {
             clients.forEach(Client::release);
 
             /* Release tunnel resources. */
-            synchronized (PersistentAggregator.this) {
-                tunnels.forEach((k, v) -> k.releaseTunnel(v));
-            }
-            tunnels.clear();
+            releaseTunnels(conn, this.id);
 
             if (releasedCount == clients.size()) {
                 /* All subservices are already released. This only
                  * happens if we were still dormant when released. */
-                completeRelease();
+                completeRelease(conn);
             }
         }
 
@@ -601,7 +670,8 @@ public class PersistentAggregator implements Aggregator {
             listeners.remove(events);
         }
 
-        synchronized void dump(PrintWriter out) {
+        synchronized void dump(Connection conn, PrintWriter out)
+            throws SQLException {
             ServiceStatus status = status();
             out.printf("  %3d %-8s", id, status);
             switch (status) {
@@ -610,8 +680,11 @@ public class PersistentAggregator implements Aggregator {
                 break;
 
             default:
-                for (Map.Entry<MyTrunk, EndPoint<? extends Terminal>> tunnel : tunnels
-                    .entrySet()) {
+                Collection<Trunk> refs = new ArrayList<>();
+                for (Map.Entry<MyTrunk, EndPoint<? extends Terminal>> tunnel : getTunnels(conn,
+                                                                                          id,
+                                                                                          refs)
+                                                                                              .entrySet()) {
                     EndPoint<? extends Terminal> ep1 = tunnel.getValue();
                     EndPoint<? extends Terminal> ep2 =
                         tunnel.getKey().getPeer(ep1);
@@ -627,7 +700,6 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public synchronized NetworkControl getNetwork() {
-            if (intent == Intent.RELEASE && clients.isEmpty()) return null;
             return control;
         }
 
@@ -637,15 +709,10 @@ public class PersistentAggregator implements Aggregator {
         }
 
         synchronized void
-            recover(boolean active,
-                    Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
-                    Collection<? extends Service> subservices,
-                    Map<MyTrunk, EndPoint<? extends Terminal>> tunnels) {
+            recover(Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                    Collection<? extends Service> subservices) {
             request = ServiceDescription.create(endPoints);
 
-            this.tunnels = tunnels;
-
-            intent = active ? Intent.ACTIVE : Intent.INACTIVE;
             clients.clear();
             for (Service srv : subservices) {
                 Client cli = new Client(srv);
@@ -694,7 +761,7 @@ public class PersistentAggregator implements Aggregator {
     final class MyTrunk implements Trunk {
         private final int dbid;
         private final Terminal start, end;
-        private boolean disabled;
+        private volatile boolean disabled;
 
         private double delay = 0.0;
         private double upstreamCapacity = 0.0, downstreamCapacity = 0.0;
@@ -875,8 +942,12 @@ public class PersistentAggregator implements Aggregator {
          * Release a tunnel through this trunk.
          * 
          * @param endPoint either of the tunnel end points
+         * 
+         * @throws SQLException
          */
-        void releaseTunnel(EndPoint<? extends Terminal> endPoint) {
+        void releaseTunnel(Connection conn,
+                           EndPoint<? extends Terminal> endPoint)
+            throws SQLException {
             if (disabled) throw new IllegalStateException("trunk removed");
 
             /* Identify whether we're looking at the start or end of
@@ -892,52 +963,46 @@ public class PersistentAggregator implements Aggregator {
                     + endPoint);
             }
 
-            try (Connection conn = openDatabase()) {
-                conn.setAutoCommit(false);
-
-                /* Find out how much has been allocated. */
-                final double upAlloc, downAlloc;
-                try (PreparedStatement stmt =
-                    conn.prepareStatement("SELECT up_alloc," + " down_alloc"
-                        + " FROM " + labelTable + " WHERE trunk_id = ?"
-                        + " AND " + key + " = ?;")) {
-                    stmt.setInt(1, dbid);
-                    stmt.setInt(2, label);
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        if (!rs.next()) return;
-                        Double upObj = (Double) rs.getObject(1);
-                        if (upObj == null) return;
-                        upAlloc = upObj;
-                        downAlloc = rs.getDouble(2);
-                    }
+            /* Find out how much has been allocated. */
+            final double upAlloc, downAlloc;
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT up_alloc," + " down_alloc"
+                    + " FROM " + labelTable + " WHERE trunk_id = ?" + " AND "
+                    + key + " = ?;")) {
+                stmt.setInt(1, dbid);
+                stmt.setInt(2, label);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next()) return;
+                    Double upObj = (Double) rs.getObject(1);
+                    if (upObj == null) return;
+                    upAlloc = upObj;
+                    downAlloc = rs.getDouble(2);
                 }
-
-                /* Mark the amount now available to the trunk. */
-                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-                    + trunkTable + " SET up_cap = up_cap + ?,"
-                    + " down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
-                    stmt.setDouble(1, upAlloc);
-                    stmt.setDouble(2, downAlloc);
-                    stmt.setInt(3, dbid);
-                    stmt.execute();
-                }
-
-                /* Mark the tunnel as out-of-use. */
-                try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-                    + labelTable + " SET service_id = NULL,"
-                    + " up_alloc = NULL," + " down_alloc = NULL"
-                    + " WHERE trunk_id = ?" + " AND " + key + " = ?")) {
-                    stmt.setInt(1, dbid);
-                    stmt.setInt(2, label);
-                    stmt.execute();
-                }
-
-                conn.commit();
-                this.upstreamCapacity += upAlloc;
-                this.downstreamCapacity += downAlloc;
-            } catch (SQLException e) {
-                throw new RuntimeException("unexpected database failure", e);
             }
+
+            /* Mark the amount now available to the trunk. */
+            try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                + trunkTable + " SET up_cap = up_cap + ?,"
+                + " down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
+                stmt.setDouble(1, upAlloc);
+                stmt.setDouble(2, downAlloc);
+                stmt.setInt(3, dbid);
+                stmt.execute();
+            }
+
+            /* Mark the tunnel as out-of-use. */
+            try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+                + labelTable + " SET service_id = NULL," + " up_alloc = NULL,"
+                + " down_alloc = NULL" + " WHERE trunk_id = ?" + " AND " + key
+                + " = ?")) {
+                stmt.setInt(1, dbid);
+                stmt.setInt(2, label);
+                stmt.execute();
+            }
+
+            conn.commit();
+            this.upstreamCapacity += upAlloc;
+            this.downstreamCapacity += downAlloc;
         }
 
         /**
@@ -1205,8 +1270,8 @@ public class PersistentAggregator implements Aggregator {
     private final String name;
 
     private final Map<String, SuperiorTerminal> terminals = new HashMap<>();
-    private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
-    private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
+    // private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
+    // private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
 
     /**
      * Print out the status of all connections and trunks of this
@@ -1228,9 +1293,10 @@ public class PersistentAggregator implements Aggregator {
                 Service srvIface = serviceWatcher.get(id);
 
                 MyService srv = serviceWatcher.getBase(id);
-                srv.dump(out);
+                srv.dump(conn, out);
             }
-            for (MyTrunk trunk : new HashSet<>(trunks.values())) {
+            Collection<Trunk> refs = new ArrayList<>();
+            for (MyTrunk trunk : getAllTrunks(conn, refs)) {
                 out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n",
                            trunk.getTerminals(), trunk.getUpstreamBandwidth(),
                            trunk.getDownstreamBandwidth(), trunk.getDelay(),
@@ -1310,19 +1376,22 @@ public class PersistentAggregator implements Aggregator {
         try (Connection conn = openDatabase()) {
             conn.setAutoCommit(false);
             try (Statement stmt = conn.createStatement()) {
+                /* The terminal table maps this network's terminals
+                 * (which have a name and an internal numeric id) to
+                 * inferior networks' terminals (identified by the name
+                 * of the inferior network and the local name of the
+                 * port). */
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + terminalTable
                     + " (terminal_id INTEGER PRIMARY KEY,"
                     + " name VARCHAR(20) NOT NULL UNIQUE,"
                     + " subnetwork VARCHAR(40) NOT NULL,"
                     + " subname VARCHAR(40) NOT NULL);");
-                stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
-                    + " (service_id INTEGER PRIMARY KEY,"
-                    + " intent INT UNSIGNED DEFAULT 0);");
-                stmt.execute("CREATE TABLE IF NOT EXISTS " + subserviceTable
-                    + " (service_id INTEGER," + " subservice_id INTEGER,"
-                    + " subnetwork_name VARCHAR(20),"
-                    + " FORIEGN KEY(service_id) REFERENCES " + serviceTable
-                    + "(service_id));");
+
+                /* The trunk table allocates internal numeric ids to our
+                 * trunks, identifies the subnetwork and subterminal at
+                 * each end of the trunk, records the trunk's metric
+                 * (delay), whether the trunk is commissioned, and what
+                 * bandwidth is available in each direction over it. */
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + trunkTable
                     + " (trunk_id INTEGER PRIMARY KEY,"
                     + " start_network VARCHAR(20),"
@@ -1333,6 +1402,48 @@ public class PersistentAggregator implements Aggregator {
                     + " down_cap DECIMAL(9,3) DEFAULT 0.0,"
                     + " metric DECIMAL(9,3) DEFAULT 0.1,"
                     + " commissioned INTEGER DEFAULT 1);");
+
+                /* The service table records in-use service ids, and
+                 * records the user's intent (active, inactive,
+                 * release). */
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
+                    + " (service_id INTEGER PRIMARY KEY,"
+                    + " intent INT UNSIGNED DEFAULT 0);");
+
+                /* The end-point table records which superior end points
+                 * are associated with each initiated service. When no
+                 * entries refer to a particular service id, that
+                 * service is uninitiated (dormant). */
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
+                    + " (service_id INTEGER," + " terminal_id INTEGER,"
+                    + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
+                    + " shaping DECIMAL(9,3),"
+                    + " PRIMARY KEY(service_id, terminal_id, label),"
+                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id),"
+                    + " FOREIGN KEY(terminal_id) REFERENCES " + terminalTable
+                    + "(terminal_id));");
+
+                /* The subservice table relates each of our services to
+                 * those in other networks. */
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + subserviceTable
+                    + " (service_id INTEGER," + " subservice_id INTEGER,"
+                    + " subnetwork_name VARCHAR(20),"
+                    + " PRIMARY KEY(service_id, subnetwork_name, subservice_id),"
+                    + " FORIEGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id));");
+
+                /* The label table records labels available on each
+                 * trunk, and the mapping between labels at either end
+                 * (forming tunnels). It also associates each tunnel
+                 * with a service if it is in use by that service, and
+                 * includes the bandwidth allocated in each direction to
+                 * that tunnel. The bandwidth is allocated from the
+                 * trunk's bandwidth, so when service_id is set, some
+                 * bandwidth must be subtracted from
+                 * trunkTable.{up,down}_cap, and added to
+                 * labelTable.{up,down}_alloc. Correspondingly, when a
+                 * tunnel is released, the process must be reversed. */
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + labelTable
                     + " (trunk_id INTEGER," + " start_label INTEGER,"
                     + " end_label INTEGER,"
@@ -1345,14 +1456,6 @@ public class PersistentAggregator implements Aggregator {
                     + " FOREIGN KEY(trunk_id) REFERENCES " + trunkTable
                     + "(trunk_id))" + " FOREIGN KEY(service_id) REFERENCES "
                     + serviceTable + "(service_id));");
-                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
-                    + " (service_id INTEGER," + " terminal_id INTEGER,"
-                    + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
-                    + " shaping DECIMAL(9,3),"
-                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
-                    + "(service_id),"
-                    + " FOREIGN KEY(terminal_id) REFERENCES " + terminalTable
-                    + "(terminal_id));");
             }
 
             /* Recreate terminals from entries in our tables. */
@@ -1376,35 +1479,6 @@ public class PersistentAggregator implements Aggregator {
                 }
             }
 
-            /* Recover a list of trunks. */
-            try (Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT" + " trunk_id,"
-                    + " start_network," + " start_terminal," + " end_network,"
-                    + " end_terminal," + " up_cap," + " down_cap,"
-                    + " metric FROM " + trunkTable + ";")) {
-                while (rs.next()) {
-                    final int id = rs.getInt(1);
-                    final String startNetworkName = rs.getString(2);
-                    final String startTerminalName = rs.getString(3);
-                    final String endNetworkName = rs.getString(4);
-                    final String endTerminalName = rs.getString(5);
-                    final double upCap = rs.getDouble(6);
-                    final double downCap = rs.getDouble(7);
-                    final double delay = rs.getDouble(8);
-
-                    Terminal start = inferiors.apply(startNetworkName)
-                        .getTerminal(startTerminalName);
-                    Terminal end = inferiors.apply(endNetworkName)
-                        .getTerminal(endTerminalName);
-                    MyTrunk trunk = new MyTrunk(start, end, id);
-                    trunk.recoverCapacities(upCap, downCap, delay);
-
-                    trunkIndex.put(id, trunk);
-                    trunks.put(start, trunk);
-                    trunks.put(end, trunk);
-                }
-            }
-
             conn.commit();
         }
     }
@@ -1413,10 +1487,6 @@ public class PersistentAggregator implements Aggregator {
     public Trunk addTrunk(Terminal p1, Terminal p2) {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
-        if (trunks.containsKey(p1))
-            throw new IllegalArgumentException("terminal in use: " + p1);
-        if (trunks.containsKey(p2))
-            throw new IllegalArgumentException("terminal in use: " + p2);
         try (Connection conn = newDatabaseContext(false);
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + trunkTable
@@ -1458,12 +1528,6 @@ public class PersistentAggregator implements Aggregator {
         } catch (SQLException e) {
             throw new RuntimeException("removing trunk for " + p, e);
         }
-        MyTrunk t = trunks.get(p);
-        if (t == null) return; // TODO: error?
-        trunks.keySet().removeAll(t.getTerminals());
-        trunkIndex.remove(t.dbid);
-
-        // TODO: Remove trunk from database.
     }
 
     @Override
@@ -1612,10 +1676,9 @@ public class PersistentAggregator implements Aggregator {
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
-        Collection<MyTrunk> adequateTrunks = trunks.values().stream()
-            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
-                && trunk.getMaximumBandwidth() >= smallestBandwidth)
-            .collect(Collectors.toSet());
+        Collection<Trunk> refs = new ArrayList<>();
+        Collection<MyTrunk> adequateTrunks =
+            getAdequateTrunks(conn, smallestBandwidth, refs);
 
         /* Get the set of all switches connected to our selected
          * trunks. */
@@ -1806,84 +1869,86 @@ public class PersistentAggregator implements Aggregator {
      * @param innerTerminals the set of terminals to connect
      * 
      * @return a FIB for each terminal
+     * @throws SQLException
      */
     Map<Terminal, Map<Terminal, Way<Terminal>>>
-        getFibs(double bandwidth, Collection<Terminal> innerTerminals) {
+        getFibs(Connection conn, double bandwidth,
+                Collection<Terminal> innerTerminals)
+            throws SQLException {
         assert Thread.holdsLock(this);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
-        Collection<MyTrunk> adequateTrunks = trunks.values().stream()
-            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
-                && trunk.getMaximumBandwidth() >= bandwidth)
-            .collect(Collectors.toSet());
-        // System.err.println("Usable trunks: " + adequateTrunks);
+        Collection<Trunk> refs = new ArrayList<>();
+        Collection<MyTrunk> adequateTrunks =
+            getAdequateTrunks(conn, bandwidth, refs);
 
         /* Get edges representing all suitable trunks. */
         Map<Edge<Terminal>, Double> edges =
             new HashMap<>(adequateTrunks.stream().collect(Collectors
                 .toMap(t -> Edge.of(t.getTerminals()), MyTrunk::getDelay)));
-        // System.err.println("Edges of trunks: " + edges);
 
         /* Get a set of all switches for our trunks. */
         Collection<NetworkControl> switches = adequateTrunks.stream()
             .flatMap(trunk -> trunk.getTerminals().stream()
                 .map(Terminal::getNetwork))
             .collect(Collectors.toSet());
-        // System.err.println("Switches: " + switches);
 
         /* Get models of all switches connected to the selected trunks,
          * and combine their edges with the trunks. */
         edges.putAll(switches.stream()
             .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
             .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
-        // System.err.println("Edges of trunks and switches: " + edges);
 
         /* Get rid of spurs as a small optimization. */
         Graphs.prune(innerTerminals, edges.keySet());
-        // System.err.println("Pruned edges of trunks and switches: " +
-        // edges);
 
         /* Create routing tables for each terminal. */
         return Graphs.route(innerTerminals, edges);
     }
 
     synchronized Map<Edge<Terminal>, Double> getModel(double bandwidth) {
-        /* Map the set of our end points to the corresponding inner
-         * terminals that our topology consists of. */
-        Collection<Terminal> innerTerminalPorts = terminals.values().stream()
-            .map(SuperiorTerminal::subterminal).collect(Collectors.toSet());
+        try (Connection conn = openDatabase()) {
+            conn.setAutoCommit(false);
+            /* Map the set of our end points to the corresponding inner
+             * terminals that our topology consists of. */
+            Collection<Terminal> innerTerminalPorts =
+                terminals.values().stream().map(SuperiorTerminal::subterminal)
+                    .collect(Collectors.toSet());
 
-        /* Create routing tables for each terminal. */
-        Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
-            getFibs(bandwidth, innerTerminalPorts);
+            /* Create routing tables for each terminal. */
+            Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
+                getFibs(conn, bandwidth, innerTerminalPorts);
 
-        /* Convert our exposed terminals to a sequence so we can form
-         * every combination of two terminals. */
-        final List<SuperiorTerminal> termSeq =
-            new ArrayList<>(terminals.values());
-        final int size = termSeq.size();
+            /* Convert our exposed terminals to a sequence so we can
+             * form every combination of two terminals. */
+            final List<SuperiorTerminal> termSeq =
+                new ArrayList<>(terminals.values());
+            final int size = termSeq.size();
 
-        /* For every combination of our exposed terminals, store the
-         * total distance as part of the result. */
-        Map<Edge<Terminal>, Double> result = new HashMap<>();
-        for (int i = 0; i + 1 < size; i++) {
-            final SuperiorTerminal start = termSeq.get(i);
-            final Terminal innerStart = start.subterminal();
-            final Map<Terminal, Way<Terminal>> startFib =
-                fibs.get(innerStart);
-            if (startFib == null) continue;
-            for (int j = i + 1; j < size; j++) {
-                final SuperiorTerminal end = termSeq.get(j);
-                final Terminal innerEnd = end.subterminal();
-                final Way<Terminal> way = startFib.get(innerEnd);
-                if (way == null) continue;
-                final Edge<Terminal> edge = Edge.of(start, end);
-                result.put(edge, way.distance);
+            /* For every combination of our exposed terminals, store the
+             * total distance as part of the result. */
+            Map<Edge<Terminal>, Double> result = new HashMap<>();
+            for (int i = 0; i + 1 < size; i++) {
+                final SuperiorTerminal start = termSeq.get(i);
+                final Terminal innerStart = start.subterminal();
+                final Map<Terminal, Way<Terminal>> startFib =
+                    fibs.get(innerStart);
+                if (startFib == null) continue;
+                for (int j = i + 1; j < size; j++) {
+                    final SuperiorTerminal end = termSeq.get(j);
+                    final Terminal innerEnd = end.subterminal();
+                    final Way<Terminal> way = startFib.get(innerEnd);
+                    if (way == null) continue;
+                    final Edge<Terminal> edge = Edge.of(start, end);
+                    result.put(edge, way.distance);
+                }
             }
-        }
 
-        return result;
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException("DB error getting model", e);
+        }
     }
 
     private final NetworkControl control = new NetworkControl() {
@@ -2120,14 +2185,12 @@ public class PersistentAggregator implements Aggregator {
      */
     private MyService recoverService(Connection conn, Integer id)
         throws SQLException {
-        final boolean intent;
         try (PreparedStatement stmt =
             conn.prepareStatement("SELECT" + " intent" + " FROM "
                 + serviceTable + " WHERE service_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) return null;
-                intent = rs.getInt(1) != 0;
             }
         }
 
@@ -2172,55 +2235,9 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        final Map<MyTrunk, EndPoint<? extends Terminal>> tunnels =
-            new HashMap<>();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-            + " lt.trunk_id AS trunk_id," + " lt.start_label AS start_label,"
-            + " tt.start_network AS start_network,"
-            + " tt.start_terminal AS start_terminal" + " FROM " + labelTable
-            + " AS lt" + " LEFT JOIN " + trunkTable + " AS tt"
-            + " ON tt.trunk_id = lt.trunk_id"
-            + " WHERE lt.service_id = ?;")) {
-            stmt.setInt(1, id);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    final int trid = rs.getInt(1);
-                    final int label = rs.getInt(2);
-                    final String nwname = rs.getString(3);
-                    final String tname = rs.getString(4);
-                    NetworkControl subnw = inferiors.apply(nwname);
-                    Terminal term = subnw.getTerminal(tname);
-                    MyTrunk trunk = trunkIndex.get(trid);
-                    EndPoint<Terminal> ep = term.getEndPoint(label);
-                    tunnels.put(trunk, ep);
-                }
-            }
-        }
-
         MyService result = new MyService(id);
-        result.recover(intent, endPoints, subservices, tunnels);
+        result.recover(endPoints, subservices);
         return result;
-    }
-
-    /**
-     * Update the user's intent for a service in the database.
-     * 
-     * @param conn the connection to the database
-     * 
-     * @param srvid the service id
-     * 
-     * @param status {@code true} iff the service is activated
-     * 
-     * @throws SQLException if there was an error accessing the database
-     */
-    private void updateIntent(Connection conn, int srvid, boolean status)
-        throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-            + serviceTable + " SET intent = ? WHERE service_id = ?;")) {
-            stmt.setInt(1, status ? 1 : 0);
-            stmt.setInt(2, srvid);
-            stmt.execute();
-        }
     }
 
     /**
@@ -2263,5 +2280,173 @@ public class PersistentAggregator implements Aggregator {
                 return rs.getInt(1);
             }
         }
+    }
+
+    private void releaseTunnels(Connection conn, int sid)
+        throws SQLException {
+        /* Restore available bandwidth from tunnels to the containing
+         * trunks. */
+        try (PreparedStatement trunkUpdateStmt =
+            conn.prepareStatement("UPDATE " + trunkTable
+                + " SET up_cap = up_cap + ?," + " SET down_cap = down_cap + ?"
+                + " WHERE trunk_id = ?;");
+            PreparedStatement readStmt = conn
+                .prepareStatement("SELECT" + " trunk_id, up_alloc, down_alloc"
+                    + " FROM " + labelTable + " WHERE service_id = ?;")) {
+            readStmt.setInt(1, sid);
+            try (ResultSet rs = readStmt.executeQuery()) {
+                while (rs.next()) {
+                    final int tid = rs.getInt(1);
+                    final double upAlloc = rs.getDouble(2);
+                    final double downAlloc = rs.getDouble(3);
+
+                    trunkUpdateStmt.setDouble(1, upAlloc);
+                    trunkUpdateStmt.setDouble(2, downAlloc);
+                    trunkUpdateStmt.setInt(3, tid);
+                    trunkUpdateStmt.execute();
+                }
+            }
+        }
+
+        /* Cancel all allocations for this service. */
+        try (PreparedStatement stmt =
+            conn.prepareStatement("UPDATE " + labelTable
+                + " SET up_alloc = 0.0, down_alloc = 0.0, service_id = NULL"
+                + " WHERE service_id = ?")) {
+            stmt.setInt(1, sid);
+            stmt.execute();
+        }
+    }
+
+    private Intent getIntent(Connection conn, int id) throws SQLException {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("SELECT intent FROM " + serviceTable
+                + " WHERE service_id = ?" + " LIMIT 1;")) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next())
+                    throw new RuntimeException("service id missing: " + id);
+                return Intent.values()[rs.getInt(1)];
+            }
+        }
+    }
+
+    private void setIntent(Connection conn, int id, Intent intent)
+        throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+            + serviceTable + " SET intent = ?" + " WHERE service_id = ?;")) {
+            stmt.setInt(1, intent.ordinal());
+            stmt.setInt(2, id);
+            stmt.execute();
+        }
+    }
+
+    private boolean testInitiated(Connection conn, int id)
+        throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM "
+            + endPointTable + " WHERE service_id = ?" + " LIMIT 1;")) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private Map<MyTrunk, EndPoint<? extends Terminal>>
+        getTunnels(Connection conn, int id,
+                   Collection<? super Trunk> refCache)
+            throws SQLException {
+        Map<MyTrunk, EndPoint<? extends Terminal>> tunnels = new HashMap<>();
+        try (ConnectionContext ctxt = setContext(conn);
+            PreparedStatement stmt =
+                conn.prepareStatement("SELECT" + " lt.trunk_id AS trunk_id,"
+                    + " lt.start_label AS start_label,"
+                    + " tt.start_network AS start_network,"
+                    + " tt.start_terminal AS start_terminal" + " FROM "
+                    + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
+                    + " AS tt" + " ON tt.trunk_id = lt.trunk_id"
+                    + " WHERE lt.service_id = ?;")) {
+            stmt.setInt(1, id);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    final int trid = rs.getInt(1);
+                    final int label = rs.getInt(2);
+                    final String nwname = rs.getString(3);
+                    final String tname = rs.getString(4);
+                    NetworkControl subnw = inferiors.apply(nwname);
+                    Terminal term = subnw.getTerminal(tname);
+                    refCache.add(trunkWatcher.get(trid));
+                    MyTrunk trunk = trunkWatcher.getBase(trid);
+                    EndPoint<Terminal> ep = term.getEndPoint(label);
+                    tunnels.put(trunk, ep);
+                }
+            }
+        }
+        return tunnels;
+    }
+
+    private Collection<MyTrunk>
+        getAllTrunks(Connection conn, Collection<? super Trunk> refCache)
+            throws SQLException {
+        Collection<MyTrunk> result = new HashSet<>();
+        try (ConnectionContext ctxt = setContext(conn);
+            Statement stmt = conn.createStatement()) {
+
+            try (ResultSet rs = stmt.executeQuery("SELECT trunk_id" + " FROM "
+                + trunkTable + ";")) {
+                while (rs.next()) {
+                    final int tid = rs.getInt(1);
+                    Trunk trunk = trunkWatcher.get(tid);
+                    refCache.add(trunk);
+                    result.add(trunkWatcher.getBase(tid));
+                }
+            }
+        }
+        return result;
+    }
+
+    private Collection<MyTrunk>
+        getAdequateTrunks(Connection conn, double bandwidth,
+                          Collection<? super Trunk> refCache)
+            throws SQLException {
+        Collection<MyTrunk> result = new HashSet<>();
+        try (ConnectionContext ctxt = setContext(conn);
+            PreparedStatement stmt =
+                conn.prepareStatement("SELECT UNIQUE tt.trunk_id" + " FROM "
+                    + trunkTable + " AS tt" + " LEFT JOIN " + labelTable
+                    + " AS lt" + " ON lt.trunk_id = tt.trunk_id"
+                    + " WHERE (tt.up_cap >= ? OR tt.down_cap >= ?)"
+                    + " AND lt.service_id IS NULL;")) {
+            stmt.setDouble(1, bandwidth);
+            stmt.setDouble(2, bandwidth);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    final int tid = rs.getInt(1);
+                    Trunk trunk = trunkWatcher.get(tid);
+                    refCache.add(trunk);
+                    result.add(trunkWatcher.getBase(tid));
+                }
+            }
+        }
+        return result;
+    }
+
+    private static ConnectionContext setContext(Connection newContext) {
+        return new ConnectionContext(newContext);
+    }
+
+    private static class ConnectionContext implements AutoCloseable {
+        private final Connection oldContext;
+
+        private ConnectionContext(Connection newContext) {
+            oldContext = contextConnection.get();
+            contextConnection.set(newContext);
+        }
+
+        @Override
+        public void close() {
+            contextConnection.set(oldContext);
+        }
+
     }
 }
