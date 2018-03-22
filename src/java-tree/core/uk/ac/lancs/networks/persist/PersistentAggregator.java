@@ -795,6 +795,10 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
+        double getUpstreamBandwidth(Connection conn) throws SQLException {
+            return getBandwidth(conn, "up_cap");
+        }
+
         /**
          * Get the upstream bandwidth remaining available on this trunk.
          * 
@@ -804,11 +808,15 @@ public class PersistentAggregator implements Aggregator {
         double getUpstreamBandwidth() {
             if (disabled) throw new IllegalStateException("trunk removed");
             try (Connection conn = openDatabase()) {
-                return getBandwidth(conn, "up_cap");
+                return getUpstreamBandwidth(conn);
             } catch (SQLException e) {
                 throw new RuntimeException("DB error getting trunk b/w: "
                     + dbid);
             }
+        }
+
+        double getDownstreamBandwidth(Connection conn) throws SQLException {
+            return getBandwidth(conn, "down_cap");
         }
 
         /**
@@ -821,7 +829,7 @@ public class PersistentAggregator implements Aggregator {
         double getDownstreamBandwidth() {
             if (disabled) throw new IllegalStateException("trunk removed");
             try (Connection conn = openDatabase()) {
-                return getBandwidth(conn, "down_cap");
+                return getDownstreamBandwidth(conn);
             } catch (SQLException e) {
                 throw new RuntimeException("DB error getting trunk b/w: "
                     + dbid);
@@ -1036,19 +1044,11 @@ public class PersistentAggregator implements Aggregator {
             conn.commit();
         }
 
-        /**
-         * Get the number of tunnels available through this trunk.
-         * 
-         * @return the number of available tunnels
-         */
-        int getAvailableTunnelCount() {
-            if (disabled) throw new IllegalStateException("trunk removed");
-
-            try (Connection conn = openDatabase();
-                PreparedStatement stmt =
-                    conn.prepareStatement("SELECT * FROM " + labelTable
-                        + " WHERE trunk_id = ?"
-                        + " AND upstream_alloaction IS NULL;")) {
+        int getAvailableTunnelCount(Connection conn) throws SQLException {
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT * FROM " + labelTable
+                    + " WHERE trunk_id = ?"
+                    + " AND upstream_allocation IS NULL;")) {
                 /* TODO: Get SQL to do the counting. */
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -1057,6 +1057,19 @@ public class PersistentAggregator implements Aggregator {
                         c++;
                     return c;
                 }
+            }
+        }
+
+        /**
+         * Get the number of tunnels available through this trunk.
+         * 
+         * @return the number of available tunnels
+         */
+        int getAvailableTunnelCount() {
+            if (disabled) throw new IllegalStateException("trunk removed");
+
+            try (Connection conn = openDatabase()) {
+                return getAvailableTunnelCount(conn);
             } catch (SQLException e) {
                 throw new RuntimeException("unexpected database failure", e);
             }
@@ -1323,9 +1336,7 @@ public class PersistentAggregator implements Aggregator {
      */
     @Override
     public synchronized void dumpStatus(PrintWriter out) {
-        try (Connection conn = openDatabase()) {
-            conn.setAutoCommit(false);
-
+        try (Connection conn = newDatabaseContext(false)) {
             out.printf("aggregate %s:%n", name);
             for (int id : getServiceIds(conn)) {
                 /* Ensure the service is non-collectable. We don't use
@@ -1340,9 +1351,11 @@ public class PersistentAggregator implements Aggregator {
             Collection<Trunk> refs = new ArrayList<>();
             for (MyTrunk trunk : getAllTrunks(conn, refs)) {
                 out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n",
-                           trunk.getTerminals(), trunk.getUpstreamBandwidth(),
-                           trunk.getDownstreamBandwidth(), trunk.getDelay(),
-                           trunk.getAvailableTunnelCount());
+                           trunk.getTerminals(),
+                           trunk.getUpstreamBandwidth(conn),
+                           trunk.getDownstreamBandwidth(conn),
+                           trunk.getDelay(conn),
+                           trunk.getAvailableTunnelCount(conn));
             }
             out.flush();
         } catch (SQLException e) {
@@ -1745,7 +1758,7 @@ public class PersistentAggregator implements Aggregator {
         Map<Edge<Terminal>, MyTrunk> trunkEdges = new HashMap<>();
         for (MyTrunk trunk : adequateTrunks) {
             Edge<Terminal> edge = Edge.of(trunk.getTerminals());
-            trunkEdgeWeights.put(edge, trunk.getDelay());
+            trunkEdgeWeights.put(edge, trunk.getDelay(conn));
             trunkEdges.put(edge, trunk);
         }
         fibGraph.addEdges(trunkEdgeWeights);
@@ -1926,9 +1939,12 @@ public class PersistentAggregator implements Aggregator {
             getAdequateTrunks(conn, bandwidth, refs);
 
         /* Get edges representing all suitable trunks. */
-        Map<Edge<Terminal>, Double> edges =
-            new HashMap<>(adequateTrunks.stream().collect(Collectors
-                .toMap(t -> Edge.of(t.getTerminals()), MyTrunk::getDelay)));
+        Map<Edge<Terminal>, Double> edges = new HashMap<>();
+        for (MyTrunk trunk : adequateTrunks) {
+            Edge<Terminal> edge = Edge.of(trunk.getTerminals());
+            double delay = trunk.getDelay(conn);
+            edges.put(edge, delay);
+        }
 
         /* Get a set of all switches for our trunks. */
         Collection<NetworkControl> switches = adequateTrunks.stream()
@@ -2156,6 +2172,24 @@ public class PersistentAggregator implements Aggregator {
 
     private static ThreadLocal<Connection> contextConnection =
         new ThreadLocal<>();
+
+    private static ConnectionContext setContext(Connection newContext) {
+        return new ConnectionContext(newContext);
+    }
+
+    private static class ConnectionContext implements AutoCloseable {
+        private final Connection oldContext;
+
+        private ConnectionContext(Connection newContext) {
+            oldContext = contextConnection.get();
+            contextConnection.set(newContext);
+        }
+
+        @Override
+        public void close() {
+            contextConnection.set(oldContext);
+        }
+    }
 
     /**
      * Get a fresh connection to the database, and make it the current
@@ -2466,24 +2500,5 @@ public class PersistentAggregator implements Aggregator {
             }
         }
         return result;
-    }
-
-    private static ConnectionContext setContext(Connection newContext) {
-        return new ConnectionContext(newContext);
-    }
-
-    private static class ConnectionContext implements AutoCloseable {
-        private final Connection oldContext;
-
-        private ConnectionContext(Connection newContext) {
-            oldContext = contextConnection.get();
-            contextConnection.set(newContext);
-        }
-
-        @Override
-        public void close() {
-            contextConnection.set(oldContext);
-        }
-
     }
 }
