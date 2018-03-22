@@ -763,9 +763,6 @@ public class PersistentAggregator implements Aggregator {
         private final Terminal start, end;
         private volatile boolean disabled;
 
-        private double delay = 0.0;
-        private double upstreamCapacity = 0.0, downstreamCapacity = 0.0;
-
         /**
          * Create a trunk between two terminals.
          * 
@@ -783,6 +780,21 @@ public class PersistentAggregator implements Aggregator {
             disabled = true;
         }
 
+        double getBandwidth(Connection conn, String field)
+            throws SQLException {
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT " + field + " FROM "
+                    + trunkTable + " WHERE trunk_id = ? LIMIT 1;")) {
+                stmt.setInt(1, dbid);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next())
+                        throw new RuntimeException("missing trunk id: "
+                            + dbid);
+                    return rs.getDouble(1);
+                }
+            }
+        }
+
         /**
          * Get the upstream bandwidth remaining available on this trunk.
          * 
@@ -791,8 +803,12 @@ public class PersistentAggregator implements Aggregator {
          */
         double getUpstreamBandwidth() {
             if (disabled) throw new IllegalStateException("trunk removed");
-            assert Thread.holdsLock(PersistentAggregator.this);
-            return upstreamCapacity;
+            try (Connection conn = openDatabase()) {
+                return getBandwidth(conn, "up_cap");
+            } catch (SQLException e) {
+                throw new RuntimeException("DB error getting trunk b/w: "
+                    + dbid);
+            }
         }
 
         /**
@@ -804,8 +820,12 @@ public class PersistentAggregator implements Aggregator {
          */
         double getDownstreamBandwidth() {
             if (disabled) throw new IllegalStateException("trunk removed");
-            assert Thread.holdsLock(PersistentAggregator.this);
-            return downstreamCapacity;
+            try (Connection conn = openDatabase()) {
+                return getBandwidth(conn, "down_cap");
+            } catch (SQLException e) {
+                throw new RuntimeException("DB error getting trunk b/w: "
+                    + dbid);
+            }
         }
 
         /**
@@ -815,7 +835,12 @@ public class PersistentAggregator implements Aggregator {
          */
         double getMaximumBandwidth() {
             if (disabled) throw new IllegalStateException("trunk removed");
-            return Math.max(getUpstreamBandwidth(), getDownstreamBandwidth());
+            try (Connection conn = openDatabase()) {
+                return getBandwidth(conn, "MAX(up_cap, down_cap)");
+            } catch (SQLException e) {
+                throw new RuntimeException("DB error getting trunk b/w: "
+                    + dbid);
+            }
         }
 
         /**
@@ -892,8 +917,18 @@ public class PersistentAggregator implements Aggregator {
             if (downstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative downstream: "
                     + downstreamBandwidth);
-            if (upstreamBandwidth > this.upstreamCapacity) return null;
-            if (downstreamBandwidth > this.downstreamCapacity) return null;
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT up_cap, down_cap" + " FROM "
+                    + trunkTable + " WHERE trunk_id = ? LIMIT 1;")) {
+                stmt.setInt(1, dbid);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next())
+                        throw new RuntimeException("missing trunk id: "
+                            + dbid);
+                    if (upstreamBandwidth > rs.getDouble(1)) return null;
+                    if (downstreamBandwidth > rs.getDouble(2)) return null;
+                }
+            }
 
             /* Find a free label. */
             final int startLabel;
@@ -908,8 +943,8 @@ public class PersistentAggregator implements Aggregator {
                 }
             }
 
-            /* Store the allocation for the label, marking it as
-             * unavailable/in-use. */
+            /* Store the allocation for the label, marking it as being
+             * used by the specified service. */
             try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
                 + labelTable + " SET up_alloc = ?," + " down_alloc = ?"
                 + ", service_id = ? " + " WHERE trunk_id = ?"
@@ -933,8 +968,6 @@ public class PersistentAggregator implements Aggregator {
             }
 
             conn.commit();
-            this.upstreamCapacity -= upstreamBandwidth;
-            this.downstreamCapacity -= downstreamBandwidth;
             return start.getEndPoint(startLabel);
         }
 
@@ -1001,8 +1034,6 @@ public class PersistentAggregator implements Aggregator {
             }
 
             conn.commit();
-            this.upstreamCapacity += upAlloc;
-            this.downstreamCapacity += downAlloc;
         }
 
         /**
@@ -1031,6 +1062,20 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
+        double getDelay(Connection conn) throws SQLException {
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT metric FROM " + trunkTable
+                    + " WHERE trunk_id = ? LIMIT 1;")) {
+                stmt.setInt(1, dbid);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next())
+                        throw new RuntimeException("missing trunk id: "
+                            + dbid);
+                    return rs.getDouble(1);
+                }
+            }
+        }
+
         /**
          * Get the fixed delay of this trunk.
          * 
@@ -1039,8 +1084,10 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public double getDelay() {
             if (disabled) throw new IllegalStateException("trunk removed");
-            synchronized (PersistentAggregator.this) {
-                return delay;
+            try (Connection conn = openDatabase()) {
+                return getDelay(conn);
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database failure", e);
             }
         }
 
@@ -1065,24 +1112,32 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalArgumentException("negative downstream: "
                     + downstream);
 
-            synchronized (PersistentAggregator.this) {
-                if (upstream > upstreamCapacity)
-                    throw new IllegalArgumentException("request upstream "
-                        + upstream + " exceeds " + upstreamCapacity);
-                if (downstream > downstreamCapacity)
-                    throw new IllegalArgumentException("request downstream "
-                        + downstream + " exceeds " + downstreamCapacity);
-
-                try (Connection conn = openDatabase()) {
-                    updateTrunkCapacity(conn, this.dbid, -upstream,
-                                        -downstream);
-
-                    upstreamCapacity -= upstream;
-                    downstreamCapacity -= downstream;
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT up_cap, down_cap" + " FROM "
+                        + trunkTable + " WHERE trunk_id = ? LIMIT 1;")) {
+                    stmt.setInt(1, dbid);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (!rs.next())
+                            throw new RuntimeException("missing trunk id: "
+                                + dbid);
+                        final double upstreamCapacity = rs.getDouble(1);
+                        final double downstreamCapacity = rs.getDouble(2);
+                        if (upstream > upstreamCapacity)
+                            throw new IllegalArgumentException("request upstream "
+                                + upstream + " exceeds " + upstreamCapacity);
+                        if (downstream > downstreamCapacity)
+                            throw new IllegalArgumentException("request downstream "
+                                + downstream + " exceeds "
+                                + downstreamCapacity);
+                    }
                 }
+
+                updateTrunkCapacity(conn, this.dbid, -upstream, -downstream);
+                conn.commit();
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database failure", e);
             }
         }
 
@@ -1099,9 +1154,6 @@ public class PersistentAggregator implements Aggregator {
                 try (Connection conn = openDatabase()) {
                     updateTrunkCapacity(conn, this.dbid, +upstream,
                                         +downstream);
-
-                    upstreamCapacity += upstream;
-                    downstreamCapacity += downstream;
                 } catch (SQLException e) {
                     throw new RuntimeException("unexpected database failure",
                                                e);
@@ -1111,19 +1163,15 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public void setDelay(double delay) {
-            synchronized (PersistentAggregator.this) {
-                try (Connection conn = openDatabase();
-                    PreparedStatement stmt =
-                        conn.prepareStatement("UPDATE " + trunkTable
-                            + " SET metric = ?" + " WHERE trunk_id = ?;")) {
-                    stmt.setDouble(1, delay);
-                    stmt.setInt(2, dbid);
-                    stmt.execute();
-                    this.delay = delay;
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
-                }
+            try (Connection conn = openDatabase();
+                PreparedStatement stmt =
+                    conn.prepareStatement("UPDATE " + trunkTable
+                        + " SET metric = ?" + " WHERE trunk_id = ?;")) {
+                stmt.setDouble(1, delay);
+                stmt.setInt(2, dbid);
+                stmt.execute();
+            } catch (SQLException e) {
+                throw new RuntimeException("unexpected database failure", e);
             }
         }
 
@@ -1250,12 +1298,6 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public String toString() {
             return start + "+" + end;
-        }
-
-        void recoverCapacities(double upCap, double downCap, double delay2) {
-            this.upstreamCapacity = upCap;
-            this.downstreamCapacity = downCap;
-            this.delay = delay2;
         }
     }
 
@@ -2059,10 +2101,10 @@ public class PersistentAggregator implements Aggregator {
 
     private MyTrunk recoverTrunk(Connection conn, int id)
         throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-            + " start_network," + " start_terminal," + " end_network,"
-            + " end_terminal," + " up_cap," + " down_cap," + " metric FROM "
-            + trunkTable + " WHERE trunk_id = ?;")) {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("SELECT" + " start_network,"
+                + " start_terminal," + " end_network," + " end_terminal"
+                + " FROM " + trunkTable + " WHERE trunk_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) return null;
@@ -2070,18 +2112,13 @@ public class PersistentAggregator implements Aggregator {
                 final String startTerminalName = rs.getString(2);
                 final String endNetworkName = rs.getString(3);
                 final String endTerminalName = rs.getString(4);
-                final double upCap = rs.getDouble(5);
-                final double downCap = rs.getDouble(6);
-                final double delay = rs.getDouble(7);
 
                 Terminal start = inferiors.apply(startNetworkName)
                     .getTerminal(startTerminalName);
                 Terminal end = inferiors.apply(endNetworkName)
                     .getTerminal(endTerminalName);
 
-                MyTrunk trunk = new MyTrunk(start, end, id);
-                trunk.recoverCapacities(upCap, downCap, delay);
-                return trunk;
+                return new MyTrunk(start, end, id);
             }
         }
     }
