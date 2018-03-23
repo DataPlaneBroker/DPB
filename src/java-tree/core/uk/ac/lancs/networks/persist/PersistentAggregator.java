@@ -1485,7 +1485,7 @@ public class PersistentAggregator implements Aggregator {
                     + " (service_id INTEGER," + " subservice_id INTEGER,"
                     + " subnetwork_name VARCHAR(20),"
                     + " PRIMARY KEY(service_id, subnetwork_name, subservice_id),"
-                    + " FORIEGN KEY(service_id) REFERENCES " + serviceTable
+                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
                     + "(service_id));");
 
                 /* The label table records labels available on each
@@ -1504,12 +1504,12 @@ public class PersistentAggregator implements Aggregator {
                     + " end_label INTEGER,"
                     + " up_alloc DECIMAL(9,3) DEFAULT NULL,"
                     + " down_alloc DECIMAL(9,3) DEFAULT NULL,"
-                    + " service_id INTEGER DEFAULT NULL"
+                    + " service_id INTEGER DEFAULT NULL,"
                     + " PRIMARY KEY(trunk_id, start_label, end_label),"
                     + " UNIQUE(trunk_id, start_label),"
                     + " UNIQUE(trunk_id, end_label),"
                     + " FOREIGN KEY(trunk_id) REFERENCES " + trunkTable
-                    + "(trunk_id))" + " FOREIGN KEY(service_id) REFERENCES "
+                    + "(trunk_id)," + " FOREIGN KEY(service_id) REFERENCES "
                     + serviceTable + "(service_id));");
             }
 
@@ -1968,6 +1968,7 @@ public class PersistentAggregator implements Aggregator {
     synchronized Map<Edge<Terminal>, Double> getModel(double bandwidth) {
         try (Connection conn = openDatabase()) {
             conn.setAutoCommit(false);
+
             /* Map the set of our end points to the corresponding inner
              * terminals that our topology consists of. */
             Collection<Terminal> innerTerminalPorts =
