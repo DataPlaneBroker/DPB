@@ -1049,17 +1049,13 @@ public class PersistentAggregator implements Aggregator {
         }
 
         int getAvailableTunnelCount(Connection conn) throws SQLException {
-            try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT * FROM " + labelTable
-                    + " WHERE trunk_id = ?"
-                    + " AND upstream_allocation IS NULL;")) {
-                /* TODO: Get SQL to do the counting. */
+            try (PreparedStatement stmt = conn
+                .prepareStatement("SELECT COUNT(*)" + " FROM " + labelTable
+                    + " WHERE trunk_id = ?" + " AND service_id IS NULL;")) {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
-                    int c = 0;
-                    while (rs.next())
-                        c++;
-                    return c;
+                    if (!rs.next()) throw new AssertionError("unreachable");
+                    return rs.getInt(1);
                 }
             }
         }
