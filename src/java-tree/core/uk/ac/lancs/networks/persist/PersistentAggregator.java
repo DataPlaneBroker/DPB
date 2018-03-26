@@ -418,6 +418,13 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public synchronized void initiate(ServiceDescription request)
             throws InvalidServiceException {
+
+            /* Make sure the request is sane. */
+            request = ServiceDescription.sanitize(request, 0.01);
+            if (request.endPointFlows().size() < 2)
+                throw new IllegalArgumentException("invalid service"
+                    + " description (fewer than" + " two end points)");
+
             Collection<Service> redundantServices = new HashSet<>();
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
@@ -441,15 +448,12 @@ public class PersistentAggregator implements Aggregator {
                     }
                 }
 
-                /* Make sure the request is sane. */
-                request = ServiceDescription.sanitize(request, 0.01);
-
-                /* Plot a spanning tree across this switch, allocating
+                /* Plot a spanning tree across this network, allocating
                  * tunnels. */
                 Collection<ServiceDescription> subrequests = new HashSet<>();
                 plotAsymmetricTree(conn, this, request, null, subrequests);
 
-                /* Create connections for each inferior switch, and a
+                /* Create connections for each inferior network, and a
                  * distinct reference of our own for each one. */
                 Map<Service, ServiceDescription> subcons =
                     subrequests.stream()
@@ -1325,12 +1329,10 @@ public class PersistentAggregator implements Aggregator {
     private final String name;
 
     private final Map<String, SuperiorTerminal> terminals = new HashMap<>();
-    // private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
-    // private final Map<Integer, MyTrunk> trunkIndex = new HashMap<>();
 
     /**
      * Print out the status of all connections and trunks of this
-     * switch.
+     * aggregator.
      * 
      * @param out the destination for the status report
      */
@@ -1626,7 +1628,7 @@ public class PersistentAggregator implements Aggregator {
     }
 
     /**
-     * Remove a terminal from this switch.
+     * Remove a terminal from this aggregator.
      * 
      * @param name the terminal's local name
      */
@@ -1654,20 +1656,21 @@ public class PersistentAggregator implements Aggregator {
 
     /**
      * Plot a spanning tree with asymmetric bandwidth requirements
-     * across this switch, allocation tunnels on trunks.
+     * across this aggregator, allocation tunnels on trunks.
      * 
      * @param service the service which will own the tunnels formed
      * across trunks
      * 
      * @param request the request specifying bandwidth at each concerned
-     * end point of this switch
+     * end point of this aggregator
      * 
      * @param tunnels a place to store the set of allocated tunnels,
      * indexed by trunk
      * 
      * @param subrequests a place to store the connection requests to be
-     * submitted to each inferior switch
-     * @throws SQLException
+     * submitted to each inferior network
+     * 
+     * @throws SQLException if there was an error accessing the database
      */
     synchronized void
         plotAsymmetricTree(Connection conn, MyService service,
@@ -1675,11 +1678,6 @@ public class PersistentAggregator implements Aggregator {
                            Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
                            Collection<? super ServiceDescription> subrequests)
             throws SQLException {
-        // System.err.printf("Request producers: %s%n",
-        // request.producers());
-        // System.err.printf("Request consumers: %s%n",
-        // request.consumers());
-
         /* Sanity-check the end points, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
@@ -1691,7 +1689,7 @@ public class PersistentAggregator implements Aggregator {
             EndPoint<? extends Terminal> ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 
-            /* Map this end point to an inferior switch's terminal. */
+            /* Map this end point to an inferior network's terminal. */
             Terminal outerPort = ep.getBundle();
             if (!(outerPort instanceof SuperiorTerminal))
                 throw new IllegalArgumentException("end point " + ep
@@ -1702,7 +1700,7 @@ public class PersistentAggregator implements Aggregator {
                     + " not part of " + name);
 
             /* Record the bandwidth produced and consumed on the
-             * inferior switch's terminal. Make sure we aggregate
+             * inferior network's terminal. Make sure we aggregate
              * contributions when two or more end points belong to the
              * same terminal. */
             double produced = flow.ingress;
@@ -1735,9 +1733,9 @@ public class PersistentAggregator implements Aggregator {
         Collection<MyTrunk> adequateTrunks =
             getAdequateTrunks(conn, smallestBandwidth, refs);
 
-        /* Get the set of all switches connected to our selected
+        /* Get the set of all networks connected to our selected
          * trunks. */
-        Collection<NetworkControl> switches =
+        Collection<NetworkControl> subnetworks =
             adequateTrunks.stream().flatMap(tr -> tr.getTerminals().stream())
                 .map(Terminal::getNetwork).collect(Collectors.toSet());
 
@@ -1762,28 +1760,25 @@ public class PersistentAggregator implements Aggregator {
             trunkEdges.put(edge, trunk);
         }
         fibGraph.addEdges(trunkEdgeWeights);
-        // System.err.printf("Trunk weights: %s%n", trunkEdgeWeights);
 
         /* The edges include virtual ones constituting models of
-         * inferior switches. Also make a note of connected terminals
-         * within an inferior switch, in case it is a fragmented
+         * inferior networks. Also make a note of connected terminals
+         * within an inferior network, in case it is a fragmented
          * aggregate. */
-        Map<Edge<Terminal>, Double> switchEdgeWeights = switches.stream()
+        Map<Edge<Terminal>, Double> subnetworkEdgeWeights = subnetworks
+            .stream()
             .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
-        fibGraph.addEdges(switchEdgeWeights);
-        // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
+        fibGraph.addEdges(subnetworkEdgeWeights);
         Map<Terminal, Collection<Terminal>> terminalGroups = Graphs
-            .getGroups(Graphs.getAdjacencies(switchEdgeWeights.keySet()));
-        // System.err.printf("Port groups: %s%n",
-        // new HashSet<>(terminalGroups.values()));
+            .getGroups(Graphs.getAdjacencies(subnetworkEdgeWeights.keySet()));
 
         /* Keep track of the weights of all edges, whether they come
-         * from trunks or inferior switches. */
+         * from trunks or inferior networks. */
         Map<Edge<Terminal>, Double> edgeWeights =
             new HashMap<>(trunkEdgeWeights);
-        edgeWeights.putAll(switchEdgeWeights);
+        edgeWeights.putAll(subnetworkEdgeWeights);
 
         do {
             /* Ensure we have up-to-date routing tables. */
@@ -1801,7 +1796,7 @@ public class PersistentAggregator implements Aggregator {
                     guide.reached(p);
                     reached.addAll(terminalGroups.get(p));
                 }).withEdgePreference(guide::select).eliminating(e -> {
-                    /* Permit edges within the same switch. */
+                    /* Permit edges within the same network. */
                     NetworkControl first = e.first().getNetwork();
                     NetworkControl second = e.second().getNetwork();
                     if (first == second) return false;
@@ -1812,7 +1807,6 @@ public class PersistentAggregator implements Aggregator {
                 }).create().getSpanningTree(guide.first());
             if (tree == null)
                 throw new ServiceResourceException("no tree found");
-            // System.err.printf("Spanning tree: %s%n", tree);
 
             /* Work out how much bandwidth each trunk edge requires in
              * each direction. Find trunk edges in the spanning tree
@@ -1823,7 +1817,6 @@ public class PersistentAggregator implements Aggregator {
                 new DistanceVectorComputer<>(innerTerminals, tree.stream()
                     .collect(Collectors.toMap(e -> e, edgeWeights::get)));
             routes.update();
-            // System.err.printf("Loads: %s%n", routes.getEdgeLoads());
             Edge<Terminal> worstEdge = null;
             double worstShortfall = 0.0;
             for (Map.Entry<Edge<Terminal>, List<Map<Terminal, Double>>> entry : routes
@@ -1855,8 +1848,6 @@ public class PersistentAggregator implements Aggregator {
                     worstEdge = edge;
                 }
             }
-            // System.err.printf("Edge bandwidths: %s%n",
-            // edgeBandwidths);
 
             /* Remove the worst edge from the graph, and start again. */
             if (worstEdge != null) {
@@ -1890,7 +1881,7 @@ public class PersistentAggregator implements Aggregator {
             }
 
             /* Ensure the caller's end points are included in the
-             * requests to inferior switches. */
+             * requests to inferior networks. */
             for (Map.Entry<EndPoint<? extends Terminal>, List<Double>> entry : innerEndPoints
                 .entrySet()) {
                 EndPoint<? extends Terminal> ep = entry.getKey();
@@ -1899,7 +1890,6 @@ public class PersistentAggregator implements Aggregator {
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }
-            // System.err.printf("Subterminals: %s%n", subterminals);
 
             /* For each terminal group, create a new connection
              * request. */
@@ -1916,8 +1906,8 @@ public class PersistentAggregator implements Aggregator {
      * bandwidth requirement, create FIBs for each terminal.
      * 
      * <p>
-     * This method does not modify any switch state, but should only be
-     * called while synchronized on the switch.
+     * This method does not modify any aggregator state, but should only
+     * be called while synchronized on the aggregator.
      * 
      * @param bandwidth the required bandwidth
      * 
@@ -1946,15 +1936,15 @@ public class PersistentAggregator implements Aggregator {
             edges.put(edge, delay);
         }
 
-        /* Get a set of all switches for our trunks. */
-        Collection<NetworkControl> switches = adequateTrunks.stream()
+        /* Get a set of all networks for our trunks. */
+        Collection<NetworkControl> subnetworks = adequateTrunks.stream()
             .flatMap(trunk -> trunk.getTerminals().stream()
                 .map(Terminal::getNetwork))
             .collect(Collectors.toSet());
 
-        /* Get models of all switches connected to the selected trunks,
+        /* Get models of all networks connected to the selected trunks,
          * and combine their edges with the trunks. */
-        edges.putAll(switches.stream()
+        edges.putAll(subnetworks.stream()
             .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
             .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
 
@@ -2253,7 +2243,7 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws IllegalArgumentException if there is no such service
      * 
-     * @throws SQLException
+     * @throws SQLException if there was an error accessing the database
      */
     private MyService recoverService(Connection conn, Integer id)
         throws SQLException {
@@ -2338,6 +2328,19 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Get the internal numeric id of a trunk connecting an inferior
+     * terminal.
+     * 
+     * @param conn the connection to the database
+     * 
+     * @param p the terminal
+     * 
+     * @return the id of the trunk connecting the specified terminal, or
+     * {@code -1} if there is no matching trunk
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private int findTrunkId(Connection conn, Terminal p) throws SQLException {
         try (PreparedStatement stmt =
             conn.prepareStatement("SELECT trunk_id" + " FROM " + trunkTable
@@ -2354,6 +2357,17 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Release all tunnels for this service. The service id for each
+     * label is nulled to mark is a available, and the up- and
+     * downstream allocations are added to the trunk's capacities.
+     * 
+     * @param conn the connection to the database
+     * 
+     * @param sid the service id
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private void releaseTunnels(Connection conn, int sid)
         throws SQLException {
         /* Restore available bandwidth from tunnels to the containing
@@ -2390,6 +2404,17 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Get the intent of a service.
+     * 
+     * @param conn the connection to the databse
+     * 
+     * @param id the service id
+     * 
+     * @return the current intent of the service
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private Intent getIntent(Connection conn, int id) throws SQLException {
         try (PreparedStatement stmt =
             conn.prepareStatement("SELECT intent FROM " + serviceTable
@@ -2403,6 +2428,17 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Set the intent of a service.
+     * 
+     * @param conn the connection to the databse
+     * 
+     * @param id the service id
+     * 
+     * @param intent the new intent of the service
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private void setIntent(Connection conn, int id, Intent intent)
         throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
@@ -2413,6 +2449,17 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Test whether the user has initiated a service.
+     * 
+     * @param conn the connection to the databse
+     * 
+     * @param id the service id
+     * 
+     * @return {@code true} iff the service has some end points defined
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private boolean testInitiated(Connection conn, int id)
         throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM "
@@ -2424,6 +2471,21 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    /**
+     * Get details of all tunnels set up for a given service.
+     * 
+     * @param conn the connection to the databse
+     * 
+     * @param id the service id
+     * 
+     * @param refCache a place to retain corresponding external
+     * references, so that the internal references won't be discarded
+     * 
+     * @return a map from all trunks which contain a tunnel for the
+     * service to an end point of that tunnel
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private Map<MyTrunk, EndPoint<? extends Terminal>>
         getTunnels(Connection conn, int id,
                    Collection<? super Trunk> refCache)
@@ -2457,6 +2519,18 @@ public class PersistentAggregator implements Aggregator {
         return tunnels;
     }
 
+    /**
+     * Get internal references to all trunks defined in this aggregator.
+     * 
+     * @param conn the connection to the database
+     * 
+     * @param refCache a place to retain corresponding external
+     * references, so that the internal references won't be discarded
+     * 
+     * @return the set of all trunks in this aggregator
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private Collection<MyTrunk>
         getAllTrunks(Connection conn, Collection<? super Trunk> refCache)
             throws SQLException {
@@ -2477,6 +2551,21 @@ public class PersistentAggregator implements Aggregator {
         return result;
     }
 
+    /**
+     * Get internal references to all trunks with sufficient bandwidth
+     * in at least one direction.
+     * 
+     * @param conn the connection to the database
+     * 
+     * @param bandwidth the minimum bandwidth required
+     * 
+     * @param refCache a place to retain corresponding external
+     * references, so that the internal references won't be discarded
+     * 
+     * @return the set of all trunks with adequate bandiwdth
+     * 
+     * @throws SQLException if there was an error accessing the database
+     */
     private Collection<MyTrunk>
         getAdequateTrunks(Connection conn, double bandwidth,
                           Collection<? super Trunk> refCache)

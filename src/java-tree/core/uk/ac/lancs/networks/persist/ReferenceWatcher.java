@@ -52,7 +52,7 @@ import java.util.function.Function;
  * @param <X> the external type of the referenced objects; must be an
  * interface
  * 
- * @param <I> an internal type (often a subtype of {@code <T>}) not
+ * @param <I> an internal type (often a subtype of {@code <X>}) not
  * exposed to the clients
  * 
  * @param <K> the key type used to index objects
@@ -89,7 +89,17 @@ public final class ReferenceWatcher<X, I, K> {
      * Create a reference watcher where the internal type is a subtype
      * of the external type.
      * 
+     * @param <T> the external type of the referenced objects; must be
+     * an interface
+     * 
+     * @param <S> the internal type (a subtype of {@code <T>}) not
+     * exposed to the clients
+     * 
+     * @param <K> the key type used to index objects
+     * 
      * @param type the type of the referenced objects
+     * 
+     * @param loader used to create proxies for the external type
      * 
      * @param builder invoked to create new objects given a key
      * 
@@ -105,6 +115,13 @@ public final class ReferenceWatcher<X, I, K> {
 
     /**
      * Create a reference watcher.
+     * 
+     * @param <T> the external type of the referenced objects; must be
+     * an interface
+     * 
+     * @param <S> the internal type not exposed to the clients
+     * 
+     * @param <K> the key type used to index objects
      * 
      * @param type the type of the referenced objects
      * 
@@ -149,7 +166,8 @@ public final class ReferenceWatcher<X, I, K> {
     }
 
     /**
-     * Get the base for a given key.
+     * Get the base for a given key. If the external reference is not
+     * also held, this object could be terminated while in use.
      * 
      * @param key the index of the required object
      * 
