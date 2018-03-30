@@ -36,19 +36,18 @@
 package uk.ac.lancs.networks.mgmt;
 
 /**
- * Indicates an error in managing a network. This error is due to the
- * caller attempting to re-configure the network in a way that does not
- * make sense.
+ * Indicates a resource failure in managing a network. This error is due
+ * to internal lack of resources beyond the control of the caller.
  * 
  * @author simpsons
  */
-public class NetworkManagementException extends Exception {
+public class NetworkResourceException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
     /**
      * Create an exception.
      */
-    public NetworkManagementException() {}
+    public NetworkResourceException() {}
 
     /**
      * Create an exception with a detail message and a cause.
@@ -57,7 +56,7 @@ public class NetworkManagementException extends Exception {
      * 
      * @param cause the cause
      */
-    public NetworkManagementException(String message) {
+    public NetworkResourceException(String message) {
         super(message);
     }
 
@@ -66,7 +65,7 @@ public class NetworkManagementException extends Exception {
      * 
      * @param message the detail message
      */
-    public NetworkManagementException(Throwable cause) {
+    public NetworkResourceException(Throwable cause) {
         super(cause);
     }
 
@@ -75,7 +74,7 @@ public class NetworkManagementException extends Exception {
      * 
      * @param cause the cause
      */
-    public NetworkManagementException(String message, Throwable cause) {
+    public NetworkResourceException(String message, Throwable cause) {
         super(message, cause);
     }
 }
