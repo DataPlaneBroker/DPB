@@ -182,8 +182,12 @@ public interface Trunk {
      * the link
      * 
      * @param amount the number of labels to remove
+     * 
+     * @throws NetworkManagementException if elements of the range
+     * cannot be revoked
      */
-    void revokeStartLabelRange(int startBase, int amount);
+    void revokeStartLabelRange(int startBase, int amount)
+        throws NetworkManagementException;
 
     /**
      * Revoke availability of a range of labels.
@@ -192,8 +196,12 @@ public interface Trunk {
      * link
      * 
      * @param amount the number of labels to remove
+     * 
+     * @throws NetworkManagementException if elements of the range
+     * cannot be revoked
      */
-    void revokeEndLabelRange(int endBase, int amount);
+    void revokeEndLabelRange(int endBase, int amount)
+        throws NetworkManagementException;
 
     /**
      * Get a reverse view of this trunk. Notions of upstream/downstream
@@ -217,12 +225,14 @@ public interface Trunk {
             }
 
             @Override
-            public void revokeStartLabelRange(int startBase, int amount) {
+            public void revokeStartLabelRange(int startBase, int amount)
+                throws NetworkManagementException {
                 orig.revokeEndLabelRange(startBase, amount);
             }
 
             @Override
-            public void revokeEndLabelRange(int endBase, int amount) {
+            public void revokeEndLabelRange(int endBase, int amount)
+                throws NetworkManagementException {
                 orig.revokeStartLabelRange(endBase, amount);
             }
 

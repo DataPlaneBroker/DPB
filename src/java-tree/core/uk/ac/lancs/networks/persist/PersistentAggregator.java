@@ -45,6 +45,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,6 +74,7 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -920,8 +922,6 @@ public class PersistentAggregator implements Aggregator {
                 throws SQLException {
             if (disabled) throw new IllegalStateException("trunk removed");
 
-            assert Thread.holdsLock(PersistentAggregator.this);
-
             /* Sanity-check bandwidth. */
             if (upstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative upstream: "
@@ -1060,21 +1060,6 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        /**
-         * Get the number of tunnels available through this trunk.
-         * 
-         * @return the number of available tunnels
-         */
-        int getAvailableTunnelCount() {
-            if (disabled) throw new IllegalStateException("trunk removed");
-
-            try (Connection conn = openDatabase()) {
-                return getAvailableTunnelCount(conn);
-            } catch (SQLException e) {
-                throw new RuntimeException("unexpected database failure", e);
-            }
-        }
-
         double getDelay(Connection conn) throws SQLException {
             try (PreparedStatement stmt =
                 conn.prepareStatement("SELECT metric FROM " + trunkTable
@@ -1082,7 +1067,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new RuntimeException("missing trunk id: "
+                        throw new ServiceResourceException("missing trunk id: "
                             + dbid);
                     return rs.getDouble(1);
                 }
@@ -1100,7 +1085,8 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 return getDelay(conn);
             } catch (SQLException e) {
-                throw new RuntimeException("unexpected database failure", e);
+                throw new ServiceResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
@@ -1133,16 +1119,17 @@ public class PersistentAggregator implements Aggregator {
                     stmt.setInt(1, dbid);
                     try (ResultSet rs = stmt.executeQuery()) {
                         if (!rs.next())
-                            throw new RuntimeException("missing trunk id: "
-                                + dbid);
+                            throw new NetworkResourceException("missing"
+                                + " trunk id: " + dbid);
                         final double upstreamCapacity = rs.getDouble(1);
                         final double downstreamCapacity = rs.getDouble(2);
                         if (upstream > upstreamCapacity)
-                            throw new IllegalArgumentException("request upstream "
-                                + upstream + " exceeds " + upstreamCapacity);
+                            throw new IllegalArgumentException("request"
+                                + " upstream " + upstream + " exceeds "
+                                + upstreamCapacity);
                         if (downstream > downstreamCapacity)
-                            throw new IllegalArgumentException("request downstream "
-                                + downstream + " exceeds "
+                            throw new IllegalArgumentException("request"
+                                + " downstream " + downstream + " exceeds "
                                 + downstreamCapacity);
                     }
                 }
@@ -1150,7 +1137,8 @@ public class PersistentAggregator implements Aggregator {
                 updateTrunkCapacity(conn, this.dbid, -upstream, -downstream);
                 conn.commit();
             } catch (SQLException e) {
-                throw new RuntimeException("unexpected database failure", e);
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
@@ -1163,14 +1151,11 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalArgumentException("negative downstream: "
                     + downstream);
 
-            synchronized (PersistentAggregator.this) {
-                try (Connection conn = openDatabase()) {
-                    updateTrunkCapacity(conn, this.dbid, +upstream,
-                                        +downstream);
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
-                }
+            try (Connection conn = openDatabase()) {
+                updateTrunkCapacity(conn, this.dbid, +upstream, +downstream);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
@@ -1184,12 +1169,14 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(2, dbid);
                 stmt.execute();
             } catch (SQLException e) {
-                throw new RuntimeException("unexpected database failure", e);
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
         private void revokeInternalRange(String key, int base, int amount)
-            throws SQLException {
+            throws SQLException,
+                NetworkManagementException {
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
                 /* Detect labels that are in use. Fail completely if any
@@ -1207,7 +1194,7 @@ public class PersistentAggregator implements Aggregator {
                             inUse.set(rs.getInt(1));
                     }
                     if (!inUse.isEmpty())
-                        throw new RuntimeException("start labels in use: "
+                        throw new NetworkManagementException(key + " in use: "
                             + inUse);
                 }
                 try (PreparedStatement stmt =
@@ -1224,31 +1211,30 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public void revokeStartLabelRange(int startBase, int amount) {
-            synchronized (PersistentAggregator.this) {
-                try {
-                    revokeInternalRange("start_label", startBase, amount);
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
-                }
+        public void revokeStartLabelRange(int startBase, int amount)
+            throws NetworkManagementException {
+            try {
+                revokeInternalRange("start_label", startBase, amount);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
         @Override
-        public void revokeEndLabelRange(int endBase, int amount) {
-            synchronized (PersistentAggregator.this) {
-                try {
-                    revokeInternalRange("end_label", endBase, amount);
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
-                }
+        public void revokeEndLabelRange(int endBase, int amount)
+            throws NetworkManagementException {
+            try {
+                revokeInternalRange("end_label", endBase, amount);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
         @Override
-        public void defineLabelRange(int startBase, int amount, int endBase) {
+        public void defineLabelRange(int startBase, int amount, int endBase)
+            throws NetworkManagementException {
             if (startBase + amount < startBase)
                 throw new IllegalArgumentException("illegal start range "
                     + startBase + " plus " + amount);
@@ -1256,50 +1242,47 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalArgumentException("illegal end range "
                     + endBase + " plus " + amount);
 
-            synchronized (PersistentAggregator.this) {
-                try (Connection conn = openDatabase()) {
-                    conn.setAutoCommit(false);
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
 
-                    /* Check that all numbers are available. */
-                    try (PreparedStatement stmt =
-                        conn.prepareStatement("SELECT start_label" + " FROM "
-                            + labelTable + " WHERE trunk_id = ?"
-                            + " (AND start_label >= ?"
-                            + " AND start_label <= ?)" + " OR (end_label >="
-                            + " AND end_label <= ?);")) {
-                        stmt.setInt(1, dbid);
-                        stmt.setInt(2, startBase);
-                        stmt.setInt(3, startBase + amount - 1);
-                        stmt.setInt(4, endBase);
-                        stmt.setInt(5, endBase + amount - 1);
-                        BitSet startInUse = new BitSet();
-                        try (ResultSet rs = stmt.executeQuery()) {
-                            while (rs.next())
-                                startInUse.set(rs.getInt(1));
-                        }
-                        if (!startInUse.isEmpty())
-                            throw new IllegalArgumentException("range in use: "
-                                + startInUse);
+                /* Check that all numbers are available. */
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT start_label" + " FROM "
+                        + labelTable + " WHERE trunk_id = ?"
+                        + " (AND start_label >= ?" + " AND start_label <= ?)"
+                        + " OR (end_label >=" + " AND end_label <= ?);")) {
+                    stmt.setInt(1, dbid);
+                    stmt.setInt(2, startBase);
+                    stmt.setInt(3, startBase + amount - 1);
+                    stmt.setInt(4, endBase);
+                    stmt.setInt(5, endBase + amount - 1);
+                    BitSet startInUse = new BitSet();
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next())
+                            startInUse.set(rs.getInt(1));
                     }
-
-                    /* Add all the labels. */
-                    try (PreparedStatement stmt =
-                        conn.prepareStatement("INSERT INTO " + labelTable
-                            + " (trunk_id, start_label, end_label)"
-                            + " VALUES (?, ?, ?);")) {
-                        stmt.setInt(1, dbid);
-                        for (int i = 0; i < amount; i++) {
-                            stmt.setInt(2, startBase + i);
-                            stmt.setInt(3, endBase + i);
-                            stmt.execute();
-                        }
-                    }
-
-                    conn.commit();
-                } catch (SQLException e) {
-                    throw new RuntimeException("unexpected database failure",
-                                               e);
+                    if (!startInUse.isEmpty())
+                        throw new NetworkManagementException("range in use: "
+                            + startInUse);
                 }
+
+                /* Add all the labels. */
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("INSERT INTO " + labelTable
+                        + " (trunk_id, start_label, end_label)"
+                        + " VALUES (?, ?, ?);")) {
+                    stmt.setInt(1, dbid);
+                    for (int i = 0; i < amount; i++) {
+                        stmt.setInt(2, startBase + i);
+                        stmt.setInt(3, endBase + i);
+                        stmt.execute();
+                    }
+                }
+
+                conn.commit();
+            } catch (SQLException e) {
+                throw new NetworkResourceException("unexpected DB failure",
+                                                   e);
             }
         }
 
@@ -1324,7 +1307,8 @@ public class PersistentAggregator implements Aggregator {
     private final Executor executor;
     private final String name;
 
-    private final Map<String, SuperiorTerminal> terminals = new HashMap<>();
+    // private final Map<String, SuperiorTerminal> terminals = new
+    // HashMap<>();
 
     /**
      * Print out the status of all connections and trunks of this
@@ -1333,7 +1317,7 @@ public class PersistentAggregator implements Aggregator {
      * @param out the destination for the status report
      */
     @Override
-    public synchronized void dumpStatus(PrintWriter out) {
+    public void dumpStatus(PrintWriter out) {
         try (Connection conn = newDatabaseContext(false)) {
             out.printf("aggregate %s:%n", name);
             for (int id : getServiceIds(conn)) {
@@ -1357,7 +1341,8 @@ public class PersistentAggregator implements Aggregator {
             }
             out.flush();
         } catch (SQLException e) {
-            throw new RuntimeException("unable to dump network " + name, e);
+            throw new NetworkResourceException("unable to dump network "
+                + name, e);
         }
     }
 
@@ -1422,7 +1407,7 @@ public class PersistentAggregator implements Aggregator {
      * @throws SQLException if there was an error in accessing the
      * database
      */
-    public synchronized void init() throws SQLException {
+    public void init() throws SQLException {
         serviceWatcher.start();
         trunkWatcher.start();
 
@@ -1511,33 +1496,13 @@ public class PersistentAggregator implements Aggregator {
                     + serviceTable + "(service_id));");
             }
 
-            /* Recreate terminals from entries in our tables. */
-            try (Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT terminal_id, name,"
-                    + " subnetwork, subname" + " FROM " + terminalTable
-                    + ";")) {
-                while (rs.next()) {
-                    final int id = rs.getInt(1);
-                    final String name = rs.getString(2);
-                    final String subnetworkName = rs.getString(3);
-                    final String subname = rs.getString(4);
-
-                    NetworkControl subnetwork =
-                        inferiors.apply(subnetworkName);
-                    Terminal innerPort = subnetwork.getTerminal(subname);
-                    SuperiorTerminal port =
-                        new SuperiorTerminal(getControl(), name, innerPort,
-                                             id);
-                    terminals.put(name, port);
-                }
-            }
-
             conn.commit();
         }
     }
 
     @Override
-    public Trunk addTrunk(Terminal p1, Terminal p2) {
+    public Trunk addTrunk(Terminal p1, Terminal p2)
+        throws NetworkManagementException {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         try (Connection conn = newDatabaseContext(false);
@@ -1553,14 +1518,14 @@ public class PersistentAggregator implements Aggregator {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new RuntimeException("failed to generate id for new trunk "
-                        + p1 + " to " + p2);
+                    throw new NetworkResourceException("failed to generate"
+                        + " id for new trunk " + p1 + " to " + p2);
                 final int id = rs.getInt(1);
                 return trunkWatcher.get(id);
             }
         } catch (SQLException ex) {
-            throw new RuntimeException("could not create trunk from " + p1
-                + " to " + p2, ex);
+            throw new NetworkResourceException("DB failure creating"
+                + " trunk from " + p1 + " to " + p2, ex);
         }
     }
 
@@ -1579,7 +1544,7 @@ public class PersistentAggregator implements Aggregator {
             MyTrunk trunk = trunkWatcher.getBase(id);
             trunk.disable();
         } catch (SQLException e) {
-            throw new RuntimeException("removing trunk for " + p, e);
+            throw new NetworkResourceException("removing trunk for " + p, e);
         }
     }
 
@@ -1592,14 +1557,13 @@ public class PersistentAggregator implements Aggregator {
             if (result.position(p) == 1) return result.reverse();
             return result;
         } catch (SQLException e) {
-            throw new RuntimeException("finding trunk for " + p, e);
+            throw new NetworkResourceException("finding trunk for " + p, e);
         }
     }
 
     @Override
-    public synchronized Terminal addTerminal(String name, Terminal inner) {
-        if (terminals.containsKey(name))
-            throw new IllegalArgumentException("name in use: " + name);
+    public Terminal addTerminal(String name, Terminal inner)
+        throws NetworkManagementException {
         try (Connection conn = openDatabase();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + terminalTable
@@ -1613,13 +1577,15 @@ public class PersistentAggregator implements Aggregator {
                 final int id = rs.getInt(1);
                 SuperiorTerminal result =
                     new SuperiorTerminal(getControl(), name, inner, id);
-                terminals.put(name, result);
                 return result;
 
             }
+        } catch (SQLIntegrityConstraintViolationException ex) {
+            throw new NetworkManagementException("name in use: " + name, ex);
         } catch (SQLException ex) {
-            throw new RuntimeException("could not create terminal " + name
-                + " on " + inner + " in database", ex);
+            throw new NetworkResourceException("DB failure"
+                + " creating terminal " + name + " on " + inner
+                + " in database", ex);
         }
     }
 
@@ -1629,19 +1595,19 @@ public class PersistentAggregator implements Aggregator {
      * @param name the terminal's local name
      */
     @Override
-    public synchronized void removeTerminal(String name) {
-        SuperiorTerminal terminal = terminals.get(name);
-        if (terminal == null)
-            throw new IllegalArgumentException("no such terminal: " + name);
+    public void removeTerminal(String name)
+        throws NetworkManagementException {
         try (Connection conn = openDatabase();
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + terminalTable + " WHERE terminal_id = ?;")) {
-            stmt.setInt(1, terminal.id());
-            stmt.execute();
-            terminals.remove(name);
+                + terminalTable + " WHERE name = ?;")) {
+            stmt.setString(1, name);
+            int done = stmt.executeUpdate();
+            if (done == 0)
+                throw new NetworkManagementException("no such terminal: "
+                    + name);
         } catch (SQLException ex) {
-            throw new RuntimeException("could not remove terminal " + name
-                + " from database", ex);
+            throw new NetworkResourceException("could not remove terminal "
+                + name + " from database", ex);
         }
     }
 
@@ -1668,12 +1634,11 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    synchronized void
-        plotAsymmetricTree(Connection conn, MyService service,
-                           ServiceDescription request,
-                           Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
-                           Collection<? super ServiceDescription> subrequests)
-            throws SQLException {
+    void plotAsymmetricTree(Connection conn, MyService service,
+                            ServiceDescription request,
+                            Map<? super MyTrunk, ? super EndPoint<? extends Terminal>> tunnels,
+                            Collection<? super ServiceDescription> subrequests)
+        throws SQLException {
         /* Sanity-check the end points, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
@@ -1901,10 +1866,6 @@ public class PersistentAggregator implements Aggregator {
      * Given a subset of our internal terminals to connect and a
      * bandwidth requirement, create FIBs for each terminal.
      * 
-     * <p>
-     * This method does not modify any aggregator state, but should only
-     * be called while synchronized on the aggregator.
-     * 
      * @param bandwidth the required bandwidth
      * 
      * @param innerTerminals the set of terminals to connect
@@ -1916,8 +1877,6 @@ public class PersistentAggregator implements Aggregator {
         getFibs(Connection conn, double bandwidth,
                 Collection<Terminal> innerTerminals)
             throws SQLException {
-        assert Thread.holdsLock(this);
-
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
         Collection<Trunk> refs = new ArrayList<>();
@@ -1951,14 +1910,17 @@ public class PersistentAggregator implements Aggregator {
         return Graphs.route(innerTerminals, edges);
     }
 
-    synchronized Map<Edge<Terminal>, Double> getModel(double bandwidth) {
+    Map<Edge<Terminal>, Double> getModel(double bandwidth) {
         try (Connection conn = openDatabase()) {
             conn.setAutoCommit(false);
+
+            Collection<SuperiorTerminal> terminals =
+                getAllTerminals(conn).values();
 
             /* Map the set of our end points to the corresponding inner
              * terminals that our topology consists of. */
             Collection<Terminal> innerTerminalPorts =
-                terminals.values().stream().map(SuperiorTerminal::subterminal)
+                terminals.stream().map(SuperiorTerminal::subterminal)
                     .collect(Collectors.toSet());
 
             /* Create routing tables for each terminal. */
@@ -1967,8 +1929,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Convert our exposed terminals to a sequence so we can
              * form every combination of two terminals. */
-            final List<SuperiorTerminal> termSeq =
-                new ArrayList<>(terminals.values());
+            final List<SuperiorTerminal> termSeq = new ArrayList<>(terminals);
             final int size = termSeq.size();
 
             /* For every combination of our exposed terminals, store the
@@ -2004,15 +1965,23 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public Terminal getTerminal(String id) {
-            synchronized (PersistentAggregator.this) {
-                return terminals.get(id);
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                return PersistentAggregator.this.getTerminal(conn, id);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("DB failure"
+                    + " looking up terminal " + id, e);
             }
         }
 
         @Override
         public Collection<String> getTerminals() {
-            synchronized (PersistentAggregator.this) {
-                return new HashSet<>(terminals.keySet());
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                return getAllTerminals(conn).keySet();
+            } catch (SQLException e) {
+                throw new NetworkResourceException("DB failure"
+                    + " listing terminals", e);
             }
         }
 
@@ -2255,17 +2224,27 @@ public class PersistentAggregator implements Aggregator {
         final Map<EndPoint<? extends Terminal>, TrafficFlow> endPoints =
             new HashMap<>();
         try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-            + " tt.name AS terminal_name," + " et.label AS label,"
-            + " et.metering AS metering," + " et.shaping AS shaping"
-            + " FROM " + endPointTable + " AS et" + " LEFT JOIN "
-            + terminalTable + " AS tt" + " ON tt.terminal_id = et.terminal_id"
+            + " tt.name AS terminal_name," + " tt.terminal_id AS terminal_id,"
+            + " tt.subnetwork AS subnetwork," + " tt.subname AS subname,"
+            + " et.label AS label," + " et.metering AS metering,"
+            + " et.shaping AS shaping" + " FROM " + endPointTable + " AS et"
+            + " LEFT JOIN " + terminalTable + " AS tt"
+            + " ON tt.terminal_id = et.terminal_id"
             + " WHERE et.service_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
-                final SuperiorTerminal port = terminals.get(rs.getString(1));
-                final int label = rs.getInt(2);
-                final double metering = rs.getDouble(3);
-                final double shaping = rs.getDouble(4);
+                final String name = rs.getString(1);
+                final int tid = rs.getInt(2);
+                final String subnetworkName = rs.getString(3);
+                final String subname = rs.getString(4);
+                final int label = rs.getInt(5);
+                final double metering = rs.getDouble(6);
+                final double shaping = rs.getDouble(7);
+
+                NetworkControl subnetwork = inferiors.apply(subnetworkName);
+                Terminal innerPort = subnetwork.getTerminal(subname);
+                SuperiorTerminal port =
+                    new SuperiorTerminal(getControl(), name, innerPort, tid);
 
                 final EndPoint<? extends Terminal> endPoint =
                     port.getEndPoint(label);
@@ -2586,5 +2565,48 @@ public class PersistentAggregator implements Aggregator {
             }
         }
         return result;
+    }
+
+    private SuperiorTerminal getTerminal(Connection conn, String name)
+        throws SQLException {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT"
+            + " terminal_id," + " subnetwork," + " subname" + " FROM "
+            + terminalTable + " WHERE name = ?;")) {
+            stmt.setString(1, name);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next()) return null;
+                final int id = rs.getInt(1);
+                final String subnetworkName = rs.getString(2);
+                final String subname = rs.getString(3);
+
+                NetworkControl subnetwork = inferiors.apply(subnetworkName);
+                Terminal innerPort = subnetwork.getTerminal(subname);
+                SuperiorTerminal port =
+                    new SuperiorTerminal(getControl(), name, innerPort, id);
+                return port;
+            }
+        }
+    }
+
+    private Map<String, SuperiorTerminal> getAllTerminals(Connection conn)
+        throws SQLException {
+        Map<String, SuperiorTerminal> terminals = new HashMap<>();
+        try (Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT terminal_id, name,"
+                + " subnetwork, subname" + " FROM " + terminalTable + ";")) {
+            while (rs.next()) {
+                final int id = rs.getInt(1);
+                final String name = rs.getString(2);
+                final String subnetworkName = rs.getString(3);
+                final String subname = rs.getString(4);
+
+                NetworkControl subnetwork = inferiors.apply(subnetworkName);
+                Terminal innerPort = subnetwork.getTerminal(subname);
+                SuperiorTerminal port =
+                    new SuperiorTerminal(getControl(), name, innerPort, id);
+                terminals.put(name, port);
+            }
+        }
+        return terminals;
     }
 }
