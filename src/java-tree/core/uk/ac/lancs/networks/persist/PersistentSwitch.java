@@ -75,6 +75,7 @@ import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.FabricContext;
 import uk.ac.lancs.networks.fabric.FabricFactory;
 import uk.ac.lancs.networks.fabric.Interface;
+import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -182,9 +183,7 @@ public class PersistentSwitch implements Switch {
             /* We are ready as soon as we have the information. */
             callOut(ServiceStatus.ESTABLISHING);
             callOut(ServiceStatus.INACTIVE);
-            if (activated) {
-                // TODO: Start activation process.
-            }
+            if (activated) completeActivation();
         }
 
         @Override
@@ -203,8 +202,7 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized void activate() {
-            if (released)
-                throw new IllegalStateException("service uninitiated");
+            if (released) throw new IllegalStateException("service released");
 
             try (Connection conn = database()) {
                 /* TODO: Check the user's intent. If already activated,
@@ -216,6 +214,11 @@ public class PersistentSwitch implements Switch {
                                                    ex);
             }
 
+            completeActivation();
+        }
+
+        void completeActivation() {
+            assert Thread.holdsLock(this);
             this.bridge =
                 fabric.bridge(self, mapEndPoints(request.endPointFlows()));
             callOut(ServiceStatus.ACTIVATING);
@@ -617,23 +620,20 @@ public class PersistentSwitch implements Switch {
             stmt.setString(2, desc);
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    final int id = rs.getInt(1);
-                    SwitchTerminal terminal =
-                        new SwitchTerminal(getControl(), name,
-                                           fabric.getInterface(desc), id);
-                    terminals.put(name, terminal);
-                    return terminal;
-                } else {
-                    // TODO: Use NetworkResourceException?
-                    throw new RuntimeException("failed to generate id for new terminal "
-                        + name);
-                }
+                if (!rs.next())
+                    throw new NetworkResourceException("id unreported"
+                        + " for new terminal " + name);
+                final int id = rs.getInt(1);
+                SwitchTerminal terminal =
+                    new SwitchTerminal(getControl(), name,
+                                       fabric.getInterface(desc), id);
+                terminals.put(name, terminal);
+                return terminal;
             }
         } catch (SQLException ex) {
-            // TODO: Use NetworkResourceException?
-            throw new RuntimeException("could not create terminal " + name
-                + " on " + desc + " in database", ex);
+            throw new NetworkResourceException("DB failure"
+                + " in creating terminal " + name + " on " + desc
+                + " in database", ex);
         }
     }
 
@@ -649,9 +649,8 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
-            // TODO: Use NetworkResourceException?
-            throw new RuntimeException("could not remove terminal " + name
-                + " from database", ex);
+            throw new NetworkResourceException("DB failure"
+                + " in removing terminal " + name, ex);
         }
     }
 
@@ -732,16 +731,16 @@ public class PersistentSwitch implements Switch {
     synchronized Service newService() {
         final int id;
         try (Connection conn = database();
-            Statement stmt = conn.createStatement()) {
-            stmt.execute("INSERT INTO " + serviceTable + " DEFAULT VALUES;",
-                         Statement.RETURN_GENERATED_KEYS);
+            PreparedStatement stmt =
+                conn.prepareStatement("INSERT INTO " + serviceTable
+                    + " (intent) VALUES (0);",
+                                      Statement.RETURN_GENERATED_KEYS)) {
+            stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (rs.next()) {
-                    id = rs.getInt(1);
-                } else {
-                    throw new RuntimeException("I got no id from "
-                        + "creation of service; WTF?");
-                }
+                if (!rs.next())
+                    throw new ServiceResourceException("id unreported"
+                        + " for new service");
+                id = rs.getInt(1);
             }
         } catch (SQLException ex) {
             throw new ServiceResourceException("creating service", ex);
