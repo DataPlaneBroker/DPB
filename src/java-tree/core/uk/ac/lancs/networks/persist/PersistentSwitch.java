@@ -87,6 +87,10 @@ import uk.ac.lancs.routing.span.Edge;
  * @author simpsons
  */
 public class PersistentSwitch implements Switch {
+    private enum Intent {
+        INACTIVE, ACTIVE, ABORT, RELEASE;
+    }
+
     private final Fabric fabric;
 
     private class MyService implements Service, BridgeListener {
@@ -106,9 +110,12 @@ public class PersistentSwitch implements Switch {
         final BridgeListener self;
 
         /**
-         * Records whether the user has attempted to release us.
+         * Becomes true when the RELEASE intent is accomplished. At the
+         * same time, this service is removed from the switch's index.
          */
         boolean released;
+
+        Intent intent = Intent.INACTIVE;
 
         /**
          * Records the description of the service, purely for diagnostic
@@ -117,7 +124,7 @@ public class PersistentSwitch implements Switch {
         ServiceDescription request;
 
         /**
-         * Records our reference into the backend. When set, we are
+         * Records our reference into the fabric. When set, we are
          * active or activating. When not set, calling
          * {@link PersistentSwitch#retainBridges()} will ensure that our
          * underlying bridge does not exist. When set, we are either
@@ -125,10 +132,24 @@ public class PersistentSwitch implements Switch {
          */
         Bridge bridge;
 
+        /**
+         * Records the last event we got from the bridge.
+         */
+        boolean active;
+
+        final Collection<Throwable> bridgeErrors = new HashSet<>();
+
         @Override
         public synchronized void initiate(ServiceDescription request)
             throws InvalidServiceException {
-            if (released) throw new IllegalStateException("service disused");
+            switch (intent) {
+            case RELEASE:
+                throw new IllegalStateException("service disused");
+            case ABORT:
+                throw new IllegalStateException("service aborted");
+            default:
+                break;
+            }
             if (this.request != null)
                 throw new IllegalStateException("service in use");
 
@@ -150,11 +171,11 @@ public class PersistentSwitch implements Switch {
              * is greater than the sum of the others' ingress rates. */
             this.request = ServiceDescription.sanitize(request, 0.01);
 
+            callOut(ServiceStatus.ESTABLISHING);
+
             /* Add the details to the database. */
-            final boolean activated;
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
-                activated = getIntent(conn, id);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("INSERT INTO " + endPointTable
                         + " (service_id, terminal_id,"
@@ -177,13 +198,12 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("persistence failure", ex);
+                throw new ServiceResourceException("DB failure", ex);
             }
 
             /* We are ready as soon as we have the information. */
-            callOut(ServiceStatus.ESTABLISHING);
             callOut(ServiceStatus.INACTIVE);
-            if (activated) completeActivation();
+            if (intent == Intent.ACTIVE) completeActivation();
         }
 
         @Override
@@ -202,13 +222,25 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized void activate() {
-            if (released) throw new IllegalStateException("service released");
+            /* Check the user's intent. If already activated, do
+             * nothing. */
+            switch (intent) {
+            case RELEASE:
+                throw new IllegalStateException("service released");
+            case ABORT:
+                throw new IllegalStateException("service aborted");
+            case ACTIVE:
+                return;
+            default:
+                break;
+            }
 
             try (Connection conn = database()) {
-                /* TODO: Check the user's intent. If already activated,
-                 * do nothing. */
+                conn.setAutoCommit(false);
+
                 /* Record the user's intent for this service. */
-                updateIntent(conn, id, true);
+                updateIntent(conn, id, Intent.ACTIVE);
+                conn.commit();
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
@@ -229,11 +261,19 @@ public class PersistentSwitch implements Switch {
         public synchronized void deactivate() {
             /* We're already deactivated/deactivating if in the states
              * implied by this condition. */
-            if (released || request == null || bridge == null) return;
+            if (request == null || bridge == null) return;
+            switch (intent) {
+            case RELEASE:
+            case ABORT:
+            case INACTIVE:
+                return;
+            default:
+                break;
+            }
 
             /* Record the user's intent for this service. */
             try (Connection conn = database()) {
-                updateIntent(conn, id, false);
+                updateIntent(conn, id, Intent.INACTIVE);
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
@@ -249,21 +289,22 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized ServiceStatus status() {
+            if (intent == Intent.RELEASE) return released
+                ? ServiceStatus.RELEASED : ServiceStatus.RELEASING;
             if (bridge != null) {
                 if (active) return ServiceStatus.ACTIVE;
                 return ServiceStatus.ACTIVATING;
             }
             if (active) return ServiceStatus.DEACTIVATING;
             if (request == null) return ServiceStatus.DORMANT;
-            if (released) return ServiceStatus.RELEASED;
             return ServiceStatus.INACTIVE;
         }
 
         @Override
         public synchronized void release() {
-            if (released) return;
+            if (intent == Intent.RELEASE) return;
             request = null;
-            released = true;
+            intent = Intent.RELEASE;
             Bridge oldBridge = bridge;
             bridge = null;
 
@@ -293,49 +334,58 @@ public class PersistentSwitch implements Switch {
                  * 'deactivating' one. */
                 callOut(ServiceStatus.DEACTIVATING);
                 synchronized (PersistentSwitch.this) {
-                    services.remove(id);
                     retainBridges();
                 }
             } else {
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                 }
+                released = true;
                 callOut(ServiceStatus.RELEASED);
             }
         }
 
         @Override
-        public synchronized void error() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+        public synchronized void error(Throwable t) {
+            bridgeErrors.add(t);
+            if (intent == Intent.ABORT || intent == Intent.RELEASE) return;
+            active = false;
+            if (intent != Intent.RELEASE) intent = Intent.ABORT;
+            callOut(ServiceStatus.FAILED);
         }
-
-        /**
-         * Records the last event we got from the bridge.
-         */
-        boolean active;
 
         @Override
         public synchronized void created() {
+            /* Detect redundant calls. */
             if (active) return;
             active = true;
+
             callOut(ServiceStatus.ACTIVE);
         }
 
         @Override
         public synchronized void destroyed() {
+            /* Detect redundant calls. */
             if (!active) return;
             active = false;
-            callOut(ServiceStatus.INACTIVE);
-            if (released) {
+
+            if (intent == Intent.RELEASE) {
+                callOut(ServiceStatus.RELEASING);
+                synchronized (PersistentSwitch.this) {
+                    services.remove(id);
+                }
+                released = true;
                 callOut(ServiceStatus.RELEASED);
                 listeners.clear();
+            } else {
+                callOut(ServiceStatus.INACTIVE);
             }
         }
 
         synchronized void dump(PrintWriter out) {
             out.printf("  %3d %-8s", id,
-                       released ? "RELEASED" : request == null ? "DORMANT"
-                           : active ? "ACTIVE" : "INACTIVE");
+                       intent == Intent.RELEASE ? "RELEASED" : request == null
+                           ? "DORMANT" : active ? "ACTIVE" : "INACTIVE");
             if (request != null) {
                 for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
@@ -350,7 +400,7 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized NetworkControl getNetwork() {
-            if (released || request == null) return null;
+            if (intent == Intent.RELEASE || request == null) return null;
             return control;
         }
 
@@ -380,8 +430,8 @@ public class PersistentSwitch implements Switch {
         }
 
         @Override
-        public Collection<Throwable> errors() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+        public synchronized Collection<Throwable> errors() {
+            return new HashSet<>(bridgeErrors);
         }
     }
 
@@ -421,14 +471,14 @@ public class PersistentSwitch implements Switch {
      * <dd>The name of the switch, used to form the fully qualified
      * names of its terminals
      * 
-     * <dt><samp>backend.type</samp></dt>
+     * <dt><samp>fabric.type</samp></dt>
      * 
      * <dd>The back-end type to be recognized by
      * {@link FabricFactory#recognize(String)}
      * 
-     * <dt><samp>backend.<var>misc</var></samp></dt>
+     * <dt><samp>fabric.<var>misc</var></samp></dt>
      * 
-     * <dd>Other parameters used to configure the backend
+     * <dd>Other parameters used to configure the fabric
      * 
      * <dt><samp>db.service</samp></dt>
      * 
@@ -442,7 +492,7 @@ public class PersistentSwitch implements Switch {
      * </dl>
      * 
      * @param executor used to invoke call-backs created by this network
-     * and passed to the backend
+     * and passed to the fabric
      * 
      * @param config the configuration describing the network, the
      * back-end switch, and access to the database
@@ -454,8 +504,8 @@ public class PersistentSwitch implements Switch {
         this.executor = executor;
         this.name = config.get("name");
 
-        /* Create the backend. */
-        Configuration beConfig = config.subview("backend");
+        /* Create the fabric. */
+        Configuration beConfig = config.subview("fabric");
         String type = beConfig.get("type");
         Fabric fabric = null;
         for (FabricFactory factory : ServiceLoader
@@ -810,24 +860,11 @@ public class PersistentSwitch implements Switch {
                                           { type }, h);
     }
 
-    private boolean getIntent(Connection conn, int srvid)
-        throws SQLException {
-        try (PreparedStatement stmt =
-            conn.prepareStatement("SELECT intent FROM " + serviceTable
-                + " WHERE service_id = ?;")) {
-            stmt.setInt(1, srvid);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) { return rs.getInt(1) == 0 ? false : true; }
-            }
-        }
-        throw new IllegalArgumentException("service id unknown: " + srvid);
-    }
-
-    private void updateIntent(Connection conn, int srvid, boolean status)
+    private void updateIntent(Connection conn, int srvid, Intent intent)
         throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
             + serviceTable + " SET intent = ? WHERE service_id = ?;")) {
-            stmt.setInt(1, status ? 1 : 0);
+            stmt.setInt(1, intent.ordinal());
             stmt.setInt(2, srvid);
             stmt.execute();
         }

@@ -51,7 +51,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -407,8 +406,6 @@ public class PersistentAggregator implements Aggregator {
          * Holds errors not attached to end points of subservices.
          */
         final Collection<Throwable> errors = new HashSet<>();
-        final Collection<Throwable> finalErrors =
-            Collections.unmodifiableCollection(errors);
 
         int dormantCount, inactiveCount, activeCount, failedCount,
             releasedCount;
@@ -754,8 +751,8 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public Collection<Throwable> errors() {
-            return finalErrors;
+        public synchronized Collection<Throwable> errors() {
+            return new HashSet<>(errors);
         }
     }
 
@@ -2110,7 +2107,7 @@ public class PersistentAggregator implements Aggregator {
                             this::recoverTrunk, (t) -> {});
 
     private static enum Intent {
-        RELEASE, INACTIVE, ACTIVE, ABORT;
+        INACTIVE, ACTIVE, ABORT, RELEASE;
     }
 
     /**

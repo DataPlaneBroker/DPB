@@ -53,6 +53,8 @@ public interface BridgeListener {
 
     /**
      * The bridge could not be created.
+     * 
+     * @param t the reason
      */
-    void error();
+    void error(Throwable t);
 }
