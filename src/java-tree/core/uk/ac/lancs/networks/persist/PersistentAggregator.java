@@ -1246,8 +1246,8 @@ public class PersistentAggregator implements Aggregator {
                 try (PreparedStatement stmt =
                     conn.prepareStatement("SELECT start_label" + " FROM "
                         + labelTable + " WHERE trunk_id = ?"
-                        + " (AND start_label >= ?" + " AND start_label <= ?)"
-                        + " OR (end_label >=" + " AND end_label <= ?);")) {
+                        + " AND ((start_label >= ?" + " AND start_label <= ?)"
+                        + " OR (end_label >= ?" + " AND end_label <= ?));")) {
                     stmt.setInt(1, dbid);
                     stmt.setInt(2, startBase);
                     stmt.setInt(3, startBase + amount - 1);
@@ -1518,6 +1518,7 @@ public class PersistentAggregator implements Aggregator {
                     throw new NetworkResourceException("failed to generate"
                         + " id for new trunk " + p1 + " to " + p2);
                 final int id = rs.getInt(1);
+                conn.commit();
                 return trunkWatcher.get(id);
             }
         } catch (SQLException ex) {
@@ -2292,7 +2293,7 @@ public class PersistentAggregator implements Aggregator {
         throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
             + trunkTable + " SET up_cap = up_cap + ?,"
-            + " SET down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
+            + " down_cap = down_cap + ?" + " WHERE trunk_id = ?;")) {
             stmt.setInt(3, tid);
             stmt.setDouble(1, up);
             stmt.setDouble(2, down);
@@ -2346,7 +2347,7 @@ public class PersistentAggregator implements Aggregator {
          * trunks. */
         try (PreparedStatement trunkUpdateStmt =
             conn.prepareStatement("UPDATE " + trunkTable
-                + " SET up_cap = up_cap + ?," + " SET down_cap = down_cap + ?"
+                + " SET up_cap = up_cap + ?," + " down_cap = down_cap + ?"
                 + " WHERE trunk_id = ?;");
             PreparedStatement readStmt = conn
                 .prepareStatement("SELECT" + " trunk_id, up_alloc, down_alloc"
