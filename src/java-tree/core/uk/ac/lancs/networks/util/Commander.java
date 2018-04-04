@@ -196,7 +196,12 @@ public final class Commander {
         if ("provide".equals(arg) || "withdraw".equals(arg)) {
             boolean add = arg.charAt(0) == 'p';
             usage = arg + " <terminal-name> <rate>[:<rate>]";
-            Terminal term = findTerminal(iter.next());
+            String termText = iter.next();
+            Terminal term = findTerminal(termText);
+            if (term == null) {
+                System.err.printf("No terminal [%s]%n", termText);
+                return false;
+            }
             String rateText = iter.next();
             Matcher m = bandwidthPattern.matcher(rateText);
             if (!m.matches()) {
@@ -207,6 +212,10 @@ public final class Commander {
             double downrate =
                 m.group(2) == null ? uprate : Double.parseDouble(m.group(2));
             Trunk tr = aggregator.findTrunk(term);
+            if (tr == null) {
+                System.err.printf("No trunk for %s%n", term);
+                return false;
+            }
             if (add)
                 tr.provideBandwidth(uprate, downrate);
             else
@@ -339,7 +348,7 @@ public final class Commander {
     }
 
     private static final String realPattern =
-        "[0-9]*\\\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
+        "[0-9]*\\.?[0-9]+(?:[eE][-+]?[0-9]+)?";
 
     private static final Pattern bandwidthPattern =
         Pattern.compile("^(" + realPattern + ")(?::(" + realPattern + "))?$");
@@ -380,7 +389,7 @@ public final class Commander {
         Pattern.compile("^(\\d+)-(\\d+)$");
 
     private static final Pattern labelMapPattern =
-        Pattern.compile("^(\\d+)-(\\d+)(?::(\\d+))$");
+        Pattern.compile("^(\\d+)-(\\d+)(?::(\\d+))?$");
 
     void process(String[] args)
         throws IOException,
