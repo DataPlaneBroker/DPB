@@ -195,10 +195,12 @@ public final class ReferenceWatcher<X, I, K> {
 
         /* Create and retain a new base. */
         I base = builder.apply(key);
+        if (base == null) return null;
 
         /* Create a proxy for the base, and retain a weak reference for
          * it. */
-        X proxy = proxify(exposer.apply(base));
+        X exposed = exposer.apply(base);
+        X proxy = proxify(exposed);
         ref = new TReference<X, I, K>(key, proxy, base, queue);
         references.put(key, ref);
 
