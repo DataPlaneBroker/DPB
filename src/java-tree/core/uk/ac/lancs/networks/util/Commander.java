@@ -273,6 +273,21 @@ public final class Commander {
             return true;
         }
 
+        if ("set-delay".equals(arg)) {
+            if (aggregator == null) {
+                System.err.printf("Network %s is not an aggregator%n",
+                                  networkName);
+                return false;
+            }
+            usage = arg + " <network-id>:<terminal-name> <delay>";
+            String termName = iter.next();
+            double delay = Double.parseDouble(iter.next());
+            Terminal term = findTerminal(termName);
+            Trunk trunk = aggregator.findTrunk(term);
+            trunk.setDelay(delay);
+            return true;
+        }
+
         if ("add-trunk".equals(arg)) {
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
