@@ -400,7 +400,7 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized NetworkControl getNetwork() {
-            if (intent == Intent.RELEASE || request == null) return null;
+            if (intent == Intent.RELEASE) return null;
             return control;
         }
 
@@ -783,8 +783,9 @@ public class PersistentSwitch implements Switch {
         try (Connection conn = database();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + serviceTable
-                    + " (intent) VALUES (0);",
+                    + " (intent) VALUES (?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
+            stmt.setInt(1, Intent.INACTIVE.ordinal());
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
