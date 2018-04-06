@@ -160,12 +160,14 @@ public class PersistentAggregator implements Aggregator {
 
                 out.printf("%n      inferior %s:", subservice.status());
                 ServiceDescription request = subservice.getRequest();
-                for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
-                    .endPointFlows().entrySet()) {
-                    EndPoint<? extends Terminal> ep = entry.getKey();
-                    TrafficFlow flow = entry.getValue();
-                    out.printf("%n        %10s %6g %6g", ep, flow.ingress,
-                               flow.egress);
+                if (request != null) {
+                    for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
+                        .endPointFlows().entrySet()) {
+                        EndPoint<? extends Terminal> ep = entry.getKey();
+                        TrafficFlow flow = entry.getValue();
+                        out.printf("%n        %10s %6g %6g", ep, flow.ingress,
+                                   flow.egress);
+                    }
                 }
             }
 
@@ -577,11 +579,10 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalStateException("inferior error(s)");
 
             final boolean initiated;
-            final Intent intent;
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
 
-                intent = getIntent(conn, id);
+                final Intent intent = getIntent(conn, id);
 
                 /* If the user has released us, we can do nothing
                  * more. */
@@ -602,7 +603,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Do nothing but record the user's intent, if they haven't
              * yet provided end-point details. */
-            if (initiated) return;
+            if (!initiated) return;
 
             callOut(ServiceStatus.ACTIVATING);
             clients.forEach(Client::activate);
@@ -2299,6 +2300,7 @@ public class PersistentAggregator implements Aggregator {
                     final String subnwname = rs.getString(2);
                     NetworkControl subnw = inferiors.apply(subnwname);
                     Service subsrv = subnw.getService(subsrvid);
+                    if (subsrv == null) continue;
                     subservices.add(subsrv);
                 }
             }
