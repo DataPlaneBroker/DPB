@@ -157,6 +157,13 @@ public final class Commander {
             return true;
         }
 
+        if ("-b".equals(arg)) {
+            usage = arg + " <rate>";
+            double rate = Double.parseDouble(iter.next());
+            nextFlow = nextFlow.withEgress(rate).withIngress(rate);
+            return true;
+        }
+
         if ("close".equals(arg)) {
             usage = arg + " <terminal-name> <label>-<label>";
             Terminal term = findTerminal(iter.next());
@@ -246,6 +253,10 @@ public final class Commander {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
             EndPoint<Terminal> ep = findEndPoint(epid);
+            if (ep == null) {
+                System.err.printf("No end point [%s]%n", epid);
+                return false;
+            }
             endPoints.put(ep, nextFlow);
             return true;
         }
@@ -397,6 +408,7 @@ public final class Commander {
             throw new IllegalArgumentException("network not set"
                 + " to find end point: " + name);
         Terminal terminal = network.getControl().getTerminal(terminalName);
+        if (terminal == null) return null;
         return terminal.getEndPoint(label);
     }
 
@@ -483,8 +495,10 @@ public final class Commander {
      * 
      * <dt><samp>--in <var>rate</var></samp>
      * <dt><samp>--out <var>rate</var></samp>
+     * <dt><samp>-b <var>rate</var></samp>
      * 
-     * <dd>Set the ingress/egress rate of subsequent end points.
+     * <dd>Set the ingress/egress rate or both rates of subsequent end
+     * points.
      * 
      * <dt><samp>-e <var>terminal</var>:<var>label</var></samp>
      * 
