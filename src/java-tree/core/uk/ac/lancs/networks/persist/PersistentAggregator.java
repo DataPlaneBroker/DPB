@@ -397,11 +397,9 @@ public class PersistentAggregator implements Aggregator {
         }
 
         /**
-         * This holds the set of trunks on which we have allocated
-         * bandwidth. If {@code null}, the service is not initiated.
+         * This is just a cache of what we got from the user
+         * (sanitized), or what we recovered from the database.
          */
-        // Map<MyTrunk, EndPoint<? extends Terminal>> tunnels;
-
         ServiceDescription request;
 
         /**
@@ -736,8 +734,10 @@ public class PersistentAggregator implements Aggregator {
         }
 
         synchronized void
-            recover(Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
-                    Collection<? extends Service> subservices) {
+            recover(Connection conn,
+                    Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                    Collection<? extends Service> subservices)
+                throws SQLException {
             request = ServiceDescription.create(endPoints);
 
             clients.clear();
@@ -770,6 +770,13 @@ public class PersistentAggregator implements Aggregator {
                     break;
                 default:
                     break;
+                }
+            }
+
+            final Intent intent = getIntent(conn, id);
+            if (intent == Intent.RELEASE) {
+                if (releasedCount == clients.size()) {
+                    completeRelease(conn);
                 }
             }
         }
@@ -1362,6 +1369,7 @@ public class PersistentAggregator implements Aggregator {
                            trunk.getAvailableTunnelCount(conn));
             }
             out.flush();
+            conn.commit();
         } catch (SQLException e) {
             throw new NetworkResourceException("unable to dump network "
                 + name, e);
@@ -1852,9 +1860,6 @@ public class PersistentAggregator implements Aggregator {
                 EndPoint<? extends Terminal> ep1 =
                     trunk.allocateTunnel(conn, service, upstream, downstream);
                 // tunnels.put(trunk, ep1);
-                System.err
-                    .printf("Allocated %g-%g at %s; looking for peer in %s...%n",
-                            upstream, downstream, ep1, trunk);
                 EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
                     .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
@@ -2013,7 +2018,9 @@ public class PersistentAggregator implements Aggregator {
         @Override
         public Service getService(int id) {
             try (Connection conn = newDatabaseContext(false)) {
-                return serviceWatcher.get(id);
+                Service result = serviceWatcher.get(id);
+                conn.commit();
+                return result;
             } catch (SQLException e) {
                 throw new ServiceResourceException("unable to"
                     + " recover service " + id, e);
@@ -2307,7 +2314,7 @@ public class PersistentAggregator implements Aggregator {
         }
 
         MyService result = new MyService(id);
-        result.recover(endPoints, subservices);
+        result.recover(conn, endPoints, subservices);
         return result;
     }
 
