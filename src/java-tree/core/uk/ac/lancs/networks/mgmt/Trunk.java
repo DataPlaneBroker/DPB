@@ -204,6 +204,26 @@ public interface Trunk {
         throws NetworkManagementException;
 
     /**
+     * Decommission this trunk. No more tunnels will be created over it,
+     * but existing ones remain.
+     */
+    void decommission();
+
+    /**
+     * Recommission this trunk. New tunnels can be created over it
+     * again.
+     */
+    void recommission();
+
+    /**
+     * Determine whether this trunk is commissioned. The default state
+     * is to be commissioned.
+     * 
+     * @return {@code true} iff the trunk is the commissioned.
+     */
+    boolean isCommissioned();
+
+    /**
      * Get a reverse view of this trunk. Notions of upstream/downstream
      * and start/end are inverted. Delay is unaffected, as it applies to
      * both directions.
@@ -269,6 +289,21 @@ public interface Trunk {
                                          int endBase)
                 throws NetworkManagementException {
                 orig.defineLabelRange(endBase, amount, startBase);
+            }
+
+            @Override
+            public void decommission() {
+                orig.decommission();
+            }
+
+            @Override
+            public void recommission() {
+                orig.recommission();
+            }
+
+            @Override
+            public boolean isCommissioned() {
+                return orig.isCommissioned();
             }
         };
     }

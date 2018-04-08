@@ -922,6 +922,29 @@ public class TransientAggregator implements Aggregator {
         public String toString() {
             return start + "+" + end;
         }
+
+        boolean commissioned = true;
+
+        @Override
+        public void decommission() {
+            synchronized (TransientAggregator.this) {
+                commissioned = false;
+            }
+        }
+
+        @Override
+        public void recommission() {
+            synchronized (TransientAggregator.this) {
+                commissioned = true;
+            }
+        }
+
+        @Override
+        public boolean isCommissioned() {
+            synchronized (TransientAggregator.this) {
+                return commissioned;
+            }
+        }
     }
 
     /**
@@ -936,8 +959,10 @@ public class TransientAggregator implements Aggregator {
         for (MyService conn : services.values())
             conn.dump(out);
         for (MyTrunk trunk : new HashSet<>(trunks.values())) {
-            out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n",
-                       trunk.getTerminals(), trunk.getUpstreamBandwidth(),
+            out.printf("  %s%s=(%gMbps, %gMbps, %gs) [%d]%n",
+                       trunk.getTerminals(),
+                       trunk.isCommissioned() ? " " : "!",
+                       trunk.getUpstreamBandwidth(),
                        trunk.getDownstreamBandwidth(), trunk.getDelay(),
                        trunk.getAvailableTunnelCount());
         }
@@ -1102,7 +1127,8 @@ public class TransientAggregator implements Aggregator {
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
         Collection<MyTrunk> adequateTrunks = trunks.values().stream()
-            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
+            .filter(trunk -> trunk.isCommissioned()
+                && trunk.getAvailableTunnelCount() > 0
                 && trunk.getMaximumBandwidth() >= smallestBandwidth)
             .collect(Collectors.toSet());
         // System.err.printf("Selected trunks: %s%n",
@@ -1428,7 +1454,8 @@ public class TransientAggregator implements Aggregator {
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
         Collection<MyTrunk> adequateTrunks = trunks.values().stream()
-            .filter(trunk -> trunk.getAvailableTunnelCount() > 0
+            .filter(trunk -> trunk.isCommissioned()
+                && trunk.getAvailableTunnelCount() > 0
                 && trunk.getMaximumBandwidth() >= bandwidth)
             .collect(Collectors.toSet());
         // System.err.println("Usable trunks: " + adequateTrunks);

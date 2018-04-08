@@ -1324,6 +1324,37 @@ public class PersistentAggregator implements Aggregator {
         public String toString() {
             return start + "+" + end;
         }
+
+        @Override
+        public void decommission() {
+            try (Connection conn = openDatabase()) {
+                commissionTrunk(conn, dbid, false);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("DB failure "
+                    + "setting trunk " + dbid + " commissioned status", e);
+            }
+        }
+
+        @Override
+        public void recommission() {
+            try (Connection conn = openDatabase()) {
+                commissionTrunk(conn, dbid, true);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("DB failure "
+                    + "setting trunk " + dbid + " commissioned status", e);
+            }
+        }
+
+        @Override
+        public boolean isCommissioned() {
+            try (Connection conn = openDatabase()) {
+                conn.setAutoCommit(false);
+                return getTrunkCommissioned(conn, dbid);
+            } catch (SQLException e) {
+                throw new NetworkResourceException("DB failure "
+                    + "fetching trunk " + dbid + " commissioned status", e);
+            }
+        }
     }
 
     private final Function<? super String, ? extends NetworkControl> inferiors;
@@ -1361,8 +1392,9 @@ public class PersistentAggregator implements Aggregator {
             }
             Collection<Trunk> refs = new ArrayList<>();
             for (MyTrunk trunk : getAllTrunks(conn, refs)) {
-                out.printf("  %s=(%gMbps, %gMbps, %gs) [%d]%n",
+                out.printf("  %s%s=(%gMbps, %gMbps, %gs) [%d]%n",
                            trunk.getTerminals(),
+                           getTrunkCommissioned(conn, trunk.dbid) ? " " : "!",
                            trunk.getUpstreamBandwidth(conn),
                            trunk.getDownstreamBandwidth(conn),
                            trunk.getDelay(conn),
@@ -2593,7 +2625,8 @@ public class PersistentAggregator implements Aggregator {
                 conn.prepareStatement("SELECT DISTINCT tt.trunk_id" + " FROM "
                     + trunkTable + " AS tt" + " LEFT JOIN " + labelTable
                     + " AS lt" + " ON lt.trunk_id = tt.trunk_id"
-                    + " WHERE (tt.up_cap >= ? OR tt.down_cap >= ?)"
+                    + " WHERE (tt.up_cap >= ? AND tt.down_cap >= ?"
+                    + " AND tt.commissioned > 0)"
                     + " AND lt.service_id IS NULL;")) {
             stmt.setDouble(1, bandwidth);
             stmt.setDouble(2, bandwidth);
@@ -2650,5 +2683,31 @@ public class PersistentAggregator implements Aggregator {
             }
         }
         return terminals;
+    }
+
+    private boolean getTrunkCommissioned(Connection conn, int tid)
+        throws SQLException {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("SELECT commissioned" + " FROM "
+                + trunkTable + " WHERE trunk_id = ?" + " LIMIT 1;")) {
+            stmt.setInt(1, tid);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (!rs.next())
+                    throw new IllegalArgumentException("no trunk " + tid);
+                return rs.getInt(1) != 0;
+            }
+        }
+    }
+
+    private void commissionTrunk(Connection conn, int tid, boolean status)
+        throws SQLException {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("UPDATE " + trunkTable
+                + " SET commissioned = ?" + " WHERE trunk_id = ?;")) {
+            stmt.setInt(1, tid);
+            int done = stmt.executeUpdate();
+            if (done == 0)
+                throw new IllegalArgumentException("no trunk " + tid);
+        }
     }
 }

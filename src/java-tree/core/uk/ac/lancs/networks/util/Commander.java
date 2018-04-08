@@ -200,6 +200,26 @@ public final class Commander {
             return true;
         }
 
+        if ("recommission".equals(arg) || "decommission".equals(arg)) {
+            boolean add = arg.charAt(0) == 'r';
+            usage = arg + " <terminal-name>";
+            String termText = iter.next();
+            Terminal term = findTerminal(termText);
+            if (term == null) {
+                System.err.printf("No terminal [%s]%n", termText);
+                return false;
+            }
+            Trunk tr = aggregator.findTrunk(term);
+            if (tr == null) {
+                System.err.printf("No trunk for %s%n", term);
+                return false;
+            }
+            if (add)
+                tr.recommission();
+            else
+                tr.decommission();
+        }
+
         if ("provide".equals(arg) || "withdraw".equals(arg)) {
             boolean add = arg.charAt(0) == 'p';
             usage = arg + " <terminal-name> <rate>[:<rate>]";
