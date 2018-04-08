@@ -41,6 +41,11 @@ import uk.ac.lancs.scc.jardeps.Service;
 /**
  * Creates dummy switches.
  * 
+ * <p>
+ * The configuration property <samp>capacity.bridges</samp> may be
+ * specified to override the default maximum number of bridges this
+ * fabric will support at once.
+ * 
  * @see DummyFabric
  * 
  * @author simpsons
@@ -66,6 +71,9 @@ public final class DummyFabricFactory implements FabricFactory {
 
     @Override
     public Fabric makeFabric(FabricContext ctxt, Configuration config) {
-        return new DummyFabric();
+        String maxBridgesText = config.get("capacity.bridges");
+        if (maxBridgesText == null) return new DummyFabric();
+        int maxBridges = Integer.parseInt(maxBridgesText);
+        return new DummyFabric(maxBridges);
     }
 }

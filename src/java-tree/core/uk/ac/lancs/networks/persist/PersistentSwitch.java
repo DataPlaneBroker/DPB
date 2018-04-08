@@ -49,6 +49,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -814,6 +815,10 @@ public class PersistentSwitch implements Switch {
     // Shadowing NetworkControl
     synchronized Map<Edge<Terminal>, Double>
         getModel(double minimumBandwidth) {
+        final long bridgeCapacity = fabric.capacity() - services.values()
+            .stream().filter(s -> s.bridge == null).count();
+        if (bridgeCapacity <= 0) return Collections.emptyMap();
+
         List<Terminal> list = new ArrayList<>(terminals.values());
         Map<Edge<Terminal>, Double> result = new HashMap<>();
         int size = list.size();

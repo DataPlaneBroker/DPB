@@ -53,6 +53,31 @@ import uk.ac.lancs.networks.end_points.EndPoint;
  * @author simpsons
  */
 public final class DummyFabric implements Fabric {
+    /**
+     * The default number of bridges this fabric will create, namely
+     * {@value}
+     */
+    public static final int DEFAULT_MAX_BRIDGES = 63;
+
+    private final int maxBridges;
+
+    /**
+     * Create a fabric supporting a specific number of bridges.
+     * 
+     * @param maxBridges the maximum number of bridges to support
+     */
+    public DummyFabric(int maxBridges) {
+        this.maxBridges = maxBridges;
+    }
+
+    /**
+     * Create a fabric supporting the default number of bridges, namely
+     * {@value #DEFAULT_MAX_BRIDGES}.
+     */
+    public DummyFabric() {
+        this(DEFAULT_MAX_BRIDGES);
+    }
+
     private static class MyInterface implements Interface {
         final String config;
 
@@ -207,5 +232,10 @@ public final class DummyFabric implements Fabric {
                 iter.remove();
             }
         }
+    }
+
+    @Override
+    public synchronized int capacity() {
+        return maxBridges - bridges.size();
     }
 }

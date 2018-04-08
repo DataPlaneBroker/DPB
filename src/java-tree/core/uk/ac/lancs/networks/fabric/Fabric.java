@@ -106,4 +106,11 @@ public interface Fabric {
      * @param bridges the set of bridges to retain
      */
     void retainBridges(Collection<? extends Bridge> bridges);
+
+    /**
+     * Determine how many more bridges can be created.
+     * 
+     * @return the number of bridges that can be created
+     */
+    int capacity();
 }
