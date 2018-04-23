@@ -47,7 +47,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -240,7 +239,7 @@ public class PersistentSwitch implements Switch {
                 conn.setAutoCommit(false);
 
                 /* Record the user's intent for this service. */
-                updateIntent(conn, id, Intent.ACTIVE);
+                updateIntent(conn, id, intent = Intent.ACTIVE);
                 conn.commit();
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
@@ -274,7 +273,7 @@ public class PersistentSwitch implements Switch {
 
             /* Record the user's intent for this service. */
             try (Connection conn = database()) {
-                updateIntent(conn, id, Intent.INACTIVE);
+                updateIntent(conn, id, intent = Intent.INACTIVE);
             } catch (SQLException ex) {
                 throw new ServiceResourceException("failed to store intent",
                                                    ex);
@@ -292,6 +291,13 @@ public class PersistentSwitch implements Switch {
         public synchronized ServiceStatus status() {
             if (intent == Intent.RELEASE) return released
                 ? ServiceStatus.RELEASED : ServiceStatus.RELEASING;
+            if (intent == Intent.ABORT) return ServiceStatus.FAILED;
+            if (intent == Intent.INACTIVE) {
+                if (request == null) return ServiceStatus.DORMANT;
+                if (bridge != null) return ServiceStatus.DEACTIVATING;
+                return ServiceStatus.INACTIVE;
+            }
+            assert intent == Intent.ACTIVE;
             if (bridge != null) {
                 if (active) return ServiceStatus.ACTIVE;
                 return ServiceStatus.ACTIVATING;
@@ -305,13 +311,13 @@ public class PersistentSwitch implements Switch {
         public synchronized void release() {
             if (intent == Intent.RELEASE) return;
             request = null;
-            intent = Intent.RELEASE;
             Bridge oldBridge = bridge;
             bridge = null;
 
             /* Delete entries from the database. */
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
+                updateIntent(conn, id, intent = Intent.RELEASE);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + endPointTable
                         + " WHERE service_id = ?;")) {
@@ -351,7 +357,14 @@ public class PersistentSwitch implements Switch {
             bridgeErrors.add(t);
             if (intent == Intent.ABORT || intent == Intent.RELEASE) return;
             active = false;
-            if (intent != Intent.RELEASE) intent = Intent.ABORT;
+            if (intent != Intent.RELEASE) {
+                try (Connection conn = database()) {
+                    updateIntent(conn, id, intent = Intent.ABORT);
+                } catch (SQLException ex) {
+                    throw new ServiceResourceException("failed to store intent",
+                                                       ex);
+                }
+            }
             callOut(ServiceStatus.FAILED);
         }
 
@@ -384,9 +397,7 @@ public class PersistentSwitch implements Switch {
         }
 
         synchronized void dump(PrintWriter out) {
-            out.printf("  %3d %-8s", id,
-                       intent == Intent.RELEASE ? "RELEASED" : request == null
-                           ? "DORMANT" : active ? "ACTIVE" : "INACTIVE");
+            out.printf("  %3d %-8s (intent=%-8s)", id, status(), intent);
             if (request != null) {
                 for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
@@ -416,15 +427,15 @@ public class PersistentSwitch implements Switch {
         }
 
         void recover(Map<EndPoint<? extends Terminal>, TrafficFlow> details,
-                     boolean active) {
+                     Intent intent) {
             assert this.request == null;
 
             /* Convert the details into a service request which we store
              * for the user to retrieve. */
             this.request = ServiceDescription.create(details);
 
-            if (active) {
-                this.active = true;
+            this.intent = intent;
+            if (intent == Intent.ACTIVE) {
                 this.bridge = fabric.bridge(self, mapEndPoints(details));
                 this.bridge.start();
             }
@@ -592,16 +603,16 @@ public class PersistentSwitch implements Switch {
             }
 
             /* Recreate empty services from entries in our tables. */
-            BitSet intents = new BitSet();
+            Map<Integer, Intent> intents = new HashMap<>();
             try (Statement stmt = conn.createStatement();
                 ResultSet rs = stmt.executeQuery("SELECT service_id, intent"
                     + " FROM " + serviceTable + ";")) {
                 while (rs.next()) {
                     final int id = rs.getInt(1);
-                    final boolean intent = rs.getBoolean(2);
+                    final Intent intent = Intent.values()[rs.getInt(2)];
                     MyService service = new MyService(id);
                     services.put(id, service);
-                    if (intent) intents.set(id);
+                    intents.put(id, intent);
                 }
             }
 
