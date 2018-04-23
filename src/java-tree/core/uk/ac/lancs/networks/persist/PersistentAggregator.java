@@ -644,8 +644,10 @@ public class PersistentAggregator implements Aggregator {
                 if (intent == Intent.ACTIVE) {
                     setIntent(conn, id, Intent.RELEASE);
                     if (activeCount > 0) {
-                        if (activeCount == clients.size())
-                            callOut(ServiceStatus.DEACTIVATING);
+                        /* Report start of deactivation. */
+                        callOut(ServiceStatus.DEACTIVATING);
+
+                        /* Deactivate inferiors. */
                         clients.forEach(Client::deactivate);
                     }
                 } else {
