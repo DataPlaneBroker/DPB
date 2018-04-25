@@ -33,13 +33,52 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.agent;
 
 /**
- * Agents are general-purpose entities supporting multiple services.
- * They should be used where two distinct services need to share state.
- * As an agent, a single object can contain that state, and present
- * distinct services.
+ * Indicates a problem initiating an agent.
+ * 
+ * @see Agent#initiate()
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.util.agent;
+public class AgentInitiationException extends AgentException {
+    /**
+     * 
+     */
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Create an exception with no cause and no detail message.
+     */
+    public AgentInitiationException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public AgentInitiationException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public AgentInitiationException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public AgentInitiationException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}

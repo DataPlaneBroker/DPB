@@ -33,16 +33,14 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
+package uk.ac.lancs.agent;
 
 /**
- * Indicates an agent could not be created by a factory.
- * 
- * @see AgentFactory
+ * Indicates absence of a necessary agent.
  * 
  * @author simpsons
  */
-public class AgentCreationException extends AgentException {
+public class UnknownAgentException extends AgentException {
     /**
      * 
      */
@@ -51,14 +49,14 @@ public class AgentCreationException extends AgentException {
     /**
      * Create an exception with no cause and no detail message.
      */
-    public AgentCreationException() {}
+    public UnknownAgentException() {}
 
     /**
      * Create an exception with a detail message.
      * 
      * @param message the detail message
      */
-    public AgentCreationException(String message) {
+    public UnknownAgentException(String message) {
         super(message);
     }
 
@@ -67,7 +65,7 @@ public class AgentCreationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentCreationException(Throwable cause) {
+    public UnknownAgentException(Throwable cause) {
         super(cause);
     }
 
@@ -78,7 +76,7 @@ public class AgentCreationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentCreationException(String message, Throwable cause) {
+    public UnknownAgentException(String message, Throwable cause) {
         super(message, cause);
     }
 }

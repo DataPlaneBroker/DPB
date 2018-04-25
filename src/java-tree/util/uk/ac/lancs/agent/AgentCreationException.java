@@ -33,39 +33,52 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
-
-import uk.ac.lancs.config.Configuration;
+package uk.ac.lancs.agent;
 
 /**
- * Creates agents from configuration.
+ * Indicates an agent could not be created by a factory.
+ * 
+ * @see AgentFactory
  * 
  * @author simpsons
  */
-public interface AgentFactory {
+public class AgentCreationException extends AgentException {
     /**
-     * Detect whether this factory can create agents of a certain type.
      * 
-     * @param type the network type
-     * 
-     * @return {@code true} iff this factory can create agents of the
-     * specified type
      */
-    boolean recognize(String type);
+    private static final long serialVersionUID = 1L;
 
     /**
-     * Create an agent with given context and configuration.
-     * 
-     * @param ctxt the run-time context for the agent, used to look up
-     * other resources
-     * 
-     * @param conf the agent's textual configuration
-     * 
-     * @return the new network
-     * 
-     * @throws AgentCreationException if there was a problem in creating
-     * the agent
+     * Create an exception with no cause and no detail message.
      */
-    Agent makeAgent(AgentContext ctxt, Configuration conf)
-        throws AgentCreationException;
+    public AgentCreationException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public AgentCreationException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public AgentCreationException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public AgentCreationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

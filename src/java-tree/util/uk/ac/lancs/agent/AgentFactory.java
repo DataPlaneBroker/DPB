@@ -33,50 +33,39 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
+package uk.ac.lancs.agent;
+
+import uk.ac.lancs.config.Configuration;
 
 /**
- * Indicates absence of a necessary agent.
+ * Creates agents from configuration.
  * 
  * @author simpsons
  */
-public class UnknownAgentException extends AgentException {
+public interface AgentFactory {
     /**
+     * Detect whether this factory can create agents of a certain type.
      * 
+     * @param type the network type
+     * 
+     * @return {@code true} iff this factory can create agents of the
+     * specified type
      */
-    private static final long serialVersionUID = 1L;
+    boolean recognize(String type);
 
     /**
-     * Create an exception with no cause and no detail message.
-     */
-    public UnknownAgentException() {}
-
-    /**
-     * Create an exception with a detail message.
+     * Create an agent with given context and configuration.
      * 
-     * @param message the detail message
-     */
-    public UnknownAgentException(String message) {
-        super(message);
-    }
-
-    /**
-     * Create an exception with a cause.
+     * @param ctxt the run-time context for the agent, used to look up
+     * other resources
      * 
-     * @param cause the cause
-     */
-    public UnknownAgentException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Create an exception with a detail message and cause.
+     * @param conf the agent's textual configuration
      * 
-     * @param message the detail message
+     * @return the new network
      * 
-     * @param cause the cause
+     * @throws AgentCreationException if there was a problem in creating
+     * the agent
      */
-    public UnknownAgentException(String message, Throwable cause) {
-        super(message, cause);
-    }
+    Agent makeAgent(AgentContext ctxt, Configuration conf)
+        throws AgentCreationException;
 }

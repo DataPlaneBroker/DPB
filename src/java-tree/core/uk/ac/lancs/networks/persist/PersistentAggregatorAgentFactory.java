@@ -39,17 +39,17 @@ import java.sql.SQLException;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
+import uk.ac.lancs.agent.Agent;
+import uk.ac.lancs.agent.AgentBuilder;
+import uk.ac.lancs.agent.AgentContext;
+import uk.ac.lancs.agent.AgentCreationException;
+import uk.ac.lancs.agent.AgentException;
+import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.agent.AgentInitiationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.util.agent.Agent;
-import uk.ac.lancs.networks.util.agent.AgentBuilder;
-import uk.ac.lancs.networks.util.agent.AgentContext;
-import uk.ac.lancs.networks.util.agent.AgentCreationException;
-import uk.ac.lancs.networks.util.agent.AgentException;
-import uk.ac.lancs.networks.util.agent.AgentFactory;
-import uk.ac.lancs.networks.util.agent.AgentInitiationException;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**

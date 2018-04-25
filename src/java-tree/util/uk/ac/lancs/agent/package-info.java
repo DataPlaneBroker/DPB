@@ -33,50 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
 
 /**
- * Indicates a problem with an agent.
+ * Agents are general-purpose entities supporting multiple services.
+ * They should be used where two distinct services need to share state.
+ * As an agent, a single object can contain that state, and present
+ * distinct services.
  * 
  * @author simpsons
  */
-public class AgentException extends Exception {
-    /**
-     * 
-     */
-    private static final long serialVersionUID = 1L;
-
-    /**
-     * Create an exception with no cause and no detail message.
-     */
-    public AgentException() {}
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param message the detail message
-     */
-    public AgentException(String message) {
-        super(message);
-    }
-
-    /**
-     * Create an exception with a cause.
-     * 
-     * @param cause the cause
-     */
-    public AgentException(Throwable cause) {
-        super(cause);
-    }
-
-    /**
-     * Create an exception with a detail message and cause.
-     * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
-     */
-    public AgentException(String message, Throwable cause) {
-        super(message, cause);
-    }
-}
+package uk.ac.lancs.agent;

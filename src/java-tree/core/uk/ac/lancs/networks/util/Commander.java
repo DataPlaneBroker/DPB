@@ -50,6 +50,11 @@ import java.util.concurrent.Executor;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import uk.ac.lancs.agent.Agent;
+import uk.ac.lancs.agent.AgentContext;
+import uk.ac.lancs.agent.AgentCreationException;
+import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.agent.AgentInitiationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.InvalidServiceException;
@@ -64,11 +69,6 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.util.agent.Agent;
-import uk.ac.lancs.networks.util.agent.AgentContext;
-import uk.ac.lancs.networks.util.agent.AgentCreationException;
-import uk.ac.lancs.networks.util.agent.AgentFactory;
-import uk.ac.lancs.networks.util.agent.AgentInitiationException;
 
 /**
  * Instantiates networks according to configuration, and allows

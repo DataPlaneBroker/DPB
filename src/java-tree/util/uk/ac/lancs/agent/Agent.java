@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
+package uk.ac.lancs.agent;
 
 import java.util.Collection;
 

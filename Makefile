@@ -26,12 +26,12 @@ roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
 roots_core += uk.ac.lancs.networks.fabric.DummyFabric
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.util.Commander
-roots_core += uk.ac.lancs.networks.util.agent.AgentFactory
-roots_core += uk.ac.lancs.networks.util.agent.AgentBuilder
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
 roots_util += uk.ac.lancs.config.ConfigurationContext
+roots_util += uk.ac.lancs.agent.AgentFactory
+roots_util += uk.ac.lancs.agent.AgentBuilder
 
 TEST_JARS += tests
 roots_tests += TestOddSpan
@@ -59,7 +59,7 @@ DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.networks.fabric
 DOC_PKGS += uk.ac.lancs.config
-DOC_PKGS += uk.ac.lancs.networks.util.agent
+DOC_PKGS += uk.ac.lancs.agent
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)

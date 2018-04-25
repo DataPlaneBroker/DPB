@@ -33,16 +33,14 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util.agent;
+package uk.ac.lancs.agent;
 
 /**
- * Indicates a problem initiating an agent.
- * 
- * @see Agent#initiate()
+ * Indicates a problem with an agent.
  * 
  * @author simpsons
  */
-public class AgentInitiationException extends AgentException {
+public class AgentException extends Exception {
     /**
      * 
      */
@@ -51,14 +49,14 @@ public class AgentInitiationException extends AgentException {
     /**
      * Create an exception with no cause and no detail message.
      */
-    public AgentInitiationException() {}
+    public AgentException() {}
 
     /**
      * Create an exception with a detail message.
      * 
      * @param message the detail message
      */
-    public AgentInitiationException(String message) {
+    public AgentException(String message) {
         super(message);
     }
 
@@ -67,7 +65,7 @@ public class AgentInitiationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentInitiationException(Throwable cause) {
+    public AgentException(Throwable cause) {
         super(cause);
     }
 
@@ -78,7 +76,7 @@ public class AgentInitiationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentInitiationException(String message, Throwable cause) {
+    public AgentException(String message, Throwable cause) {
         super(message, cause);
     }
 }
