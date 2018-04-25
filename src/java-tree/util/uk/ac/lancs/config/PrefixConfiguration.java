@@ -85,4 +85,9 @@ class PrefixConfiguration implements Configuration {
     public Configuration reference(String key, String value) {
         return base.reference(this.prefix + key, value);
     }
+
+    @Override
+    public String absoluteHome() {
+        return "." + prefix;
+    }
 }

@@ -284,6 +284,14 @@ public interface Configuration {
     }
 
     /**
+     * Get the absolute position of this configuration view.
+     * 
+     * @return the absolute position of this configuration view, or
+     * {@code null} if not applicable
+     */
+    String absoluteHome();
+
+    /**
      * Normalize a node key. Double dots are condensed to single ones.
      * Leading and trailing dots are removed.
      * 

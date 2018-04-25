@@ -166,4 +166,9 @@ final class BaseConfiguration implements Configuration {
     public Configuration reference(String key, String value) {
         return subview(Configuration.resolveKey(key, value));
     }
+
+    @Override
+    public String absoluteHome() {
+        return ".";
+    }
 }
