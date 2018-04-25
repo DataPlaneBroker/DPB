@@ -27,6 +27,13 @@ roots_core += uk.ac.lancs.networks.fabric.DummyFabric
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.util.Commander
 
+SELECTED_JARS += initiate-dpb-corsa
+trees_initiate-dpb-corsa += corsa
+deps_corsa += util
+deps_corsa += core
+roots_corsa += uk.ac.lancs.networks.corsa.DP2000Fabric
+roots_corsa += uk.ac.lancs.networks.corsa.CorsaREST
+
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
 roots_util += uk.ac.lancs.config.ConfigurationContext
@@ -58,6 +65,7 @@ DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.networks.fabric
+DOC_PKGS += uk.ac.lancs.networks.corsa
 DOC_PKGS += uk.ac.lancs.config
 DOC_PKGS += uk.ac.lancs.agent
 
@@ -87,8 +95,10 @@ testgeospan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestGeographicSpan
 
 commander: all
-	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.util.Commander $(CONFIG) $(ARGS)
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.util.Commander $(CONFIG) $(ARGS)
 
+testcorsa: all
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.corsa.CorsaREST $(RESTAPI) $(CERTFILE) $(AUTHZFILE)
 
 testconfig: all
 	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-util.jar" uk.ac.lancs.config.ConfigurationContext scratch/test.properties
