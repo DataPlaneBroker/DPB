@@ -2109,7 +2109,7 @@ public class PersistentAggregator implements Aggregator {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args)
                 throws Throwable {
-                if (method.getReturnType() != null)
+                if (method.getReturnType() != Void.TYPE)
                     return method.invoke(base, args);
                 executor.execute(() -> {
                     try {
