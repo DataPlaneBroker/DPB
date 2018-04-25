@@ -33,35 +33,50 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
-
-import uk.ac.lancs.config.Configuration;
+package uk.ac.lancs.networks.util.agent;
 
 /**
- * Creates networks from configuration.
+ * Indicates absence of a necessary agent.
  * 
  * @author simpsons
  */
-public interface NetworkFactory {
+public class UnknownServiceException extends AgentException {
     /**
-     * Detect whether this factory can create networks of a certain
-     * type.
      * 
-     * @param type the network type
-     * 
-     * @return {@code true} iff this factory can create networks of the
-     * specified type
      */
-    boolean recognize(String type);
+    private static final long serialVersionUID = 1L;
 
     /**
-     * Create a network.
-     * 
-     * @param ctxt run-time resources for new network instances
-     * 
-     * @param conf the network configuration
-     * 
-     * @return the new network
+     * Create an exception with no cause and no detail message.
      */
-    Network makeNetwork(NetworkContext ctxt, Configuration conf);
+    public UnknownServiceException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public UnknownServiceException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public UnknownServiceException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public UnknownServiceException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

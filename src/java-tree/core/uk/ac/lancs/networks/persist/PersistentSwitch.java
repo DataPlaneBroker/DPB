@@ -54,7 +54,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
@@ -72,8 +71,6 @@ import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
-import uk.ac.lancs.networks.fabric.FabricContext;
-import uk.ac.lancs.networks.fabric.FabricFactory;
 import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
@@ -91,7 +88,7 @@ public class PersistentSwitch implements Switch {
         INACTIVE, ACTIVE, ABORT, RELEASE;
     }
 
-    private final Fabric fabric;
+    private Fabric fabric;
 
     private class MyService implements Service, BridgeListener {
         final int id;
@@ -483,10 +480,11 @@ public class PersistentSwitch implements Switch {
      * <dd>The name of the switch, used to form the fully qualified
      * names of its terminals
      * 
-     * <dt><samp>fabric.type</samp></dt>
+     * <dt><samp>fabric.agent</samp></dt>
+     * <dt><samp>fabric.agent.key</samp></dt>
      * 
-     * <dd>The back-end type to be recognized by
-     * {@link FabricFactory#recognize(String)}
+     * <dd>The name of an agent providing a {@link Fabric} service, and
+     * optionally a key within that agent
      * 
      * <dt><samp>fabric.<var>misc</var></samp></dt>
      * 
@@ -512,31 +510,12 @@ public class PersistentSwitch implements Switch {
      * @throws IllegalArgumentException if no factory recognizes the
      * back-end type
      */
-    public PersistentSwitch(Executor executor, Configuration config) {
+    public PersistentSwitch(String name, Executor executor,
+                            Configuration dbConfig) {
         this.executor = executor;
-        this.name = config.get("name");
-
-        /* Create the fabric. */
-        Configuration beConfig = config.subview("fabric");
-        String type = beConfig.get("type");
-        Fabric fabric = null;
-        for (FabricFactory factory : ServiceLoader
-            .load(FabricFactory.class)) {
-            if (!factory.recognize(type)) continue;
-            FabricContext ctxt = new FabricContext() {
-                @Override
-                public Executor executor() {
-                    return executor;
-                }
-            };
-            fabric = factory.makeFabric(ctxt, beConfig);
-            break;
-        }
-        if (fabric == null) throw new IllegalArgumentException();
-        this.fabric = fabric;
+        this.name = name;
 
         /* Record how we talk to the database. */
-        Configuration dbConfig = config.subview("db");
         this.dbConnectionAddress = dbConfig.get("service");
         this.dbConnectionConfig = dbConfig.toProperties();
         this.endPointTable = dbConfig.get("end-points.table", "end_points");
@@ -556,7 +535,8 @@ public class PersistentSwitch implements Switch {
      * @throws SQLException if there was an error in accessing the
      * database
      */
-    public synchronized void init() throws SQLException {
+    public synchronized void init(Fabric fabric) throws SQLException {
+        this.fabric = fabric;
         if (!services.isEmpty())
             throw new IllegalStateException("services already running in "
                 + name);

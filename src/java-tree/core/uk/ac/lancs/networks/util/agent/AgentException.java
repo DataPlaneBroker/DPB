@@ -33,21 +33,50 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
-
-import java.util.concurrent.Executor;
+package uk.ac.lancs.networks.util.agent;
 
 /**
- * Provides run-time resources to a switch fabric instance.
+ * Indicates a problem with an agent.
  * 
  * @author simpsons
  */
-public interface FabricContext {
+public class AgentException extends Exception {
     /**
-     * Get the executor to be used by this fabric for any callbacks it
-     * sets up.
      * 
-     * @return the fabric's executor
      */
-    Executor executor();
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * Create an exception with no cause and no detail message.
+     */
+    public AgentException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public AgentException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public AgentException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public AgentException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

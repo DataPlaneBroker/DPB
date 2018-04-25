@@ -33,32 +33,36 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
-
-import java.util.concurrent.Executor;
-import java.util.function.Function;
-
-import uk.ac.lancs.networks.NetworkControl;
+package uk.ac.lancs.networks.util.agent;
 
 /**
- * Provides run-time resources to a network instance.
+ * Provides resources to agents.
  * 
  * @author simpsons
  */
-public interface NetworkContext {
+public interface AgentContext {
     /**
-     * Get the executor to be used by this network for any callbacks it
-     * sets up.
+     * Get a named agent.
      * 
-     * @return the network's executor
+     * @param name the agent's name
+     * 
+     * @return the requested agent
+     * 
+     * @throw {@link UnknownAgentException} if the requested agent does
+     * not exist
      */
-    Executor executor();
+    default Agent getAgent(String name) throws UnknownAgentException {
+        Agent result = findAgent(name);
+        if (result == null) throw new UnknownAgentException(name);
+        return result;
+    }
 
     /**
-     * Get the mapping of name to network. An aggregator may use this to
-     * identify end points of inferior networks.
+     * Find a named agent without raising an exception if missing.
      * 
-     * @return the mapping from network name to network
+     * @param name the agent's name
+     * 
+     * @return the requested agent, or {@code null} if not found
      */
-    Function<? super String, ? extends NetworkControl> inferiors();
+    Agent findAgent(String name);
 }

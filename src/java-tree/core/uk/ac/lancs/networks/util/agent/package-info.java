@@ -33,42 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.persist;
-
-import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkContext;
-import uk.ac.lancs.networks.mgmt.NetworkFactory;
-import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * Creates persistent network aggregators.
+ * Agents are general-purpose entities supporting multiple services.
+ * They should be used where two distinct services need to share state.
+ * As an agent, a single object can contain that state, and present
+ * distinct services.
  * 
  * @author simpsons
  */
-@Service(NetworkFactory.class)
-public final class PersistentAggregatorFactory implements NetworkFactory {
-    /**
-     * @undocumented
-     */
-    public static final String TYPE_NAME = "persistent-aggregator";
-
-    /**
-     * {@inheritDoc}
-     * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp>.
-     */
-    @Override
-    public boolean recognize(String type) {
-        return TYPE_NAME.equals(type);
-    }
-
-    @Override
-    public Network makeNetwork(NetworkContext ctxt, Configuration conf) {
-        PersistentAggregator network =
-            new PersistentAggregator(ctxt.executor(), ctxt.inferiors(), conf);
-        return network;
-    }
-}
+package uk.ac.lancs.networks.util.agent;

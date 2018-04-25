@@ -21,12 +21,13 @@ roots_core += uk.ac.lancs.networks.mgmt.Aggregator
 roots_core += uk.ac.lancs.networks.mgmt.Switch
 roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
-roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorFactory
-roots_core += uk.ac.lancs.networks.persist.PersistentSwitchFactory
+roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorAgentFactory
+roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
 roots_core += uk.ac.lancs.networks.fabric.DummyFabric
-roots_core += uk.ac.lancs.networks.fabric.DummyFabricFactory
-roots_core += uk.ac.lancs.networks.fabric.FabricFactory
+roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.util.Commander
+roots_core += uk.ac.lancs.networks.util.agent.AgentFactory
+roots_core += uk.ac.lancs.networks.util.agent.AgentBuilder
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
@@ -58,6 +59,7 @@ DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.networks.fabric
 DOC_PKGS += uk.ac.lancs.config
+DOC_PKGS += uk.ac.lancs.networks.util.agent
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)

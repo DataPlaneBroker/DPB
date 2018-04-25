@@ -38,13 +38,15 @@ package uk.ac.lancs.networks.util;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,11 +61,14 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkContext;
-import uk.ac.lancs.networks.mgmt.NetworkFactory;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.util.agent.Agent;
+import uk.ac.lancs.networks.util.agent.AgentContext;
+import uk.ac.lancs.networks.util.agent.AgentCreationException;
+import uk.ac.lancs.networks.util.agent.AgentFactory;
+import uk.ac.lancs.networks.util.agent.AgentInitiationException;
 
 /**
  * Instantiates networks according to configuration, and allows
@@ -74,6 +79,7 @@ import uk.ac.lancs.networks.mgmt.Trunk;
  * @author simpsons
  */
 public final class Commander {
+    Map<String, Agent> agents = new LinkedHashMap<>();
     Map<String, Network> networks = new HashMap<>();
     ConfigurationContext configCtxt = new ConfigurationContext();
     Configuration config = null;
@@ -89,35 +95,100 @@ public final class Commander {
     boolean process(Iterator<? extends String> iter)
         throws IOException,
             InvalidServiceException,
-            NetworkManagementException {
+            NetworkManagementException,
+            AgentCreationException,
+            AgentInitiationException {
         usage = null;
         final String arg = iter.next();
         if (config == null) {
             config = configCtxt.get(arg);
-            for (Configuration nwc : config.references("networks")) {
-                String type = nwc.get("type");
-                NetworkContext ctxt = new NetworkContext() {
-                    @Override
-                    public Function<? super String, ? extends NetworkControl>
-                        inferiors() {
-                        return s -> networks.get(s).getControl();
-                    }
 
-                    @Override
-                    public Executor executor() {
-                        return IdleExecutor.INSTANCE;
-                    }
-                };
-                for (NetworkFactory factory : ServiceLoader
-                    .load(NetworkFactory.class)) {
-                    if (!factory.recognize(type)) continue;
-                    Network nw = factory.makeNetwork(ctxt, nwc);
-                    String name = nwc.get("name");
-                    networks.put(name, nw);
-                    System.out.printf("Creating network %s as %s%n", name,
-                                      type);
-                    break;
+            /* Create an agent context to allow agents to discover each
+             * other. */
+            AgentContext agentContext = new AgentContext() {
+                @Override
+                public Agent findAgent(String name) {
+                    return agents.get(name);
                 }
+            };
+
+            /* Provide an executor to other agents, and a way to find
+             * networks by name. */
+            agents.put("system", new Agent() {
+                final Executor executor = IdleExecutor.INSTANCE;
+
+                @SuppressWarnings("unchecked")
+                @Override
+                public <T> T findService(Class<? super T> type, String key) {
+                    if (type == NetworkControl.class) {
+                        Network nw = networks.get(key);
+                        if (nw == null) return null;
+                        return (T) nw.getControl();
+                    }
+                    if (type == Executor.class && key == null)
+                        return (T) executor;
+                    return null;
+                }
+
+                @Override
+                public Collection<String> getKeys(Class<?> type) {
+                    if (type == NetworkControl.class) return Collections
+                        .unmodifiableCollection(networks.keySet());
+                    if (type == Executor.class)
+                        return Collections.singleton(null);
+                    return Collections.emptySet();
+                }
+            });
+
+            /* Instantiate all agents. */
+            System.out.printf("Creating agents...%n");
+            for (Configuration agentConf : config.references("agents")) {
+                String name = agentConf.get("name");
+                if (name == null) {
+                    System.err.printf("agent config %s has no name%n",
+                                      agentConf.absoluteHome());
+                    return false;
+                }
+                String type = agentConf.get("type");
+                if (type == null) {
+                    System.err.printf("agent config %s has no type%n",
+                                      agentConf.absoluteHome());
+                    return false;
+                }
+                for (AgentFactory factory : ServiceLoader
+                    .load(AgentFactory.class)) {
+                    if (!factory.recognize(type)) continue;
+                    Agent agent = factory.makeAgent(agentContext, agentConf);
+                    agents.put(name, agent);
+                    System.out.printf("  Created agent %s as %s%n", name,
+                                      type);
+                }
+            }
+
+            /* Obtain networks from agents. */
+            System.out.printf("Obtaining networks...%n");
+            for (Map.Entry<String, Agent> entry : agents.entrySet()) {
+                String agentId = entry.getKey();
+                Agent agent = entry.getValue();
+                for (String serviceKey : agent.getKeys(Network.class)) {
+                    Network network =
+                        agent.findService(Network.class, serviceKey);
+                    if (network == null) continue;
+                    String networkName = network.getControl().name();
+                    networks.put(networkName, network);
+                    System.out
+                        .printf("  Created network %s from agent %s%s%n",
+                                networkName, agentId,
+                                serviceKey != null ? ":" + serviceKey : "");
+                }
+            }
+
+            /* Initiate all agents in order of declaration. Use of
+             * LinkedHashMap ensures the insertion order is reflected in
+             * iteration. */
+            System.out.printf("Initiating agents...%n");
+            for (Agent agent : agents.values()) {
+                agent.initiate();
             }
             return true;
         }
@@ -441,7 +512,9 @@ public final class Commander {
     void process(String[] args)
         throws IOException,
             InvalidServiceException,
-            NetworkManagementException {
+            NetworkManagementException,
+            AgentCreationException,
+            AgentInitiationException {
         try {
             for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
                 .hasNext();) {

@@ -33,37 +33,52 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
-
-import uk.ac.lancs.config.Configuration;
+package uk.ac.lancs.networks.util.agent;
 
 /**
- * Creates switch fabrics from configuration.
+ * Indicates an agent could not be created by a factory.
+ * 
+ * @see AgentFactory
  * 
  * @author simpsons
  */
-public interface FabricFactory {
+public class AgentCreationException extends AgentException {
     /**
-     * Determine whether a fabric type is recognized by this factory. If
-     * it is, the factory can expect a subsequent call to
-     * {@link #makeFabric(FabricContext, Configuration)}.
      * 
-     * @param type the switch fabric type
-     * 
-     * @return {@code true} iff the fabric type is recognized
      */
-    boolean recognize(String type);
+    private static final long serialVersionUID = 1L;
 
     /**
-     * Create a switch fabric from configuration. The only reserved key
-     * is <samp>class</samp>.
-     * 
-     * @param config the fabric configuration
-     * 
-     * @param ctxt run-time resources potentially useful in implementing
-     * the fabric
-     * 
-     * @return the configured switch fabric
+     * Create an exception with no cause and no detail message.
      */
-    Fabric makeFabric(FabricContext ctxt, Configuration config);
+    public AgentCreationException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public AgentCreationException(String message) {
+        super(message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public AgentCreationException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public AgentCreationException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }

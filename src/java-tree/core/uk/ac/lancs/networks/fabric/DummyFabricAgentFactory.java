@@ -33,29 +33,34 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.persist;
-
-import java.sql.SQLException;
+package uk.ac.lancs.networks.fabric;
 
 import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkContext;
-import uk.ac.lancs.networks.mgmt.NetworkFactory;
+import uk.ac.lancs.networks.util.agent.Agent;
+import uk.ac.lancs.networks.util.agent.AgentBuilder;
+import uk.ac.lancs.networks.util.agent.AgentContext;
+import uk.ac.lancs.networks.util.agent.AgentCreationException;
+import uk.ac.lancs.networks.util.agent.AgentFactory;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * Creates persistent network switches.
+ * Creates agents each implementing a dummy switchdummy switches.
  * 
- * @see PersistentSwitch
+ * <p>
+ * The configuration property <samp>capacity.bridges</samp> may be
+ * specified to override the default maximum number of bridges this
+ * fabric will support at once.
+ * 
+ * @see DummyFabric
  * 
  * @author simpsons
  */
-@Service(NetworkFactory.class)
-public final class PersistentSwitchFactory implements NetworkFactory {
+@Service(AgentFactory.class)
+public final class DummyFabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String TYPE_NAME = "persistent-switch";
+    public static final String TYPE_NAME = "dummy";
 
     /**
      * {@inheritDoc}
@@ -70,13 +75,15 @@ public final class PersistentSwitchFactory implements NetworkFactory {
     }
 
     @Override
-    public Network makeNetwork(NetworkContext ctxt, Configuration conf) {
-        PersistentSwitch result = new PersistentSwitch(ctxt.executor(), conf);
-        try {
-            result.init();
-        } catch (SQLException ex) {
-            throw new RuntimeException("initializing", ex);
-        }
-        return result;
+    public Agent makeAgent(AgentContext ctxt, Configuration conf)
+        throws AgentCreationException {
+        String maxBridgesText = conf.get("capacity.bridges");
+        final int maxBridges;
+        if (maxBridgesText == null)
+            maxBridges = -1;
+        else
+            maxBridges = Integer.parseInt(maxBridgesText);
+        DummyFabric fabric = new DummyFabric(maxBridges);
+        return AgentBuilder.start().add(fabric, Fabric.class).create();
     }
 }

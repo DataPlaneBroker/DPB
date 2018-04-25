@@ -33,47 +33,52 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
-
-import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.scc.jardeps.Service;
+package uk.ac.lancs.networks.util.agent;
 
 /**
- * Creates dummy switches.
+ * Indicates a problem initiating an agent.
  * 
- * <p>
- * The configuration property <samp>capacity.bridges</samp> may be
- * specified to override the default maximum number of bridges this
- * fabric will support at once.
- * 
- * @see DummyFabric
+ * @see Agent#initiate()
  * 
  * @author simpsons
  */
-@Service(FabricFactory.class)
-public final class DummyFabricFactory implements FabricFactory {
+public class AgentInitiationException extends AgentException {
     /**
-     * @undocumented
+     * 
      */
-    public static final String TYPE_NAME = "dummy";
+    private static final long serialVersionUID = 1L;
 
     /**
-     * {@inheritDoc}
-     * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp>.
+     * Create an exception with no cause and no detail message.
      */
-    @Override
-    public boolean recognize(String type) {
-        return TYPE_NAME.equals(type);
+    public AgentInitiationException() {}
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     */
+    public AgentInitiationException(String message) {
+        super(message);
     }
 
-    @Override
-    public Fabric makeFabric(FabricContext ctxt, Configuration config) {
-        String maxBridgesText = config.get("capacity.bridges");
-        if (maxBridgesText == null) return new DummyFabric();
-        int maxBridges = Integer.parseInt(maxBridgesText);
-        return new DummyFabric(maxBridges);
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     */
+    public AgentInitiationException(Throwable cause) {
+        super(cause);
+    }
+
+    /**
+     * Create an exception with a detail message and cause.
+     * 
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     */
+    public AgentInitiationException(String message, Throwable cause) {
+        super(message, cause);
     }
 }
