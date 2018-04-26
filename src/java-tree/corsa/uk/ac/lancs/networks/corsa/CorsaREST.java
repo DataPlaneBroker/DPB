@@ -60,7 +60,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Map;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
@@ -81,44 +80,6 @@ import uk.ac.lancs.networks.util.IdleExecutor;
  * @author simpsons
  */
 public final class CorsaREST {
-    public interface ResponseHandler<R> {
-        default void response(int code, R rsp) {}
-
-        default void exception(IOException ex) {}
-
-        default void exception(ParseException ex) {}
-
-        default void exception(Throwable ex) {}
-    }
-
-    class AdaptiveHandler<R> implements ResponseHandler<JSONObject> {
-        private final ResponseHandler<R> up;
-        private final Function<? super JSONObject, ? extends R> func;
-
-        AdaptiveHandler(ResponseHandler<R> up,
-                        Function<? super JSONObject, ? extends R> func) {
-            this.up = up;
-            this.func = func;
-        }
-
-        @Override
-        public void response(int code, JSONObject rsp) {
-            up.response(code, func.apply(rsp));
-        }
-
-        public void exception(IOException ex) {
-            up.exception(ex);
-        }
-
-        public void exception(ParseException ex) {
-            up.exception(ex);
-        }
-
-        public void exception(Throwable ex) {
-            up.exception(ex);
-        }
-    }
-
     private final Executor executor;
     private final URI service;
     private final String authz;
@@ -217,6 +178,10 @@ public final class CorsaREST {
             }
             if (params != null) {
                 /* Write the params as JSON. */
+                conn.setDoOutput(true);
+                conn.setRequestProperty("Content-Type", "application/json");
+                System.err.printf("request: %s%n",
+                                  JSONObject.toJSONString(params));
                 try (Writer out =
                     new OutputStreamWriter(conn.getOutputStream(), "UTF-8")) {
                     JSONObject.writeJSONString(params, out);
@@ -243,6 +208,7 @@ public final class CorsaREST {
             JSONParser parser = new JSONParser();
             altHandler.response(code, (JSONObject) parser.parse(rspText));
         } catch (IOException ex) {
+            ex.printStackTrace(System.err);
             handler.exception(ex);
         } catch (ParseException ex) {
             handler.exception(ex);
@@ -258,6 +224,18 @@ public final class CorsaREST {
 
     public void getBridgesDesc(ResponseHandler<BridgesDesc> handler) {
         request("GET", "bridges", null,
+                new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+    }
+
+    public void getBridgeDesc(String bridge,
+                              ResponseHandler<BridgeDesc> handler) {
+        request("GET", "bridges/" + bridge, null,
+                new AdaptiveHandler<BridgeDesc>(handler, BridgeDesc::new));
+    }
+
+    public void createBridge(BridgeDesc desc,
+                             ResponseHandler<BridgesDesc> handler) {
+        request("POST", "bridges", desc.toJSON(),
                 new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
     }
 
@@ -298,6 +276,50 @@ public final class CorsaREST {
                 System.out.printf("bridges at: %s%n", rsp.bridges);
             }
         });
+        if (false) {
+            rest.createBridge(new BridgeDesc().bridge("br2")
+                .subtype("openflow").dpid(0x2003024L).resources(5),
+                              new ResponseHandler<BridgesDesc>() {
+                                  @Override
+                                  public void response(int code,
+                                                       BridgesDesc rsp) {
+                                      System.out.printf("Code: (%d)%n", code);
+                                      System.out.printf("bridge at: %s%n",
+                                                        rsp.bridges);
+                                  }
+
+                                  @Override
+                                  public void exception(IOException ex) {
+                                      System.out.printf("br2 IO: %s%n", ex);
+                                  }
+
+                                  @Override
+                                  public void exception(ParseException ex) {
+                                      System.out.printf("br2 parse: %s%n",
+                                                        ex);
+                                  }
+
+                                  @Override
+                                  public void exception(Throwable ex) {
+                                      System.out.printf("br2 other: %s%n",
+                                                        ex);
+                                  }
+                              });
+        }
+        rest.getBridgeDesc("br1", ComposedHandler.<BridgeDesc>start()
+            .onResponse((c, obj) -> {
+                System.out.printf("Bridge: %s%n", obj.bridge);
+                System.out.printf("  DPID: %016x%n", obj.dpid);
+                System.out.printf("  Resources: %d%%%n", obj.resources);
+                if (obj.trafficClass != null) System.out
+                    .printf("  Traffic class: %d%n", obj.trafficClass);
+                System.out.printf("  Subtype: %s%n", obj.subtype);
+                System.out.printf("  Protos: %s%n", obj.protocols);
+                if (obj.descr != null)
+                    System.out.printf("  Description: %s%n", obj.descr);
+                if (obj.links != null)
+                    System.out.printf("  Links: %s%n", obj.links);
+            }));
         System.out.printf("Requests issued%n");
         IdleExecutor.processAll();
         System.out.printf("Idle%n");

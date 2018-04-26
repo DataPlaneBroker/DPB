@@ -35,56 +35,16 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import java.net.URI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
 
-import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 
-/**
- * 
- * 
- * @author simpsons
- */
-class APIDesc {
-    public final URI users;
-    public final URI datapath;
-    public final URI bridges;
-    public final URI stats;
-    public final URI system;
-    public final URI equipment;
-    public final URI containers;
-    public final URI queueProfiles;
-    public final URI netns;
-    public final URI ports;
-    public final URI tunnels;
+interface ResponseHandler<R> {
+    default void response(int code, R rsp) {}
 
-    public final Map<String, URI> generic = new HashMap<>();
+    default void exception(IOException ex) {}
 
-    /**
-     * 
-     */
-    public APIDesc(JSONObject root) {
-        JSONObject links = (JSONObject) root.get("links");
-        @SuppressWarnings("unchecked")
-        Collection<Map.Entry<String, JSONObject>> entries = links.entrySet();
-        for (Map.Entry<String, JSONObject> entry : entries) {
-            String key = entry.getKey();
-            String value = (String) entry.getValue().get("href");
-            URI href = URI.create(value);
-            generic.put(key, href);
-        }
-        users = generic.get("users");
-        datapath = generic.get("datapath");
-        bridges = generic.get("bridges");
-        stats = generic.get("stats");
-        system = generic.get("system");
-        equipment = generic.get("equipment");
-        containers = generic.get("containers");
-        queueProfiles = generic.get("queue-profiles");
-        netns = generic.get("netns");
-        ports = generic.get("ports");
-        tunnels = generic.get("tunnels");
-    }
+    default void exception(ParseException ex) {}
+
+    default void exception(Throwable ex) {}
 }

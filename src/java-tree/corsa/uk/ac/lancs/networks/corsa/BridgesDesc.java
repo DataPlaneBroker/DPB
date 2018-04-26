@@ -46,22 +46,33 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * 
+ * Lists basic bridge details and supported bridge subtypes.
  * 
  * @author simpsons
  */
-public class BridgesDesc {
+class BridgesDesc {
+    /**
+     * A set of supported bridge subtypes
+     * 
+     * @see BridgeDesc#subtype
+     */
     public final Collection<String> supportedSubtypes = new HashSet<>();
+
+    /**
+     * A set of bridges and their REST URIs
+     */
     public final Map<String, URI> bridges = new HashMap<>();
 
     /**
-     * 
+     * Create a list of bridge details from a JSON object.
      */
     public BridgesDesc(JSONObject root) {
         JSONArray brList = (JSONArray) root.get("supported-subtypes");
-        for (@SuppressWarnings("unchecked")
-        Iterator<String> iter = brList.iterator(); iter.hasNext();) {
-            supportedSubtypes.add(iter.next());
+        if (brList != null) {
+            for (@SuppressWarnings("unchecked")
+            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
+                supportedSubtypes.add(iter.next());
+            }
         }
 
         JSONObject links = (JSONObject) root.get("links");
@@ -74,5 +85,4 @@ public class BridgesDesc {
             bridges.put(key, href);
         }
     }
-
 }
