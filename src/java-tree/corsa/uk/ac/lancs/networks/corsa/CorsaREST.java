@@ -52,12 +52,14 @@ import java.lang.reflect.Proxy;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLConnection;
+import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -68,6 +70,19 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.entity.EntityBuilder;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPatch;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.entity.ContentType;
+import org.apache.http.impl.client.HttpClients;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -151,13 +166,110 @@ public final class CorsaREST {
         sslContext.init(null, tm, new SecureRandom());
     }
 
-    private void request(String method, String sub, Map<?, ?> params,
+    private HttpClient newClient() {
+        HttpClient httpClient = HttpClients.custom().setSSLContext(sslContext)
+            .setSSLHostnameVerifier(new NoopHostnameVerifier()).build();
+        return httpClient;
+    }
+
+    private static final Charset UTF8 = Charset.forName("UTF-8");
+
+    private void request(HttpUriRequest request,
+                         ResponseHandler<? super JSONObject> handler) {
+        @SuppressWarnings("unchecked")
+        ResponseHandler<JSONObject> altHandler =
+            protect(ResponseHandler.class, handler);
+        HttpClient client = newClient();
+        request.setHeader("Authorization", authz);
+        try {
+            HttpResponse rsp = client.execute(request);
+            final int code = rsp.getStatusLine().getStatusCode();
+            HttpEntity ent = rsp.getEntity();
+            final JSONObject result;
+            try (Reader in = new InputStreamReader(ent.getContent(), UTF8)) {
+                JSONParser parser = new JSONParser();
+                result = (JSONObject) parser.parse(in);
+            }
+            handler.response(code, result);
+        } catch (IOException ex) {
+            altHandler.exception(ex);
+        } catch (ParseException ex) {
+            altHandler.exception(ex);
+        } catch (Throwable t) {
+            altHandler.exception(t);
+        }
+    }
+
+    private static HttpEntity entityOf(Map<?, ?> params) {
+        return EntityBuilder.create()
+            .setContentType(ContentType.APPLICATION_JSON)
+            .setText(JSONObject.toJSONString(params)).build();
+    }
+
+    private static HttpEntity entityOf(List<?> params) {
+        String text = JSONArray.toJSONString(params);
+        System.err.printf("Request: %s%n", text);
+        return EntityBuilder.create()
+            .setContentType(ContentType.APPLICATION_JSON).setText(text)
+            .build();
+    }
+
+    private void get(String sub,
+                     ResponseHandler<? super JSONObject> handler) {
+        URI location = service.resolve("api/v1/" + sub);
+        HttpGet request = new HttpGet(location);
+        request(request, handler);
+    }
+
+    @SuppressWarnings("unused")
+    private void delete(String sub,
+                        ResponseHandler<? super JSONObject> handler) {
+        URI location = service.resolve("api/v1/" + sub);
+        HttpDelete request = new HttpDelete(location);
+        request(request, handler);
+    }
+
+    private void post(String sub, Map<?, ?> params,
+                      ResponseHandler<? super JSONObject> handler) {
+        URI location = service.resolve("api/v1/" + sub);
+        HttpPost request = new HttpPost(location);
+        request.setEntity(entityOf(params));
+        request(request, handler);
+    }
+
+    private void patch(String sub, List<?> params,
+                       ResponseHandler<? super JSONObject> handler) {
+        URI location = service.resolve("api/v1/" + sub);
+        HttpPatch request = new HttpPatch(location);
+        request.setEntity(entityOf(params));
+        request(request, handler);
+    }
+
+    @SuppressWarnings("unused")
+    private void request(String method, String sub, Object params,
                          ResponseHandler<JSONObject> handler) {
         @SuppressWarnings("unchecked")
         ResponseHandler<JSONObject> altHandler =
             protect(ResponseHandler.class, handler);
         try {
             URI location = service.resolve("api/v1/" + sub);
+
+            final HttpUriRequest request;
+            if ("GET".equals(method)) {
+                HttpGet get = new HttpGet(location);
+                request = get;
+            } else if ("POST".equals(method)) {
+                HttpPost post = new HttpPost(location);
+                request = post;
+            } else {
+                throw new IllegalArgumentException("unknown method: "
+                    + method);
+            }
+
+            request.setHeader("Authorization", authz);
+
+            HttpClient client = newClient();
+
             URLConnection conn = location.toURL().openConnection();
             conn.setRequestProperty("Authorization", authz);
             int code = 0;
@@ -180,11 +292,21 @@ public final class CorsaREST {
                 /* Write the params as JSON. */
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/json");
-                System.err.printf("request: %s%n",
-                                  JSONObject.toJSONString(params));
                 try (Writer out =
                     new OutputStreamWriter(conn.getOutputStream(), "UTF-8")) {
-                    JSONObject.writeJSONString(params, out);
+                    if (params instanceof Map) {
+                        @SuppressWarnings("rawtypes")
+                        Map mapParams = (Map) params;
+                        JSONObject.writeJSONString(mapParams, out);
+                        System.err.println("Request: "
+                            + JSONObject.toJSONString(mapParams));
+                    } else if (params instanceof List) {
+                        @SuppressWarnings("rawtypes")
+                        List listParams = (List) params;
+                        JSONArray.writeJSONString(listParams, out);
+                        System.err.println("Request: "
+                            + JSONArray.toJSONString(listParams));
+                    }
                 }
             }
             /* No more request details after this. */
@@ -218,25 +340,34 @@ public final class CorsaREST {
     }
 
     public void getAPIDesc(ResponseHandler<APIDesc> handler) {
-        request("GET", "", null,
-                new AdaptiveHandler<APIDesc>(handler, APIDesc::new));
+        get("", new AdaptiveHandler<APIDesc>(handler, APIDesc::new));
     }
 
     public void getBridgesDesc(ResponseHandler<BridgesDesc> handler) {
-        request("GET", "bridges", null,
-                new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+        get("bridges",
+            new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
     }
 
     public void getBridgeDesc(String bridge,
                               ResponseHandler<BridgeDesc> handler) {
-        request("GET", "bridges/" + bridge, null,
-                new AdaptiveHandler<BridgeDesc>(handler, BridgeDesc::new));
+        get("bridges/" + bridge,
+            new AdaptiveHandler<BridgeDesc>(handler, BridgeDesc::new));
     }
 
     public void createBridge(BridgeDesc desc,
                              ResponseHandler<BridgesDesc> handler) {
-        request("POST", "bridges", desc.toJSON(),
-                new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+        post("bridges", desc.toJSON(),
+             new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+    }
+
+    @SuppressWarnings("unchecked")
+    public void patchBridge(String bridge,
+                            ResponseHandler<JSONObject> handler,
+                            PatchOp... ops) {
+        JSONArray root = new JSONArray();
+        for (PatchOp op : ops)
+            root.add(op.marshal());
+        patch("bridges/" + bridge, root, handler);
     }
 
     /**
@@ -320,6 +451,10 @@ public final class CorsaREST {
                 if (obj.links != null)
                     System.out.printf("  Links: %s%n", obj.links);
             }));
+        rest.patchBridge("br1",
+                         ComposedHandler.<JSONObject>start()
+                             .onResponse((c, obj) -> {}),
+                         ReplaceBridgeDescription.of("Yes!"));
         System.out.printf("Requests issued%n");
         IdleExecutor.processAll();
         System.out.printf("Idle%n");

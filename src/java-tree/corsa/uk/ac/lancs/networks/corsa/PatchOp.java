@@ -35,22 +35,18 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import java.io.IOException;
+import org.json.simple.JSONObject;
 
-import org.json.simple.parser.ParseException;
-
-interface ResponseHandler<R> {
-    default void response(int code, R rsp) {}
-
-    default void exception(IOException ex) {
-        ex.printStackTrace(System.err);
-    }
-
-    default void exception(ParseException ex) {
-        ex.printStackTrace(System.err);
-    }
-
-    default void exception(Throwable ex) {
-        ex.printStackTrace(System.err);
-    }
+/**
+ * Describes an operation to patch an entity.
+ * 
+ * @author simpsons
+ */
+public interface PatchOp {
+    /**
+     * Convert the operation into JSON.
+     * 
+     * @return a JSON representation of the operation
+     */
+    JSONObject marshal();
 }

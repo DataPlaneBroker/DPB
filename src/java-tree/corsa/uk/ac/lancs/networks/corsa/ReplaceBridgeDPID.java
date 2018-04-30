@@ -35,22 +35,38 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import java.io.IOException;
+import org.json.simple.JSONObject;
 
-import org.json.simple.parser.ParseException;
+/**
+ * Replaces a bridge's DPID.
+ * 
+ * @author simpsons
+ */
+public final class ReplaceBridgeDPID implements PatchOp {
+    private final long value;
 
-interface ResponseHandler<R> {
-    default void response(int code, R rsp) {}
-
-    default void exception(IOException ex) {
-        ex.printStackTrace(System.err);
+    private ReplaceBridgeDPID(long value) {
+        this.value = value;
     }
 
-    default void exception(ParseException ex) {
-        ex.printStackTrace(System.err);
+    /**
+     * Create an operation to replace a bridge's DPID.
+     * 
+     * @param dpid the new DPID
+     * 
+     * @return the requested operation
+     */
+    public static ReplaceBridgeDPID of(long dpid) {
+        return new ReplaceBridgeDPID(dpid);
     }
 
-    default void exception(Throwable ex) {
-        ex.printStackTrace(System.err);
+    @SuppressWarnings("unchecked")
+    @Override
+    public JSONObject marshal() {
+        JSONObject result = new JSONObject();
+        result.put("op", "replace");
+        result.put("path", "/dpid");
+        result.put("value", "0x" + Long.toHexString(value));
+        return result;
     }
 }

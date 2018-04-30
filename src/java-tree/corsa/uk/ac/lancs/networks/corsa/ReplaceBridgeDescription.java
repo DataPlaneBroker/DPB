@@ -35,22 +35,38 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import java.io.IOException;
+import org.json.simple.JSONObject;
 
-import org.json.simple.parser.ParseException;
+/**
+ * Replaces a bridge's description text.
+ * 
+ * @author simpsons
+ */
+public final class ReplaceBridgeDescription implements PatchOp {
+    private final String descr;
 
-interface ResponseHandler<R> {
-    default void response(int code, R rsp) {}
-
-    default void exception(IOException ex) {
-        ex.printStackTrace(System.err);
+    private ReplaceBridgeDescription(String descr) {
+        this.descr = descr;
     }
 
-    default void exception(ParseException ex) {
-        ex.printStackTrace(System.err);
+    /**
+     * Create an operation to replace a bridge's description text.
+     * 
+     * @param descr the new text
+     * 
+     * @return the requested operation
+     */
+    public static ReplaceBridgeDescription of(String descr) {
+        return new ReplaceBridgeDescription(descr);
     }
 
-    default void exception(Throwable ex) {
-        ex.printStackTrace(System.err);
+    @SuppressWarnings("unchecked")
+    @Override
+    public JSONObject marshal() {
+        JSONObject result = new JSONObject();
+        result.put("op", "replace");
+        result.put("path", "/bridge-descr");
+        result.put("value", descr);
+        return result;
     }
 }
