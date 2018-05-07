@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.URI;
 import java.util.Collection;
@@ -43,16 +43,18 @@ import java.util.Map;
 import org.json.simple.JSONObject;
 
 /**
- * Lists tunnels attached to a bridge.
+ * Lists tunnels attached to a bridge. This is used for the results of
+ * {@link CorsaREST#attachTunnel(String, TunnelDesc, ResponseHandler)}
+ * and {@link CorsaREST#getTunnels(String, ResponseHandler)}.
  * 
  * @author simpsons
  */
-class TunnelsDesc {
+public class TunnelsDesc {
     /**
      * The ofport that a single tunnel is attached to
      */
     public int ofport = -1;
-    
+
     /**
      * Maps tunnel numbers (whatever they are) to their URIs
      */

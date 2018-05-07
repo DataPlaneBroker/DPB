@@ -33,20 +33,53 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
-import org.json.simple.JSONObject;
+import java.io.IOException;
+
+import org.json.simple.parser.ParseException;
 
 /**
- * Describes an operation to patch an entity.
+ * Acts on REST responses.
+ * 
+ * @param <R> the type of a successful response
  * 
  * @author simpsons
  */
-interface PatchOp {
+public interface ResponseHandler<R> {
     /**
-     * Convert the operation into JSON.
+     * Act on a successful response.
      * 
-     * @return a JSON representation of the operation
+     * @param code the HTTP status code
+     * 
+     * @param rsp the parsed response
      */
-    JSONObject marshal();
+    default void response(int code, R rsp) {}
+
+    /**
+     * Act on an I/O exception.
+     * 
+     * @param ex the exception
+     */
+    default void exception(IOException ex) {
+        ex.printStackTrace(System.err);
+    }
+
+    /**
+     * Act on a JSON parsing exception.
+     * 
+     * @param ex the exception
+     */
+    default void exception(ParseException ex) {
+        ex.printStackTrace(System.err);
+    }
+
+    /**
+     * Act on an exception.
+     * 
+     * @param ex the exception
+     */
+    default void exception(Throwable ex) {
+        ex.printStackTrace(System.err);
+    }
 }

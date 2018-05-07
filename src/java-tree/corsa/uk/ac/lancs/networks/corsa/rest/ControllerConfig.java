@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.InetAddress;
 
@@ -44,7 +44,7 @@ import org.json.simple.JSONObject;
  * 
  * @author simpsons
  */
-class ControllerConfig {
+public class ControllerConfig {
     /**
      * The controller's identifier
      */

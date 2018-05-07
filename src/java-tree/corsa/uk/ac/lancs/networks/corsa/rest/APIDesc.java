@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.URI;
 import java.util.Collection;
@@ -43,11 +43,11 @@ import java.util.Map;
 import org.json.simple.JSONObject;
 
 /**
- * 
+ * Describes the Corsa REST API.
  * 
  * @author simpsons
  */
-class APIDesc {
+public class APIDesc {
     public final URI users;
     public final URI datapath;
     public final URI bridges;
@@ -63,7 +63,9 @@ class APIDesc {
     public final Map<String, URI> generic = new HashMap<>();
 
     /**
+     * Create a description of a Corsa REST API from a JSON object.
      * 
+     * @param root the JSON object
      */
     public APIDesc(JSONObject root) {
         JSONObject links = (JSONObject) root.get("links");

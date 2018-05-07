@@ -33,31 +33,73 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import org.json.simple.JSONObject;
 
 /**
- * Replaces a bridge's DPID.
+ * Describes an operation to set a tunnel's metering.
  * 
  * @author simpsons
  */
-final class ReplaceBridgeDPID implements BridgePatchOp {
-    private final long value;
+class Meter implements TunnelPatchOp {
+    private final String part;
+    private final int value;
 
-    private ReplaceBridgeDPID(long value) {
+    private Meter(String part, int value) {
+        this.part = part;
         this.value = value;
     }
 
     /**
-     * Create an operation to replace a bridge's DPID.
+     * Create an operation to set the tunnel's CIR (Committed
+     * Information Rate). A {@link #cbs(int)} operation must accompany
+     * this operation.
      * 
-     * @param dpid the new DPID
+     * @param value the new value in Kbps
      * 
      * @return the requested operation
      */
-    public static ReplaceBridgeDPID of(long dpid) {
-        return new ReplaceBridgeDPID(dpid);
+    public static Meter cir(int value) {
+        return new Meter("cir", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's CBS (Committed Burst
+     * Size). A {@link #cir(int)} operation must accompany this
+     * operation.
+     * 
+     * @param value the new value in KB
+     * 
+     * @return the requested operation
+     */
+    public static Meter cbs(int value) {
+        return new Meter("cbs", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's EIR (Excess Information
+     * Rate). An {@link #ebs(int)} operation must accompany this
+     * operation.
+     * 
+     * @param value the new value in kbps
+     * 
+     * @return the requested operation
+     */
+    public static Meter eir(int value) {
+        return new Meter("eir", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's EBS (Excess Burst Size).
+     * An {@link #eir(int)} operation must accompany this operation.
+     * 
+     * @param value the new value in KB
+     * 
+     * @return the requested operation
+     */
+    public static Meter ebs(int value) {
+        return new Meter("ebs", value);
     }
 
     @SuppressWarnings("unchecked")
@@ -65,8 +107,8 @@ final class ReplaceBridgeDPID implements BridgePatchOp {
     public JSONObject marshal() {
         JSONObject result = new JSONObject();
         result.put("op", "replace");
-        result.put("path", "/dpid");
-        result.put("value", "0x" + Long.toHexString(value));
+        result.put("path", "/meter/" + part);
+        result.put("value", value);
         return result;
     }
 }

@@ -33,38 +33,11 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
-import java.io.IOException;
-import java.util.function.Function;
-
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
-
-class AdaptiveHandler<R> implements ResponseHandler<JSONObject> {
-    private final ResponseHandler<R> up;
-    private final Function<? super JSONObject, ? extends R> func;
-
-    AdaptiveHandler(ResponseHandler<R> up,
-                    Function<? super JSONObject, ? extends R> func) {
-        this.up = up;
-        this.func = func;
-    }
-
-    @Override
-    public void response(int code, JSONObject rsp) {
-        up.response(code, func.apply(rsp));
-    }
-
-    public void exception(IOException ex) {
-        up.exception(ex);
-    }
-
-    public void exception(ParseException ex) {
-        up.exception(ex);
-    }
-
-    public void exception(Throwable ex) {
-        up.exception(ex);
-    }
-}
+/**
+ * Describes an operation to patch a tunnel.
+ * 
+ * @author simpsons
+ */
+public interface TunnelPatchOp extends PatchOp {}

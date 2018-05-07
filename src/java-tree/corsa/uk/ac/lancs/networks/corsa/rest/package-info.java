@@ -33,43 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
-
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-
-import org.json.simple.JSONObject;
 
 /**
- * 
+ * Provides classes for invoking a Corsa DP2X00 over its REST interface.
+ * A {@link uk.ac.lancs.networks.corsa.rest.CorsaREST} object should be
+ * created to access a specific switch. Its operations then allow the
+ * user to invoke the switch, and receive responses asynchronously.
  * 
  * @author simpsons
  */
-class ControllerDesc {
-    public String id;
-    public InetAddress host;
-    public int port;
-    public boolean tls;
-    public boolean connected;
-    public String message;
-    public String role;
-
-    /**
-     * Create a controller description from a JSON object.
-     * 
-     * @param root the JSON object
-     */
-    public ControllerDesc(JSONObject root) {
-        this.id = (String) root.get("controller");
-        try {
-            this.host = InetAddress.getByName((String) root.get("host"));
-        } catch (UnknownHostException e) {
-            this.host = null;
-        }
-        this.port = (Integer) root.get("port");
-        this.message = (String) root.get("message");
-        this.role = (String) root.get("role");
-        this.tls = (Boolean) root.get("tls");
-        this.connected = (Boolean) root.get("connected");
-    }
-}
+package uk.ac.lancs.networks.corsa.rest;

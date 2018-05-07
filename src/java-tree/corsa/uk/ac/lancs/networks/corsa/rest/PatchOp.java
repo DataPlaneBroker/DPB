@@ -33,56 +33,20 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
-import java.net.URI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * Lists basic bridge details and supported bridge subtypes.
+ * Describes an operation to patch an entity.
  * 
  * @author simpsons
  */
-class BridgesDesc {
+public interface PatchOp {
     /**
-     * A set of supported bridge subtypes
+     * Convert the operation into JSON.
      * 
-     * @see BridgeDesc#subtype
+     * @return a JSON representation of the operation
      */
-    public final Collection<String> supportedSubtypes = new HashSet<>();
-
-    /**
-     * A set of bridges and their REST URIs
-     */
-    public final Map<String, URI> bridges = new HashMap<>();
-
-    /**
-     * Create a list of bridge details from a JSON object.
-     */
-    public BridgesDesc(JSONObject root) {
-        JSONArray brList = (JSONArray) root.get("supported-subtypes");
-        if (brList != null) {
-            for (@SuppressWarnings("unchecked")
-            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
-                supportedSubtypes.add(iter.next());
-            }
-        }
-
-        JSONObject links = (JSONObject) root.get("links");
-        @SuppressWarnings("unchecked")
-        Collection<Map.Entry<String, JSONObject>> entries = links.entrySet();
-        for (Map.Entry<String, JSONObject> entry : entries) {
-            String key = entry.getKey();
-            String value = (String) entry.getValue().get("href");
-            URI href = URI.create(value);
-            bridges.put(key, href);
-        }
-    }
+    JSONObject marshal();
 }

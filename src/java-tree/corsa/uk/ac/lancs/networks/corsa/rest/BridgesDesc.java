@@ -33,40 +33,56 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
+import java.net.URI;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * Replaces a tunnel's description text.
+ * Lists basic bridge details and supported bridge subtypes.
  * 
  * @author simpsons
  */
-final class ReplaceTunnelDescription implements TunnelPatchOp {
-    private final String descr;
-
-    private ReplaceTunnelDescription(String descr) {
-        this.descr = descr;
-    }
+public class BridgesDesc {
+    /**
+     * A set of supported bridge subtypes
+     * 
+     * @see BridgeDesc#subtype
+     */
+    public final Collection<String> supportedSubtypes = new HashSet<>();
 
     /**
-     * Create an operation to replace a bridge's description text.
-     * 
-     * @param descr the new text
-     * 
-     * @return the requested operation
+     * A set of bridges and their REST URIs
      */
-    public static ReplaceTunnelDescription of(String descr) {
-        return new ReplaceTunnelDescription(descr);
-    }
+    public final Map<String, URI> bridges = new HashMap<>();
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public JSONObject marshal() {
-        JSONObject result = new JSONObject();
-        result.put("op", "replace");
-        result.put("path", "/ifdescr");
-        result.put("value", descr);
-        return result;
+    /**
+     * Create a list of bridge details from a JSON object.
+     */
+    public BridgesDesc(JSONObject root) {
+        JSONArray brList = (JSONArray) root.get("supported-subtypes");
+        if (brList != null) {
+            for (@SuppressWarnings("unchecked")
+            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
+                supportedSubtypes.add(iter.next());
+            }
+        }
+
+        JSONObject links = (JSONObject) root.get("links");
+        @SuppressWarnings("unchecked")
+        Collection<Map.Entry<String, JSONObject>> entries = links.entrySet();
+        for (Map.Entry<String, JSONObject> entry : entries) {
+            String key = entry.getKey();
+            String value = (String) entry.getValue().get("href");
+            URI href = URI.create(value);
+            bridges.put(key, href);
+        }
     }
 }

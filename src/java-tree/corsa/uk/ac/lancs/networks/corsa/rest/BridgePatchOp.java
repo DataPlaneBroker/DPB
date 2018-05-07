@@ -33,24 +33,11 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
-import java.io.IOException;
-
-import org.json.simple.parser.ParseException;
-
-interface ResponseHandler<R> {
-    default void response(int code, R rsp) {}
-
-    default void exception(IOException ex) {
-        ex.printStackTrace(System.err);
-    }
-
-    default void exception(ParseException ex) {
-        ex.printStackTrace(System.err);
-    }
-
-    default void exception(Throwable ex) {
-        ex.printStackTrace(System.err);
-    }
-}
+/**
+ * Describes an operation to patch a bridge.
+ * 
+ * @author simpsons
+ */
+public interface BridgePatchOp extends PatchOp {}

@@ -32,7 +32,7 @@ trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
 roots_corsa += uk.ac.lancs.networks.corsa.DP2000Fabric
-roots_corsa += uk.ac.lancs.networks.corsa.CorsaREST
+roots_corsa += uk.ac.lancs.networks.corsa.rest.CorsaREST
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
@@ -66,6 +66,7 @@ DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.networks.fabric
 DOC_PKGS += uk.ac.lancs.networks.corsa
+DOC_PKGS += uk.ac.lancs.networks.corsa.rest
 DOC_PKGS += uk.ac.lancs.config
 DOC_PKGS += uk.ac.lancs.agent
 
@@ -98,7 +99,7 @@ commander: all
 	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.util.Commander $(CONFIG) $(ARGS)
 
 testcorsa: all
-	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.corsa.CorsaREST $(RESTAPI) $(CERTFILE) $(AUTHZFILE)
+	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.corsa.rest.CorsaREST $(RESTAPI) $(CERTFILE) $(AUTHZFILE)
 
 testconfig: all
 	$(JAVA) -cp "$(JARDEPS_OUTDIR)/initiate-dpb-util.jar" uk.ac.lancs.config.ConfigurationContext scratch/test.properties

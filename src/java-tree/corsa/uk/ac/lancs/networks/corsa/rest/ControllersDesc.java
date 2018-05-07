@@ -33,11 +33,42 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
+
+import java.net.URI;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.json.simple.JSONObject;
 
 /**
- * Describes an operation to patch a bridge.
+ * Describes controllers of a bridge.
  * 
  * @author simpsons
  */
-interface BridgePatchOp extends PatchOp {}
+public class ControllersDesc {
+    /**
+     * Details of the controllers
+     */
+    public Map<String, URI> links;
+
+    /**
+     * Create a description of controllers from a JSON object.
+     */
+    public ControllersDesc(JSONObject root) {
+        JSONObject links = (JSONObject) root.get("links");
+        if (links != null) {
+            this.links = new HashMap<>();
+            @SuppressWarnings("unchecked")
+            Collection<Map.Entry<String, JSONObject>> entries =
+                links.entrySet();
+            for (Map.Entry<String, JSONObject> entry : entries) {
+                String key = entry.getKey();
+                String value = (String) entry.getValue().get("href");
+                URI href = URI.create(value);
+                this.links.put(key, href);
+            }
+        }
+    }
+}

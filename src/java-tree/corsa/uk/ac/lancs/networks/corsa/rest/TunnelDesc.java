@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import org.json.simple.JSONObject;
 
@@ -42,7 +42,7 @@ import org.json.simple.JSONObject;
  * 
  * @author simpsons
  */
-class TunnelDesc {
+public class TunnelDesc {
     public int ofport = -1;
     public String type;
     public String port;

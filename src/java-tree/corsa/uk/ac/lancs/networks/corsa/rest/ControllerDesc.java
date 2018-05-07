@@ -33,11 +33,43 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+
+import org.json.simple.JSONObject;
 
 /**
- * Describes an operation to patch a tunnel.
+ * 
  * 
  * @author simpsons
  */
-interface TunnelPatchOp extends PatchOp {}
+public class ControllerDesc {
+    public String id;
+    public InetAddress host;
+    public int port;
+    public boolean tls;
+    public boolean connected;
+    public String message;
+    public String role;
+
+    /**
+     * Create a controller description from a JSON object.
+     * 
+     * @param root the JSON object
+     */
+    public ControllerDesc(JSONObject root) {
+        this.id = (String) root.get("controller");
+        try {
+            this.host = InetAddress.getByName((String) root.get("host"));
+        } catch (UnknownHostException e) {
+            this.host = null;
+        }
+        this.port = (Integer) root.get("port");
+        this.message = (String) root.get("message");
+        this.role = (String) root.get("role");
+        this.tls = (Boolean) root.get("tls");
+        this.connected = (Boolean) root.get("connected");
+    }
+}

@@ -33,40 +33,38 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
+
+import java.io.IOException;
+import java.util.function.Function;
 
 import org.json.simple.JSONObject;
+import org.json.simple.parser.ParseException;
 
-/**
- * Replaces a bridge's description text.
- * 
- * @author simpsons
- */
-final class ReplaceBridgeDescription implements BridgePatchOp {
-    private final String descr;
+class AdaptiveHandler<R> implements ResponseHandler<JSONObject> {
+    private final ResponseHandler<R> up;
+    private final Function<? super JSONObject, ? extends R> func;
 
-    private ReplaceBridgeDescription(String descr) {
-        this.descr = descr;
+    AdaptiveHandler(ResponseHandler<R> up,
+                    Function<? super JSONObject, ? extends R> func) {
+        this.up = up;
+        this.func = func;
     }
 
-    /**
-     * Create an operation to replace a bridge's description text.
-     * 
-     * @param descr the new text
-     * 
-     * @return the requested operation
-     */
-    public static ReplaceBridgeDescription of(String descr) {
-        return new ReplaceBridgeDescription(descr);
-    }
-
-    @SuppressWarnings("unchecked")
     @Override
-    public JSONObject marshal() {
-        JSONObject result = new JSONObject();
-        result.put("op", "replace");
-        result.put("path", "/bridge-descr");
-        result.put("value", descr);
-        return result;
+    public void response(int code, JSONObject rsp) {
+        up.response(code, func.apply(rsp));
+    }
+
+    public void exception(IOException ex) {
+        up.exception(ex);
+    }
+
+    public void exception(ParseException ex) {
+        up.exception(ex);
+    }
+
+    public void exception(Throwable ex) {
+        up.exception(ex);
     }
 }

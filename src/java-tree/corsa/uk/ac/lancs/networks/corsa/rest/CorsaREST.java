@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -90,7 +90,7 @@ import org.json.simple.parser.ParseException;
 import uk.ac.lancs.networks.util.IdleExecutor;
 
 /**
- * 
+ * Connects to a Corsa REST interface.
  * 
  * @author simpsons
  */
@@ -125,9 +125,13 @@ public final class CorsaREST {
     }
 
     /**
-     * @throws NoSuchAlgorithmException
-     * @throws KeyManagementException
+     * Create a connection to a Corsa REST interface.
      * 
+     * @throws NoSuchAlgorithmException if there is a problem with the
+     * certificate
+     * 
+     * @throws KeyManagementException if there is a problem with the
+     * certificate
      */
     public CorsaREST(Executor executor, URI service, X509Certificate cert,
                      String authz)
@@ -338,26 +342,66 @@ public final class CorsaREST {
         }
     }
 
+    /**
+     * Get the description of the switch's API.
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getAPIDesc(ResponseHandler<APIDesc> handler) {
         get("", new AdaptiveHandler<>(handler, APIDesc::new));
     }
 
+    /**
+     * Get a list of bridges.
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getBridgesDesc(ResponseHandler<BridgesDesc> handler) {
         get("bridges", new AdaptiveHandler<>(handler, BridgesDesc::new));
     }
 
+    /**
+     * Get details of a specific bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getBridgeDesc(String bridge,
                               ResponseHandler<BridgeDesc> handler) {
         get("bridges/" + bridge,
             new AdaptiveHandler<>(handler, BridgeDesc::new));
     }
 
+    /**
+     * Create a bridge.
+     * 
+     * @param desc the bridge's configuration
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void createBridge(BridgeDesc desc,
                              ResponseHandler<BridgesDesc> handler) {
         post("bridges", desc.toJSON(),
              new AdaptiveHandler<>(handler, BridgesDesc::new));
     }
 
+    /**
+     * Modify a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     * 
+     * @param ops a set of operations to apply to the bridge
+     */
     @SuppressWarnings("unchecked")
     public void patchBridge(String bridge,
                             ResponseHandler<JSONObject> handler,
@@ -368,6 +412,19 @@ public final class CorsaREST {
         patch("bridges/" + bridge, root, handler);
     }
 
+    /**
+     * Modify a tunnel.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param ofport the ofport of the tunnel
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     * 
+     * @param ops a set of operations to apply to the tunnel
+     */
     @SuppressWarnings("unchecked")
     public void patchTunnel(String bridge, int ofport,
                             ResponseHandler<JSONObject> handler,
@@ -378,53 +435,146 @@ public final class CorsaREST {
         patch("bridges/" + bridge + "/tunnels/" + ofport, root, handler);
     }
 
-    public void deleteBridge(String bridge, ResponseHandler<Void> handler) {
+    /**
+     * Destroy a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
+    public void destroyBridge(String bridge, ResponseHandler<Void> handler) {
         delete("bridges/" + bridge,
                new AdaptiveHandler<>(handler, s -> null));
     }
 
+    /**
+     * Get a list of controllers for a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getControllers(String bridge,
                                ResponseHandler<ControllersDesc> handler) {
         get("bridges/" + bridge + "/controllers",
             new AdaptiveHandler<>(handler, ControllersDesc::new));
     }
 
+    /**
+     * Get details of a bridge's controller.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param ctrl the controller identifier
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getController(String bridge, String ctrl,
                               ResponseHandler<ControllerDesc> handler) {
         get("bridges/" + bridge + "/controllers/" + ctrl,
             new AdaptiveHandler<>(handler, ControllerDesc::new));
     }
 
+    /**
+     * Attach a controller to a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param config the controller details
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void attachController(String bridge, ControllerConfig config,
                                  ResponseHandler<ControllersDesc> handler) {
         post("bridges/" + bridge + "/controllers", config.toJSON(),
              new AdaptiveHandler<>(handler, ControllersDesc::new));
     }
 
+    /**
+     * Detach a controller from a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param ctrl the controller identifier
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void detachController(String bridge, String ctrl,
                                  ResponseHandler<Void> handler) {
         delete("bridges/" + bridge + "/controllers/" + ctrl,
                new AdaptiveHandler<>(handler, s -> null));
     }
 
+    /**
+     * Get a list of tunnels of a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getTunnels(String bridge,
                            ResponseHandler<TunnelsDesc> handler) {
         get("bridges/" + bridge + "/tunnels",
             new AdaptiveHandler<>(handler, TunnelsDesc::new));
     }
 
+    /**
+     * Attach a tunnel to a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param config the tunnel configuration
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void attachTunnel(String bridge, TunnelDesc config,
                              ResponseHandler<TunnelsDesc> handler) {
         post("bridges/" + bridge + "/tunnels", config.toJSON(),
              new AdaptiveHandler<>(handler, TunnelsDesc::new));
     }
 
+    /**
+     * Get details of a bridge's tunnel.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param ofport the ofport of the tunnel
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void getTunnel(String bridge, int ofport,
                           ResponseHandler<TunnelDesc> handler) {
         get("bridges/" + bridge + "/tunnels/" + ofport,
             new AdaptiveHandler<>(handler, TunnelDesc::new));
     }
 
+    /**
+     * Detach a tunnel from a bridge.
+     * 
+     * @param bridge the bridge identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @param ofport the ofport of the tunnel
+     * 
+     * @param handler invoked with the result when the operation is
+     * complete
+     */
     public void detachTunnel(String bridge, int ofport,
                              ResponseHandler<Void> handler) {
         delete("bridges/" + bridge + "/tunnels/" + ofport,

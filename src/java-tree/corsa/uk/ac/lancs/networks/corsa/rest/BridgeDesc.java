@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -50,7 +50,7 @@ import org.json.simple.JSONObject;
  * 
  * @author simpsons
  */
-class BridgeDesc {
+public class BridgeDesc {
     /**
      * The bridge id
      */
@@ -77,48 +77,142 @@ class BridgeDesc {
      * specified
      */
     public Integer trafficClass;
+
+    /**
+     * The namespace fot the bridge's controller port
+     */
     public String netns;
+
+    /**
+     * A human-readable description of the bridge
+     */
     public String descr;
+
+    /**
+     * A set of supported controller protocols
+     */
     public Collection<String> protocols;
+
+    /**
+     * REST addresses of other components of the bridge
+     */
     public Map<String, URI> links;
 
+    /**
+     * Create an empty bridge description.
+     */
     public BridgeDesc() {}
 
+    /**
+     * Set the bridge identifier.
+     * 
+     * @param bridge an identifier of the form
+     * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
+     * 
+     * @return this object
+     */
     public BridgeDesc bridge(String bridge) {
         this.bridge = bridge;
         return this;
     }
 
-    public BridgeDesc dpid(Long dpid) {
+    /**
+     * Set the bridge's DPID.
+     * 
+     * @param dpid the new DPID
+     * 
+     * @return this object
+     */
+    public BridgeDesc dpid(long dpid) {
         this.dpid = dpid;
         return this;
     }
 
+    /**
+     * Unset the bridge's DPID.
+     * 
+     * @return this object
+     */
+    public BridgeDesc noDpid() {
+        this.dpid = null;
+        return this;
+    }
+
+    /**
+     * Set the bridge's subtype.
+     * 
+     * @param subtype the new subtype
+     * 
+     * @return this object
+     */
     public BridgeDesc subtype(String subtype) {
         this.subtype = subtype;
         return this;
     }
 
-    public BridgeDesc resources(Integer resources) {
+    /**
+     * Set the bridge's resource percentage.
+     * 
+     * @param resources the bridge's resource percentage
+     * 
+     * @return this object
+     */
+    public BridgeDesc resources(int resources) {
         this.resources = resources;
         return this;
     }
 
-    public BridgeDesc trafficClass(Integer trafficClass) {
+    /**
+     * Set the bridge's multcast traffic class.
+     * 
+     * @param trafficClass the bridge's traffic class
+     * 
+     * @return this object
+     */
+    public BridgeDesc trafficClass(int trafficClass) {
         this.trafficClass = trafficClass;
         return this;
     }
 
+    /**
+     * Unset the bridge's traffic class.
+     * 
+     * @return this object
+     */
+    public BridgeDesc noTrafficClass() {
+        this.trafficClass = null;
+        return this;
+    }
+
+    /**
+     * Set the namespace for the bridge's controller port.
+     * 
+     * @param netns the bridge's controller port's new namespace
+     * 
+     * @return this object
+     */
     public BridgeDesc netns(String netns) {
         this.netns = netns;
         return this;
     }
 
+    /**
+     * Set the bridge's description text.
+     * 
+     * @param descr the new description
+     * 
+     * @return this object
+     */
     public BridgeDesc descr(String descr) {
         this.descr = descr;
         return this;
     }
 
+    /**
+     * Convert this bridge description to a JSON object.
+     * 
+     * @return the requested JSON representation of this bridge
+     */
     @SuppressWarnings("unchecked")
     public JSONObject toJSON() {
         if (subtype == null)
