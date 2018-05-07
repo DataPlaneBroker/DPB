@@ -340,24 +340,23 @@ public final class CorsaREST {
     }
 
     public void getAPIDesc(ResponseHandler<APIDesc> handler) {
-        get("", new AdaptiveHandler<APIDesc>(handler, APIDesc::new));
+        get("", new AdaptiveHandler<>(handler, APIDesc::new));
     }
 
     public void getBridgesDesc(ResponseHandler<BridgesDesc> handler) {
-        get("bridges",
-            new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+        get("bridges", new AdaptiveHandler<>(handler, BridgesDesc::new));
     }
 
     public void getBridgeDesc(String bridge,
                               ResponseHandler<BridgeDesc> handler) {
         get("bridges/" + bridge,
-            new AdaptiveHandler<BridgeDesc>(handler, BridgeDesc::new));
+            new AdaptiveHandler<>(handler, BridgeDesc::new));
     }
 
     public void createBridge(BridgeDesc desc,
                              ResponseHandler<BridgesDesc> handler) {
         post("bridges", desc.toJSON(),
-             new AdaptiveHandler<BridgesDesc>(handler, BridgesDesc::new));
+             new AdaptiveHandler<>(handler, BridgesDesc::new));
     }
 
     @SuppressWarnings("unchecked")
@@ -368,6 +367,35 @@ public final class CorsaREST {
         for (PatchOp op : ops)
             root.add(op.marshal());
         patch("bridges/" + bridge, root, handler);
+    }
+
+    public void deleteBridge(String bridge, ResponseHandler<Void> handler) {
+        delete("bridges/" + bridge,
+               new AdaptiveHandler<>(handler, s -> null));
+    }
+
+    public void getControllers(String bridge,
+                               ResponseHandler<ControllersDesc> handler) {
+        get("bridges/" + bridge + "/controllers",
+            new AdaptiveHandler<>(handler, ControllersDesc::new));
+    }
+
+    public void getController(String bridge, String ctrl,
+                              ResponseHandler<ControllerDesc> handler) {
+        get("bridges/" + bridge + "/controllers/" + ctrl,
+            new AdaptiveHandler<>(handler, ControllerDesc::new));
+    }
+
+    public void attachController(String bridge, ControllerConfig config,
+                                 ResponseHandler<ControllersDesc> handler) {
+        post("bridges/" + bridge + "/controllers", config.toJSON(),
+             new AdaptiveHandler<>(handler, ControllersDesc::new));
+    }
+
+    public void detachController(String bridge, String ctrl,
+                                 ResponseHandler<Void> handler) {
+        delete("bridges/" + bridge + "/controllers/" + ctrl,
+               new AdaptiveHandler<>(handler, s -> null));
     }
 
     /**

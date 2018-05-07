@@ -138,7 +138,9 @@ class BridgeDesc {
     }
 
     /**
+     * Create a bridge description from a JSON object.
      * 
+     * @param root the JSON object
      */
     public BridgeDesc(JSONObject root) {
         System.err.println(root);
