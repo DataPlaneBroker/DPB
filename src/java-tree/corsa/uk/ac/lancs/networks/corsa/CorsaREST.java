@@ -397,6 +397,12 @@ public final class CorsaREST {
                new AdaptiveHandler<>(handler, s -> null));
     }
 
+    public void getTunnel(String bridge, int ofport,
+                          ResponseHandler<TunnelDesc> handler) {
+        get("bridges/" + bridge + "/tunnels/" + ofport,
+            new AdaptiveHandler<>(handler, TunnelDesc::new));
+    }
+
     /**
      * @undocumented
      */
