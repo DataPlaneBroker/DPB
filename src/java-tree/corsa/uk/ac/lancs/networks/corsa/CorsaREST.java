@@ -397,10 +397,28 @@ public final class CorsaREST {
                new AdaptiveHandler<>(handler, s -> null));
     }
 
+    public void getTunnels(String bridge,
+                           ResponseHandler<TunnelsDesc> handler) {
+        get("bridges/" + bridge + "/tunnels",
+            new AdaptiveHandler<>(handler, TunnelsDesc::new));
+    }
+
+    public void attachTunnel(String bridge, TunnelDesc config,
+                             ResponseHandler<TunnelsDesc> handler) {
+        post("bridges/" + bridge + "/tunnels", config.toJSON(),
+             new AdaptiveHandler<>(handler, TunnelsDesc::new));
+    }
+
     public void getTunnel(String bridge, int ofport,
                           ResponseHandler<TunnelDesc> handler) {
         get("bridges/" + bridge + "/tunnels/" + ofport,
             new AdaptiveHandler<>(handler, TunnelDesc::new));
+    }
+
+    public void detachTunnel(String bridge, int ofport,
+                             ResponseHandler<Void> handler) {
+        delete("bridges/" + bridge + "/tunnels/" + ofport,
+               new AdaptiveHandler<>(handler, s -> null));
     }
 
     /**

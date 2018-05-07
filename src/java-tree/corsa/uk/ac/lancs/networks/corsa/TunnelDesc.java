@@ -43,21 +43,94 @@ import org.json.simple.JSONObject;
  * @author simpsons
  */
 class TunnelDesc {
-    public int ofport;
+    public int ofport = -1;
     public String type;
     public String port;
-    public int vlanId;
-    public int trafficClass;
-    public int tpid;
-    public int innerVlanId;
+    public int vlanId = -1;
+    public int trafficClass = -1;
+    public int tpid = -1;
+    public int innerVlanId = -1;
     public boolean isShaped;
-    public int shapedRate;
-    public int queueProfile;
+    public int shapedRate = -1;
+    public int queueProfile = -1;
     public boolean operational;
     public String descr;
 
+    public TunnelDesc() {}
+
+    public TunnelDesc ofport(int ofport) {
+        this.ofport = ofport;
+        return this;
+    }
+
+    public TunnelDesc vlanId(int vlanId) {
+        this.vlanId = vlanId;
+        return this;
+    }
+
+    public TunnelDesc innerVlanId(int innerVlanId) {
+        this.innerVlanId = innerVlanId;
+        return this;
+    }
+
+    public TunnelDesc trafficClass(int trafficClass) {
+        this.trafficClass = trafficClass;
+        return this;
+    }
+
+    public TunnelDesc port(String port) {
+        this.port = port;
+        return this;
+    }
+
+    public TunnelDesc descr(String descr) {
+        this.descr = descr;
+        return this;
+    }
+
+    public TunnelDesc shapedRate(int shapedRate) {
+        this.shapedRate = shapedRate;
+        return this;
+    }
+
+    @SuppressWarnings("unchecked")
+    public JSONObject toJSON() {
+        if (ofport < 0) throw new IllegalStateException("ofport must be set");
+        if (port == null) throw new IllegalStateException("port must be set");
+        JSONObject result = new JSONObject();
+        result.put("ofport", ofport);
+        result.put("port", port);
+        if (vlanId >= 0) {
+            result.put("vlan-id", vlanId);
+            if (innerVlanId >= 0) result.put("inner-vlan-id", innerVlanId);
+        }
+        if (trafficClass >= 0) result.put("traffic-class", trafficClass);
+        if (shapedRate >= 0) result.put("shaped-rate", shapedRate);
+        if (descr != null) result.put("ifdescr", descr);
+        /* TODO: vlan-range parameter can be provide too. */
+        return result;
+    }
+
     /**
+     * Create a tunnel description from a JSON object.
      * 
+     * <p>
+     * The fields {@link #innerVlanId} and {@link #tpid} are set only if
+     * {@link #type} is <samp>stag-ctag</samp> or
+     * <samp>ctag-ctag</samp>, and are {@code -1} otherwise.
+     * 
+     * <p>
+     * The fields {@link #vlanId} and {@link #trafficClass} are set only
+     * if {@link #type} is <samp>ctag</samp>, <samp>untagged</samp>,
+     * <samp>stag-ctag</samp> or <samp>ctag-ctag</samp>, and are
+     * {@code -1} otherwise.
+     * 
+     * <p>
+     * The fields {@link #shapedRate} and {@link #queueProfile} are set
+     * only if {@link #isShaped} is {@code true}, and are {@code -1}
+     * otherwise.
+     * 
+     * @param root the JSON object
      */
     public TunnelDesc(JSONObject root) {
         this.ofport = (Integer) root.get("ofport");
