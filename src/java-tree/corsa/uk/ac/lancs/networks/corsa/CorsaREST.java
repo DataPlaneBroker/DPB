@@ -221,7 +221,6 @@ public final class CorsaREST {
         request(request, handler);
     }
 
-    @SuppressWarnings("unused")
     private void delete(String sub,
                         ResponseHandler<? super JSONObject> handler) {
         URI location = service.resolve("api/v1/" + sub);
