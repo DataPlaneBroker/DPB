@@ -38,15 +38,35 @@ package uk.ac.lancs.networks.corsa;
 import org.json.simple.JSONObject;
 
 /**
- * Describes an operation to patch an entity.
+ * Replaces a tunnel's description text.
  * 
  * @author simpsons
  */
-interface PatchOp {
+final class ReplaceTunnelDescription implements TunnelPatchOp {
+    private final String descr;
+
+    private ReplaceTunnelDescription(String descr) {
+        this.descr = descr;
+    }
+
     /**
-     * Convert the operation into JSON.
+     * Create an operation to replace a bridge's description text.
      * 
-     * @return a JSON representation of the operation
+     * @param descr the new text
+     * 
+     * @return the requested operation
      */
-    JSONObject marshal();
+    public static ReplaceTunnelDescription of(String descr) {
+        return new ReplaceTunnelDescription(descr);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public JSONObject marshal() {
+        JSONObject result = new JSONObject();
+        result.put("op", "replace");
+        result.put("path", "/ifdescr");
+        result.put("value", descr);
+        return result;
+    }
 }

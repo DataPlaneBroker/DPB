@@ -35,18 +35,9 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import org.json.simple.JSONObject;
-
 /**
- * Describes an operation to patch an entity.
+ * Describes an operation to patch a tunnel.
  * 
  * @author simpsons
  */
-interface PatchOp {
-    /**
-     * Convert the operation into JSON.
-     * 
-     * @return a JSON representation of the operation
-     */
-    JSONObject marshal();
-}
+interface TunnelPatchOp extends PatchOp {}

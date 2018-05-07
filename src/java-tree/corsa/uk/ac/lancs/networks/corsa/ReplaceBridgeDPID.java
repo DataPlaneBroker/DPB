@@ -42,7 +42,7 @@ import org.json.simple.JSONObject;
  * 
  * @author simpsons
  */
-public final class ReplaceBridgeDPID implements PatchOp {
+final class ReplaceBridgeDPID implements BridgePatchOp {
     private final long value;
 
     private ReplaceBridgeDPID(long value) {

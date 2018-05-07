@@ -43,16 +43,29 @@ import java.util.Map;
 import org.json.simple.JSONObject;
 
 /**
- * 
+ * Lists tunnels attached to a bridge.
  * 
  * @author simpsons
  */
 class TunnelsDesc {
+    /**
+     * The ofport that a single tunnel is attached to
+     */
     public int ofport = -1;
+    
+    /**
+     * Maps tunnel numbers (whatever they are) to their URIs
+     */
     public Map<Integer, URI> tunnels = new HashMap<>();
 
     /**
-     * 
+     * Create a description of tunnels from a JSON object. The object is
+     * expected to have a <samp>links</samp> component with keys of the
+     * form <samp>tunnel <var>N</var></samp>, mapping to a map with the
+     * entry <samp>href</samp> giving the URI for the tunnel and
+     * <samp>tunnel</samp> giving the tunnel number, whatever that is.
+     * The root object may contain an <samp>ofport</samp> integer,
+     * usually as a result of creating a tunnel.
      */
     public TunnelsDesc(JSONObject root) {
         Integer ofport = (Integer) root.get("ofport");

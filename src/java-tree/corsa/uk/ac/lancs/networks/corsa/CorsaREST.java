@@ -361,11 +361,21 @@ public final class CorsaREST {
     @SuppressWarnings("unchecked")
     public void patchBridge(String bridge,
                             ResponseHandler<JSONObject> handler,
-                            PatchOp... ops) {
+                            BridgePatchOp... ops) {
         JSONArray root = new JSONArray();
         for (PatchOp op : ops)
             root.add(op.marshal());
         patch("bridges/" + bridge, root, handler);
+    }
+
+    @SuppressWarnings("unchecked")
+    public void patchTunnel(String bridge, int ofport,
+                            ResponseHandler<JSONObject> handler,
+                            TunnelPatchOp... ops) {
+        JSONArray root = new JSONArray();
+        for (PatchOp op : ops)
+            root.add(op.marshal());
+        patch("bridges/" + bridge + "/tunnels/" + ofport, root, handler);
     }
 
     public void deleteBridge(String bridge, ResponseHandler<Void> handler) {

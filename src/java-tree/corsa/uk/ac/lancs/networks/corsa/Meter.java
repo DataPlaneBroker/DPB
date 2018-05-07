@@ -38,26 +38,68 @@ package uk.ac.lancs.networks.corsa;
 import org.json.simple.JSONObject;
 
 /**
- * Replaces a bridge's description text.
+ * Describes an operation to set a tunnel's metering.
  * 
  * @author simpsons
  */
-final class ReplaceBridgeDescription implements BridgePatchOp {
-    private final String descr;
+class Meter implements TunnelPatchOp {
+    private final String part;
+    private final int value;
 
-    private ReplaceBridgeDescription(String descr) {
-        this.descr = descr;
+    private Meter(String part, int value) {
+        this.part = part;
+        this.value = value;
     }
 
     /**
-     * Create an operation to replace a bridge's description text.
+     * Create an operation to set the tunnel's CIR (Committed
+     * Information Rate). A {@link #cbs(int)} operation must accompany
+     * this operation.
      * 
-     * @param descr the new text
+     * @param value the new value in Kbps
      * 
      * @return the requested operation
      */
-    public static ReplaceBridgeDescription of(String descr) {
-        return new ReplaceBridgeDescription(descr);
+    public static Meter cir(int value) {
+        return new Meter("cir", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's CBS (Committed Burst
+     * Size). A {@link #cir(int)} operation must accompany this
+     * operation.
+     * 
+     * @param value the new value in KB
+     * 
+     * @return the requested operation
+     */
+    public static Meter cbs(int value) {
+        return new Meter("cbs", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's EIR (Excess Information
+     * Rate). An {@link #ebs(int)} operation must accompany this
+     * operation.
+     * 
+     * @param value the new value in kbps
+     * 
+     * @return the requested operation
+     */
+    public static Meter eir(int value) {
+        return new Meter("eir", value);
+    }
+
+    /**
+     * Create an operation to set the tunnel's EBS (Excess Burst Size).
+     * An {@link #eir(int)} operation must accompany this operation.
+     * 
+     * @param value the new value in KB
+     * 
+     * @return the requested operation
+     */
+    public static Meter ebs(int value) {
+        return new Meter("ebs", value);
     }
 
     @SuppressWarnings("unchecked")
@@ -65,8 +107,8 @@ final class ReplaceBridgeDescription implements BridgePatchOp {
     public JSONObject marshal() {
         JSONObject result = new JSONObject();
         result.put("op", "replace");
-        result.put("path", "/bridge-descr");
-        result.put("value", descr);
+        result.put("path", "/meter/" + part);
+        result.put("value", value);
         return result;
     }
 }
