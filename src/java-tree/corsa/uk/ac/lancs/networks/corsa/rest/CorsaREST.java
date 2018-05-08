@@ -42,16 +42,12 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.Reader;
-import java.io.Writer;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
@@ -63,10 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -246,100 +239,6 @@ public final class CorsaREST {
         HttpPatch request = new HttpPatch(location);
         request.setEntity(entityOf(params));
         request(request, handler);
-    }
-
-    @SuppressWarnings("unused")
-    private void request(String method, String sub, Object params,
-                         ResponseHandler<JSONObject> handler) {
-        @SuppressWarnings("unchecked")
-        ResponseHandler<JSONObject> altHandler =
-            protect(ResponseHandler.class, handler);
-        try {
-            URI location = service.resolve("api/v1/" + sub);
-
-            final HttpUriRequest request;
-            if ("GET".equals(method)) {
-                HttpGet get = new HttpGet(location);
-                request = get;
-            } else if ("POST".equals(method)) {
-                HttpPost post = new HttpPost(location);
-                request = post;
-            } else {
-                throw new IllegalArgumentException("unknown method: "
-                    + method);
-            }
-
-            request.setHeader("Authorization", authz);
-
-            HttpClient client = newClient();
-
-            URLConnection conn = location.toURL().openConnection();
-            conn.setRequestProperty("Authorization", authz);
-            int code = 0;
-            if (conn instanceof HttpURLConnection) {
-                HttpURLConnection httpConn = (HttpURLConnection) conn;
-                httpConn.setRequestMethod(method);
-            }
-            if (conn instanceof HttpsURLConnection) {
-                /* Add the SSL context to validate the certificate. */
-                HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
-                httpsConn.setSSLSocketFactory(sslContext.getSocketFactory());
-                httpsConn.setHostnameVerifier(new HostnameVerifier() {
-                    public boolean verify(String hostname,
-                                          SSLSession sslSession) {
-                        return true;
-                    }
-                });
-            }
-            if (params != null) {
-                /* Write the params as JSON. */
-                conn.setDoOutput(true);
-                conn.setRequestProperty("Content-Type", "application/json");
-                try (Writer out =
-                    new OutputStreamWriter(conn.getOutputStream(), "UTF-8")) {
-                    if (params instanceof Map) {
-                        @SuppressWarnings("rawtypes")
-                        Map mapParams = (Map) params;
-                        JSONObject.writeJSONString(mapParams, out);
-                        System.err.println("Request: "
-                            + JSONObject.toJSONString(mapParams));
-                    } else if (params instanceof List) {
-                        @SuppressWarnings("rawtypes")
-                        List listParams = (List) params;
-                        JSONArray.writeJSONString(listParams, out);
-                        System.err.println("Request: "
-                            + JSONArray.toJSONString(listParams));
-                    }
-                }
-            }
-            /* No more request details after this. */
-
-            if (conn instanceof HttpURLConnection) {
-                HttpURLConnection httpConn = (HttpURLConnection) conn;
-                code = httpConn.getResponseCode();
-            }
-
-            final String rspText;
-            try (Reader in =
-                new InputStreamReader(conn.getInputStream(), "UTF-8")) {
-                StringBuilder b = new StringBuilder();
-                int c;
-                while ((c = in.read()) >= 0) {
-                    b.append((char) c);
-                }
-                rspText = b.toString();
-            }
-            // System.err.printf("Response: %s%n", rspText);
-            JSONParser parser = new JSONParser();
-            altHandler.response(code, (JSONObject) parser.parse(rspText));
-        } catch (IOException ex) {
-            ex.printStackTrace(System.err);
-            handler.exception(ex);
-        } catch (ParseException ex) {
-            handler.exception(ex);
-        } catch (Throwable ex) {
-            handler.exception(ex);
-        }
     }
 
     /**
