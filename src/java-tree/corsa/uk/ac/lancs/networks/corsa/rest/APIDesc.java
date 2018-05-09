@@ -48,18 +48,64 @@ import org.json.simple.JSONObject;
  * @author simpsons
  */
 public class APIDesc {
+    /**
+     * The REST URI for managing users
+     */
     public final URI users;
+    
+    /**
+     * The REST URI for datapath management
+     */
     public final URI datapath;
+    
+    /**
+     * The REST URI for bridge management
+     */
     public final URI bridges;
+    
+    /**
+     * The REST URI for statistics
+     */
     public final URI stats;
+    
+    /**
+     * The REST URI for system management
+     */
     public final URI system;
+    
+    /**
+     * The REST URI for managing physical equipment
+     */
     public final URI equipment;
+    
+    /**
+     * The REST URI for managing application containers
+     */
     public final URI containers;
+    
+    /**
+     * The REST URI for queue profile management
+     */
     public final URI queueProfiles;
+    
+    /**
+     * The REST URI for namespace management
+     */
     public final URI netns;
+    
+    /**
+     * The REST URI for port management
+     */
     public final URI ports;
+    
+    /**
+     * The REST URI for tunnel management
+     */
     public final URI tunnels;
 
+    /**
+     * REST URIs for unknown components
+     */
     public final Map<String, URI> generic = new HashMap<>();
 
     /**

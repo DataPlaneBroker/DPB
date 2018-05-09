@@ -38,61 +38,181 @@ package uk.ac.lancs.networks.corsa.rest;
 import org.json.simple.JSONObject;
 
 /**
+ * Describes an existing tunnel or one to be created.
  * 
+ * @see CorsaREST#attachTunnel(String, TunnelDesc, ResponseHandler)
+ * 
+ * @see CorsaREST#getTunnel(String, int, ResponseHandler)
  * 
  * @author simpsons
  */
 public class TunnelDesc {
+    /**
+     * The ofport of the VFC that the tunnel connects to, or {@code -1}
+     * if not specified
+     */
     public int ofport = -1;
+
+    /**
+     * The type of the logical port the tunnel connects to
+     */
     public String type;
+
+    /**
+     * The logical port the tunnel connects to
+     */
     public String port;
+
+    /**
+     * The VLAN id the tunnel connects to for type <samp>ctag</samp>,
+     * the outer tag for <samp>ctag-ctag</samp> or
+     * <samp>stag-ctag</samp>, or {@code -1} for other types
+     * 
+     * @see #type
+     */
     public int vlanId = -1;
+
+    /**
+     * The traffic class for the tunnel, or {@code -1} if unspecified
+     */
     public int trafficClass = -1;
+
+    /**
+     * The TPID, or {@code -1} if unspecified
+     */
     public int tpid = -1;
+
+    /**
+     * The inner VLAN id for type <samp>ctag-ctag</samp> or
+     * <samp>stag-ctag</samp>, or {@code -1} for other types
+     * 
+     * @see #type
+     */
     public int innerVlanId = -1;
+
+    /**
+     * Whether traffic output over the tunnel is shaped
+     */
     public boolean isShaped;
+
+    /**
+     * The shaped rate for traffic output over the tunnel, in Mbps, or
+     * {@code -1} if unspecified
+     */
     public int shapedRate = -1;
+
+    /**
+     * The shaped queue profile, or {@code -1} if unspecified
+     */
     public int queueProfile = -1;
+
+    /**
+     * Whether the tunnel is operational
+     */
     public boolean operational;
+
+    /**
+     * A description text for the tunnel, or {@code null}
+     */
     public String descr;
 
+    /**
+     * Create an empty tunnel description in preparation for creating a
+     * new tunnel.
+     * 
+     * @see CorsaREST#attachTunnel(String, TunnelDesc, ResponseHandler)
+     */
     public TunnelDesc() {}
 
+    /**
+     * Set the ofport that the tunnel will attach to.
+     * 
+     * @param ofport the ofport
+     * 
+     * @return this object
+     */
     public TunnelDesc ofport(int ofport) {
         this.ofport = ofport;
         return this;
     }
 
+    /**
+     * Set the (outer) VLAN id for external traffic.
+     * 
+     * @param vlanId the VLAN id
+     * 
+     * @return this object
+     */
     public TunnelDesc vlanId(int vlanId) {
         this.vlanId = vlanId;
         return this;
     }
 
+    /**
+     * Set the inner VLAN id for external traffic.
+     * 
+     * @param innerVlanId the VLAN id
+     * 
+     * @return this object
+     */
     public TunnelDesc innerVlanId(int innerVlanId) {
         this.innerVlanId = innerVlanId;
         return this;
     }
 
+    /**
+     * Set the traffic class.
+     * 
+     * @param trafficClass the traffic class
+     * 
+     * @return this object
+     */
     public TunnelDesc trafficClass(int trafficClass) {
         this.trafficClass = trafficClass;
         return this;
     }
 
+    /**
+     * Set the logical port.
+     * 
+     * @param port the logical port
+     * 
+     * @return this object
+     */
     public TunnelDesc port(String port) {
         this.port = port;
         return this;
     }
 
+    /**
+     * Set the description text.
+     * 
+     * @param descr the description text
+     * 
+     * @return this object
+     */
     public TunnelDesc descr(String descr) {
         this.descr = descr;
         return this;
     }
 
+    /**
+     * Set the shaped rate.
+     * 
+     * @param shapedRate the shaped rate in Mbps
+     * 
+     * @return this object
+     */
     public TunnelDesc shapedRate(int shapedRate) {
         this.shapedRate = shapedRate;
         return this;
     }
 
+    /**
+     * Convert this description into JSON.
+     * 
+     * @return the JSON representation of this tunnel
+     */
     @SuppressWarnings("unchecked")
     public JSONObject toJSON() {
         if (ofport < 0) throw new IllegalStateException("ofport must be set");
