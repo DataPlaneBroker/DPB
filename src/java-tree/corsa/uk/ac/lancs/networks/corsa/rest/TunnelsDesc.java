@@ -68,6 +68,23 @@ public class TunnelsDesc {
      * <samp>tunnel</samp> giving the tunnel number, whatever that is.
      * The root object may contain an <samp>ofport</samp> integer,
      * usually as a result of creating a tunnel.
+     * 
+     * @param entity the JSON entity
+     */
+    public TunnelsDesc(JSONEntity entity) {
+        this(entity.map);
+    }
+
+    /**
+     * Create a description of tunnels from a JSON object. The object is
+     * expected to have a <samp>links</samp> component with keys of the
+     * form <samp>tunnel <var>N</var></samp>, mapping to a map with the
+     * entry <samp>href</samp> giving the URI for the tunnel and
+     * <samp>tunnel</samp> giving the tunnel number, whatever that is.
+     * The root object may contain an <samp>ofport</samp> integer,
+     * usually as a result of creating a tunnel.
+     * 
+     * @param root the JSON object
      */
     public TunnelsDesc(JSONObject root) {
         Integer ofport = (Integer) root.get("ofport");

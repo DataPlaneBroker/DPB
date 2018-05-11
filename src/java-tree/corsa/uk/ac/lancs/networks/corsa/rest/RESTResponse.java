@@ -35,49 +35,75 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import java.net.URI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.json.simple.JSONObject;
+import java.util.function.Function;
 
 /**
- * Describes controllers of a bridge.
+ * A REST response message with an HTTP response code
+ * 
+ * @param <T> the application-specific message type
  * 
  * @author simpsons
  */
-public class ControllersDesc {
+public class RESTResponse<T> {
     /**
-     * Details of the controllers
+     * The HTTP response code
      */
-    public Map<String, URI> links;
+    public final int code;
 
     /**
-     * Create a description of controllers from a JSON entity.
-     * 
-     * @param entity the JSON object
+     * The raw JSON response entity
      */
-    public ControllersDesc(JSONEntity entity) {
-        this(entity.map);
+    public final JSONEntity entity;
+
+    /**
+     * The REST response message, translated from {@link #entity}
+     */
+    public final T message;
+
+    /**
+     * Combine an HTTP response code with a map-like JSON message
+     * converted to an application-specific message.
+     * 
+     * @param code the HTTP response code
+     * 
+     * @param entity the raw message entity
+     * 
+     * @param adapter a converter from the entity to the intended type
+     */
+    public RESTResponse(int code, JSONEntity entity,
+                        Function<? super JSONEntity, ? extends T> adapter) {
+        this.code = code;
+        this.entity = entity;
+        this.message = adapter.apply(this.entity);
     }
 
     /**
-     * Create a description of controllers from a JSON object.
+     * Combine an HTTP response code with a map-like JSON message
+     * converted to an application-specific message.
+     * 
+     * @param code the HTTP response code
+     * 
+     * @param entity the raw message entity
+     * 
+     * @param adapter a converter from the entity to the intended type
      */
-    public ControllersDesc(JSONObject root) {
-        JSONObject links = (JSONObject) root.get("links");
-        if (links != null) {
-            this.links = new HashMap<>();
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                this.links.put(key, href);
-            }
-        }
+    public RESTResponse(int code, JSONEntity entity) {
+        this.code = code;
+        this.entity = entity;
+        this.message = null;
+    }
+
+    /**
+     * Adapt this response to a new type.
+     * 
+     * @param <E> the new type
+     * 
+     * @param adapter a converter from the entity to the intended type
+     * 
+     * @return the adapted response
+     */
+    public <E> RESTResponse<E>
+        adapt(Function<? super JSONEntity, ? extends E> adapter) {
+        return new RESTResponse<>(this.code, this.entity, adapter);
     }
 }

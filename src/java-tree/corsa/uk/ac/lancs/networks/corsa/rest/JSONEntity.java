@@ -35,49 +35,68 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import java.net.URI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * Describes controllers of a bridge.
+ * Holds a JSON entity, either an array or a map.
  * 
  * @author simpsons
  */
-public class ControllersDesc {
+public final class JSONEntity {
     /**
-     * Details of the controllers
+     * The entity as an array, or {@code null} if it is a map
      */
-    public Map<String, URI> links;
+    public final JSONArray array;
 
     /**
-     * Create a description of controllers from a JSON entity.
-     * 
-     * @param entity the JSON object
+     * The entity as a map, or {@code null} if it is an array
      */
-    public ControllersDesc(JSONEntity entity) {
-        this(entity.map);
+    public final JSONObject map;
+
+    /**
+     * Create a JSON entity from a map.
+     * 
+     * @param map the map
+     * 
+     * @throws NullPointerException if the argument is {@code null}
+     */
+    public JSONEntity(JSONObject map) {
+        if (map == null) throw new NullPointerException();
+        this.map = map;
+        this.array = null;
     }
 
     /**
-     * Create a description of controllers from a JSON object.
+     * Create a JSON entity from an array
+     * 
+     * @param array the array
+     * 
+     * @throws NullPointerException if the argument is {@code null}
      */
-    public ControllersDesc(JSONObject root) {
-        JSONObject links = (JSONObject) root.get("links");
-        if (links != null) {
-            this.links = new HashMap<>();
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                this.links.put(key, href);
-            }
+    public JSONEntity(JSONArray array) {
+        if (array == null) throw new NullPointerException();
+        this.array = array;
+        this.map = null;
+    }
+
+    /**
+     * Create a JSON entity from an array or map as appropriate.
+     * 
+     * @param obj either a {@link JSONArray} or a {@link JSONObject}
+     * 
+     * @throws IllegalArgumentException if the object is not of a
+     * suitable type
+     */
+    public JSONEntity(Object obj) {
+        if (obj instanceof JSONArray) {
+            this.array = (JSONArray) obj;
+            this.map = null;
+        } else if (obj instanceof JSONObject) {
+            this.map = (JSONObject) obj;
+            this.array = null;
+        } else {
+            throw new IllegalArgumentException();
         }
     }
 }

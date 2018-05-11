@@ -232,6 +232,15 @@ public class BridgeDesc {
     }
 
     /**
+     * Create a bridge description from a JSON entity.
+     * 
+     * @param entity the JSON object
+     */
+    public BridgeDesc(JSONEntity entity) {
+        this(entity.map);
+    }
+
+    /**
      * Create a bridge description from a JSON object.
      * 
      * @param root the JSON object

@@ -232,6 +232,31 @@ public class TunnelDesc {
     }
 
     /**
+     * Create a tunnel description from a JSON entity.
+     * 
+     * <p>
+     * The fields {@link #innerVlanId} and {@link #tpid} are set only if
+     * {@link #type} is <samp>stag-ctag</samp> or
+     * <samp>ctag-ctag</samp>, and are {@code -1} otherwise.
+     * 
+     * <p>
+     * The fields {@link #vlanId} and {@link #trafficClass} are set only
+     * if {@link #type} is <samp>ctag</samp>, <samp>untagged</samp>,
+     * <samp>stag-ctag</samp> or <samp>ctag-ctag</samp>, and are
+     * {@code -1} otherwise.
+     * 
+     * <p>
+     * The fields {@link #shapedRate} and {@link #queueProfile} are set
+     * only if {@link #isShaped} is {@code true}, and are {@code -1}
+     * otherwise.
+     * 
+     * @param entity the JSON entity
+     */
+    public TunnelDesc(JSONEntity entity) {
+        this(entity.map);
+    }
+
+    /**
      * Create a tunnel description from a JSON object.
      * 
      * <p>

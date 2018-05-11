@@ -50,36 +50,45 @@ public class ControllerDesc {
      * The controller identifier
      */
     public String id;
-    
+
     /**
      * The IP address of the controller
      */
     public InetAddress host;
-    
+
     /**
      * The TCP port of the controller
      */
     public int port;
-    
+
     /**
      * Whether TLS is enabled to contact the controller
      */
     public boolean tls;
-    
+
     /**
-     * Whether the VFC is connected to the controller 
+     * Whether the VFC is connected to the controller
      */
     public boolean connected;
-    
+
     /**
      * A status message
      */
     public String message;
-    
+
     /**
      * The role of the controller
      */
     public String role;
+
+    /**
+     * Create a controller description from a JSON entity.
+     * 
+     * @param entity the JSON entity
+     */
+    public ControllerDesc(JSONEntity entity) {
+        this(entity.map);
+    }
 
     /**
      * Create a controller description from a JSON object.

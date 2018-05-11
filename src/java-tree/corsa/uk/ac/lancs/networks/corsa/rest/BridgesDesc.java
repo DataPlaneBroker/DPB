@@ -64,7 +64,18 @@ public class BridgesDesc {
     public final Map<String, URI> bridges = new HashMap<>();
 
     /**
+     * Create a list of bridge details from a JSON entity.
+     * 
+     * @param entity the JSON object
+     */
+    public BridgesDesc(JSONEntity entity) {
+        this(entity.map);
+    }
+
+    /**
      * Create a list of bridge details from a JSON object.
+     * 
+     * @param root the JSON object
      */
     public BridgesDesc(JSONObject root) {
         JSONArray brList = (JSONArray) root.get("supported-subtypes");
