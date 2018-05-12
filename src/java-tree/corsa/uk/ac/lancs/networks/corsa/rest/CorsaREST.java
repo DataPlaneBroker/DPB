@@ -153,7 +153,7 @@ public final class CorsaREST {
                 result = new JSONEntity(parser.parse(in));
             }
         }
-        return new RESTResponse<JSONEntity>(code, result, s -> s);
+        return new RESTResponse<JSONEntity>(code, result);
     }
 
     private static HttpEntity entityOf(Map<?, ?> params) {
@@ -309,14 +309,13 @@ public final class CorsaREST {
      * @throws IOException if there was an I/O error
      */
     @SuppressWarnings("unchecked")
-    public RESTResponse<JSONEntity> patchBridge(String bridge,
-                                                BridgePatchOp... ops)
+    public RESTResponse<Void> patchBridge(String bridge, BridgePatchOp... ops)
         throws IOException,
             ParseException {
         JSONArray root = new JSONArray();
         for (PatchOp op : ops)
             root.add(op.marshal());
-        return patch("bridges/" + bridge, root);
+        return patch("bridges/" + bridge, root).adapt(s -> null);
     }
 
     /**
@@ -337,14 +336,15 @@ public final class CorsaREST {
      * @throws IOException if there was an I/O error
      */
     @SuppressWarnings("unchecked")
-    public RESTResponse<JSONEntity> patchTunnel(String bridge, int ofport,
-                                                TunnelPatchOp... ops)
+    public RESTResponse<Void> patchTunnel(String bridge, int ofport,
+                                          TunnelPatchOp... ops)
         throws IOException,
             ParseException {
         JSONArray root = new JSONArray();
         for (PatchOp op : ops)
             root.add(op.marshal());
-        return patch("bridges/" + bridge + "/tunnels/" + ofport, root);
+        return patch("bridges/" + bridge + "/tunnels/" + ofport, root)
+            .adapt(s -> null);
     }
 
     /**
@@ -594,7 +594,7 @@ public final class CorsaREST {
                 System.out.printf("  Links: %s%n", rsp.message.links);
         }
         {
-            RESTResponse<JSONEntity> rsp =
+            RESTResponse<Void> rsp =
                 rest.patchBridge("br1", ReplaceBridgeDescription.of("Yes!"));
             System.out.printf("Patch rsp: %d%n", rsp.code);
         }

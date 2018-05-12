@@ -51,46 +51,21 @@ public class RESTResponse<T> {
     public final int code;
 
     /**
-     * The raw JSON response entity
-     */
-    public final JSONEntity entity;
-
-    /**
-     * The REST response message, translated from {@link #entity}
+     * The application-specific response message
      */
     public final T message;
 
     /**
-     * Combine an HTTP response code with a map-like JSON message
-     * converted to an application-specific message.
+     * Combine an HTTP response code with an application-specific
+     * message.
      * 
      * @param code the HTTP response code
      * 
-     * @param entity the raw message entity
-     * 
-     * @param adapter a converter from the entity to the intended type
+     * @param message the message
      */
-    public RESTResponse(int code, JSONEntity entity,
-                        Function<? super JSONEntity, ? extends T> adapter) {
+    public RESTResponse(int code, T message) {
         this.code = code;
-        this.entity = entity;
-        this.message = adapter.apply(this.entity);
-    }
-
-    /**
-     * Combine an HTTP response code with a map-like JSON message
-     * converted to an application-specific message.
-     * 
-     * @param code the HTTP response code
-     * 
-     * @param entity the raw message entity
-     * 
-     * @param adapter a converter from the entity to the intended type
-     */
-    public RESTResponse(int code, JSONEntity entity) {
-        this.code = code;
-        this.entity = entity;
-        this.message = null;
+        this.message = message;
     }
 
     /**
@@ -103,7 +78,7 @@ public class RESTResponse<T> {
      * @return the adapted response
      */
     public <E> RESTResponse<E>
-        adapt(Function<? super JSONEntity, ? extends E> adapter) {
-        return new RESTResponse<>(this.code, this.entity, adapter);
+        adapt(Function<? super T, ? extends E> adapter) {
+        return new RESTResponse<>(this.code, adapter.apply(this.message));
     }
 }
