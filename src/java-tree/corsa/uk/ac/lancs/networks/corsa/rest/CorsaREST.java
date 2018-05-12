@@ -401,7 +401,35 @@ public final class CorsaREST {
      */
     public RESTResponse<BridgesDesc>
         createBridge(BridgeDesc desc) throws IOException, ParseException {
-        return post("bridges", desc.toJSON()).adapt(BridgesDesc::new);
+        if (desc.bridge != null)
+            return post("bridges", desc.toJSON()).adapt(BridgesDesc::new);
+
+        restart:
+        for (;;) {
+            /* Find out what bridges exist. */
+            RESTResponse<BridgesDesc> known = getBridgesDesc();
+
+            /* Find one that doesn't exist, and try to create it. */
+            for (int i = 1; i <= 63; i++) {
+                String cand = "br" + i;
+                if (!known.message.bridges.containsKey(cand)) {
+                    desc.bridge(cand);
+                    RESTResponse<BridgesDesc> rsp =
+                        post("bridges", desc.toJSON())
+                            .adapt(BridgesDesc::new);
+
+                    /* A 409 Conflict response means we should try
+                     * again. Otherwise, it won't matter if we try
+                     * again; we either have the successful result, or
+                     * an error that would keep happening. */
+                    if (rsp.code == 409 /* Conflict */) continue restart;
+                    return rsp;
+                }
+            }
+
+            /* It's all used up. */
+            return new RESTResponse<>(409, null);
+        }
     }
 
     /**
@@ -876,9 +904,8 @@ public final class CorsaREST {
             System.out.printf("bridges at: %s%n", rsp.message.bridges);
         }
         {
-            RESTResponse<BridgesDesc> rsp =
-                rest.createBridge(new BridgeDesc().bridge("br2")
-                    .subtype("openflow").dpid(0x2003024L).resources(5));
+            RESTResponse<BridgesDesc> rsp = rest.createBridge(new BridgeDesc()
+                .subtype("openflow").dpid(0x2003024L).resources(5));
             System.out.printf("Code: (%d)%n", rsp.code);
             System.out.printf("bridge at: %s%n", rsp.message.bridges);
         }
