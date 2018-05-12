@@ -35,6 +35,12 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
@@ -67,6 +73,11 @@ public class TunnelDesc {
      * @see #type
      */
     public int vlanId = -1;
+
+    public long cbs = -1;
+    public long cir = -1;
+    public long ebs = -1;
+    public long eir = -1;
 
     /**
      * The traffic class for the tunnel, or {@code -1} if unspecified
@@ -105,7 +116,7 @@ public class TunnelDesc {
     /**
      * Whether the tunnel is operational
      */
-    public boolean operational;
+    public String operationalState;
 
     /**
      * A description text for the tunnel, or {@code null}
@@ -223,8 +234,32 @@ public class TunnelDesc {
         if (trafficClass >= 0) result.put("traffic-class", trafficClass);
         if (shapedRate >= 0) result.put("shaped-rate", shapedRate);
         if (descr != null) result.put("ifdescr", descr);
-        /* TODO: vlan-range parameter can be provide too. */
+        /* TODO: vlan-range parameter can be provided too. */
         return result;
+    }
+
+    public static Map<Integer, TunnelDesc> of(JSONEntity entity) {
+        if (entity.array != null)
+            return of(entity.array);
+        else
+            return of(entity.map);
+    }
+
+    public static Map<Integer, TunnelDesc> of(JSONObject json) {
+        TunnelDesc desc = new TunnelDesc(json);
+        return Collections.singletonMap(desc.ofport, desc);
+    }
+
+    public static Map<Integer, TunnelDesc> of(JSONArray json) {
+        Map<Integer, TunnelDesc> tunnels = new HashMap<>();
+        @SuppressWarnings("unchecked")
+        List<JSONObject> list = json;
+        for (JSONObject entry : list) {
+            TunnelDesc desc = new TunnelDesc(entry);
+            int key = desc.ofport;
+            tunnels.put(key, desc);
+        }
+        return tunnels;
     }
 
     /**
@@ -274,7 +309,7 @@ public class TunnelDesc {
      * @param root the JSON object
      */
     public TunnelDesc(JSONObject root) {
-        this.ofport = (Integer) root.get("ofport");
+        this.ofport = (int) (long) (Long) root.get("ofport");
         this.type = (String) root.get("type");
         this.port = (String) root.get("port");
         innerVlanId = vlanId = -1;
@@ -283,25 +318,38 @@ public class TunnelDesc {
         switch (type) {
         case "stag-ctag":
         case "ctag-ctag":
-            this.tpid = (Integer) root.get("tpid");
-            this.innerVlanId = (Integer) root.get("inner-vlan-id");
+            this.tpid = Integer
+                .parseInt(((String) root.get("tpid")).substring(2), 16);
+            this.innerVlanId = (int) (long) (Long) root.get("inner-vlan-id");
             /* Fall-through! */
         case "ctag":
         case "untagged":
-            this.vlanId = (Integer) root.get("vlan-id");
-            this.trafficClass = (Integer) root.get("traffic-class");
+            this.vlanId = (int) (long) (Long) root.get("vlan-id");
+            this.trafficClass = (int) (long) (Long) root.get("traffic-class");
             break;
         default:
             break;
         }
+
         this.isShaped = (Boolean) root.get("is-shaped");
         shapedRate = -1;
         queueProfile = -1;
         if (isShaped) {
             this.shapedRate = (Integer) root.get("shaped-rate");
-            this.queueProfile = (Integer) root.get("queue-profile");
+            this.queueProfile = (int) (long) (Long) root.get("queue-profile");
         }
-        this.operational = (Boolean) root.get("oper-state");
+
+        this.operationalState = (String) root.get("oper-state");
         this.descr = (String) root.get("ifdescr");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Long> meter = (Map<String, Long>) root.get("meter");
+        cir = cbs = eir = ebs = -1;
+        if (meter != null) {
+            this.cir = meter.getOrDefault("cir", -1l);
+            this.cbs = meter.getOrDefault("cbs", -1l);
+            this.eir = meter.getOrDefault("eir", -1l);
+            this.ebs = meter.getOrDefault("ebs", -1l);
+        }
     }
 }

@@ -88,8 +88,8 @@ public final class CorsaREST {
     /**
      * Create a connection to a Corsa REST interface.
      * 
-     * @throws NoSuchAlgorithmException if there is a problem with the
-     * certificate
+     * @throws NoSuchAlgorithmException if there is no SSL support in
+     * this implementation
      * 
      * @throws KeyManagementException if there is a problem with the
      * certificate
@@ -465,9 +465,12 @@ public final class CorsaREST {
      * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<TunnelsDesc>
+    public RESTResponse<Map<Integer, TunnelDesc>>
         getTunnels(String bridge) throws IOException, ParseException {
-        return get("bridges/" + bridge + "/tunnels").adapt(TunnelsDesc::new);
+        RESTResponse<JSONEntity> result =
+            get("bridges/" + bridge + "/tunnels?list=true");
+        System.err.println(result.message.map);
+        return result.adapt(TunnelDesc::of);
     }
 
     /**
@@ -485,12 +488,11 @@ public final class CorsaREST {
      * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<TunnelsDesc> attachTunnel(String bridge,
-                                                  TunnelDesc config)
+    public RESTResponse<Void> attachTunnel(String bridge, TunnelDesc config)
         throws IOException,
             ParseException {
         return post("bridges/" + bridge + "/tunnels", config.toJSON())
-            .adapt(TunnelsDesc::new);
+            .adapt(s -> null);
     }
 
     /**
@@ -598,5 +600,6 @@ public final class CorsaREST {
                 rest.patchBridge("br1", ReplaceBridgeDescription.of("Yes!"));
             System.out.printf("Patch rsp: %d%n", rsp.code);
         }
+        rest.getTunnels("br1");
     }
 }
