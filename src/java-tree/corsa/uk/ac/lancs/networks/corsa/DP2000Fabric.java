@@ -118,8 +118,8 @@ public class DP2000Fabric implements Fabric {
 
     public void init() throws IOException, ParseException {
         /* Contact the switch, and get information on all bridges. */
-        RESTResponse<BridgesDesc> bridges = rest.getBridgesDesc();
-        for (String bridgeName : bridges.message.bridges.keySet()) {
+        RESTResponse<Collection<String>> bridges = rest.getBridgeNames();
+        for (String bridgeName : bridges.message) {
             RESTResponse<BridgeDesc> bridgeInfo =
                 rest.getBridgeDesc(bridgeName);
 

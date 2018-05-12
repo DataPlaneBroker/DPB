@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.json.simple.JSONArray;
@@ -54,7 +55,7 @@ public class BridgeDesc {
     /**
      * The bridge id
      */
-    public String bridge;
+    public String name;
 
     /**
      * The DPID that the bridge identifies itself with to its
@@ -112,7 +113,7 @@ public class BridgeDesc {
      * @return this object
      */
     public BridgeDesc bridge(String bridge) {
-        this.bridge = bridge;
+        this.name = bridge;
         return this;
     }
 
@@ -220,7 +221,7 @@ public class BridgeDesc {
         if (resources == null)
             throw new IllegalStateException("resources must be set");
         JSONObject result = new JSONObject();
-        result.put("bridge", bridge);
+        result.put("bridge", name);
         if (dpid != null)
             result.put("dpid", "0x" + Long.toUnsignedString(dpid, 16));
         if (subtype != null) result.put("subtype", subtype);
@@ -240,23 +241,37 @@ public class BridgeDesc {
         this(entity.map);
     }
 
+    public static Map<String, BridgeDesc> of(JSONArray json) {
+        Map<String, BridgeDesc> bridges = new HashMap<>();
+        @SuppressWarnings("unchecked")
+        List<JSONObject> list = json;
+        for (JSONObject entry : list) {
+            BridgeDesc desc = new BridgeDesc(entry);
+            String key = desc.name;
+            bridges.put(key, desc);
+        }
+        return bridges;
+    }
+
     /**
      * Create a bridge description from a JSON object.
      * 
      * @param root the JSON object
      */
     public BridgeDesc(JSONObject root) {
-        System.err.println(root);
-        bridge = (String) root.get("bridge");
+        name = (String) root.get("bridge");
+        if (name == null) {
+            JSONObject links = (JSONObject) root.get("links");
+            JSONObject self = (JSONObject) links.get("self");
+            if (self != null) name = self.get("bridge").toString();
+        }
         String dpidText = (String) root.get("dpid");
         if (dpidText != null) dpid = Long.parseUnsignedLong(dpidText, 16);
         subtype = (String) root.get("subtype");
         String resourcesText = (String) root.get("resources");
         if (resourcesText != null)
             resources = Integer.parseInt(resourcesText);
-        String trafficClassText = (String) root.get("traffic-class");
-        if (trafficClassText != null)
-            trafficClass = Integer.parseInt(trafficClassText);
+        trafficClass = getIntFromString(root.get("traffic-class"));
         netns = (String) root.get("netns");
         descr = (String) root.get("descr");
         JSONArray brList = (JSONArray) root.get("protocols");
@@ -280,5 +295,12 @@ public class BridgeDesc {
                 this.links.put(key, href);
             }
         }
+    }
+
+    private static int getIntFromString(Object obj) {
+        if (obj instanceof Integer) return (Integer) obj;
+        if (obj instanceof Long) return (int) (long) (Long) obj;
+        if (obj instanceof String) return Integer.parseInt((String) obj);
+        return -1;
     }
 }

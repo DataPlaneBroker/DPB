@@ -39,7 +39,8 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 /**
- * Holds a JSON entity, either an array or a map.
+ * Holds a JSON entity, either an array or a map. Exactly one of the
+ * members is not {@code null}.
  * 
  * @author simpsons
  */
@@ -89,7 +90,9 @@ public final class JSONEntity {
      * suitable type
      */
     public JSONEntity(Object obj) {
-        if (obj instanceof JSONArray) {
+        if (obj == null) {
+            throw new NullPointerException();
+        } else if (obj instanceof JSONArray) {
             this.array = (JSONArray) obj;
             this.map = null;
         } else if (obj instanceof JSONObject) {

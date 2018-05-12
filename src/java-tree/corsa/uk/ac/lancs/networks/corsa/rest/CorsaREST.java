@@ -51,6 +51,7 @@ import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -225,15 +226,36 @@ public final class CorsaREST {
      * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<BridgesDesc>
-        getBridgesDesc() throws IOException, ParseException {
-        return get("bridges").adapt(BridgesDesc::new);
+    public RESTResponse<Map<String, BridgeDesc>>
+        getBridgeDescs() throws IOException, ParseException {
+        RESTResponse<JSONEntity> rsp = get("bridges?list=true");
+        return rsp.adapt(s -> BridgeDesc.of((JSONArray) s.map.get("list")));
+    }
+
+    /**
+     * Get all bridge names.
+     * 
+     * @return a set of all bridge names
+     * 
+     * @throws ParseException if the response was not in the expected
+     * format
+     * 
+     * @throws IOException if there was an I/O error
+     */
+    public RESTResponse<Collection<String>>
+        getBridgeNames() throws IOException, ParseException {
+        return get("bridges").adapt(s -> {
+            @SuppressWarnings("unchecked")
+            Map<String, JSONObject> links =
+                (Map<String, JSONObject>) s.map.get("links");
+            return links.keySet();
+        });
     }
 
     /**
      * Get details of a specific bridge.
      * 
-     * @param bridge the bridge identifier of the form
+     * @param name the bridge identifier of the form
      * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
      * 
      * @return the bridge details
@@ -244,8 +266,10 @@ public final class CorsaREST {
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<BridgeDesc>
-        getBridgeDesc(String bridge) throws IOException, ParseException {
-        return get("bridges/" + bridge).adapt(BridgeDesc::new);
+        getBridgeDesc(String name) throws IOException, ParseException {
+        return get("bridges/" + name).adapt(s -> {
+            return new BridgeDesc(s.map).bridge(name);
+        });
     }
 
     /**
@@ -253,31 +277,30 @@ public final class CorsaREST {
      * 
      * @param desc the bridge's configuration
      * 
-     * @return the bridge's configuration
+     * @return the bridge's name
      * 
      * @throws ParseException if the response was not in the expected
      * format
      * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<BridgesDesc>
+    public RESTResponse<String>
         createBridge(BridgeDesc desc) throws IOException, ParseException {
-        if (desc.bridge != null)
-            return post("bridges", desc.toJSON()).adapt(BridgesDesc::new);
+        if (desc.name != null)
+            return post("bridges", desc.toJSON()).adapt(s -> desc.name);
 
         restart:
         for (;;) {
             /* Find out what bridges exist. */
-            RESTResponse<BridgesDesc> known = getBridgesDesc();
+            RESTResponse<Collection<String>> known = getBridgeNames();
 
             /* Find one that doesn't exist, and try to create it. */
             for (int i = 1; i <= 63; i++) {
                 String cand = "br" + i;
-                if (!known.message.bridges.containsKey(cand)) {
+                if (!known.message.contains(cand)) {
                     desc.bridge(cand);
-                    RESTResponse<BridgesDesc> rsp =
-                        post("bridges", desc.toJSON())
-                            .adapt(BridgesDesc::new);
+                    RESTResponse<String> rsp =
+                        post("bridges", desc.toJSON()).adapt(s -> cand);
 
                     /* A 409 Conflict response means we should try
                      * again. Otherwise, it won't matter if we try
@@ -467,10 +490,8 @@ public final class CorsaREST {
      */
     public RESTResponse<Map<Integer, TunnelDesc>>
         getTunnels(String bridge) throws IOException, ParseException {
-        RESTResponse<JSONEntity> result =
-            get("bridges/" + bridge + "/tunnels?list=true");
-        System.err.println(result.message.map);
-        return result.adapt(TunnelDesc::of);
+        return get("bridges/" + bridge + "/tunnels?list=true")
+            .adapt(s -> TunnelDesc.of((JSONArray) s.map.get("list")));
     }
 
     /**
@@ -564,26 +585,22 @@ public final class CorsaREST {
         }
 
         CorsaREST rest = new CorsaREST(root, cert, authz.toString());
+
         {
             RESTResponse<APIDesc> rsp = rest.getAPIDesc();
             System.out.printf("(%d) bridges at: %s%n", rsp.code,
                               rsp.message.bridges);
         }
+
         {
-            RESTResponse<BridgesDesc> rsp = rest.getBridgesDesc();
+            RESTResponse<Collection<String>> rsp = rest.getBridgeNames();
             System.out.printf("Code: (%d)%n", rsp.code);
-            System.out.printf("types: %s%n", rsp.message.supportedSubtypes);
-            System.out.printf("bridges at: %s%n", rsp.message.bridges);
+            System.out.printf("bridges: %s%n", rsp.message);
         }
-        {
-            RESTResponse<BridgesDesc> rsp = rest.createBridge(new BridgeDesc()
-                .subtype("openflow").dpid(0x2003024L).resources(5));
-            System.out.printf("Code: (%d)%n", rsp.code);
-            System.out.printf("bridge at: %s%n", rsp.message.bridges);
-        }
+
         {
             RESTResponse<BridgeDesc> rsp = rest.getBridgeDesc("br1");
-            System.out.printf("Bridge: %s%n", rsp.message.bridge);
+            System.out.printf("Bridge: %s%n", rsp.message.name);
             System.out.printf("  DPID: %016x%n", rsp.message.dpid);
             System.out.printf("  Resources: %d%%%n", rsp.message.resources);
             if (rsp.message.trafficClass != null) System.out
@@ -595,11 +612,25 @@ public final class CorsaREST {
             if (rsp.message.links != null)
                 System.out.printf("  Links: %s%n", rsp.message.links);
         }
+
+        {
+            RESTResponse<Map<String, BridgeDesc>> rsp = rest.getBridgeDescs();
+            System.out.printf("bridges: %s%n", rsp.message.keySet());
+        }
+
+        if (false) {
+            RESTResponse<String> rsp = rest.createBridge(new BridgeDesc()
+                .subtype("openflow").dpid(0x2003024L).resources(5));
+            System.out.printf("Creating bridge: (%d) %s%n", rsp.code,
+                              rsp.message);
+        }
+
         {
             RESTResponse<Void> rsp =
                 rest.patchBridge("br1", ReplaceBridgeDescription.of("Yes!"));
             System.out.printf("Patch rsp: %d%n", rsp.code);
         }
+
         rest.getTunnels("br1");
     }
 }
