@@ -40,10 +40,6 @@ import org.json.simple.JSONObject;
 /**
  * Describes an existing tunnel or one to be created.
  * 
- * @see CorsaREST#attachTunnel(String, TunnelDesc, ResponseHandler)
- * 
- * @see CorsaREST#getTunnel(String, int, ResponseHandler)
- * 
  * @author simpsons
  */
 public class TunnelDesc {
