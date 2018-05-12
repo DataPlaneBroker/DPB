@@ -87,13 +87,16 @@ public class BridgesDesc {
         }
 
         JSONObject links = (JSONObject) root.get("links");
-        @SuppressWarnings("unchecked")
-        Collection<Map.Entry<String, JSONObject>> entries = links.entrySet();
-        for (Map.Entry<String, JSONObject> entry : entries) {
-            String key = entry.getKey();
-            String value = (String) entry.getValue().get("href");
-            URI href = URI.create(value);
-            bridges.put(key, href);
+        if (links != null) {
+            @SuppressWarnings("unchecked")
+            Collection<Map.Entry<String, JSONObject>> entries =
+                links.entrySet();
+            for (Map.Entry<String, JSONObject> entry : entries) {
+                String key = entry.getKey();
+                String value = (String) entry.getValue().get("href");
+                URI href = URI.create(value);
+                bridges.put(key, href);
+            }
         }
     }
 }

@@ -178,13 +178,16 @@ public final class CorsaREST {
         HttpResponse rsp = client.execute(request);
         final int code = rsp.getStatusLine().getStatusCode();
         HttpEntity ent = rsp.getEntity();
-        final Object result;
-        try (Reader in = new InputStreamReader(ent.getContent(), UTF8)) {
-            JSONParser parser = new JSONParser();
-            result = parser.parse(in);
+        final JSONEntity result;
+        if (ent == null) {
+            result = null;
+        } else {
+            try (Reader in = new InputStreamReader(ent.getContent(), UTF8)) {
+                JSONParser parser = new JSONParser();
+                result = new JSONEntity(parser.parse(in));
+            }
         }
-        return new RESTResponse<JSONEntity>(code, new JSONEntity(result),
-                                            s -> s);
+        return new RESTResponse<JSONEntity>(code, result, s -> s);
     }
 
     private void request(HttpUriRequest request,
@@ -221,7 +224,6 @@ public final class CorsaREST {
 
     private static HttpEntity entityOf(List<?> params) {
         String text = JSONArray.toJSONString(params);
-        System.err.printf("Request: %s%n", text);
         return EntityBuilder.create()
             .setContentType(ContentType.APPLICATION_JSON).setText(text)
             .build();
@@ -367,7 +369,7 @@ public final class CorsaREST {
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<BridgeDesc>
-        getBridgeDEsc(String bridge) throws IOException, ParseException {
+        getBridgeDesc(String bridge) throws IOException, ParseException {
         return get("bridges/" + bridge).adapt(BridgeDesc::new);
     }
 
@@ -862,21 +864,59 @@ public final class CorsaREST {
 
         CorsaREST rest = new CorsaREST(IdleExecutor.INSTANCE, root, cert,
                                        authz.toString());
-        rest.getAPIDesc(new ResponseHandler<APIDesc>() {
-            @Override
-            public void response(int code, APIDesc rsp) {
-                System.out.printf("(%d) bridges at: %s%n", code, rsp.bridges);
-            }
-        });
-        rest.getBridgesDesc(new ResponseHandler<BridgesDesc>() {
-            @Override
-            public void response(int code, BridgesDesc rsp) {
-                System.out.printf("Code: (%d)%n", code);
-                System.out.printf("types: %s%n", rsp.supportedSubtypes);
-                System.out.printf("bridges at: %s%n", rsp.bridges);
-            }
-        });
+        {
+            RESTResponse<APIDesc> rsp = rest.getAPIDesc();
+            System.out.printf("(%d) bridges at: %s%n", rsp.code,
+                              rsp.message.bridges);
+        }
+        {
+            RESTResponse<BridgesDesc> rsp = rest.getBridgesDesc();
+            System.out.printf("Code: (%d)%n", rsp.code);
+            System.out.printf("types: %s%n", rsp.message.supportedSubtypes);
+            System.out.printf("bridges at: %s%n", rsp.message.bridges);
+        }
+        {
+            RESTResponse<BridgesDesc> rsp =
+                rest.createBridge(new BridgeDesc().bridge("br2")
+                    .subtype("openflow").dpid(0x2003024L).resources(5));
+            System.out.printf("Code: (%d)%n", rsp.code);
+            System.out.printf("bridge at: %s%n", rsp.message.bridges);
+        }
+        {
+            RESTResponse<BridgeDesc> rsp = rest.getBridgeDesc("br1");
+            System.out.printf("Bridge: %s%n", rsp.message.bridge);
+            System.out.printf("  DPID: %016x%n", rsp.message.dpid);
+            System.out.printf("  Resources: %d%%%n", rsp.message.resources);
+            if (rsp.message.trafficClass != null) System.out
+                .printf("  Traffic class: %d%n", rsp.message.trafficClass);
+            System.out.printf("  Subtype: %s%n", rsp.message.subtype);
+            System.out.printf("  Protos: %s%n", rsp.message.protocols);
+            if (rsp.message.descr != null)
+                System.out.printf("  Description: %s%n", rsp.message.descr);
+            if (rsp.message.links != null)
+                System.out.printf("  Links: %s%n", rsp.message.links);
+        }
+        {
+            RESTResponse<JSONEntity> rsp =
+                rest.patchBridge("br1", ReplaceBridgeDescription.of("Yes!"));
+            System.out.printf("Patch rsp: %d%n", rsp.code);
+        }
         if (false) {
+            rest.getAPIDesc(new ResponseHandler<APIDesc>() {
+                @Override
+                public void response(int code, APIDesc rsp) {
+                    System.out.printf("(%d) bridges at: %s%n", code,
+                                      rsp.bridges);
+                }
+            });
+            rest.getBridgesDesc(new ResponseHandler<BridgesDesc>() {
+                @Override
+                public void response(int code, BridgesDesc rsp) {
+                    System.out.printf("Code: (%d)%n", code);
+                    System.out.printf("types: %s%n", rsp.supportedSubtypes);
+                    System.out.printf("bridges at: %s%n", rsp.bridges);
+                }
+            });
             rest.createBridge(new BridgeDesc().bridge("br2")
                 .subtype("openflow").dpid(0x2003024L).resources(5),
                               new ResponseHandler<BridgesDesc>() {
@@ -905,27 +945,27 @@ public final class CorsaREST {
                                                         ex);
                                   }
                               });
+            rest.getBridgeDesc("br1", ComposedHandler.<BridgeDesc>start()
+                .onResponse((c, obj) -> {
+                    System.out.printf("Bridge: %s%n", obj.bridge);
+                    System.out.printf("  DPID: %016x%n", obj.dpid);
+                    System.out.printf("  Resources: %d%%%n", obj.resources);
+                    if (obj.trafficClass != null) System.out
+                        .printf("  Traffic class: %d%n", obj.trafficClass);
+                    System.out.printf("  Subtype: %s%n", obj.subtype);
+                    System.out.printf("  Protos: %s%n", obj.protocols);
+                    if (obj.descr != null)
+                        System.out.printf("  Description: %s%n", obj.descr);
+                    if (obj.links != null)
+                        System.out.printf("  Links: %s%n", obj.links);
+                }));
+            rest.patchBridge("br1",
+                             ComposedHandler.<JSONObject>start()
+                                 .onResponse((c, obj) -> {}),
+                             ReplaceBridgeDescription.of("Yes!"));
+            System.out.printf("Requests issued%n");
+            IdleExecutor.processAll();
+            System.out.printf("Idle%n");
         }
-        rest.getBridgeDesc("br1", ComposedHandler.<BridgeDesc>start()
-            .onResponse((c, obj) -> {
-                System.out.printf("Bridge: %s%n", obj.bridge);
-                System.out.printf("  DPID: %016x%n", obj.dpid);
-                System.out.printf("  Resources: %d%%%n", obj.resources);
-                if (obj.trafficClass != null) System.out
-                    .printf("  Traffic class: %d%n", obj.trafficClass);
-                System.out.printf("  Subtype: %s%n", obj.subtype);
-                System.out.printf("  Protos: %s%n", obj.protocols);
-                if (obj.descr != null)
-                    System.out.printf("  Description: %s%n", obj.descr);
-                if (obj.links != null)
-                    System.out.printf("  Links: %s%n", obj.links);
-            }));
-        rest.patchBridge("br1",
-                         ComposedHandler.<JSONObject>start()
-                             .onResponse((c, obj) -> {}),
-                         ReplaceBridgeDescription.of("Yes!"));
-        System.out.printf("Requests issued%n");
-        IdleExecutor.processAll();
-        System.out.printf("Idle%n");
     }
 }
