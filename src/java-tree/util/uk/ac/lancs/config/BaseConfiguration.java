@@ -171,4 +171,11 @@ final class BaseConfiguration implements Configuration {
     public String absoluteHome() {
         return ".";
     }
+
+    @Override
+    public URI getLocation(String key, String defaultValue) {
+        String relativeValue = get(key, defaultValue);
+        if (relativeValue == null) return null;
+        return location.resolve(relativeValue);
+    }
 }

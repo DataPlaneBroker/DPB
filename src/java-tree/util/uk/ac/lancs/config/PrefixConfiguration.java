@@ -90,4 +90,11 @@ class PrefixConfiguration implements Configuration {
     public String absoluteHome() {
         return "." + prefix;
     }
+
+    @Override
+    public URI getLocation(String key, String defaultValue) {
+        String relativeValue = get(key, defaultValue);
+        if (relativeValue == null) return null;
+        return location.resolve(relativeValue);
+    }
 }

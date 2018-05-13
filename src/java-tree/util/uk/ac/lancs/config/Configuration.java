@@ -34,6 +34,8 @@
  */
 package uk.ac.lancs.config;
 
+import java.io.File;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -290,6 +292,65 @@ public interface Configuration {
      * {@code null} if not applicable
      */
     String absoluteHome();
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the resolved parameter as a URI, or {@code null} if not
+     * specified
+     */
+    default URI getLocation(String key) {
+        return this.getLocation(key, null);
+    }
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location, or a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the default value to be resolved against the
+     * configuration's location
+     * 
+     * @return the resolved parameter as a URI
+     */
+    URI getLocation(String key, String defaultValue);
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location, as a filename, or a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the default value to be resolved against the
+     * configuration's location
+     * 
+     * @return the resolved parameter as a filename, or {@code null} if
+     * not specified
+     */
+    default File getFile(String key) {
+        return this.getFile(key, null);
+    }
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location, as a filename, or a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the default value to be resolved against the
+     * configuration's location
+     * 
+     * @return the resolved parameter as a filename
+     */
+    default File getFile(String key, String defaultValue) {
+        URI location = getLocation(key, defaultValue);
+        if (location == null) return null;
+        return new File(location);
+    }
 
     /**
      * Normalize a node key. Double dots are condensed to single ones.
