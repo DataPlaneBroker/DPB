@@ -241,6 +241,14 @@ public class BridgeDesc {
         this(entity.map);
     }
 
+    /**
+     * Create a mapping from bridge name to bridge description from a
+     * JSON array.
+     * 
+     * @param json the source array
+     * 
+     * @return the requested mapping; never {@code null}
+     */
     public static Map<String, BridgeDesc> of(JSONArray json) {
         Map<String, BridgeDesc> bridges = new HashMap<>();
         @SuppressWarnings("unchecked")

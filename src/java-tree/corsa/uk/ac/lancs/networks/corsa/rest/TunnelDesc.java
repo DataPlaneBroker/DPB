@@ -74,9 +74,26 @@ public class TunnelDesc {
      */
     public int vlanId = -1;
 
+    /**
+     * The committed burst size (CBS) in KB, or {@code -1} if not set
+     */
     public long cbs = -1;
+
+    /**
+     * The committed information rate (CIR) in Kbps, or {@code -1} if
+     * not set
+     */
     public long cir = -1;
+
+    /**
+     * The excess burst size (EBS) in KB, or {@code -1} if not set
+     */
     public long ebs = -1;
+
+    /**
+     * The excess information rate (EIR) in Kbps, or {@code -1} if not
+     * set
+     */
     public long eir = -1;
 
     /**
@@ -126,8 +143,6 @@ public class TunnelDesc {
     /**
      * Create an empty tunnel description in preparation for creating a
      * new tunnel.
-     * 
-     * @see CorsaREST#attachTunnel(String, TunnelDesc, ResponseHandler)
      */
     public TunnelDesc() {}
 
@@ -238,6 +253,16 @@ public class TunnelDesc {
         return result;
     }
 
+    /**
+     * Create a mapping from ofport to tunnel description from a JSON
+     * entity. If an array is provided, the result will have as many
+     * entries as the array. If a map is provided, the result will have
+     * one entry.
+     * 
+     * @param entity the source entity
+     * 
+     * @return the requested mapping; never {@code null}
+     */
     public static Map<Integer, TunnelDesc> of(JSONEntity entity) {
         if (entity.array != null)
             return of(entity.array);
@@ -245,11 +270,27 @@ public class TunnelDesc {
             return of(entity.map);
     }
 
+    /**
+     * Create a singleton mapping from ofport to tunnel description from
+     * a JSON map.
+     * 
+     * @param json the source map
+     * 
+     * @return the requested mapping; never {@code null}
+     */
     public static Map<Integer, TunnelDesc> of(JSONObject json) {
         TunnelDesc desc = new TunnelDesc(json);
         return Collections.singletonMap(desc.ofport, desc);
     }
 
+    /**
+     * Create a mapping from ofport to tunnel description from a JSON
+     * array.
+     * 
+     * @param json the source array
+     * 
+     * @return the requested mapping; never {@code null}
+     */
     public static Map<Integer, TunnelDesc> of(JSONArray json) {
         Map<Integer, TunnelDesc> tunnels = new HashMap<>();
         @SuppressWarnings("unchecked")

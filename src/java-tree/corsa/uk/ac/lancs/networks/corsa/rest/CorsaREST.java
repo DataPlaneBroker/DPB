@@ -445,12 +445,12 @@ public final class CorsaREST {
      * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<ControllersDesc>
-        attachController(String bridge, ControllerConfig config)
-            throws IOException,
-                ParseException {
+    public RESTResponse<Void> attachController(String bridge,
+                                               ControllerConfig config)
+        throws IOException,
+            ParseException {
         return post("bridges/" + bridge + "/controllers", config.toJSON())
-            .adapt(ControllersDesc::new);
+            .adapt(s -> null);
     }
 
     /**
@@ -481,7 +481,7 @@ public final class CorsaREST {
      * @param bridge the bridge identifier of the form
      * <samp>br<var>N</var></samp>, where <var>N</var> is in [1,63]
      * 
-     * @return the response
+     * @return a map from ofport to tunnel description
      * 
      * @throws ParseException if the response was not in the expected
      * format
