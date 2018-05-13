@@ -36,6 +36,8 @@ package uk.ac.lancs.config;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -350,6 +352,36 @@ public interface Configuration {
         URI location = getLocation(key, defaultValue);
         if (location == null) return null;
         return new File(location);
+    }
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location, as a file path.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the resolved parameter as a file path, or {@code null} if
+     * not specified
+     */
+    default Path getPath(String key) {
+        return this.getPath(key, null);
+    }
+
+    /**
+     * Get the value of a configuration parameter resolved against the
+     * referencing file's location, as a file path, or a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the default value to be resolved against the
+     * configuration's location
+     * 
+     * @return the resolved parameter as a file path
+     */
+    default Path getPath(String key, String defaultValue) {
+        URI location = getLocation(key, defaultValue);
+        if (location == null) return null;
+        return Paths.get(location);
     }
 
     /**
