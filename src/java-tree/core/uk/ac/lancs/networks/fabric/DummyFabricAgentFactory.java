@@ -44,7 +44,7 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
- * Creates agents each implementing a dummy switchdummy switches.
+ * Creates agents each implementing a dummy switch.
  * 
  * <p>
  * The configuration property <samp>capacity.bridges</samp> may be
