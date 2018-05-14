@@ -228,7 +228,7 @@ public class BridgeDesc {
         if (resources != null) result.put("resources", resources);
         if (trafficClass != null) result.put("traffic-class", trafficClass);
         if (netns != null) result.put("netns", netns);
-        if (descr != null) result.put("descr", descr);
+        if (descr != null) result.put("bridge-descr", descr);
         return result;
     }
 
@@ -281,7 +281,7 @@ public class BridgeDesc {
             resources = Integer.parseInt(resourcesText);
         trafficClass = getIntFromString(root.get("traffic-class"));
         netns = (String) root.get("netns");
-        descr = (String) root.get("descr");
+        descr = (String) root.get("bridge-descr");
         JSONArray brList = (JSONArray) root.get("protocols");
         if (brList != null) {
             protocols = new ArrayList<>();

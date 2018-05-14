@@ -64,7 +64,8 @@ public final class DummyFabric implements Fabric {
     /**
      * Create a fabric supporting a specific number of bridges.
      * 
-     * @param maxBridges the maximum number of bridges to support
+     * @param maxBridges the maximum number of bridges to support, or
+     * negative for unlimited
      */
     public DummyFabric(int maxBridges) {
         this.maxBridges = maxBridges;
@@ -236,6 +237,7 @@ public final class DummyFabric implements Fabric {
 
     @Override
     public synchronized int capacity() {
+        if (maxBridges < 0) return -1;
         return maxBridges - bridges.size();
     }
 }

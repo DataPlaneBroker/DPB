@@ -1796,8 +1796,12 @@ public class PersistentAggregator implements Aggregator {
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
         fibGraph.addEdges(subnetworkEdgeWeights);
+        System.err.printf("Subnetwork count: %d%n", subnetworks.size());
+        System.err.printf("Subnetwork edges: %s%n",
+                          subnetworkEdgeWeights.keySet());
         Map<Terminal, Collection<Terminal>> terminalGroups = Graphs
             .getGroups(Graphs.getAdjacencies(subnetworkEdgeWeights.keySet()));
+        System.err.printf("Terminal groups: %s%n", terminalGroups);
 
         /* Keep track of the weights of all edges, whether they come
          * from trunks or inferior networks. */
@@ -1819,6 +1823,8 @@ public class PersistentAggregator implements Aggregator {
                 .start(Terminal.class).withEdges(edgeWeights.keySet())
                 .withTerminals(innerTerminals).notifying(p -> {
                     guide.reached(p);
+                    System.err.printf("Reached %s; groups: %s%n", p,
+                                      terminalGroups.get(p));
                     reached.addAll(terminalGroups.get(p));
                 }).withEdgePreference(guide::select).eliminating(e -> {
                     /* Permit edges within the same network. */

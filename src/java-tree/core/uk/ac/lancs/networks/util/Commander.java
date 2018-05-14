@@ -370,7 +370,7 @@ public final class Commander {
         }
 
         if ("release".equals(arg)) {
-            service.release();
+            if (service != null) service.release();
             service = null;
             return true;
         }

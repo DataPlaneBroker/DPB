@@ -51,11 +51,14 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.stream.Collectors;
 
+import org.json.simple.parser.ParseException;
+
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentBuilder;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.agent.AgentInitiationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.scc.jardeps.Service;
@@ -179,6 +182,12 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }
-        return AgentBuilder.start().add(fabric, Fabric.class).create();
+        return AgentBuilder.start().add(fabric, Fabric.class).create(() -> {
+            try {
+                fabric.init();
+            } catch (IOException | ParseException e) {
+                throw new AgentInitiationException(e);
+            }
+        });
     }
 }

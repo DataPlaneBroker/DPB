@@ -79,4 +79,9 @@ class CorsaInterface implements Interface {
         if (vlanId != other.vlanId) return false;
         return true;
     }
+
+    @Override
+    public String toString() {
+        return port + (vlanId >= 0 ? ":" + vlanId : "");
+    }
 }

@@ -110,7 +110,8 @@ public interface Fabric {
     /**
      * Determine how many more bridges can be created.
      * 
-     * @return the number of bridges that can be created
+     * @return the number of bridges that can be created, or negative if
+     * the number of bridges is unlimited
      */
     int capacity();
 }

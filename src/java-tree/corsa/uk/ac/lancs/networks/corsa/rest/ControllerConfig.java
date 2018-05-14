@@ -126,7 +126,7 @@ public class ControllerConfig {
             throw new IllegalStateException("port must be set");
         JSONObject result = new JSONObject();
         result.put("controller", id);
-        result.put("host", host.getHostAddress());
+        result.put("ip", host.getHostAddress());
         result.put("port", port);
         result.put("tls", tls);
         return result;

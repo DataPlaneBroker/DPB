@@ -42,11 +42,11 @@ import org.json.simple.JSONObject;
  * 
  * @author simpsons
  */
-public class Meter implements TunnelPatchOp {
+public class Meter<T> implements TunnelPatchOp {
     private final String part;
-    private final long value;
+    private final T value;
 
-    private Meter(String part, long value) {
+    private Meter(String part, T value) {
         this.part = part;
         this.value = value;
     }
@@ -60,8 +60,8 @@ public class Meter implements TunnelPatchOp {
      * 
      * @return the requested operation
      */
-    public static Meter cir(long value) {
-        return new Meter("cir", value);
+    public static Meter<Double> cir(double value) {
+        return new Meter<Double>("cir", value);
     }
 
     /**
@@ -73,8 +73,8 @@ public class Meter implements TunnelPatchOp {
      * 
      * @return the requested operation
      */
-    public static Meter cbs(long value) {
-        return new Meter("cbs", value);
+    public static Meter<Long> cbs(long value) {
+        return new Meter<Long>("cbs", value);
     }
 
     /**
@@ -86,8 +86,8 @@ public class Meter implements TunnelPatchOp {
      * 
      * @return the requested operation
      */
-    public static Meter eir(long value) {
-        return new Meter("eir", value);
+    public static Meter<Double> eir(double value) {
+        return new Meter<Double>("eir", value);
     }
 
     /**
@@ -98,8 +98,8 @@ public class Meter implements TunnelPatchOp {
      * 
      * @return the requested operation
      */
-    public static Meter ebs(long value) {
-        return new Meter("ebs", value);
+    public static Meter<Long> ebs(long value) {
+        return new Meter<Long>("ebs", value);
     }
 
     @SuppressWarnings("unchecked")

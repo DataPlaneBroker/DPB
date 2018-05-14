@@ -123,12 +123,12 @@ public class TunnelDesc {
      * The shaped rate for traffic output over the tunnel, in Mbps, or
      * {@code -1} if unspecified
      */
-    public int shapedRate = -1;
+    public double shapedRate = -1;
 
     /**
-     * The shaped queue profile, or {@code -1} if unspecified
+     * The shaped queue profile
      */
-    public int queueProfile = -1;
+    public String queueProfile;
 
     /**
      * Whether the tunnel is operational
@@ -225,7 +225,7 @@ public class TunnelDesc {
      * 
      * @return this object
      */
-    public TunnelDesc shapedRate(int shapedRate) {
+    public TunnelDesc shapedRate(double shapedRate) {
         this.shapedRate = shapedRate;
         return this;
     }
@@ -374,10 +374,11 @@ public class TunnelDesc {
 
         this.isShaped = (Boolean) root.get("is-shaped");
         shapedRate = -1;
-        queueProfile = -1;
+        queueProfile = null;
         if (isShaped) {
-            this.shapedRate = (Integer) root.get("shaped-rate");
-            this.queueProfile = (int) (long) (Long) root.get("queue-profile");
+            this.shapedRate =
+                ((Number) root.get("shaped-rate")).doubleValue();
+            this.queueProfile = root.get("queue-profile").toString();
         }
 
         this.operationalState = (String) root.get("oper-state");

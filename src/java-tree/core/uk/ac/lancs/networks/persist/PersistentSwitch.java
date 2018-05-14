@@ -806,9 +806,12 @@ public class PersistentSwitch implements Switch {
     // Shadowing NetworkControl
     synchronized Map<Edge<Terminal>, Double>
         getModel(double minimumBandwidth) {
-        final long bridgeCapacity = fabric.capacity() - services.values()
-            .stream().filter(s -> s.bridge == null).count();
-        if (bridgeCapacity <= 0) return Collections.emptyMap();
+        final long fabricCapacity = fabric.capacity();
+        if (fabricCapacity >= 0) {
+            final long bridgeCapacity = fabric.capacity() - services.values()
+                .stream().filter(s -> s.bridge == null).count();
+            if (bridgeCapacity <= 0) return Collections.emptyMap();
+        }
 
         List<Terminal> list = new ArrayList<>(terminals.values());
         Map<Edge<Terminal>, Double> result = new HashMap<>();
