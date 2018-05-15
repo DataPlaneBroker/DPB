@@ -91,10 +91,30 @@ public class DP2000Fabric implements Fabric {
      */
     private final String fullDesc;
 
+    /**
+     * The network namespace for new bridges
+     */
+    private final String netns;
+
     private final CorsaREST rest;
 
     /**
      * Create a switching fabric for a Corsa.
+     * 
+     * @param maxBridges the maximum number of bridges that this fabric
+     * will create and manage at once
+     * 
+     * @param partialDesc the description text used for new bridges
+     * before their configuration is complete
+     * 
+     * @param fullDesc the description text used for new bridges as soon
+     * as their configuration is complete
+     * 
+     * @param netns the network namespace for the controller port of
+     * each new bridge
+     * 
+     * @param controller the IP address and port number of the
+     * controller used for all created bridges
      * 
      * @param service the REST API URI for the Corsa
      * 
@@ -109,13 +129,14 @@ public class DP2000Fabric implements Fabric {
      * certficate
      */
     public DP2000Fabric(int maxBridges, String partialDesc, String fullDesc,
-                        InetSocketAddress controller, URI service,
-                        X509Certificate cert, String authz)
+                        String netns, InetSocketAddress controller,
+                        URI service, X509Certificate cert, String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
         this.maxBridges = maxBridges;
         this.partialDesc = partialDesc;
         this.fullDesc = fullDesc;
+        this.netns = netns;
         this.controller = controller;
         this.rest = new CorsaREST(service, cert, authz);
     }
@@ -177,7 +198,7 @@ public class DP2000Fabric implements Fabric {
                     {
                         RESTResponse<String> creationRsp = rest
                             .createBridge(new BridgeDesc().descr(partialDesc)
-                                .resources(2).subtype("l2-vpn"));
+                                .resources(2).subtype("l2-vpn").netns(netns));
                         if (creationRsp.code != 201) {
                             System.err.printf(
                                               "Failed to "

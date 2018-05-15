@@ -86,8 +86,13 @@ import uk.ac.lancs.scc.jardeps.Service;
  * the partial state due to error or early termination will be removed
  * on the next restart of the agent.
  * 
- * <dt><samp>ctrl.host</samp> (default 172.17.1.1)
- * <dt><samp>ctrl.port</samp> (default 6553)
+ * <dt><samp>ctrl.netns</samp> (default <samp>default</samp>!)
+ * 
+ * <dd>Specifies the network namespace for the controller port of the
+ * new bridges.
+ * 
+ * <dt><samp>ctrl.host</samp> (default <samp>172.17.1.1</samp>)
+ * <dt><samp>ctrl.port</samp> (default <samp>6553</samp>)
  * 
  * <dd>Specify the controller address used to configure each bridge
  * with. The defaults point to the local learning switch.
@@ -151,6 +156,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             conf.get("description.partial", DEFAULT_PARTIAL_DESCRIPTION);
         final String fullDesc =
             conf.get("description.complete", DEFAULT_COMPLETE_DESCRIPTION);
+        final String netns = conf.get("ctrl.netns", "default");
         final InetSocketAddress controller =
             new InetSocketAddress(conf.get("ctrl.host", "172.17.1.1"), Integer
                 .parseInt(conf.get("ctrl.port", "6553")));
@@ -177,8 +183,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         }
         final DP2000Fabric fabric;
         try {
-            fabric = new DP2000Fabric(maxBridges, partialDesc, fullDesc,
-                                      controller, service, cert, authz);
+            fabric =
+                new DP2000Fabric(maxBridges, partialDesc, fullDesc, netns,
+                                 controller, service, cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }
