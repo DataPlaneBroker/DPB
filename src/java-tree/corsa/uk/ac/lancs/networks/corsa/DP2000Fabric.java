@@ -96,6 +96,8 @@ public class DP2000Fabric implements Fabric {
      */
     private final String netns;
 
+    private final String subtype;
+
     private final CorsaREST rest;
 
     /**
@@ -109,6 +111,9 @@ public class DP2000Fabric implements Fabric {
      * 
      * @param fullDesc the description text used for new bridges as soon
      * as their configuration is complete
+     * 
+     * @param subtype the VFC subtype to use when creating bridges,
+     * e.g., <samp>ls-vpn</samp>, <samp>openflow</samp>, etc.
      * 
      * @param netns the network namespace for the controller port of
      * each new bridge
@@ -129,13 +134,15 @@ public class DP2000Fabric implements Fabric {
      * certficate
      */
     public DP2000Fabric(int maxBridges, String partialDesc, String fullDesc,
-                        String netns, InetSocketAddress controller,
-                        URI service, X509Certificate cert, String authz)
+                        String subtype, String netns,
+                        InetSocketAddress controller, URI service,
+                        X509Certificate cert, String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
         this.maxBridges = maxBridges;
         this.partialDesc = partialDesc;
         this.fullDesc = fullDesc;
+        this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
         this.rest = new CorsaREST(service, cert, authz);
@@ -198,7 +205,7 @@ public class DP2000Fabric implements Fabric {
                     {
                         RESTResponse<String> creationRsp = rest
                             .createBridge(new BridgeDesc().descr(partialDesc)
-                                .resources(2).subtype("l2-vpn").netns(netns));
+                                .resources(2).subtype(subtype).netns(netns));
                         if (creationRsp.code != 201) {
                             System.err.printf(
                                               "Failed to "

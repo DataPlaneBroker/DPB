@@ -86,7 +86,13 @@ import uk.ac.lancs.scc.jardeps.Service;
  * the partial state due to error or early termination will be removed
  * on the next restart of the agent.
  * 
- * <dt><samp>ctrl.netns</samp> (default <samp>default</samp>!)
+ * <dt><samp>subtype</samp> (default
+ * <samp>{@value #DEFAULT_SUBYTPE}</samp>)
+ * 
+ * <dd>Specifies the type of VFC to create.
+ * 
+ * <dt><samp>ctrl.netns</samp> (default
+ * <samp>{@value #DEFAULT_NETWORK_NAMESPACE}</samp>!)
  * 
  * <dd>Specifies the network namespace for the controller port of the
  * new bridges.
@@ -135,6 +141,16 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
+    public static final String DEFAULT_NETWORK_NAMESPACE = "default";
+
+    /**
+     * @undocumented
+     */
+    public static final String DEFAULT_SUBYTPE = "l2-vpn";
+
+    /**
+     * @undocumented
+     */
     public static final String TYPE_NAME = "corsa-dp2x00-brperlink";
 
     /**
@@ -156,7 +172,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             conf.get("description.partial", DEFAULT_PARTIAL_DESCRIPTION);
         final String fullDesc =
             conf.get("description.complete", DEFAULT_COMPLETE_DESCRIPTION);
-        final String netns = conf.get("ctrl.netns", "default");
+        final String subtype = conf.get("subtype", DEFAULT_SUBYTPE);
+        final String netns =
+            conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
         final InetSocketAddress controller =
             new InetSocketAddress(conf.get("ctrl.host", "172.17.1.1"), Integer
                 .parseInt(conf.get("ctrl.port", "6553")));
@@ -184,8 +202,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final DP2000Fabric fabric;
         try {
             fabric =
-                new DP2000Fabric(maxBridges, partialDesc, fullDesc, netns,
-                                 controller, service, cert, authz);
+                new DP2000Fabric(maxBridges, partialDesc, fullDesc, subtype,
+                                 netns, controller, service, cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }
