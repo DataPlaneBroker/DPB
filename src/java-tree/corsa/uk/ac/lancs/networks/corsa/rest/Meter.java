@@ -66,7 +66,7 @@ public class Meter<T> implements TunnelPatchOp {
 
     /**
      * Create an operation to set the tunnel's CBS (Committed Burst
-     * Size). A {@link #cir(long)} operation must accompany this
+     * Size). A {@link #cir(double)} operation must accompany this
      * operation.
      * 
      * @param value the new value in KB
@@ -92,7 +92,7 @@ public class Meter<T> implements TunnelPatchOp {
 
     /**
      * Create an operation to set the tunnel's EBS (Excess Burst Size).
-     * An {@link #eir(long)} operation must accompany this operation.
+     * An {@link #eir(double)} operation must accompany this operation.
      * 
      * @param value the new value in KB
      * 
