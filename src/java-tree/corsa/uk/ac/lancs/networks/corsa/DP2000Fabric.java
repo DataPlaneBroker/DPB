@@ -47,6 +47,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -136,6 +138,9 @@ public class DP2000Fabric implements Fabric {
 
             /* Mark the bridge as already existing. */
             started = true;
+
+            System.err.printf("Recovered bridge %s on %s%n", this.bridgeName,
+                              this.service);
         }
 
         private final Collection<BridgeListener> listeners = new HashSet<>();
@@ -161,9 +166,8 @@ public class DP2000Fabric implements Fabric {
 
         void start() {
             assert Thread.holdsLock(DP2000Fabric.this);
-            System.err.printf("Starting a Corsa bridge%n");
             if (!started) {
-                System.err.printf("Really starting a Corsa bridge%n");
+                System.err.printf("Starting a Corsa bridge on %s%n", service);
 
                 /* Contact the switch to build the bridge. */
                 boolean destroyBridge = true;
@@ -175,11 +179,13 @@ public class DP2000Fabric implements Fabric {
                             .createBridge(new BridgeDesc().descr(partialDesc)
                                 .resources(2).subtype("l2-vpn"));
                         if (creationRsp.code != 201) {
-                            System.err
-                                .printf("Failed to created bridge (%d)%n",
-                                        creationRsp.code);
+                            System.err.printf(
+                                              "Failed to "
+                                                  + "created bridge (%d)%n",
+                                              creationRsp.code);
                             ServiceResourceException t =
-                                new ServiceResourceException("unable to create bridge");
+                                new ServiceResourceException("unable to"
+                                    + " create bridge");
                             inform(l -> l.error(t));
                             return;
                         }
@@ -232,7 +238,6 @@ public class DP2000Fabric implements Fabric {
                             rest.patchTunnel(this.bridgeName, ofPort,
                                              Meter.cir(flow.ingress * 1024.0),
                                              Meter.cbs(10));
-                        // TODO: Check response code.
                     }
 
                     /* Attach the controller. */
@@ -246,11 +251,11 @@ public class DP2000Fabric implements Fabric {
                                                       .port(controller
                                                           .getPort()));
                         if (ctrlRsp.code != 201) {
-                            System.err
-                                .printf("failed to attach controller (%d)%n",
-                                        ctrlRsp.code);
+                            System.err.printf("failed to "
+                                + "attach controller (%d)%n", ctrlRsp.code);
                             ServiceResourceException t =
-                                new ServiceResourceException("unable to control bridge; code "
+                                new ServiceResourceException("unable to"
+                                    + " control bridge; code "
                                     + ctrlRsp.code);
                             inform(l -> l.error(t));
                             return;
@@ -260,24 +265,27 @@ public class DP2000Fabric implements Fabric {
                     /* Record that the bridge is fully configured, so
                      * that it won't get wiped when we start up
                      * again. */
-                    @SuppressWarnings("unused")
                     RESTResponse<Void> brPatchRsp = rest
                         .patchBridge(this.bridgeName,
                                      ReplaceBridgeDescription.of(fullDesc));
-                    // TODO: Check response code.
+                    if (brPatchRsp.code != 204) {
+                        System.err.printf("failed to complete bridge (%d)%n",
+                                          brPatchRsp.code);
+                        ServiceResourceException t =
+                            new ServiceResourceException("unable complete"
+                                + " bridge; code " + brPatchRsp.code);
+                        inform(l -> l.error(t));
+                        return;
+                    }
 
                     destroyBridge = false;
                     started = true;
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                    throw new UnsupportedOperationException("unimplemented",
-                                                            e);
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                    throw new UnsupportedOperationException("unimplemented",
-                                                            e);
+                } catch (IOException | ParseException e) {
+                    ServiceResourceException t =
+                        new ServiceResourceException("error talking"
+                            + " to switch", e);
+                    inform(l -> l.error(t));
+                    return;
                 } finally {
                     if (destroyBridge && this.bridgeName != null) try {
                         rest.destroyBridge(this.bridgeName);
@@ -306,7 +314,8 @@ public class DP2000Fabric implements Fabric {
                         break;
                     default:
                         /* We failed to destroy the bridge. */
-                        /* TODO: Do something more sophisticated? */
+                        logger.warning("Failed to talk to switch on bridge "
+                            + bridgeName + ": RSP=" + brDestRsp.code);
                         return;
                     }
                     bridgeName = null;
@@ -315,16 +324,11 @@ public class DP2000Fabric implements Fabric {
                      * again. */
                     inform(BridgeListener::destroyed);
                     listeners.clear();
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                    throw new UnsupportedOperationException("unimplemented",
-                                                            e);
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                    throw new UnsupportedOperationException("unimplemented",
-                                                            e);
+                } catch (IOException | ParseException e) {
+                    logger.log(Level.WARNING,
+                               "Error talking to switch to delete bridge "
+                                   + bridgeName,
+                               e);
                 }
             }
         }
@@ -358,11 +362,16 @@ public class DP2000Fabric implements Fabric {
     public synchronized void init() throws IOException, ParseException {
         /* Contact the switch, and get information on all bridges. */
         RESTResponse<Collection<String>> bridges = rest.getBridgeNames();
-        // TODO: Check response code.
+        if (bridges.code != 200) throw new RuntimeException("unable to "
+            + "get list of bridges; rsp=" + bridges.code);
         for (String bridgeName : bridges.message) {
             RESTResponse<BridgeDesc> bridgeInfo =
                 rest.getBridgeDesc(bridgeName);
-            // TODO: Check response code.
+            if (bridgeInfo.code != 200) {
+                logger.warning("Bridge " + bridgeName + ": Getting info: RSP="
+                    + bridgeInfo.code);
+                continue;
+            }
 
             /* Bridges with no description text are not under our
              * control, and should be ignored. */
@@ -380,7 +389,11 @@ public class DP2000Fabric implements Fabric {
              * service description from it. */
             RESTResponse<Map<Integer, TunnelDesc>> tunnels =
                 rest.getTunnels(bridgeName);
-            // TODO: Check response code.
+            if (tunnels.code != 200) {
+                logger.warning("Bridge " + bridgeName
+                    + ": Getting tunnels: RSP=" + tunnels.code);
+                continue;
+            }
             Collection<EndPoint<Interface>> endPoints = new HashSet<>();
             for (Map.Entry<Integer, TunnelDesc> entry : tunnels.message
                 .entrySet()) {
@@ -522,4 +535,7 @@ public class DP2000Fabric implements Fabric {
         int amount = maxBridges - bridgesByEndPointSet.size();
         return amount < 0 ? 0 : amount;
     }
+
+    private static final Logger logger =
+        Logger.getLogger("uk.ac.lancs.networks.corsa.dp2000");
 }
