@@ -337,7 +337,7 @@ public class DP2000Fabric implements Fabric {
                     RESTResponse<Void> brDestRsp =
                         rest.destroyBridge(bridgeName);
                     switch (brDestRsp.code) {
-                    case 200:
+                    case 204:
                     case 404:
                         break;
                     default:
