@@ -350,7 +350,7 @@ public class TestGeographicSpan {
                     Collections.sort(sequence, (a, b) -> {
                         double ad = worst.get(a);
                         double bd = worst.get(b);
-                        return Double.compare(bd, ad);
+                        return -Double.compare(bd, ad);
                     });
                 }
 
