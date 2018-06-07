@@ -546,9 +546,6 @@ public final class CorsaREST {
      * 
      * @param ofport the ofport of the tunnel
      * 
-     * @param handler invoked with the result when the operation is
-     * complete
-     * 
      * @return the response
      * 
      * @throws ParseException if the response was not in the expected

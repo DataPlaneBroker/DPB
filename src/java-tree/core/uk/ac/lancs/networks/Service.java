@@ -76,10 +76,10 @@ import java.util.Collection;
  * A service can be activated and deactivated any number of times.
  * 
  * <p>
- * {@linkplain ServiceListener#newStatus(ServiceStatus)
- * newStatus}({@link ServiceStatus#FAILED FAILED}) will be invoked on
- * error, and errors {@link Service#errors()} can be used to get details
- * on the failure.
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus)
+ * newStatus}({@link ServiceStatus#FAILED FAILED})</code> will be
+ * invoked on error, and errors {@link Service#errors()} can be used to
+ * get details on the failure.
  * 
  * <p>
  * Calling {@link #release()} ensures the service is deactivated, and

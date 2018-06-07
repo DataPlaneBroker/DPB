@@ -51,27 +51,27 @@ public class NetworkManagementException extends Exception {
     public NetworkManagementException() {}
 
     /**
-     * Create an exception with a detail message and a cause.
+     * Create an exception with a detail message.
      * 
      * @param message the detail message
-     * 
-     * @param cause the cause
      */
     public NetworkManagementException(String message) {
         super(message);
     }
 
     /**
-     * Create an exception with a detail message.
+     * Create an exception with a cause.
      * 
-     * @param message the detail message
+     * @param cause the cause
      */
     public NetworkManagementException(Throwable cause) {
         super(cause);
     }
 
     /**
-     * Create an exception with a cause.
+     * Create an exception with a detail message and a cause.
+     * 
+     * @param message the detail message
      * 
      * @param cause the cause
      */

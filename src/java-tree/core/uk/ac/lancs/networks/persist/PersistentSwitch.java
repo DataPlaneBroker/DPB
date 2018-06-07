@@ -504,8 +504,8 @@ public class PersistentSwitch implements Switch {
      * @param executor used to invoke call-backs created by this network
      * and passed to the fabric
      * 
-     * @param config the configuration describing the network, the
-     * back-end switch, and access to the database
+     * @param dbConfig the configuration describing access to the
+     * database
      * 
      * @throws IllegalArgumentException if no factory recognizes the
      * back-end type

@@ -97,9 +97,6 @@ public final class Graphs {
      * Generate forwarding information bases for all vertices in an
      * undirected weighted graph for a subset of destinations.
      * 
-     * @param result the map to hold the result, the FIBs of all
-     * vertices in the graph
-     * 
      * @param terminals the subset of destinations that will be the
      * keysets of each FIB
      * 

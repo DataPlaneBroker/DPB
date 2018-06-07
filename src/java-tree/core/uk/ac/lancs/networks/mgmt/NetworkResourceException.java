@@ -50,27 +50,27 @@ public class NetworkResourceException extends RuntimeException {
     public NetworkResourceException() {}
 
     /**
-     * Create an exception with a detail message and a cause.
+     * Create an exception with a detail message.
      * 
      * @param message the detail message
-     * 
-     * @param cause the cause
      */
     public NetworkResourceException(String message) {
         super(message);
     }
 
     /**
-     * Create an exception with a detail message.
+     * Create an exception with a cause.
      * 
-     * @param message the detail message
+     * @param cause the cause
      */
     public NetworkResourceException(Throwable cause) {
         super(cause);
     }
 
     /**
-     * Create an exception with a cause.
+     * Create an exception with a detail message and a cause.
+     * 
+     * @param message the detail message
      * 
      * @param cause the cause
      */

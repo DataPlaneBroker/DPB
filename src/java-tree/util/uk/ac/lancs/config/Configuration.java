@@ -323,12 +323,9 @@ public interface Configuration {
 
     /**
      * Get the value of a configuration parameter resolved against the
-     * referencing file's location, as a filename, or a default.
+     * referencing file's location, as a filename.
      * 
      * @param key the parameter key
-     * 
-     * @param defaultValue the default value to be resolved against the
-     * configuration's location
      * 
      * @return the resolved parameter as a filename, or {@code null} if
      * not specified

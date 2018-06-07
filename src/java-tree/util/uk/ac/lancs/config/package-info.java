@@ -47,7 +47,7 @@
  * <p>
  * For example, if keys beginning with <samp>foo.bar.</samp> are
  * referenced by entry <samp>yan.tan.inherit.0</samp>, then
- * <samp>foo.bar.baz></samp> will be copied to <samp>yan.tan.baz</samp>.
+ * <samp>foo.bar.baz</samp> will be copied to <samp>yan.tan.baz</samp>.
  * 
  * <p>
  * Inherit directives are removed from the view presented to the user.
