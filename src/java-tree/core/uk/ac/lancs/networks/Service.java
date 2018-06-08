@@ -52,24 +52,24 @@ import java.util.Collection;
  * <p>
  * Call {@link #initiate(ServiceDescription)} with service parameters
  * (end points and bandwidth) to initiate a service.
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#INACTIVE INACTIVE})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#INACTIVE INACTIVE})</code>
  * will be invoked if the service is established (but not yet
  * activated).
  * 
  * <p>
  * Once established, {@link #activate()} can be called to activate the
  * service, allowing traffic to flow.
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#ACTIVATING ACTIVATING})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#ACTIVATING ACTIVATING})</code>
  * will be invoked as activation begins, and
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#ACTIVE ACTIVE})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#ACTIVE ACTIVE})</code>
  * will be invoked when activation is complete.
  * 
  * <p>
  * A service can be deactived with {@link #deactivate()}, and traffic
  * will no longer flow.
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#DEACTIVATING ACTIVATING})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#DEACTIVATING ACTIVATING})</code>
  * will be invoked as deactivation starts, and
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#INACTIVE INACTIVE})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#INACTIVE INACTIVE})</code>
  * will be invoked when de-activation is complete.
  * 
  * <p>
@@ -77,16 +77,16 @@ import java.util.Collection;
  * 
  * <p>
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus)
- * newStatus}({@link ServiceStatus#FAILED FAILED})</code> will be
+ * newStatus}({@linkplain ServiceStatus#FAILED FAILED})</code> will be
  * invoked on error, and errors {@link Service#errors()} can be used to
  * get details on the failure.
  * 
  * <p>
  * Calling {@link #release()} ensures the service is deactivated, and
  * all resources will be released.
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#RELEASING RELEASING})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#RELEASING RELEASING})</code>
  * will be called immediately, and then
- * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@link ServiceStatus#RELEASED RELEASED})</code>
+ * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#RELEASED RELEASED})</code>
  * when all resources have been released.
  * 
  * @summary A connectivity service with QoS guarantees
