@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
  * Map&lt;Edge&lt;String&gt;, Double&gt; graph = new HashMap&lt;&gt;();
  * graph.put(Edge.of("A", "D"), 1.0);
  * graph.put(Edge.of("E", "D"), 1.0);
- * &lt;var&gt;...&lt;/var&gt;
+ * <var>...</var>
  * Collection&lt;String&gt; terminals =
  *     new HashSet&lt;&gt;(Arrays.asList("A", "B", "C"));
  * 
