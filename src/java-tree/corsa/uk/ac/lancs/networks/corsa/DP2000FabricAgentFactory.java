@@ -75,16 +75,21 @@ import uk.ac.lancs.scc.jardeps.Service;
  * 
  * <dd>Specifies the maximum number of bridges to be created.
  * 
+ * <dt><samp>description.prefix</samp> (default
+ * <samp>{@value #DEFAULT_DESCRIPTION_PREFIX}</samp>)
  * <dt><samp>description.partial</samp> (default
- * <samp>{@value #DEFAULT_PARTIAL_DESCRIPTION}</samp>)
+ * <samp>{@value #DEFAULT_PARTIAL_DESCRIPTION_SUFFIX}</samp>)
  * <dt><samp>description.complete</samp> (default
- * <samp>{@value #DEFAULT_COMPLETE_DESCRIPTION}</samp>)
+ * <samp>{@value #DEFAULT_COMPLETE_DESCRIPTION_SUFFIX}</samp>)
  * 
  * <dd>Specify the strings used in the text descriptions of each bridge.
  * The partial text is used on creation, and the complete text is used
  * when the bridge is fully configured and operational. Bridges left in
  * the partial state due to error or early termination will be removed
- * on the next restart of the agent.
+ * on the next restart of the agent. Any other bridge with the same
+ * prefix is considered to be the responsibility of the agent, assumed
+ * to be related to a different fabric implementation that it has
+ * replaced, and will also be removed.
  * 
  * <dt><samp>subtype</samp> (default
  * <samp>{@value #DEFAULT_SUBYTPE}</samp>)
@@ -132,14 +137,18 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String DEFAULT_PARTIAL_DESCRIPTION =
-        "initiate:vc:partial";
+    public static final String DEFAULT_DESCRIPTION_PREFIX = "initiate:vc:";
 
     /**
      * @undocumented
      */
-    public static final String DEFAULT_COMPLETE_DESCRIPTION =
-        "initiate:vc:complete";
+    public static final String DEFAULT_PARTIAL_DESCRIPTION_SUFFIX = "partial";
+
+    /**
+     * @undocumented
+     */
+    public static final String DEFAULT_COMPLETE_DESCRIPTION_SUFFIX =
+        "complete";
 
     /**
      * @undocumented
@@ -181,10 +190,12 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
-        final String partialDesc =
-            conf.get("description.partial", DEFAULT_PARTIAL_DESCRIPTION);
-        final String fullDesc =
-            conf.get("description.complete", DEFAULT_COMPLETE_DESCRIPTION);
+        final String descPrefix =
+            conf.get("description.prefix", DEFAULT_DESCRIPTION_PREFIX);
+        final String partialDescSuffix = conf
+            .get("description.partial", DEFAULT_PARTIAL_DESCRIPTION_SUFFIX);
+        final String fullDescSuffix = conf
+            .get("description.complete", DEFAULT_COMPLETE_DESCRIPTION_SUFFIX);
         final String subtype = conf.get("subtype", DEFAULT_SUBYTPE);
         final String netns =
             conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
@@ -218,8 +229,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final DP2000Fabric fabric;
         try {
             fabric =
-                new DP2000Fabric(maxBridges, partialDesc, fullDesc, subtype,
-                                 netns, controller, service, cert, authz);
+                new DP2000Fabric(maxBridges, descPrefix, partialDescSuffix,
+                                 fullDescSuffix, subtype, netns, controller,
+                                 service, cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }

@@ -80,8 +80,8 @@ public class DP2000Fabric implements Fabric {
     private final int maxBridges;
 
     /**
-     * Bridges whose descriptions have this form should be deleted at
-     * start-up. Their configuration was not completed.
+     * Bridges whose configuration is incomplete should have this
+     * description.
      */
     private final String partialDesc;
 
@@ -90,6 +90,14 @@ public class DP2000Fabric implements Fabric {
      * persistent state.
      */
     private final String fullDesc;
+
+    /**
+     * Bridges whose descriptions begin with this string should be
+     * destroyed at start-up, because they were part of the previous
+     * incarnation but were either not completely configured or were
+     * used in a different way.
+     */
+    private final String descPrefix;
 
     /**
      * The network namespace for new bridges
@@ -106,11 +114,14 @@ public class DP2000Fabric implements Fabric {
      * @param maxBridges the maximum number of bridges that this fabric
      * will create and manage at once
      * 
-     * @param partialDesc the description text used for new bridges
-     * before their configuration is complete
+     * @param descPrefix the prefix of the description text for bridges
+     * under the control of this fabric
      * 
-     * @param fullDesc the description text used for new bridges as soon
-     * as their configuration is complete
+     * @param partialDescSuffix the suffix of the description text used
+     * for new bridges before their configuration is complete
+     * 
+     * @param fullDescSuffix the suffix of the description text used for
+     * new bridges as soon as their configuration is complete
      * 
      * @param subtype the VFC subtype to use when creating bridges,
      * e.g., <samp>ls-vpn</samp>, <samp>openflow</samp>, etc.
@@ -133,15 +144,17 @@ public class DP2000Fabric implements Fabric {
      * @throws NoSuchAlgorithmException if there is a problem with the
      * certficate
      */
-    public DP2000Fabric(int maxBridges, String partialDesc, String fullDesc,
+    public DP2000Fabric(int maxBridges, String descPrefix,
+                        String partialDescSuffix, String fullDescSuffix,
                         String subtype, String netns,
                         InetSocketAddress controller, URI service,
                         X509Certificate cert, String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
         this.maxBridges = maxBridges;
-        this.partialDesc = partialDesc;
-        this.fullDesc = fullDesc;
+        this.descPrefix = descPrefix;
+        this.partialDesc = descPrefix + partialDescSuffix;
+        this.fullDesc = descPrefix + fullDescSuffix;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
@@ -405,13 +418,19 @@ public class DP2000Fabric implements Fabric {
              * control, and should be ignored. */
             if (bridgeInfo.message.descr == null) continue;
 
-            /* Destroy bridges that were only partially configured from
-             * last time. */
-            if (bridgeInfo.message.descr.equals(partialDesc))
-                rest.destroyBridge(bridgeName);
+            /* Bridges that are marked as ours and are complete should
+             * be analyzed to see what they connect. */
+            if (!bridgeInfo.message.descr.equals(fullDesc)) {
+                /* Other bridges marked with our prefix are either
+                 * leftovers from our previous incarnation or from the
+                 * system we've replaced. */
+                if (bridgeInfo.message.descr.startsWith(descPrefix))
+                    rest.destroyBridge(bridgeName);
 
-            /* Bridges not under our control should be ignored. */
-            if (!bridgeInfo.message.descr.equals(fullDesc)) continue;
+                /* Bridges that are not related to us should be
+                 * ignored. */
+                continue;
+            }
 
             /* Find out how the bridge is connected. Derive a partial
              * service description from it. */
