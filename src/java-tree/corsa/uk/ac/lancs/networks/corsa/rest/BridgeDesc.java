@@ -46,6 +46,8 @@ import java.util.Map;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import uk.ac.lancs.rest.JSONEntity;
+
 /**
  * Describes a bridge configuration.
  * 

@@ -33,73 +33,52 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa.rest;
+package uk.ac.lancs.rest;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
+import java.util.function.Function;
 
 /**
- * Holds a JSON entity, either an array or a map. Exactly one of the
- * members is not {@code null}.
+ * A REST response message with an HTTP response code
+ * 
+ * @param <T> the application-specific message type
  * 
  * @author simpsons
  */
-public final class JSONEntity {
+public class RESTResponse<T> {
     /**
-     * The entity as an array, or {@code null} if it is a map
+     * The HTTP response code
      */
-    public final JSONArray array;
+    public final int code;
 
     /**
-     * The entity as a map, or {@code null} if it is an array
+     * The application-specific response message
      */
-    public final JSONObject map;
+    public final T message;
 
     /**
-     * Create a JSON entity from a map.
+     * Combine an HTTP response code with an application-specific
+     * message.
      * 
-     * @param map the map
+     * @param code the HTTP response code
      * 
-     * @throws NullPointerException if the argument is {@code null}
+     * @param message the message
      */
-    public JSONEntity(JSONObject map) {
-        if (map == null) throw new NullPointerException();
-        this.map = map;
-        this.array = null;
+    public RESTResponse(int code, T message) {
+        this.code = code;
+        this.message = message;
     }
 
     /**
-     * Create a JSON entity from an array
+     * Adapt this response to a new type.
      * 
-     * @param array the array
+     * @param <E> the new type
      * 
-     * @throws NullPointerException if the argument is {@code null}
+     * @param adapter a converter from the entity to the intended type
+     * 
+     * @return the adapted response
      */
-    public JSONEntity(JSONArray array) {
-        if (array == null) throw new NullPointerException();
-        this.array = array;
-        this.map = null;
-    }
-
-    /**
-     * Create a JSON entity from an array or map as appropriate.
-     * 
-     * @param obj either a {@link JSONArray} or a {@link JSONObject}
-     * 
-     * @throws IllegalArgumentException if the object is not of a
-     * suitable type
-     */
-    public JSONEntity(Object obj) {
-        if (obj == null) {
-            throw new NullPointerException();
-        } else if (obj instanceof JSONArray) {
-            this.array = (JSONArray) obj;
-            this.map = null;
-        } else if (obj instanceof JSONObject) {
-            this.map = (JSONObject) obj;
-            this.array = null;
-        } else {
-            throw new IllegalArgumentException();
-        }
+    public <E> RESTResponse<E>
+        adapt(Function<? super T, ? extends E> adapter) {
+        return new RESTResponse<>(this.code, adapter.apply(this.message));
     }
 }

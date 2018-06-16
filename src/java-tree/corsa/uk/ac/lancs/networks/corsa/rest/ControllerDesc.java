@@ -40,6 +40,8 @@ import java.net.UnknownHostException;
 
 import org.json.simple.JSONObject;
 
+import uk.ac.lancs.rest.JSONEntity;
+
 /**
  * Describes an existing controller's configuration and status.
  * 

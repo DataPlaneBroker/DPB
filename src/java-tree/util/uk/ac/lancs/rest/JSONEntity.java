@@ -33,72 +33,73 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa.rest;
-
-import java.net.URI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
+package uk.ac.lancs.rest;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
-import uk.ac.lancs.rest.JSONEntity;
-
 /**
- * Lists basic bridge details and supported bridge subtypes.
+ * Holds a JSON entity, either an array or a map. Exactly one of the
+ * members is not {@code null}.
  * 
  * @author simpsons
  */
-public class BridgesDesc {
+public final class JSONEntity {
     /**
-     * A set of supported bridge subtypes
-     * 
-     * @see BridgeDesc#subtype
+     * The entity as an array, or {@code null} if it is a map
      */
-    public final Collection<String> supportedSubtypes = new HashSet<>();
+    public final JSONArray array;
 
     /**
-     * A set of bridges and their REST URIs
+     * The entity as a map, or {@code null} if it is an array
      */
-    public final Map<String, URI> bridges = new HashMap<>();
+    public final JSONObject map;
 
     /**
-     * Create a list of bridge details from a JSON entity.
+     * Create a JSON entity from a map.
      * 
-     * @param entity the JSON object
+     * @param map the map
+     * 
+     * @throws NullPointerException if the argument is {@code null}
      */
-    public BridgesDesc(JSONEntity entity) {
-        this(entity.map);
+    public JSONEntity(JSONObject map) {
+        if (map == null) throw new NullPointerException();
+        this.map = map;
+        this.array = null;
     }
 
     /**
-     * Create a list of bridge details from a JSON object.
+     * Create a JSON entity from an array
      * 
-     * @param root the JSON object
+     * @param array the array
+     * 
+     * @throws NullPointerException if the argument is {@code null}
      */
-    public BridgesDesc(JSONObject root) {
-        JSONArray brList = (JSONArray) root.get("supported-subtypes");
-        if (brList != null) {
-            for (@SuppressWarnings("unchecked")
-            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
-                supportedSubtypes.add(iter.next());
-            }
-        }
+    public JSONEntity(JSONArray array) {
+        if (array == null) throw new NullPointerException();
+        this.array = array;
+        this.map = null;
+    }
 
-        JSONObject links = (JSONObject) root.get("links");
-        if (links != null) {
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                bridges.put(key, href);
-            }
+    /**
+     * Create a JSON entity from an array or map as appropriate.
+     * 
+     * @param obj either a {@link JSONArray} or a {@link JSONObject}
+     * 
+     * @throws IllegalArgumentException if the object is not of a
+     * suitable type
+     */
+    public JSONEntity(Object obj) {
+        if (obj == null) {
+            throw new NullPointerException();
+        } else if (obj instanceof JSONArray) {
+            this.array = (JSONArray) obj;
+            this.map = null;
+        } else if (obj instanceof JSONObject) {
+            this.map = (JSONObject) obj;
+            this.array = null;
+        } else {
+            throw new IllegalArgumentException();
         }
     }
 }

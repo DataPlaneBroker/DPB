@@ -41,51 +41,29 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.entity.EntityBuilder;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.entity.ContentType;
-import org.apache.http.impl.client.HttpClients;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import uk.ac.lancs.rest.JSONEntity;
+import uk.ac.lancs.rest.RESTClient;
+import uk.ac.lancs.rest.RESTResponse;
+import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
 
 /**
  * Connects to a Corsa REST interface.
  * 
  * @author simpsons
  */
-public final class CorsaREST {
-    private final URI service;
-    private final String authz;
-    private final SSLContext sslContext;
-
+public final class CorsaREST extends RESTClient {
     /**
      * Create a connection to a Corsa REST interface.
      * 
@@ -98,107 +76,8 @@ public final class CorsaREST {
     public CorsaREST(URI service, X509Certificate cert, String authz)
         throws NoSuchAlgorithmException,
             KeyManagementException {
-        this.service = service;
-        this.authz = authz;
-
-        TrustManager[] tm = new TrustManager[] { new X509TrustManager() {
-            @Override
-            public X509Certificate[] getAcceptedIssuers() {
-                return new X509Certificate[] { cert };
-            }
-
-            @Override
-            public void checkServerTrusted(X509Certificate[] chain,
-                                           String authType)
-                throws CertificateException {
-                for (X509Certificate cand : chain) {
-                    if (!cand.equals(cert)) continue;
-                    return;
-                }
-                throw new CertificateException("not accepted");
-            }
-
-            @Override
-            public void checkClientTrusted(X509Certificate[] arg0,
-                                           String arg1)
-                throws CertificateException {
-                ;
-            }
-        }, };
-
-        sslContext = SSLContext.getInstance("SSL");
-        sslContext.init(null, tm, new SecureRandom());
-    }
-
-    private HttpClient newClient() {
-        HttpClient httpClient = HttpClients.custom().setSSLContext(sslContext)
-            .setSSLHostnameVerifier(new NoopHostnameVerifier()).build();
-        return httpClient;
-    }
-
-    private static final Charset UTF8 = Charset.forName("UTF-8");
-
-    private RESTResponse<JSONEntity>
-        request(HttpUriRequest request) throws IOException, ParseException {
-        HttpClient client = newClient();
-        request.setHeader("Authorization", authz);
-        HttpResponse rsp = client.execute(request);
-        final int code = rsp.getStatusLine().getStatusCode();
-        HttpEntity ent = rsp.getEntity();
-        final JSONEntity result;
-        if (ent == null) {
-            result = null;
-        } else {
-            try (Reader in = new InputStreamReader(ent.getContent(), UTF8)) {
-                JSONParser parser = new JSONParser();
-                result = new JSONEntity(parser.parse(in));
-            }
-        }
-        return new RESTResponse<JSONEntity>(code, result);
-    }
-
-    private static HttpEntity entityOf(Map<?, ?> params) {
-        return EntityBuilder.create()
-            .setContentType(ContentType.APPLICATION_JSON)
-            .setText(JSONObject.toJSONString(params)).build();
-    }
-
-    private static HttpEntity entityOf(List<?> params) {
-        String text = JSONArray.toJSONString(params);
-        return EntityBuilder.create()
-            .setContentType(ContentType.APPLICATION_JSON).setText(text)
-            .build();
-    }
-
-    private RESTResponse<JSONEntity>
-        get(String sub) throws IOException, ParseException {
-        URI location = service.resolve("api/v1/" + sub);
-        HttpGet request = new HttpGet(location);
-        return request(request);
-    }
-
-    private RESTResponse<JSONEntity>
-        delete(String sub) throws IOException, ParseException {
-        URI location = service.resolve("api/v1/" + sub);
-        HttpDelete request = new HttpDelete(location);
-        return request(request);
-    }
-
-    private RESTResponse<JSONEntity> post(String sub, Map<?, ?> params)
-        throws IOException,
-            ParseException {
-        URI location = service.resolve("api/v1/" + sub);
-        HttpPost request = new HttpPost(location);
-        request.setEntity(entityOf(params));
-        return request(request);
-    }
-
-    private RESTResponse<JSONEntity>
-        patch(String sub, List<?> params) throws IOException, ParseException {
-        URI location = service.resolve("api/v1/" + sub);
-        HttpPatch request = new HttpPatch(location);
-        request.setEntity(entityOf(params));
-        return request(request);
+        super(service.resolve("api/v1/"), SecureSingleCertificateHttpProvider
+            .forCertificate(cert)::newClient, authz);
     }
 
     /**

@@ -60,7 +60,6 @@ import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
 import uk.ac.lancs.networks.corsa.rest.CorsaREST;
 import uk.ac.lancs.networks.corsa.rest.Meter;
-import uk.ac.lancs.networks.corsa.rest.RESTResponse;
 import uk.ac.lancs.networks.corsa.rest.ReplaceBridgeDescription;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.end_points.EndPoint;
@@ -68,6 +67,7 @@ import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.Interface;
+import uk.ac.lancs.rest.RESTResponse;
 
 /**
  * Manages a Corsa DP2X00-series switch as a fabric.

@@ -40,6 +40,8 @@ trees_initiate-dpb-util += util
 roots_util += uk.ac.lancs.config.ConfigurationContext
 roots_util += uk.ac.lancs.agent.AgentFactory
 roots_util += uk.ac.lancs.agent.AgentBuilder
+roots_util += uk.ac.lancs.rest.RESTClient
+roots_util += uk.ac.lancs.rest.SecureSingleCertificateHttpProvider
 
 TEST_JARS += tests
 roots_tests += TestOddSpan

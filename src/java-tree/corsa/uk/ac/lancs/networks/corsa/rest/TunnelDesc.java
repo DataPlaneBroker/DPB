@@ -43,6 +43,8 @@ import java.util.Map;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
+import uk.ac.lancs.rest.JSONEntity;
+
 /**
  * Describes an existing tunnel or one to be created.
  * 

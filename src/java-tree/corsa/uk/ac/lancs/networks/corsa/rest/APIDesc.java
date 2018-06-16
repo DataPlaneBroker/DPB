@@ -42,6 +42,8 @@ import java.util.Map;
 
 import org.json.simple.JSONObject;
 
+import uk.ac.lancs.rest.JSONEntity;
+
 /**
  * Describes the Corsa REST API.
  * 

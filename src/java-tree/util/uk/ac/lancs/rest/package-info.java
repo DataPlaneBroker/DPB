@@ -33,52 +33,10 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa.rest;
-
-import java.util.function.Function;
 
 /**
- * A REST response message with an HTTP response code
- * 
- * @param <T> the application-specific message type
+ * Provides some basic tools for invoking REST APIs.
  * 
  * @author simpsons
  */
-public class RESTResponse<T> {
-    /**
-     * The HTTP response code
-     */
-    public final int code;
-
-    /**
-     * The application-specific response message
-     */
-    public final T message;
-
-    /**
-     * Combine an HTTP response code with an application-specific
-     * message.
-     * 
-     * @param code the HTTP response code
-     * 
-     * @param message the message
-     */
-    public RESTResponse(int code, T message) {
-        this.code = code;
-        this.message = message;
-    }
-
-    /**
-     * Adapt this response to a new type.
-     * 
-     * @param <E> the new type
-     * 
-     * @param adapter a converter from the entity to the intended type
-     * 
-     * @return the adapted response
-     */
-    public <E> RESTResponse<E>
-        adapt(Function<? super T, ? extends E> adapter) {
-        return new RESTResponse<>(this.code, adapter.apply(this.message));
-    }
-}
+package uk.ac.lancs.rest;
