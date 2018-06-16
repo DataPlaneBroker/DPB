@@ -177,7 +177,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
         final InetSocketAddress controller =
             new InetSocketAddress(conf.get("ctrl.host", "172.17.1.1"), Integer
-                .parseInt(conf.get("ctrl.port", "6553")));
+                .parseInt(conf.get("ctrl.port", "6653")));
         final int maxBridges =
             Integer.parseInt(conf.get("capacity.bridges", "63"));
         final URI service = URI.create(conf.get("rest.location"));
