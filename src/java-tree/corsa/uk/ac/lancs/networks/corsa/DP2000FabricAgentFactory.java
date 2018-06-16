@@ -97,11 +97,14 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <dd>Specifies the network namespace for the controller port of the
  * new bridges.
  * 
- * <dt><samp>ctrl.host</samp> (default <samp>172.17.1.1</samp>)
- * <dt><samp>ctrl.port</samp> (default <samp>6553</samp>)
+ * <dt><samp>ctrl.host</samp> (default
+ * <samp>{@value #DEFAULT_CONTROLLER_HOST}</samp>)
+ * <dt><samp>ctrl.port</samp> (default
+ * <samp>{@value #DEFAULT_CONTROLLER_PORT}</samp>)
  * 
  * <dd>Specify the controller address used to configure each bridge
- * with. The defaults point to the local learning switch.
+ * with. The defaults point to one of the local learning-switch
+ * controllers.
  * 
  * <dt><samp>rest.location</samp>
  * 
@@ -154,6 +157,16 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     public static final String TYPE_NAME = "corsa-dp2x00-brperlink";
 
     /**
+     * @undocumented
+     */
+    public static final String DEFAULT_CONTROLLER_HOST = "172.17.1.1";
+
+    /**
+     * @undocumented
+     */
+    public static final int DEFAULT_CONTROLLER_PORT = 6653;
+
+    /**
      * {@inheritDoc}
      * 
      * <p>
@@ -176,8 +189,11 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final String netns =
             conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
         final InetSocketAddress controller =
-            new InetSocketAddress(conf.get("ctrl.host", "172.17.1.1"), Integer
-                .parseInt(conf.get("ctrl.port", "6653")));
+            new InetSocketAddress(conf.get("ctrl.host",
+                                           DEFAULT_CONTROLLER_HOST),
+                                  Integer
+                                      .parseInt(conf.get("ctrl.port", Integer
+                                          .toString(DEFAULT_CONTROLLER_PORT))));
         final int maxBridges =
             Integer.parseInt(conf.get("capacity.bridges", "63"));
         final URI service = URI.create(conf.get("rest.location"));
