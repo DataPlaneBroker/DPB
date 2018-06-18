@@ -44,23 +44,31 @@ import java.net.URI;
  */
 class PrefixConfiguration implements Configuration {
     private final ConfigurationContext context;
-    private final URI location;
     private final String prefix;
     private final Configuration base;
     private final int prefixLength;
 
-    PrefixConfiguration(ConfigurationContext context, URI location,
-                        Configuration base, String prefix) {
+    PrefixConfiguration(ConfigurationContext context, Configuration base,
+                        String prefix) {
         this.context = context;
-        this.location = location;
         this.base = base;
         this.prefix = Configuration.normalizePrefix(prefix);
         prefixLength = this.prefix.length();
     }
 
     @Override
-    public String toString() {
-        return location.resolve(prefix).toASCIIString();
+    public URI resolve(String value) {
+        return base.resolve(value);
+    }
+
+    @Override
+    public Reference find(String key) {
+        return base.find(prefix + key);
+    }
+
+    @Override
+    public Configuration base() {
+        return base;
     }
 
     @Override
@@ -72,29 +80,17 @@ class PrefixConfiguration implements Configuration {
     public Configuration subview(String prefix) {
         prefix = Configuration.normalizePrefix(this.prefix + prefix);
         if (prefix.isEmpty()) return base;
-        return new PrefixConfiguration(context, location, base, prefix);
+        return new PrefixConfiguration(context, base, prefix);
     }
 
     @Override
-    public Iterable<String> keys() {
-        return base.transformedSelectedKeys(s -> s.startsWith(prefix),
-                                            s -> s.substring(prefixLength));
+    public Iterable<String> keys(String prefix) {
+        prefix = Configuration.normalizePrefix(this.prefix + prefix);
+        return base.transformedKeys(prefix, s -> s.substring(prefixLength));
     }
 
     @Override
-    public Configuration reference(String key, String value) {
-        return base.reference(this.prefix + key, value);
-    }
-
-    @Override
-    public String absoluteHome() {
-        return "." + prefix;
-    }
-
-    @Override
-    public URI getLocation(String key, String defaultValue) {
-        String relativeValue = get(key, defaultValue);
-        if (relativeValue == null) return null;
-        return location.resolve(relativeValue);
+    public String prefix() {
+        return prefix;
     }
 }

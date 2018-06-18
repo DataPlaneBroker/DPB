@@ -63,13 +63,122 @@ import java.util.stream.Collectors;
  */
 public interface Configuration {
     /**
+     * Identifies how a configuration parameter was obtained.
+     * 
+     * @author simpsons
+     */
+    interface Reference {
+        /**
+         * Get the base configuration that provides this parameter.
+         * 
+         * @return the requested base configuration
+         */
+        Configuration provider();
+
+        /**
+         * Get the key by which the provider knows the parameter.
+         * 
+         * @return the key with respect to the provider
+         */
+        String key();
+
+        /**
+         * Get the raw value of the parameter.
+         * 
+         * @return the parameter's raw value
+         * 
+         * @default <code>{@linkplain #provider() provider}().{@linkplain Configuration#get(String)}({@linkplain #get() get}})</code>
+         * is invoked.
+         */
+        default String value() {
+            return provider().get(key());
+        }
+
+        /**
+         * Get the value of the parameter resolved against the provider.
+         * 
+         * @return the parameter's value resolved against the provider
+         */
+        default URI location() {
+            return provider().resolve(value());
+        }
+    }
+
+    /**
+     * Resolve a string against this configuration's location.
+     * 
+     * @param value the string to resolve against the configuration
+     * 
+     * @return the resolved URI
+     */
+    URI resolve(String value);
+
+    /**
      * Get a configuration parameter.
      * 
      * @param key the parameter key
      * 
      * @return the parameter's value, or {@code null} if not present
      */
-    String get(String key);
+    default String get(String key) {
+        Reference ref = find(key);
+        if (ref == null) return null;
+        return ref.value();
+    }
+
+    /**
+     * Find a parameter in this configuration or any it is built upon.
+     * 
+     * @param key the parameter key
+     * 
+     * @return a reference for the parameter, or {@code null} if not
+     * present
+     */
+    Reference find(String key);
+
+    /**
+     * Get the base configuration.
+     * 
+     * @return the base configuration from which this one is derived
+     */
+    Configuration base();
+
+    /**
+     * Get a subview.
+     * 
+     * @param prefix the additional prefix to narrow down the available
+     * parameters
+     * 
+     * @return the requested subview
+     */
+    Configuration subview(String prefix);
+
+    /**
+     * Get the prefix of this configuration view.
+     * 
+     * @return the hidden prefix of parameter names in this view
+     */
+    String prefix();
+
+    /**
+     * List keys in this configuration with a given prefix.
+     * 
+     * @param prefix the required prefix
+     * 
+     * @return the keys, retaining the prefix
+     */
+    Iterable<String> keys(String prefix);
+
+    /**
+     * List keys in this configuration.
+     * 
+     * @return the keys
+     * 
+     * @default <code>{@link #keys(String) keys}("")</code> is invoked.
+     */
+    default Iterable<String> keys() {
+        return keys("");
+    }
 
     /**
      * Get a configuration parameter, or a default.
@@ -89,30 +198,32 @@ public interface Configuration {
     }
 
     /**
-     * Obtain a locally referenced configuration.
-     * 
-     * @param key the key used as a base for resolving a relative name
-     * 
-     * @param value the reference to the configuration
-     * 
-     * @return the referenced configuration
-     * 
-     * @throws NullPointerException if <samp>value</samp> is
-     * {@code null}
-     */
-    Configuration reference(String key, String value);
-
-    /**
      * Convert the properties in this configuration into a conventional
      * Java properties object.
      * 
      * @return a copy of this configuration's properties
+     * 
+     * @default The parameters are iterated over using {@link #keys()},
+     * and values are stored using {@link #get(String)}.
      */
     default Properties toProperties() {
         Properties result = new Properties();
         for (String key : keys())
             result.setProperty(key, get(key));
         return result;
+    }
+
+    /**
+     * Obtain a locally referenced configuration if specified.
+     * 
+     * @param key the key used to obtain the reference, and as a base
+     * for resolving a relative name
+     * 
+     * @return the referenced configuration, or {@code null} if not
+     * specified
+     */
+    default Configuration reference(String key) {
+        return reference(key, (Configuration) null);
     }
 
     /**
@@ -133,16 +244,19 @@ public interface Configuration {
     }
 
     /**
-     * Obtain a locally referenced configuration if specified.
+     * Obtain a locally referenced configuration.
      * 
-     * @param key the key used to obtain the reference, and as a base
-     * for resolving a relative name
+     * @param base the key used as a base for resolving a relative name
      * 
-     * @return the referenced configuration, or {@code null} if not
-     * specified
+     * @param path the reference to the configuration
+     * 
+     * @return the referenced configuration
+     * 
+     * @throws NullPointerException if <samp>path</samp> is {@code null}
      */
-    default Configuration reference(String key) {
-        return reference(key, (Configuration) null);
+    default Configuration reference(String base, String path) {
+        String resolvedKey = resolveKey(base, path);
+        return base().subview(resolvedKey);
     }
 
     /**
@@ -163,23 +277,6 @@ public interface Configuration {
     }
 
     /**
-     * Get a subview.
-     * 
-     * @param prefix the additional prefix to narrow down the available
-     * parameters
-     * 
-     * @return the requested subview
-     */
-    Configuration subview(String prefix);
-
-    /**
-     * List keys in this configuration.
-     * 
-     * @return the keys
-     */
-    Iterable<String> keys();
-
-    /**
      * List a subset of keys.
      * 
      * @param condition a condition selecting keys to include
@@ -197,6 +294,29 @@ public interface Configuration {
     }
 
     /**
+     * List transformed keys matching a prefix.
+     * 
+     * @param prefix the prefix of keys to match
+     * 
+     * @param <K> the type to transform keys into
+     * 
+     * @param xform the transformation function
+     * 
+     * @return the transformed keys
+     */
+    default <K> Iterable<K>
+        transformedKeys(String prefix,
+                        Function<? super String, ? extends K> xform) {
+        return new Iterable<K>() {
+            @Override
+            public Iterator<K> iterator() {
+                return new TransformIterator<>(keys(prefix).iterator(),
+                                               xform);
+            }
+        };
+    }
+
+    /**
      * List transformed keys.
      * 
      * @param <K> the type to transform keys into
@@ -207,12 +327,7 @@ public interface Configuration {
      */
     default <K> Iterable<K>
         transformedKeys(Function<? super String, ? extends K> xform) {
-        return new Iterable<K>() {
-            @Override
-            public Iterator<K> iterator() {
-                return new TransformIterator<>(keys().iterator(), xform);
-            }
-        };
+        return transformedKeys("", xform);
     }
 
     /**
@@ -288,14 +403,6 @@ public interface Configuration {
     }
 
     /**
-     * Get the absolute position of this configuration view.
-     * 
-     * @return the absolute position of this configuration view, or
-     * {@code null} if not applicable
-     */
-    String absoluteHome();
-
-    /**
      * Get the value of a configuration parameter resolved against the
      * referencing file's location.
      * 
@@ -305,21 +412,10 @@ public interface Configuration {
      * specified
      */
     default URI getLocation(String key) {
-        return this.getLocation(key, null);
+        Reference ref = find(key);
+        if (ref == null) return null;
+        return ref.location();
     }
-
-    /**
-     * Get the value of a configuration parameter resolved against the
-     * referencing file's location, or a default.
-     * 
-     * @param key the parameter key
-     * 
-     * @param defaultValue the default value to be resolved against the
-     * configuration's location
-     * 
-     * @return the resolved parameter as a URI
-     */
-    URI getLocation(String key, String defaultValue);
 
     /**
      * Get the value of a configuration parameter resolved against the
@@ -331,22 +427,7 @@ public interface Configuration {
      * not specified
      */
     default File getFile(String key) {
-        return this.getFile(key, null);
-    }
-
-    /**
-     * Get the value of a configuration parameter resolved against the
-     * referencing file's location, as a filename, or a default.
-     * 
-     * @param key the parameter key
-     * 
-     * @param defaultValue the default value to be resolved against the
-     * configuration's location
-     * 
-     * @return the resolved parameter as a filename
-     */
-    default File getFile(String key, String defaultValue) {
-        URI location = getLocation(key, defaultValue);
+        URI location = getLocation(key);
         if (location == null) return null;
         return new File(location);
     }
@@ -361,22 +442,7 @@ public interface Configuration {
      * not specified
      */
     default Path getPath(String key) {
-        return this.getPath(key, null);
-    }
-
-    /**
-     * Get the value of a configuration parameter resolved against the
-     * referencing file's location, as a file path, or a default.
-     * 
-     * @param key the parameter key
-     * 
-     * @param defaultValue the default value to be resolved against the
-     * configuration's location
-     * 
-     * @return the resolved parameter as a file path
-     */
-    default Path getPath(String key, String defaultValue) {
-        URI location = getLocation(key, defaultValue);
+        URI location = getLocation(key);
         if (location == null) return null;
         return Paths.get(location);
     }
@@ -409,26 +475,27 @@ public interface Configuration {
      * @return the normalized prefix
      */
     public static String normalizePrefix(String prefix) {
-        return prefix == null ? null : normalizeKey(prefix) + '.';
+        return prefix == null ? null
+            : prefix.isEmpty() ? "" : normalizeKey(prefix) + '.';
     }
 
     /**
-     * Resolve a potentially relative key against a base. If the key
-     * does not begin with a <samp>.</samp>, it is returned unchanged.
-     * Otherwise, everything after the last <samp>.</samp> in the base
-     * is removed, and the key is appended.
+     * Resolve a potentially relative key path against a base. If the
+     * path does not begin with a <samp>.</samp>, it is returned
+     * unchanged. Otherwise, everything after the last <samp>.</samp> in
+     * the base is removed, and the path is appended.
      * 
-     * @param base the base to resolve the key against
+     * @param base the base to resolve the key path against
      * 
-     * @param key the key to resolve
+     * @param path the key path to resolve
      * 
-     * @return the key resolved against the base
+     * @return the key path resolved against the base
      */
-    public static String resolveKey(String base, String key) {
-        if (key.isEmpty()) return "";
-        if (key.charAt(0) != '.') return key;
+    public static String resolveKey(String base, String path) {
+        if (path.isEmpty()) return "";
+        if (path.charAt(0) != '.') return path;
         int lastDot = base.lastIndexOf('.');
-        if (lastDot < 0) return key.substring(1);
-        return base.substring(0, lastDot) + key;
+        if (lastDot < 0) return path.substring(1);
+        return base.substring(0, lastDot) + path;
     }
 }

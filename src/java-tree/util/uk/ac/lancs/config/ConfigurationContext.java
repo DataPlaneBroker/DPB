@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
 
 /**
  * Caches mutually referenced configurations. When configurations loaded
@@ -56,8 +57,9 @@ public final class ConfigurationContext {
         BaseConfiguration result = cache.get(location);
         if (result != null) return result;
         result = new BaseConfiguration(this, location);
+        Properties props = BaseConfiguration.load(location);
         cache.put(location, result);
-        result.init();
+        result.init(props);
         return result;
     }
 
@@ -124,12 +126,16 @@ public final class ConfigurationContext {
     public static void main(String[] args) throws Exception {
         ConfigurationContext ctxt = new ConfigurationContext();
         Configuration base = ctxt.get(new File(args[0]));
-        Configuration sop = base.subview("sop");
+        Configuration sop = base.subview("slough-fabric-brperlink");
+        Configuration foo = base.reference("", "uob-fabric");
         for (String key : base.keys()) {
             System.out.printf("base %s -> %s%n", key, base.get(key));
         }
         for (String key : sop.keys()) {
             System.out.printf("sop %s -> %s%n", key, sop.get(key));
+        }
+        for (String key : foo.keys()) {
+            System.out.printf("foo %s -> %s%n", key, foo.get(key));
         }
     }
 }

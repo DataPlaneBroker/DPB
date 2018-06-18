@@ -145,14 +145,14 @@ public final class Commander {
             for (Configuration agentConf : config.references("agents")) {
                 String name = agentConf.get("name");
                 if (name == null) {
-                    System.err.printf("agent config %s has no name%n",
-                                      agentConf.absoluteHome());
+                    System.err.printf("agent config [%s] has no name%n",
+                                      agentConf.prefix());
                     return false;
                 }
                 String type = agentConf.get("type");
                 if (type == null) {
-                    System.err.printf("agent config %s has no type%n",
-                                      agentConf.absoluteHome());
+                    System.err.printf("agent config [%s] has no type%n",
+                                      agentConf.prefix());
                     return false;
                 }
                 for (AgentFactory factory : ServiceLoader

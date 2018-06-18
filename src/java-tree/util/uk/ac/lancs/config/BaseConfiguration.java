@@ -42,71 +42,100 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Properties;
-import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 final class BaseConfiguration implements Configuration {
     private final ConfigurationContext context;
     private final URI location;
-    private final Properties props;
-    private final Collection<String> removed = new HashSet<>();
+    private final Map<String, String> values = new HashMap<>();
+    private final Map<String, List<Configuration>> inheritance =
+        new HashMap<>();
 
+    private static final Pattern URI_SEPARATOR = Pattern.compile("\\s+");
     private static final Pattern INHERITANCE =
-        Pattern.compile("^((?:[^.]+\\.)*)inherit\\.(\\d+)$");
+        Pattern.compile("^((?:[^.]+\\.)*)inherit$");
 
-    BaseConfiguration(ConfigurationContext context, URI location,
-                      Properties props)
-        throws IOException {
+    BaseConfiguration(ConfigurationContext context, URI location) {
         this.context = context;
         this.location = location;
-        this.props = new Properties(props);
     }
 
-    void init() throws IOException {
-        /* Gather all inheritance declarations. */
-        Map<String, Map<Integer, URI>> inheritance = new TreeMap<>();
-        for (String key : props.stringPropertyNames()) {
-            Matcher m = INHERITANCE.matcher(key);
-            if (!m.matches()) continue;
-            removed.add(key);
-            String prefix = m.group(1);
-            int seqno = Integer.parseInt(m.group(2));
-            URI reference = this.location.resolve(props.getProperty(key));
-            // TODO: Resolve the fragment against the key?
-            inheritance.computeIfAbsent(prefix,
-                                        k -> new TreeMap<>((a, b) -> Integer
-                                            .compare(b, a)))
-                .put(seqno, reference);
-        }
-        for (String key : removed)
-            props.remove(key);
+    @Override
+    public Configuration.Reference find(String key) {
+        /* See if we define this parameter directly. */
+        String directValue = values.get(key);
+        if (directValue != null) return new Configuration.Reference() {
+            @Override
+            public Configuration provider() {
+                return BaseConfiguration.this;
+            }
 
-        for (Map.Entry<String, Map<Integer, URI>> entry : inheritance
-            .entrySet()) {
-            /* Identify a prefix to be duplicated from other
-             * configurations. */
-            final String prefix = entry.getKey();
-            final List<URI> uris = new ArrayList<>(entry.getValue().values());
-            /* For each of those configurations, copy all its properties
-             * using our prefix. */
-            for (URI uri : uris) {
-                Configuration config = context.get(uri);
-                for (String key : config.keys()) {
-                    String value = config.get(key);
-                    props.put(prefix + key, value);
+            @Override
+            public String key() {
+                return key;
+            }
+
+            @Override
+            public String value() {
+                return directValue;
+            }
+        };
+
+        /* Look for a parameter inherited from another configuration (or
+         * just from another location in this one). */
+        List<String> components =
+            Arrays.asList(COMPONENT_SEPARATOR.split(key));
+        final int len = components.size();
+        for (int i = len - 1; i > 0; i--) {
+            String parentKey =
+                String.join(".", components.subList(0, i)) + ".";
+            String appendage = String.join(".", components.subList(i, len));
+            List<Configuration> subconfs = inheritance.get(parentKey);
+            if (subconfs == null) continue;
+            for (Configuration subconf : subconfs) {
+                Configuration.Reference value = subconf.find(appendage);
+                if (value != null) return null;
+            }
+        }
+        return null;
+    }
+
+    void init(Properties props) throws IOException {
+        /* Record all inheritance. */
+        for (String key : props.stringPropertyNames()) {
+            String value = props.getProperty(key);
+            Matcher m = INHERITANCE.matcher(key);
+            if (m.matches()) {
+                String prefix = m.group(1);
+                List<URI> sources = Arrays.asList(URI_SEPARATOR.split(value))
+                    .stream().map(loc -> location.resolve(loc))
+                    .collect(Collectors.toList());
+                List<Configuration> delegates =
+                    new ArrayList<>(sources.size());
+                for (URI source : sources) {
+                    Configuration inherited = context.get(source);
+                    delegates.add(inherited);
                 }
+                inheritance.put(prefix, delegates);
+            } else {
+                values.put(key, value);
             }
         }
     }
 
-    private static Properties load(URI location) throws IOException {
+    // TODO: Move to ConfigurationContext.
+    static Properties load(URI location) throws IOException {
         URL url = location.toURL();
         URLConnection conn = url.openConnection();
         try (InputStream in = conn.getInputStream()) {
@@ -114,19 +143,6 @@ final class BaseConfiguration implements Configuration {
             result.load(in);
             return result;
         }
-    }
-
-    /**
-     * Create a configuration from a resource location.
-     * 
-     * @param location the location of a properties file
-     * 
-     * @throws IOException if there was an error in loading the
-     * properties
-     */
-    BaseConfiguration(ConfigurationContext context, URI location)
-        throws IOException {
-        this(context, location, load(location));
     }
 
     static URI defragment(URI location) {
@@ -140,42 +156,117 @@ final class BaseConfiguration implements Configuration {
         }
     }
 
+    private static final Pattern COMPONENT_SEPARATOR = Pattern.compile("\\.");
+
     public String get(String key) {
-        if (removed.contains(key)) return null;
-        return props.getProperty(key);
+        if (values.containsKey(key)) return values.get(key);
+        List<String> components =
+            Arrays.asList(COMPONENT_SEPARATOR.split(key));
+        final int len = components.size();
+        for (int i = len - 1; i > 0; i--) {
+            String parentKey =
+                String.join(".", components.subList(0, i)) + ".";
+            String appendage = String.join(".", components.subList(i, len));
+            List<Configuration> subconfs = inheritance.get(parentKey);
+            if (subconfs == null) continue;
+            for (Configuration subconf : subconfs) {
+                String value = subconf.get(appendage);
+                if (value != null) return value;
+            }
+        }
+        return null;
     }
 
     public Configuration subview(String prefix) {
         prefix = Configuration.normalizePrefix(prefix);
         if (prefix.isEmpty()) return this;
-        return new PrefixConfiguration(context, location, this, prefix);
+        return new PrefixConfiguration(context, this, prefix);
     }
 
     @Override
-    public Iterable<String> keys() {
+    public Iterable<String> keys(String prefix) {
+        String safePrefix = Configuration.normalizePrefix(prefix);
         return new Iterable<String>() {
             @Override
             public Iterator<String> iterator() {
-                return new FilterIterator<String>(props.stringPropertyNames()
-                    .iterator(), k -> !removed.contains(k));
+                return new Iterator<String>() {
+                    final Iterator<Map.Entry<String, List<Configuration>>> inhIter =
+                        inheritance.entrySet().iterator();
+                    final Collection<String> encountered = new HashSet<>();
+                    Iterator<String> ownIter = values.keySet().iterator();
+                    Iterator<Configuration> configIter;
+                    String prepend = "";
+                    String next;
+
+                    private String ensureNext() {
+                        while (next == null) {
+                            while (!ownIter.hasNext()) {
+                                while (configIter == null
+                                    || !configIter.hasNext()) {
+                                    if (!inhIter.hasNext()) {
+                                        assert next == null;
+                                        return null;
+                                    }
+                                    Map.Entry<String, List<Configuration>> entry =
+                                        inhIter.next();
+                                    prepend = entry.getKey();
+                                    if (!prepend.startsWith(safePrefix)
+                                        && !safePrefix.startsWith(prepend)) {
+                                        continue;
+                                    }
+                                    configIter = entry.getValue().iterator();
+                                }
+                                Configuration conf = configIter.next();
+                                ownIter = conf.keys().iterator();
+                            }
+                            next = prepend + ownIter.next();
+                            if (!next.startsWith(safePrefix)) {
+                                next = null;
+                                continue;
+                            }
+
+                            /* Check that we haven't already provided
+                             * this one. */
+                            if (encountered.contains(next)) {
+                                next = null;
+                                continue;
+                            }
+                            encountered.add(next);
+                        }
+
+                        return next;
+                    }
+
+                    @Override
+                    public boolean hasNext() {
+                        return ensureNext() != null;
+                    }
+
+                    @Override
+                    public String next() {
+                        String result = ensureNext();
+                        if (result == null)
+                            throw new NoSuchElementException();
+                        next = null;
+                        return result;
+                    }
+                };
             }
         };
     }
 
     @Override
-    public Configuration reference(String key, String value) {
-        return subview(Configuration.resolveKey(key, value));
+    public Configuration base() {
+        return this;
     }
 
     @Override
-    public String absoluteHome() {
-        return ".";
+    public String prefix() {
+        return "";
     }
 
     @Override
-    public URI getLocation(String key, String defaultValue) {
-        String relativeValue = get(key, defaultValue);
-        if (relativeValue == null) return null;
-        return location.resolve(relativeValue);
+    public URI resolve(String value) {
+        return location.resolve(value);
     }
 }
