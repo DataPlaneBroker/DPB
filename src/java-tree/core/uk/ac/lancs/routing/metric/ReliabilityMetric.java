@@ -56,6 +56,10 @@ public final class ReliabilityMetric extends UnitNamedMetric {
     /**
      * {@inheritDoc}
      * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
      * @return the product of the two arguments
      */
     @Override
@@ -64,7 +68,16 @@ public final class ReliabilityMetric extends UnitNamedMetric {
     }
 
     /**
-     * {@inheritDoc} Higher values are considered better.
+     * {@inheritDoc}
+     * 
+     * <p>
+     * Higher values are considered better.
+     * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
+     * @return {@inheritDoc}
      */
     @Override
     public int compare(double v1, double v2) {

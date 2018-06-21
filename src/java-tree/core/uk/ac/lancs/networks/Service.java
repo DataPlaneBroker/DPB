@@ -78,8 +78,8 @@ import java.util.Collection;
  * <p>
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus)
  * newStatus}({@linkplain ServiceStatus#FAILED FAILED})</code> will be
- * invoked on error, and errors {@link Service#errors()} can be used to
- * get details on the failure.
+ * invoked on error, and {@link Service#errors()} can be used to get
+ * details on the failure.
  * 
  * <p>
  * Calling {@link #release()} ensures the service is deactivated, and

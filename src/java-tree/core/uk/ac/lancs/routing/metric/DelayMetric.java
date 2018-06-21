@@ -56,6 +56,10 @@ public final class DelayMetric extends UnitNamedMetric {
     /**
      * {@inheritDoc}
      * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
      * @return the sum of the two arguments
      */
     @Override
@@ -65,7 +69,15 @@ public final class DelayMetric extends UnitNamedMetric {
     }
 
     /**
-     * {@inheritDoc} Smaller values are considered better.
+     * {@inheritDoc}
+     * <p>
+     * Smaller values are considered better.
+     * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
+     * @return {@inheritDoc}
      */
     @Override
     public int compare(double v1, double v2) {

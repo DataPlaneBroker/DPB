@@ -56,6 +56,10 @@ public final class BandwidthMetric extends UnitNamedMetric {
     /**
      * {@inheritDoc}
      * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
      * @return the minimum of the two arguments
      */
     @Override
@@ -64,7 +68,15 @@ public final class BandwidthMetric extends UnitNamedMetric {
     }
 
     /**
-     * {@inheritDoc} Larger values are considered better.
+     * {@inheritDoc}
+     * <p>
+     * Larger values are considered better.
+     * 
+     * @param v1 {@inheritDoc}
+     * 
+     * @param v2 {@inheritDoc}
+     * 
+     * @return {@inheritDoc}
      */
     @Override
     public int compare(double v1, double v2) {
