@@ -500,6 +500,7 @@ public class DP2000Fabric implements Fabric {
     /**
      * {@inheritDoc}
      * 
+     * <p>
      * This implementation matches descriptors of the form
      * <samp><var>port</var></samp> and
      * <samp><var>port</var>:<var>vlan</var></samp>.

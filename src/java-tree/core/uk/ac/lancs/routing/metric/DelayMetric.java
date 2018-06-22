@@ -70,6 +70,7 @@ public final class DelayMetric extends UnitNamedMetric {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Smaller values are considered better.
      * 

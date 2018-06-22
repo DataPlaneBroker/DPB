@@ -69,6 +69,7 @@ public final class BandwidthMetric extends UnitNamedMetric {
 
     /**
      * {@inheritDoc}
+     *
      * <p>
      * Larger values are considered better.
      * 
