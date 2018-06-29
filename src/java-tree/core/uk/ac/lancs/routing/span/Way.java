@@ -63,6 +63,8 @@ public final class Way<V> {
      * @param nextHop the next hop to the implicit destination
      * 
      * @param distance the distance to the implicit destination
+     * 
+     * @return a new way to the destination with the specified distance
      */
     public static <V> Way<V> of(V nextHop, double distance) {
         return new Way<>(nextHop, distance);

@@ -60,6 +60,12 @@ public final class ReplaceTunnelDescription implements TunnelPatchOp {
         return new ReplaceTunnelDescription(descr);
     }
 
+    /**
+     * Convert this tunnel description replacement to a JSON object.
+     * 
+     * @return the JSON representation of this tunnel description
+     * replacement
+     */
     @SuppressWarnings("unchecked")
     @Override
     public JSONObject marshal() {

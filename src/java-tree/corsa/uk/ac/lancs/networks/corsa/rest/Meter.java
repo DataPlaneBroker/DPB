@@ -102,6 +102,11 @@ public class Meter<T> implements TunnelPatchOp {
         return new Meter<Long>("ebs", value);
     }
 
+    /**
+     * Convert this meter to a JSON object.
+     * 
+     * @return the JSON representation of this meter
+     */
     @SuppressWarnings("unchecked")
     @Override
     public JSONObject marshal() {

@@ -54,6 +54,9 @@ public interface Network {
      * @param name the name of the terminal
      * 
      * @throws IllegalStateException if the named terminal is in use
+     * 
+     * @throws NetworkManagementException if the terminal could not be
+     * removed
      */
     void removeTerminal(String name) throws NetworkManagementException;
 

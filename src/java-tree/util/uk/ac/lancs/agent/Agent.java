@@ -117,6 +117,8 @@ public interface Agent {
 
     /**
      * Initiate the agent. Invoking again should have no effect.
+     * 
+     * @throws AgentInitiationException if initiation could not complete
      */
     default void initiate() throws AgentInitiationException {}
 }

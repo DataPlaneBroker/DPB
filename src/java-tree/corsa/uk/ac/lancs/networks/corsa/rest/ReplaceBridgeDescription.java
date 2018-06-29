@@ -60,6 +60,12 @@ public final class ReplaceBridgeDescription implements BridgePatchOp {
         return new ReplaceBridgeDescription(descr);
     }
 
+    /**
+     * Convert this bridge description replacement to a JSON object.
+     * 
+     * @return the JSON representation of this bridge description
+     * replacement
+     */
     @SuppressWarnings("unchecked")
     @Override
     public JSONObject marshal() {

@@ -141,7 +141,7 @@ public class DP2000Fabric implements Fabric {
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
-     * @throws NoSuchAlgorithmException if there is a problem with the
+     * @throws KeyManagementException if there is a problem with the
      * certficate
      */
     public DP2000Fabric(int maxBridges, String descPrefix,

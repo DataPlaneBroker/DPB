@@ -215,6 +215,10 @@ public final class SpanningTreeComputer<V> {
     /**
      * Start collecting parameters for computing a spanning tree.
      * 
+     * @param <V> the vertex type
+     * 
+     * @param type the vertex type
+     * 
      * @return a fresh parameter collector
      */
     public static <V> Builder<V> start(Class<V> type) {

@@ -53,6 +53,9 @@ public interface Switch extends Network {
      * terminal maps to
      * 
      * @return the new terminal
+     * 
+     * @throws NetworkManagementException if the terminal could not be
+     * added
      */
     Terminal addTerminal(String terminalName, String interfaceName)
         throws NetworkManagementException;

@@ -60,6 +60,11 @@ public final class ReplaceBridgeDPID implements BridgePatchOp {
         return new ReplaceBridgeDPID(dpid);
     }
 
+    /**
+     * Convert this bridge DPID replacement to a JSON object.
+     * 
+     * @return the JSON representation of this bridge DPID replacement
+     */
     @SuppressWarnings("unchecked")
     @Override
     public JSONObject marshal() {

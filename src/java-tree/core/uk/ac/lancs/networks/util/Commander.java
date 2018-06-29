@@ -614,6 +614,8 @@ public final class Commander {
      * <dd>Dump the current network's status.
      * 
      * </dl>
+     * 
+     * @throws Exception if something went wrong
      */
     public static void main(String[] args) throws Exception {
         Commander me = new Commander();

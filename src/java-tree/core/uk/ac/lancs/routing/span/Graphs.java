@@ -103,6 +103,8 @@ public final class Graphs {
      * @param links the undirected weighted graph
      * 
      * @param <V> the vertex type
+     * 
+     * @return the FIBs indexed by vertex
      */
     public static <V> Map<V, Map<V, Way<V>>>
         route(Collection<? extends V> terminals,

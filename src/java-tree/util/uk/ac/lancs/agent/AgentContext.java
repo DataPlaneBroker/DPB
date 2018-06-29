@@ -48,8 +48,8 @@ public interface AgentContext {
      * 
      * @return the requested agent
      * 
-     * @throw {@link UnknownAgentException} if the requested agent does
-     * not exist
+     * @throws UnknownAgentException if the requested agent does not
+     * exist
      */
     default Agent getAgent(String name) throws UnknownAgentException {
         Agent result = findAgent(name);
