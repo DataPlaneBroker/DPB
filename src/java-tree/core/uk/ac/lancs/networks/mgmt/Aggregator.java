@@ -78,6 +78,8 @@ public interface Aggregator extends Network {
      * 
      * @throws NetworkManagementException if a trunk could not be
      * created between the two terminals
+     * 
+     * @constructor
      */
     Trunk addTrunk(Terminal t1, Terminal t2)
         throws NetworkManagementException;

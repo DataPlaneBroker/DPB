@@ -88,6 +88,8 @@ public interface NetworkControl {
      * Create a service.
      * 
      * @return the new service
+     * 
+     * @constructor
      */
     Service newService();
 

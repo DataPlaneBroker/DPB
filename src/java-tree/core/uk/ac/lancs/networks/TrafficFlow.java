@@ -62,6 +62,8 @@ public final class TrafficFlow {
      * 
      * @param egress the flow of traffic out of the surface
      * 
+     * @return the requested flow
+     * 
      * @throws IllegalArgumentException if either flow is negative
      */
     public static TrafficFlow of(double ingress, double egress) {

@@ -114,6 +114,8 @@ public interface Service {
      * Initiate allocation of resources.
      * 
      * @param request the service details
+     * 
+     * @throws InvalidServiceException if the request is invalid
      */
     void initiate(ServiceDescription request) throws InvalidServiceException;
 

@@ -104,6 +104,10 @@ public final class ReferenceWatcher<X, I, K> {
      * @param builder invoked to create new objects given a key
      * 
      * @param terminator invoked to clean up discarded objects
+     * 
+     * @constructor
+     * 
+     * @return the requested watcher
      */
     public static <T, S extends T, K> ReferenceWatcher<T, S, K>
         on(Class<T> type, ClassLoader loader,
@@ -125,11 +129,17 @@ public final class ReferenceWatcher<X, I, K> {
      * 
      * @param type the type of the referenced objects
      * 
+     * @param loader used to create proxies for the external type
+     * 
      * @param builder invoked to create new objects given a key
      * 
      * @param exposer maps the internal object to the external object
      * 
      * @param terminator invoked to clean up discarded objects
+     * 
+     * @constructor
+     * 
+     * @return the requested watcher
      */
     public static <T, S, K> ReferenceWatcher<T, S, K>
         on(Class<T> type, ClassLoader loader,
