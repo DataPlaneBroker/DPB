@@ -226,10 +226,10 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             throw new AgentCreationException("getting authorization from "
                 + authzFile, e);
         }
-        final DP2000Fabric fabric;
+        final VFCPerServiceDP2000Fabric fabric;
         try {
             fabric =
-                new DP2000Fabric(maxBridges, descPrefix, partialDescSuffix,
+                new VFCPerServiceDP2000Fabric(maxBridges, descPrefix, partialDescSuffix,
                                  fullDescSuffix, subtype, netns, controller,
                                  service, cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {

@@ -31,7 +31,7 @@ SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
-roots_corsa += uk.ac.lancs.networks.corsa.DP2000Fabric
+roots_corsa += uk.ac.lancs.networks.corsa.VFCPerServiceDP2000Fabric
 roots_corsa += uk.ac.lancs.networks.corsa.DP2000FabricAgentFactory
 roots_corsa += uk.ac.lancs.networks.corsa.rest.CorsaREST
 

@@ -74,7 +74,7 @@ import uk.ac.lancs.rest.RESTResponse;
  * 
  * @author simpsons
  */
-public class DP2000Fabric implements Fabric {
+public class VFCPerServiceDP2000Fabric implements Fabric {
     private final InetSocketAddress controller;
 
     private final int maxBridges;
@@ -144,7 +144,7 @@ public class DP2000Fabric implements Fabric {
      * @throws KeyManagementException if there is a problem with the
      * certficate
      */
-    public DP2000Fabric(int maxBridges, String descPrefix,
+    public VFCPerServiceDP2000Fabric(int maxBridges, String descPrefix,
                         String partialDescSuffix, String fullDescSuffix,
                         String subtype, String netns,
                         InetSocketAddress controller, URI service,
@@ -187,17 +187,17 @@ public class DP2000Fabric implements Fabric {
         private final Collection<BridgeListener> listeners = new HashSet<>();
 
         void inform(Consumer<BridgeListener> action) {
-            assert Thread.holdsLock(DP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
             listeners.forEach(action);
         }
 
         void addListener(BridgeListener listener) {
-            assert Thread.holdsLock(DP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
             listeners.add(listener);
         }
 
         void removeListener(BridgeListener listener) {
-            assert Thread.holdsLock(DP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
             listeners.remove(listener);
         }
 
@@ -206,7 +206,7 @@ public class DP2000Fabric implements Fabric {
         boolean started;
 
         void start() {
-            assert Thread.holdsLock(DP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
             if (!started) {
                 System.err.printf("Starting a Corsa bridge on %s%n", service);
 
@@ -341,7 +341,7 @@ public class DP2000Fabric implements Fabric {
         }
 
         void stop() {
-            assert Thread.holdsLock(DP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
 
             if (bridgeName != null) {
                 try {
@@ -528,7 +528,7 @@ public class DP2000Fabric implements Fabric {
 
         @Override
         public void start() {
-            synchronized (DP2000Fabric.this) {
+            synchronized (VFCPerServiceDP2000Fabric.this) {
                 internal.start();
             }
         }
