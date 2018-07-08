@@ -35,14 +35,28 @@
  */
 package uk.ac.lancs.agent;
 
+import uk.ac.lancs.config.Configuration;
+
 /**
- * Provides resources to agents.
+ * Allows agents to find each other. The context should normally be used
+ * during {@link Agent#initiate()}, allowing agents to be loaded in any
+ * order.
+ * 
+ * <p>
+ * Agents are named according to the application that is assembling
+ * them. Since an agent receives a {@link Configuration} object as its
+ * configuration, applications will typically co-opt a parameter such as
+ * <samp>name</samp> in that configuration to define the name.
  * 
  * @author simpsons
  */
 public interface AgentContext {
     /**
      * Get a named agent.
+     * 
+     * @default This implementation passes its argument to
+     * {@link #findAgent(String)}, and throws the exception if the
+     * result is {@code null}.
      * 
      * @param name the agent's name
      * 

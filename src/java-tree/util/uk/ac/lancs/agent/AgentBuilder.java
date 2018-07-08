@@ -41,7 +41,30 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Creates agents with static information.
+ * Creates agents with static information. This treats an agent as a
+ * simple static mapping from type-key tuple to service instance, and
+ * allows the mapping to be built up gradually and then frozen.
+ * 
+ * <p>
+ * As an example, if you have three <code>Wangle</code> services to make
+ * available under the keys <samp>first</samp>, <samp>second</samp> and
+ * <samp>third</samp>, and one anonymous <code>Footle</code> service, an
+ * agent for them can be created with the following:
+ * 
+ * <pre>
+ * Wangle w1, w2, w3;
+ * Footle f;
+ * AgentBuilder.start()
+ *             .add(f, Footle.class, null)
+ *             .add(w1, Wangle.class, "first")
+ *             .add(w2, Wangle.class, "second")
+ *             .add(w3, Wangle.class, "third")
+ *             .create();
+ * </pre>
+ * 
+ * <p>
+ * {@link #create(Initiation)} should be used instead as the final step
+ * if some common action is to be taken to initiate the agent.
  * 
  * @author simpsons
  */

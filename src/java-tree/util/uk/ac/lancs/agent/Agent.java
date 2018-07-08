@@ -41,11 +41,29 @@ import java.util.Collection;
  * Allows a single object to provide multiple services, so that state
  * can be shared between them.
  * 
+ * <p>
+ * Each service is defined by a class or interface type, and multiple
+ * services of the same type must be distinguished by a string key. One
+ * service of each given type may be identified by a {@code null} key.
+ * {@link #getKeys(Class)} provides the key set for a service type,
+ * excluding the {@code null} key.
+ * 
+ * <p>
+ * The <code>getService</code> methods expect a requested service to
+ * exist, and throw {@link UnknownServiceException} if not. The
+ * <code>findService</code> methods return {@code null} if the requested
+ * service is not found.
+ * 
+ * 
  * @author simpsons
  */
 public interface Agent {
     /**
      * Get the named service of a given type.
+     * 
+     * @default This method passes its arguments to
+     * {@link #findService(Class, String)}, and throws an exception if
+     * the result is {@code null}.
      * 
      * @param type the service type
      * 
@@ -66,6 +84,9 @@ public interface Agent {
 
     /**
      * Get the default service of a given type.
+     * 
+     * @default This method calls {@link #getService(Class, String)}
+     * with a {@code null} key.
      * 
      * @param type the service type
      * 
@@ -106,6 +127,9 @@ public interface Agent {
      * Find the default service of a given type without raising an
      * exception if missing.
      * 
+     * @default This method calls {@link #findService(Class, String)}
+     * with a {@code null} key.
+     * 
      * @param type the service type
      * 
      * @return the requested service, or {@code null} if it does not
@@ -116,7 +140,12 @@ public interface Agent {
     }
 
     /**
-     * Initiate the agent. Invoking again should have no effect.
+     * Initiate the agent. Invoking again should have no effect. This
+     * method allows several agents to be created in one phase,
+     * configured with respect to each other in the next, and finally to
+     * be initiated together.
+     * 
+     * @default This implementation does nothing.
      * 
      * @throws AgentInitiationException if initiation could not complete
      */

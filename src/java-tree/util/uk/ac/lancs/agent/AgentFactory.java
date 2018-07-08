@@ -38,7 +38,10 @@ package uk.ac.lancs.agent;
 import uk.ac.lancs.config.Configuration;
 
 /**
- * Creates agents from configuration.
+ * Creates agents from configuration. The method
+ * {@link #recognize(Configuration)} can be used to test whether the
+ * agent recognizes the configuration, and would build it if passed to
+ * {@link #makeAgent(AgentContext, Configuration)}.
  * 
  * @author simpsons
  */
@@ -62,14 +65,15 @@ public interface AgentFactory {
      * Create an agent with given context and configuration.
      * 
      * @param ctxt the run-time context for the agent, used to look up
-     * other resources
+     * resources in other agents
      * 
      * @param conf the agent's textual configuration
      * 
      * @return the new agent
      * 
      * @throws AgentCreationException if there was a problem in creating
-     * the agent
+     * the agent, including that the supplied configuration was not
+     * recognized
      */
     Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException;

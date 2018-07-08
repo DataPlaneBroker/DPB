@@ -36,24 +36,35 @@
 
 /**
  * Contains packages for managing self-referencing configuration files.
- * The files contain Java properties. When loaded, keys ending with
- * <samp>inherit.<var>num</var></samp> and an integer are found. Their
- * values are URI references that identify another part of a properties
- * file, possible the same one. Properties from that file are copied to
- * the referring configuration, with their keys modified. The number
- * specifies the order in which to inherit properties this way, with
- * lower numbers overriding higher ones.
+ * The files contain Java properties, with keys of the form
+ * <samp>foo.bar.baz</samp>. Subviews of a configuration can be obtained
+ * by specifying a prefix. With a prefix of <samp>foo.</samp>, all
+ * properties whose names don't begin with this prefix are hidden, and
+ * the names of remaining ones have the prefix removed.
  * 
  * <p>
- * For example, if keys beginning with <samp>foo.bar.</samp> are
- * referenced by entry <samp>yan.tan.inherit.0</samp>, then
- * <samp>foo.bar.baz</samp> will be copied to <samp>yan.tan.baz</samp>.
+ * When a base configuration (one with no prefix) is loaded, keys ending
+ * with <samp>inherit</samp> are found. Their values are space-separated
+ * URI references that identify part of a configuration file, possibly
+ * the same one. URI fragment identifiers identify subviews, so
+ * <samp>foo.properties#bar.baz</samp> accesses only the properties in
+ * <samp>foo.properties</samp> whose names begin with
+ * <samp>bar.baz.</samp>, and with that prefix removed. Properties from
+ * each referenced file are visible in place of the <samp>inherit</samp>
+ * properties. For example, if keys beginning with <samp>foo.bar.</samp>
+ * are referenced by entry <samp>yan.tan.inherit</samp>, then
+ * <samp>foo.bar.baz</samp> in the referenced configuration will be
+ * appear as <samp>yan.tan.baz</samp> in the referring configuration.
+ * When multiple URI references are provided, properties inherited due
+ * to earlier URIs hide later ones with the same derived name.
+ * Uninherited properties hide inherited ones.
  * 
  * <p>
  * Inherit directives are removed from the view presented to the user.
  * 
  * <p>
- * Example:
+ * The starting point is to create a {@link ConfigurationContext}, and
+ * use it to load a root configuration from a file. For example:
  * 
  * <pre>
  * ConfigurationContext ctxt = new ConfigurationContext();
@@ -61,6 +72,10 @@
  * Configuration foo = root.subview("foo");
  * assert foo.get("bar").equals(root.get("foo.bar"));
  * </pre>
+ * 
+ * <p>
+ * Configurations loaded using the same context are cached, so that
+ * complex references do not result in multiple loads of the same file.
  * 
  * @author simpsons
  */

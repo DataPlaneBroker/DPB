@@ -38,7 +38,8 @@ package uk.ac.lancs.agent;
 /**
  * Indicates an agent could not be created by a factory.
  * 
- * @see AgentFactory
+ * @see AgentFactory#makeAgent(AgentContext,
+ * uk.ac.lancs.config.Configuration)
  * 
  * @author simpsons
  */

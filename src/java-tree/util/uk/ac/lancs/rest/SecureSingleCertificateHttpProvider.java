@@ -51,6 +51,9 @@ import org.apache.http.impl.client.HttpClients;
 
 /**
  * Provides HTTP clients for SSL contexts generated for a single host.
+ * Rather than providing a whole certificate management framework, this
+ * class allows an HTTPS certificate to be used in isolation to provide
+ * HTTP clients.
  * 
  * @author simpsons
  */

@@ -87,7 +87,7 @@ public interface Configuration {
          * 
          * @return the parameter's raw value
          * 
-         * @default <code>{@linkplain #provider() provider}().{@linkplain Configuration#get(String)}({@linkplain #get() get}})</code>
+         * @default <code>{@linkplain #provider() provider}().{@linkplain Configuration#get(String) get}({@linkplain #key() key}())</code>
          * is invoked.
          */
         default String value() {
