@@ -176,14 +176,20 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     public static final int DEFAULT_CONTROLLER_PORT = 6653;
 
     /**
+     * @undocumented
+     */
+    public static final String TYPE_FIELD = "type";
+
+    /**
      * {@inheritDoc}
      * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp>.
+     * @default This implementation recognizes only the string
+     * <samp>{@value #TYPE_NAME}</samp> in the field
+     * <samp>{@value #TYPE_FIELD}</samp>.
      */
     @Override
-    public boolean recognize(String type) {
+    public boolean recognize(Configuration conf) {
+        String type = conf.get(TYPE_FIELD);
         return TYPE_NAME.equals(type);
     }
 
@@ -228,10 +234,11 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         }
         final VFCPerServiceDP2000Fabric fabric;
         try {
-            fabric =
-                new VFCPerServiceDP2000Fabric(maxBridges, descPrefix, partialDescSuffix,
-                                 fullDescSuffix, subtype, netns, controller,
-                                 service, cert, authz);
+            fabric = new VFCPerServiceDP2000Fabric(maxBridges, descPrefix,
+                                                   partialDescSuffix,
+                                                   fullDescSuffix, subtype,
+                                                   netns, controller, service,
+                                                   cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }

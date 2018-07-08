@@ -66,14 +66,20 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
     public static final String TYPE_NAME = "persistent-switch";
 
     /**
+     * @undocumented
+     */
+    public static final String TYPE_FIELD = "type";
+
+    /**
      * {@inheritDoc}
      * 
-     * <p>
-     * This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp>.
+     * @default This implementation recognizes only the string
+     * <samp>{@value #TYPE_NAME}</samp> in the field
+     * <samp>{@value #TYPE_FIELD}</samp>.
      */
     @Override
-    public boolean recognize(String type) {
+    public boolean recognize(Configuration conf) {
+        String type = conf.get(TYPE_FIELD);
         return TYPE_NAME.equals(type);
     }
 

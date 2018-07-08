@@ -157,7 +157,7 @@ public final class Commander {
                 }
                 for (AgentFactory factory : ServiceLoader
                     .load(AgentFactory.class)) {
-                    if (!factory.recognize(type)) continue;
+                    if (!factory.recognize(agentConf)) continue;
                     Agent agent = factory.makeAgent(agentContext, agentConf);
                     agents.put(name, agent);
                     System.out.printf("  Created agent %s as %s%n", name,

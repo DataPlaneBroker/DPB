@@ -44,14 +44,19 @@ import uk.ac.lancs.config.Configuration;
  */
 public interface AgentFactory {
     /**
-     * Detect whether this factory can create agents of a certain type.
+     * Detect whether this factory can create an agent base on its
+     * textual configuration.
      * 
-     * @param type the network type
+     * @default A simple practice would be to look for a well-known
+     * configuration parameter (e.g., <samp>type</samp>), and check
+     * whether it is set to a well-known value.
      * 
-     * @return {@code true} iff this factory can create agents of the
-     * specified type
+     * @param conf the agent's textual configuration
+     * 
+     * @return {@code true} iff this factory can create agents with the
+     * supplied configuration
      */
-    boolean recognize(String type);
+    boolean recognize(Configuration conf);
 
     /**
      * Create an agent with given context and configuration.
@@ -61,7 +66,7 @@ public interface AgentFactory {
      * 
      * @param conf the agent's textual configuration
      * 
-     * @return the new network
+     * @return the new agent
      * 
      * @throws AgentCreationException if there was a problem in creating
      * the agent
