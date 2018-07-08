@@ -65,6 +65,26 @@ import uk.ac.lancs.scc.jardeps.Service;
 
 /**
  * Creates agents each implementing a Corsa DP2X00-compatible fabric.
+ * One type of {@link Fabric} service is implemented, namely
+ * {@link VFCPerServiceFabric}, recognized by a configuration parameter
+ * called <samp>{@value #TYPE_FIELD}</samp> with the value
+ * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp>.
+ * 
+ * <table>
+ * <thead>
+ * <tr>
+ * <th>Value of <samp>{@value #TYPE_FIELD}</samp></th>
+ * <th>Implementation</th>
+ * </tr>
+ * </thead>
+ * 
+ * <tbody>
+ * <tr>
+ * <td><samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp></td>
+ * <td>{@link VFCPerServiceFabric}</td>
+ * </tr>
+ * </tbody>
+ * </table>
  * 
  * <p>
  * The following configuration properties are recognized:
@@ -163,7 +183,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String TYPE_NAME = "corsa-dp2x00-brperlink";
+    public static final String VFCPERSERVICE_TYPE_NAME =
+        "corsa-dp2x00-brperlink";
 
     /**
      * @undocumented
@@ -184,13 +205,13 @@ public class DP2000FabricAgentFactory implements AgentFactory {
      * {@inheritDoc}
      * 
      * @default This implementation recognizes only the string
-     * <samp>{@value #TYPE_NAME}</samp> in the field
+     * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp> in the field
      * <samp>{@value #TYPE_FIELD}</samp>.
      */
     @Override
     public boolean recognize(Configuration conf) {
         String type = conf.get(TYPE_FIELD);
-        return TYPE_NAME.equals(type);
+        return VFCPERSERVICE_TYPE_NAME.equals(type);
     }
 
     @Override
@@ -232,13 +253,13 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             throw new AgentCreationException("getting authorization from "
                 + authzFile, e);
         }
-        final VFCPerServiceDP2000Fabric fabric;
+        final VFCPerServiceFabric fabric;
         try {
-            fabric = new VFCPerServiceDP2000Fabric(maxBridges, descPrefix,
-                                                   partialDescSuffix,
-                                                   fullDescSuffix, subtype,
-                                                   netns, controller, service,
-                                                   cert, authz);
+            fabric =
+                new VFCPerServiceFabric(maxBridges, descPrefix,
+                                        partialDescSuffix, fullDescSuffix,
+                                        subtype, netns, controller, service,
+                                        cert, authz);
         } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new AgentCreationException("building fabric", e);
         }

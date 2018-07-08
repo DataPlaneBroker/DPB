@@ -70,11 +70,13 @@ import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.rest.RESTResponse;
 
 /**
- * Manages a Corsa DP2X00-series switch as a fabric.
+ * Manages a Corsa DP2X00-series switch by creating one VFC per
+ * requested service, and hooking it up to a configured learning-switch
+ * controller.
  * 
  * @author simpsons
  */
-public class VFCPerServiceDP2000Fabric implements Fabric {
+public class VFCPerServiceFabric implements Fabric {
     private final InetSocketAddress controller;
 
     private final int maxBridges;
@@ -92,10 +94,10 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
     private final String fullDesc;
 
     /**
-     * Bridges whose descriptions begin with this string should be
-     * destroyed at start-up, because they were part of the previous
-     * incarnation but were either not completely configured or were
-     * used in a different way.
+     * Bridges whose descriptions begin with this string (but not
+     * {@link #fullDesc}) should be destroyed at start-up, because they
+     * were part of the previous incarnation but were either not
+     * completely configured or were used in a different way.
      */
     private final String descPrefix;
 
@@ -144,11 +146,12 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
      * @throws KeyManagementException if there is a problem with the
      * certficate
      */
-    public VFCPerServiceDP2000Fabric(int maxBridges, String descPrefix,
-                        String partialDescSuffix, String fullDescSuffix,
-                        String subtype, String netns,
-                        InetSocketAddress controller, URI service,
-                        X509Certificate cert, String authz)
+    public VFCPerServiceFabric(int maxBridges, String descPrefix,
+                               String partialDescSuffix,
+                               String fullDescSuffix, String subtype,
+                               String netns, InetSocketAddress controller,
+                               URI service, X509Certificate cert,
+                               String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
         this.maxBridges = maxBridges;
@@ -187,17 +190,17 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
         private final Collection<BridgeListener> listeners = new HashSet<>();
 
         void inform(Consumer<BridgeListener> action) {
-            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceFabric.this);
             listeners.forEach(action);
         }
 
         void addListener(BridgeListener listener) {
-            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceFabric.this);
             listeners.add(listener);
         }
 
         void removeListener(BridgeListener listener) {
-            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceFabric.this);
             listeners.remove(listener);
         }
 
@@ -206,7 +209,7 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
         boolean started;
 
         void start() {
-            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceFabric.this);
             if (!started) {
                 System.err.printf("Starting a Corsa bridge on %s%n", service);
 
@@ -341,7 +344,7 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
         }
 
         void stop() {
-            assert Thread.holdsLock(VFCPerServiceDP2000Fabric.this);
+            assert Thread.holdsLock(VFCPerServiceFabric.this);
 
             if (bridgeName != null) {
                 try {
@@ -528,7 +531,7 @@ public class VFCPerServiceDP2000Fabric implements Fabric {
 
         @Override
         public void start() {
-            synchronized (VFCPerServiceDP2000Fabric.this) {
+            synchronized (VFCPerServiceFabric.this) {
                 internal.start();
             }
         }
