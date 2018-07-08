@@ -23,7 +23,6 @@ roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorAgentFactory
 roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
-roots_core += uk.ac.lancs.networks.fabric.DummyFabric
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.util.Commander
 
@@ -31,7 +30,6 @@ SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
-roots_corsa += uk.ac.lancs.networks.corsa.VFCPerServiceDP2000Fabric
 roots_corsa += uk.ac.lancs.networks.corsa.DP2000FabricAgentFactory
 roots_corsa += uk.ac.lancs.networks.corsa.rest.CorsaREST
 
