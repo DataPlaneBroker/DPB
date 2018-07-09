@@ -89,8 +89,8 @@ final class InterfaceManager {
 
     public EndPoint<Interface> getEndPoint(TunnelDesc tun) {
         /* Parse the port section. */
-        CorsaInterface iface;
-        int ifacenum;
+        final CorsaInterface iface;
+        final int ifacenum;
         if (tun.port.startsWith("lag")) {
             iface = allAggregations;
             ifacenum = Integer.parseInt(tun.port.substring(3));

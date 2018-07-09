@@ -91,7 +91,19 @@ import uk.ac.lancs.scc.jardeps.Service;
  * 
  * <dl>
  * 
- * <dt><samp>capacity.bridges</samp> (default 63)
+ * <dt><samp>capacity.ports</samp> (default
+ * {@value #DEFAULT_PORT_COUNT})
+ * 
+ * <dd>Specifies the number of ports in the switch.
+ * 
+ * <dt><samp>capacity.lags</samp> (default: half of
+ * <samp>capacity.ports</samp>)
+ * 
+ * <dd>Specifies the highest numbered link aggregation group in the
+ * switch.
+ * 
+ * <dt><samp>capacity.bridges</samp> (default
+ * {@value #DEFAULT_MAX_BRIDGES})
  * 
  * <dd>Specifies the maximum number of bridges to be created.
  * 
@@ -202,6 +214,16 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     public static final String TYPE_FIELD = "type";
 
     /**
+     * @undocumented
+     */
+    public static final int DEFAULT_PORT_COUNT = 32;
+
+    /**
+     * @undocumented
+     */
+    public static final int DEFAULT_MAX_BRIDGES = 63;
+
+    /**
      * {@inheritDoc}
      * 
      * @default This implementation recognizes only the string
@@ -232,8 +254,12 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                   Integer
                                       .parseInt(conf.get("ctrl.port", Integer
                                           .toString(DEFAULT_CONTROLLER_PORT))));
-        final int maxBridges =
-            Integer.parseInt(conf.get("capacity.bridges", "63"));
+        final int maxBridges = Integer.parseInt(conf
+            .get("capacity.bridges", Integer.toString(DEFAULT_MAX_BRIDGES)));
+        final int portCount = Integer.parseInt(conf
+            .get("capacity.ports", Integer.toString(DEFAULT_PORT_COUNT)));
+        final int maxAggregations = Integer.parseInt(conf
+            .get("capacity.lags", Integer.toString(portCount / 2)));
         final URI service = URI.create(conf.get("rest.location"));
         final File certFile = conf.getFile("rest.cert.file");
         final X509Certificate cert;
@@ -256,7 +282,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final VFCPerServiceFabric fabric;
         try {
             fabric =
-                new VFCPerServiceFabric(maxBridges, descPrefix,
+                new VFCPerServiceFabric(portCount, maxAggregations,
+                                        maxBridges, descPrefix,
                                         partialDescSuffix, fullDescSuffix,
                                         subtype, netns, controller, service,
                                         cert, authz);

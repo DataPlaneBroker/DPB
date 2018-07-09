@@ -78,7 +78,7 @@ import uk.ac.lancs.rest.RESTResponse;
 public class VFCPerServiceFabric implements Fabric {
     private final InetSocketAddress controller;
 
-    private final InterfaceManager interfaces = new InterfaceManager(32, 32);
+    private final InterfaceManager interfaces;
 
     private final int maxBridges;
 
@@ -114,6 +114,11 @@ public class VFCPerServiceFabric implements Fabric {
     /**
      * Create a switching fabric for a Corsa.
      * 
+     * @param portCount the number of ports on the switch
+     * 
+     * @param maxAggregations the maximum number of supported link
+     * aggregation groups
+     * 
      * @param maxBridges the maximum number of bridges that this fabric
      * will create and manage at once
      * 
@@ -147,7 +152,8 @@ public class VFCPerServiceFabric implements Fabric {
      * @throws KeyManagementException if there is a problem with the
      * certficate
      */
-    public VFCPerServiceFabric(int maxBridges, String descPrefix,
+    public VFCPerServiceFabric(int portCount, int maxAggregations,
+                               int maxBridges, String descPrefix,
                                String partialDescSuffix,
                                String fullDescSuffix, String subtype,
                                String netns, InetSocketAddress controller,
@@ -155,6 +161,7 @@ public class VFCPerServiceFabric implements Fabric {
                                String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
+        this.interfaces = new InterfaceManager(portCount, maxAggregations);
         this.maxBridges = maxBridges;
         this.descPrefix = descPrefix;
         this.partialDesc = descPrefix + partialDescSuffix;
