@@ -173,6 +173,15 @@ public class TunnelDesc {
     }
 
     /**
+     * Unset the (outer) VLAN id for external traffic
+     * 
+     * @return this object
+     */
+    public TunnelDesc noVlanId() {
+        return vlanId(-1);
+    }
+
+    /**
      * Set the inner VLAN id for external traffic.
      * 
      * @param innerVlanId the VLAN id
@@ -182,6 +191,15 @@ public class TunnelDesc {
     public TunnelDesc innerVlanId(int innerVlanId) {
         this.innerVlanId = innerVlanId;
         return this;
+    }
+
+    /**
+     * Unset the inner VLAN id for external traffic.
+     * 
+     * @return this object
+     */
+    public TunnelDesc noInnerVlanId() {
+        return innerVlanId(-1);
     }
 
     /**

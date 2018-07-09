@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.json.simple.parser.ParseException;
@@ -78,6 +77,8 @@ import uk.ac.lancs.rest.RESTResponse;
  */
 public class VFCPerServiceFabric implements Fabric {
     private final InetSocketAddress controller;
+
+    private final InterfaceManager interfaces = new InterfaceManager(32, 32);
 
     private final int maxBridges;
 
@@ -252,16 +253,7 @@ public class VFCPerServiceFabric implements Fabric {
                         final int ofPort = nextOfPort++;
                         TunnelDesc tun = new TunnelDesc().ofport(ofPort)
                             .shapedRate(flow.egress);
-                        if (iface.port.equals("phys")) {
-                            tun.port("" + ep.getLabel());
-                        } else if (iface.port.equals("lag")) {
-                            tun.port("lag" + ep.getLabel());
-                        } else if (iface.vlanId < 0) {
-                            tun.port(iface.port).vlanId(ep.getLabel());
-                        } else {
-                            tun.port(iface.port).vlanId(iface.vlanId)
-                                .innerVlanId(ep.getLabel());
-                        }
+                        iface.configureTunnel(tun, ep.getLabel());
                         RESTResponse<Void> tunRsp =
                             rest.attachTunnel(this.bridgeName, tun);
                         if (tunRsp.code != 201) {
@@ -475,28 +467,10 @@ public class VFCPerServiceFabric implements Fabric {
      * of something
      */
     private EndPoint<Interface> endPointOf(TunnelDesc tun) {
-        if (tun.vlanId < 0) {
-            /* Recognize abstract ports called "phys" or "lag", so that
-             * "phys:3" identifies port 3, and "lag:4" identifies link
-             * aggregation group 4. In these cases, the end-point label
-             * is not a VLAN id. */
-            if (tun.port.startsWith("lag")) {
-                CorsaInterface iface = new CorsaInterface("lag", -1);
-                return iface
-                    .getEndPoint(Integer.parseInt(tun.port.substring(3)));
-            } else {
-                CorsaInterface iface = new CorsaInterface("phys", -1);
-                return iface.getEndPoint(Integer.parseInt(tun.port));
-            }
-        }
-        if (tun.innerVlanId < 0) {
-            CorsaInterface iface = new CorsaInterface(tun.port, -1);
-            return iface.getEndPoint(tun.vlanId);
-        }
-        CorsaInterface iface = new CorsaInterface(tun.port, tun.vlanId);
-        return iface.getEndPoint(tun.innerVlanId);
+        return interfaces.getEndPoint(tun);
     }
 
+    @SuppressWarnings("unused")
     private static final Pattern INTERFACE_PATTERN =
         Pattern.compile("^(\\d+|lag\\d+|lag|phys)(?::(\\d+))?$");
 
@@ -513,13 +487,7 @@ public class VFCPerServiceFabric implements Fabric {
      */
     @Override
     public Interface getInterface(String desc) {
-        Matcher m = INTERFACE_PATTERN.matcher(desc);
-        if (!m.matches())
-            throw new IllegalArgumentException("invalid interface: " + desc);
-        String port = m.group(1);
-        int vlanId = -1;
-        if (m.group(2) != null) vlanId = Integer.parseInt(m.group(2));
-        return new CorsaInterface(port, vlanId);
+        return interfaces.getInterface(desc);
     }
 
     class BridgeRef implements Bridge {
