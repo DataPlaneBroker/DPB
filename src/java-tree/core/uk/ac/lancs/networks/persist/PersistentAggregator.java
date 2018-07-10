@@ -70,7 +70,7 @@ import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
@@ -161,9 +161,9 @@ public class PersistentAggregator implements Aggregator {
                 out.printf("%n      inferior %s:", subservice.status());
                 ServiceDescription request = subservice.getRequest();
                 if (request != null) {
-                    for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
+                    for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                         .endPointFlows().entrySet()) {
-                        EndPoint<? extends Terminal> ep = entry.getKey();
+                        Circuit<? extends Terminal> ep = entry.getKey();
                         TrafficFlow flow = entry.getValue();
                         out.printf("%n        %10s %6g %6g", ep, flow.ingress,
                                    flow.egress);
@@ -403,7 +403,7 @@ public class PersistentAggregator implements Aggregator {
         ServiceDescription request;
 
         /**
-         * Holds errors not attached to end points of subservices.
+         * Holds errors not attached to circuits of subservices.
          */
         final Collection<Throwable> errors = new HashSet<>();
 
@@ -422,7 +422,7 @@ public class PersistentAggregator implements Aggregator {
             request = ServiceDescription.sanitize(request, 0.01);
             if (request.endPointFlows().size() < 2)
                 throw new IllegalArgumentException("invalid service"
-                    + " description (fewer than" + " two end points)");
+                    + " description (fewer than" + " two circuits)");
 
             Collection<Service> redundantServices = new HashSet<>();
             boolean failed = true;
@@ -484,7 +484,7 @@ public class PersistentAggregator implements Aggregator {
                 clients.forEach(Client::init);
 
                 /* Tell each of the subconnections to initiate spanning
-                 * trees with their respective end points. */
+                 * trees with their respective circuits. */
                 for (Map.Entry<Service, ServiceDescription> entry : subcons
                     .entrySet()) {
                     System.err.printf("Initiating subservice on %s%n",
@@ -492,16 +492,15 @@ public class PersistentAggregator implements Aggregator {
                     entry.getKey().initiate(entry.getValue());
                 }
 
-                /* Record our service's end points. */
+                /* Record our service's circuits. */
                 try (PreparedStatement stmt =
                     conn.prepareStatement("INSERT INTO " + endPointTable
                         + " (service_id, terminal_id, label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
-                    for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
+                    for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                         .endPointFlows().entrySet()) {
-                        EndPoint<? extends Terminal> endPoint =
-                            entry.getKey();
+                        Circuit<? extends Terminal> endPoint = entry.getKey();
                         SuperiorTerminal term =
                             (SuperiorTerminal) endPoint.getBundle();
                         TrafficFlow flow = entry.getValue();
@@ -600,7 +599,7 @@ public class PersistentAggregator implements Aggregator {
             }
 
             /* Do nothing but record the user's intent, if they haven't
-             * yet provided end-point details. */
+             * yet provided circuit details. */
             if (!initiated) return;
 
             callOut(ServiceStatus.ACTIVATING);
@@ -708,12 +707,12 @@ public class PersistentAggregator implements Aggregator {
 
             default:
                 Collection<Trunk> refs = new ArrayList<>();
-                for (Map.Entry<MyTrunk, EndPoint<? extends Terminal>> tunnel : getTunnels(conn,
-                                                                                          id,
-                                                                                          refs)
-                                                                                              .entrySet()) {
-                    EndPoint<? extends Terminal> ep1 = tunnel.getValue();
-                    EndPoint<? extends Terminal> ep2 =
+                for (Map.Entry<MyTrunk, Circuit<? extends Terminal>> tunnel : getTunnels(conn,
+                                                                                         id,
+                                                                                         refs)
+                                                                                             .entrySet()) {
+                    Circuit<? extends Terminal> ep1 = tunnel.getValue();
+                    Circuit<? extends Terminal> ep2 =
                         tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
                 }
@@ -737,7 +736,7 @@ public class PersistentAggregator implements Aggregator {
 
         synchronized void
             recover(Connection conn,
-                    Map<EndPoint<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                    Map<Circuit<? extends Terminal>, ? extends TrafficFlow> endPoints,
                     Collection<? extends Service> subservices)
                 throws SQLException {
             request = ServiceDescription.create(endPoints);
@@ -888,18 +887,18 @@ public class PersistentAggregator implements Aggregator {
         }
 
         /**
-         * Get the peer of an end point.
+         * Get the peer of a circuit.
          * 
-         * @param p the end point whose peer is requested
+         * @param p the circuit whose peer is requested
          * 
-         * @return the peer of the supplied end point, or {@code null}
-         * if it has no peer
+         * @return the peer of the supplied circuit, or {@code null} if
+         * it has no peer
          * 
-         * @throws IllegalArgumentException if the end point does not
+         * @throws IllegalArgumentException if the circuit does not
          * belong to either terminal of this trunk
          */
-        EndPoint<? extends Terminal> getPeer(EndPoint<? extends Terminal> p) {
-            if (p == null) throw new NullPointerException("end point");
+        Circuit<? extends Terminal> getPeer(Circuit<? extends Terminal> p) {
+            if (p == null) throw new NullPointerException("circuit");
             if (disabled) throw new IllegalStateException("trunk removed");
 
             final String indexKey, resultKey;
@@ -913,7 +912,7 @@ public class PersistentAggregator implements Aggregator {
                 resultKey = "start_label";
                 base = start;
             } else {
-                throw new IllegalArgumentException("end point does not"
+                throw new IllegalArgumentException("circuit does not"
                     + " belong to trunk");
             }
             try (Connection conn = openDatabase();
@@ -924,7 +923,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(2, p.getLabel());
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next()) return null;
-                    return base.getEndPoint(rs.getInt(1));
+                    return base.circuit(rs.getInt(1));
                 }
             } catch (SQLException ex) {
                 throw new RuntimeException("database inaccessible", ex);
@@ -934,7 +933,7 @@ public class PersistentAggregator implements Aggregator {
         /**
          * Allocate a tunnel through this trunk. If successful, only one
          * end of the tunnel is returned. The other can be obtained with
-         * {@link #getPeer(EndPoint)}.
+         * {@link #getPeer(Circuit)}.
          * 
          * @param upstreamBandwidth the bandwidth to allocate to the
          * tunnel in the direction from the start terminal to the end
@@ -942,15 +941,15 @@ public class PersistentAggregator implements Aggregator {
          * @param downstreamBandwidth the bandwidth to allocate to the
          * tunnel in the direction from the end terminal to the start
          * 
-         * @return the end point at the start of the tunnel, or
+         * @return the circuit at the start of the tunnel, or
          * {@code null} if no further resource remains
          * @throws SQLException
          */
-        EndPoint<? extends Terminal>
-            allocateTunnel(Connection conn, MyService service,
-                           double upstreamBandwidth,
-                           double downstreamBandwidth)
-                throws SQLException {
+        Circuit<? extends Terminal> allocateTunnel(Connection conn,
+                                                   MyService service,
+                                                   double upstreamBandwidth,
+                                                   double downstreamBandwidth)
+            throws SQLException {
             if (disabled) throw new IllegalStateException("trunk removed");
 
             /* Sanity-check bandwidth. */
@@ -1011,18 +1010,18 @@ public class PersistentAggregator implements Aggregator {
             }
 
             conn.commit();
-            return start.getEndPoint(startLabel);
+            return start.circuit(startLabel);
         }
 
         /**
          * Release a tunnel through this trunk.
          * 
-         * @param endPoint either of the tunnel end points
+         * @param endPoint either of the tunnel circuits
          * 
          * @throws SQLException
          */
         void releaseTunnel(Connection conn,
-                           EndPoint<? extends Terminal> endPoint)
+                           Circuit<? extends Terminal> endPoint)
             throws SQLException {
             if (disabled) throw new IllegalStateException("trunk removed");
 
@@ -1035,7 +1034,7 @@ public class PersistentAggregator implements Aggregator {
             } else if (endPoint.getBundle().equals(end)) {
                 key = "end_label";
             } else {
-                throw new IllegalArgumentException("not our end point: "
+                throw new IllegalArgumentException("not our circuit: "
                     + endPoint);
             }
 
@@ -1512,7 +1511,7 @@ public class PersistentAggregator implements Aggregator {
                     + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
 
-                /* The end-point table records which superior end points
+                /* The end-point table records which superior circuits
                  * are associated with each initiated service. When no
                  * entries refer to a particular service id, that
                  * service is uninitiated (dormant). */
@@ -1689,7 +1688,7 @@ public class PersistentAggregator implements Aggregator {
      * across trunks
      * 
      * @param request the request specifying bandwidth at each concerned
-     * end point of this aggregator
+     * circuit of this aggregator
      * 
      * @param tunnels a place to store the set of allocated tunnels,
      * indexed by trunk
@@ -1703,30 +1702,30 @@ public class PersistentAggregator implements Aggregator {
                             ServiceDescription request,
                             Collection<? super ServiceDescription> subrequests)
         throws SQLException {
-        /* Sanity-check the end points, map them to internal terminals,
+        /* Sanity-check the circuits, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
-        Map<EndPoint<? extends Terminal>, List<Double>> innerEndPoints =
+        Map<Circuit<? extends Terminal>, List<Double>> innerEndPoints =
             new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
-        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
+        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
             .endPointFlows().entrySet()) {
-            EndPoint<? extends Terminal> ep = entry.getKey();
+            Circuit<? extends Terminal> ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 
-            /* Map this end point to an inferior network's terminal. */
+            /* Map this circuit to an inferior network's terminal. */
             Terminal outerPort = ep.getBundle();
             if (!(outerPort instanceof SuperiorTerminal))
-                throw new IllegalArgumentException("end point " + ep
+                throw new IllegalArgumentException("circuit " + ep
                     + " not part of " + name);
             SuperiorTerminal myPort = (SuperiorTerminal) outerPort;
             if (myPort.getNetwork() != getControl())
-                throw new IllegalArgumentException("end point " + ep
+                throw new IllegalArgumentException("circuit " + ep
                     + " not part of " + name);
 
             /* Record the bandwidth produced and consumed on the
              * inferior network's terminal. Make sure we aggregate
-             * contributions when two or more end points belong to the
+             * contributions when two or more circuits belong to the
              * same terminal. */
             double produced = flow.ingress;
             double consumed = flow.egress;
@@ -1736,9 +1735,9 @@ public class PersistentAggregator implements Aggregator {
             tuple.set(0, tuple.get(0) + produced);
             tuple.set(1, tuple.get(1) + consumed);
 
-            /* Map the outer end point to an inner one by copying the
+            /* Map the outer circuit to an inner one by copying the
              * label. */
-            innerEndPoints.put(innerPort.getEndPoint(ep.getLabel()),
+            innerEndPoints.put(innerPort.circuit(ep.getLabel()),
                                Arrays.asList(produced, consumed));
 
             /* Get the smallest production. We use it to filter out
@@ -1890,17 +1889,17 @@ public class PersistentAggregator implements Aggregator {
             /* Allocate tunnels along identified trunks. Also gather end
              * points per terminal group, and bandwidth required on
              * each. */
-            Map<Collection<Terminal>, Map<EndPoint<? extends Terminal>, List<Double>>> subterminals =
+            Map<Collection<Terminal>, Map<Circuit<? extends Terminal>, List<Double>>> subterminals =
                 new HashMap<>();
             for (Map.Entry<MyTrunk, List<Double>> trunkReq : edgeBandwidths
                 .entrySet()) {
                 MyTrunk trunk = trunkReq.getKey();
                 double upstream = trunkReq.getValue().get(0);
                 double downstream = trunkReq.getValue().get(1);
-                EndPoint<? extends Terminal> ep1 =
+                Circuit<? extends Terminal> ep1 =
                     trunk.allocateTunnel(conn, service, upstream, downstream);
                 // tunnels.put(trunk, ep1);
-                EndPoint<? extends Terminal> ep2 = trunk.getPeer(ep1);
+                Circuit<? extends Terminal> ep2 = trunk.getPeer(ep1);
                 subterminals
                     .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
                                      k -> new HashMap<>())
@@ -1911,11 +1910,11 @@ public class PersistentAggregator implements Aggregator {
                     .put(ep2, Arrays.asList(upstream, downstream));
             }
 
-            /* Ensure the caller's end points are included in the
-             * requests to inferior networks. */
-            for (Map.Entry<EndPoint<? extends Terminal>, List<Double>> entry : innerEndPoints
+            /* Ensure the caller's circuits are included in the requests
+             * to inferior networks. */
+            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerEndPoints
                 .entrySet()) {
-                EndPoint<? extends Terminal> ep = entry.getKey();
+                Circuit<? extends Terminal> ep = entry.getKey();
                 subterminals
                     .computeIfAbsent(terminalGroups.get(ep.getBundle()),
                                      k -> new HashMap<>())
@@ -1924,7 +1923,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* For each terminal group, create a new connection
              * request. */
-            for (Map<EndPoint<? extends Terminal>, List<Double>> reqs : subterminals
+            for (Map<Circuit<? extends Terminal>, List<Double>> reqs : subterminals
                 .values()) {
                 subrequests.add(ServiceDescription.of(reqs));
             }
@@ -1987,7 +1986,7 @@ public class PersistentAggregator implements Aggregator {
             Collection<SuperiorTerminal> terminals =
                 getAllTerminals(conn).values();
 
-            /* Map the set of our end points to the corresponding inner
+            /* Map the set of our circuits to the corresponding inner
              * terminals that our topology consists of. */
             Collection<Terminal> innerTerminalPorts =
                 terminals.stream().map(SuperiorTerminal::subterminal)
@@ -2300,7 +2299,7 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        final Map<EndPoint<? extends Terminal>, TrafficFlow> endPoints =
+        final Map<Circuit<? extends Terminal>, TrafficFlow> endPoints =
             new HashMap<>();
         try (PreparedStatement stmt = conn.prepareStatement("SELECT"
             + " tt.name AS terminal_name," + " tt.terminal_id AS terminal_id,"
@@ -2328,8 +2327,8 @@ public class PersistentAggregator implements Aggregator {
                         new SuperiorTerminal(getControl(), name, innerPort,
                                              tid);
 
-                    final EndPoint<? extends Terminal> endPoint =
-                        port.getEndPoint(label);
+                    final Circuit<? extends Terminal> endPoint =
+                        port.circuit(label);
                     final TrafficFlow enf = TrafficFlow.of(metering, shaping);
                     endPoints.put(endPoint, enf);
                 }
@@ -2513,7 +2512,7 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @param id the service id
      * 
-     * @return {@code true} iff the service has some end points defined
+     * @return {@code true} iff the service has some circuits defined
      * 
      * @throws SQLException if there was an error accessing the database
      */
@@ -2539,15 +2538,15 @@ public class PersistentAggregator implements Aggregator {
      * references, so that the internal references won't be discarded
      * 
      * @return a map from all trunks which contain a tunnel for the
-     * service to an end point of that tunnel
+     * service to a circuit of that tunnel
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    private Map<MyTrunk, EndPoint<? extends Terminal>>
+    private Map<MyTrunk, Circuit<? extends Terminal>>
         getTunnels(Connection conn, int id,
                    Collection<? super Trunk> refCache)
             throws SQLException {
-        Map<MyTrunk, EndPoint<? extends Terminal>> tunnels = new HashMap<>();
+        Map<MyTrunk, Circuit<? extends Terminal>> tunnels = new HashMap<>();
         try (ConnectionContext ctxt = setContext(conn);
             PreparedStatement stmt =
                 conn.prepareStatement("SELECT" + " lt.trunk_id AS trunk_id,"
@@ -2568,7 +2567,7 @@ public class PersistentAggregator implements Aggregator {
                     Terminal term = subnw.getTerminal(tname);
                     refCache.add(trunkWatcher.get(trid));
                     MyTrunk trunk = trunkWatcher.getBase(trid);
-                    EndPoint<Terminal> ep = term.getEndPoint(label);
+                    Circuit<Terminal> ep = term.circuit(label);
                     tunnels.put(trunk, ep);
                 }
             }

@@ -51,7 +51,7 @@ import java.util.Collection;
  * 
  * <p>
  * Call {@link #initiate(ServiceDescription)} with service parameters
- * (end points and bandwidth) to initiate a service.
+ * (circuits and bandwidth) to initiate a service.
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#INACTIVE INACTIVE})</code>
  * will be invoked if the service is established (but not yet
  * activated).

@@ -33,12 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.end_points;
+package uk.ac.lancs.networks.circuits;
 
 /**
- * Every end point belongs to a bundle, and is distinguished from other
- * end points of the same bundle by an integer label. Get an end point
- * by calling {@link Bundle#getEndPoint(int)}.
+ * Identifies a numbered virtual circuit within a bundle of other
+ * circuits. Every circuit belongs to a bundle, and is distinguished
+ * from other circuits of the same bundle by an integer label. Get a
+ * circuit by calling {@link Bundle#circuit(int)}.
  * 
  * @summary A numbered division of a bundle
  * 
@@ -46,34 +47,20 @@ package uk.ac.lancs.networks.end_points;
  * 
  * @author simpsons
  */
-public final class EndPoint<B extends Bundle<B>> {
+public final class Circuit<B extends Bundle<B>> {
     private final B bundle;
     private final int label;
 
-    EndPoint(B bundle, int label) {
+    Circuit(B bundle, int label) {
         if (bundle == null) throw new NullPointerException("null bundle");
         this.bundle = bundle;
         this.label = label;
     }
 
     /**
-     * Get an end point with a given label on a given terminal.
+     * Get the containing bundle of the circuit.
      * 
-     * @param bundle the bundle the end point belongs to
-     * 
-     * @param label the label that distinguishes the end point from
-     * others on the same bundle
-     * 
-     * @throws NullPointerException if the bundle is {@code null}
-     */
-    static <B extends Bundle<B>> EndPoint<B> of(B bundle, int label) {
-        return new EndPoint<B>(bundle, label);
-    }
-
-    /**
-     * Get the containing bundle of the end point.
-     * 
-     * @return the end point's containing bundle
+     * @return the circuit's containing bundle
      */
     public B getBundle() {
         return bundle;
@@ -83,7 +70,7 @@ public final class EndPoint<B extends Bundle<B>> {
      * Get the label that subdivides the bundle to identify the
      * connection.
      * 
-     * @return the end-point label
+     * @return the circuit label
      */
     public int getLabel() {
         return label;
@@ -92,7 +79,7 @@ public final class EndPoint<B extends Bundle<B>> {
     /**
      * Compute the hash code for this object.
      * 
-     * @return the end point's hash code
+     * @return the circuit's hash code
      */
     @Override
     public int hashCode() {
@@ -104,11 +91,11 @@ public final class EndPoint<B extends Bundle<B>> {
     }
 
     /**
-     * Determine whether this end point is equivalent to another object.
+     * Determine whether this circuit is equivalent to another object.
      * 
      * @param obj the object to be compared with
      * 
-     * @return {@code true} if the other object is an end point and
+     * @return {@code true} if the other object is a circuit and
      * identifies the same as this one
      */
     @Override
@@ -116,7 +103,7 @@ public final class EndPoint<B extends Bundle<B>> {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        EndPoint<?> other = (EndPoint<?>) obj;
+        Circuit<?> other = (Circuit<?>) obj;
         if (label != other.label) return false;
         assert bundle != null;
         assert other.bundle != null;
@@ -124,9 +111,9 @@ public final class EndPoint<B extends Bundle<B>> {
     }
 
     /**
-     * Get a string representation of this end point.
+     * Get a string representation of this circuit.
      * 
-     * @return a string representation of this end point, consisting of
+     * @return a string representation of this circuit, consisting of
      * the bundle and the label
      */
     @Override

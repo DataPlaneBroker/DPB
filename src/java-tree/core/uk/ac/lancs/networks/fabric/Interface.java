@@ -38,7 +38,7 @@ package uk.ac.lancs.networks.fabric;
 import java.util.Collection;
 import java.util.Collections;
 
-import uk.ac.lancs.networks.end_points.Bundle;
+import uk.ac.lancs.networks.circuits.Bundle;
 
 /**
  * Represents a
@@ -139,9 +139,9 @@ public interface Interface<T> extends Bundle<Interface<T>> {
     }
 
     /**
-     * Get the encapsulation used by end points.
+     * Get the encapsulation used by circuits.
      * 
-     * @return the end-point encapsulation
+     * @return the circuit encapsulation
      */
     TagKind getEndPointEncapsulation();
 
@@ -192,18 +192,16 @@ public interface Interface<T> extends Bundle<Interface<T>> {
     }
 
     /**
-     * Get the minimum valid label for end points of this interface.
-     * This prescribes the acceptable range for
-     * {@link Bundle#getEndPoint(int)}.
+     * Get the minimum valid label for circuits of this interface. This
+     * prescribes the acceptable range for {@link Bundle#circuit(int)}.
      * 
      * @return the minimum valid label
      */
     int getMinimumEndPointLabel();
 
     /**
-     * Get the maximum valid label for end points of this interface.
-     * This prescribes the acceptable range for
-     * {@link Bundle#getEndPoint(int)}.
+     * Get the maximum valid label for circuits of this interface. This
+     * prescribes the acceptable range for {@link Bundle#circuit(int)}.
      * 
      * @return the maximum valid label
      */

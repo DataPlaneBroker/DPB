@@ -35,11 +35,11 @@
  */
 package uk.ac.lancs.networks;
 
-import uk.ac.lancs.networks.end_points.Bundle;
+import uk.ac.lancs.networks.circuits.Bundle;
 
 /**
  * A terminal is an accessible interface to a network, and consists of
- * multiple end points, distinguishable by an integral label.
+ * multiple circuits, distinguishable by an integral label.
  * 
  * <p>
  * The {@link Object#toString()} method should fully identify the

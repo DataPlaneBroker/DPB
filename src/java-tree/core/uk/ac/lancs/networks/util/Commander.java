@@ -63,7 +63,7 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceDescription;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
@@ -87,7 +87,7 @@ public final class Commander {
     Switch zwitch = null;
     Aggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
-    Map<EndPoint<Terminal>, TrafficFlow> endPoints = new HashMap<>();
+    Map<Circuit<Terminal>, TrafficFlow> endPoints = new HashMap<>();
     Service service = null;
     String networkName = null;
     String usage = null;
@@ -343,9 +343,9 @@ public final class Commander {
         if ("-e".equals(arg)) {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
-            EndPoint<Terminal> ep = findEndPoint(epid);
+            Circuit<Terminal> ep = findEndPoint(epid);
             if (ep == null) {
-                System.err.printf("No end point [%s]%n", epid);
+                System.err.printf("No circuit [%s]%n", epid);
                 return false;
             }
             endPoints.put(ep, nextFlow);
@@ -489,18 +489,18 @@ public final class Commander {
     private static final Pattern endPointPattern =
         Pattern.compile("^([^:]+):([\\d]+)$");
 
-    private EndPoint<Terminal> findEndPoint(String name) {
+    private Circuit<Terminal> findEndPoint(String name) {
         Matcher m = endPointPattern.matcher(name);
         if (!m.matches())
-            throw new IllegalArgumentException("not an end point: " + name);
+            throw new IllegalArgumentException("not a circuit: " + name);
         String terminalName = m.group(1);
         int label = Integer.parseInt(m.group(2));
         if (network == null)
             throw new IllegalArgumentException("network not set"
-                + " to find end point: " + name);
+                + " to find circuit: " + name);
         Terminal terminal = network.getControl().getTerminal(terminalName);
         if (terminal == null) return null;
-        return terminal.getEndPoint(label);
+        return terminal.circuit(label);
     }
 
     private static final Pattern labelRangePattern =
@@ -595,8 +595,8 @@ public final class Commander {
      * 
      * <dt><samp>-e <var>terminal</var>:<var>label</var></samp>
      * 
-     * <dd>Add an end point with the current rate settings to the set
-     * used to initiate a service.
+     * <dd>Add a circuit with the current rate settings to the set used
+     * to initiate a service.
      * 
      * <dt><samp>initiate</samp>
      * 

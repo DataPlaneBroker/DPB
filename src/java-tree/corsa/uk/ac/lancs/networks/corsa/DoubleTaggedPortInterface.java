@@ -38,8 +38,8 @@ package uk.ac.lancs.networks.corsa;
 import java.util.Collection;
 import java.util.Collections;
 
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.networks.fabric.TagKind;
 
@@ -152,8 +152,8 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
     }
 
     @Override
-    public EndPoint<Interface<CorsaInterface>> resolve(int label) {
+    public Circuit<Interface<CorsaInterface>> resolve(int label) {
         return this.tag(TagKind.VLAN_STAG, label >> 12)
-            .getEndPoint(label & 0xfff);
+            .circuit(label & 0xfff);
     }
 }

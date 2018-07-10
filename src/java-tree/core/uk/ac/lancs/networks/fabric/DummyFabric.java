@@ -45,7 +45,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
  * Does nothing but report on requested changes.
@@ -86,10 +86,10 @@ public final class DummyFabric implements Fabric {
 
     private class BridgeInstance {
         final String name;
-        final Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details;
+        final Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details;
 
         BridgeInstance(String name,
-                       Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
+                       Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
             this.name = name;
             this.details = details;
         }
@@ -144,7 +144,7 @@ public final class DummyFabric implements Fabric {
     }
 
     private final Map<String, BridgeInstance> bridges = new HashMap<>();
-    private Map<EndPoint<? extends Interface<?>>, BridgeInstance> index =
+    private Map<Circuit<? extends Interface<?>>, BridgeInstance> index =
         new HashMap<>();
 
     private int nextBridgeId;
@@ -152,9 +152,9 @@ public final class DummyFabric implements Fabric {
     @Override
     public synchronized Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
-        /* Look up all end points to find out if they already belong to
-         * a bridge. */
+               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+        /* Look up all circuits to find out if they already belong to a
+         * bridge. */
         Collection<BridgeInstance> existingBridges =
             details.keySet().stream().map(index::get).filter(br -> br != null)
                 .collect(Collectors.toSet());
@@ -170,18 +170,18 @@ public final class DummyFabric implements Fabric {
             return new BridgeReference(br);
         }
 
-        /* If any non-matching bridges have requested end points, the
+        /* If any non-matching bridges have requested circuits, the
          * action was a failure. TODO: Maybe throw an exception? */
         if (!existingBridges.isEmpty()) return null;
 
         /* Create a brand-new bridge. */
         String brName = "br" + nextBridgeId++;
-        Map<EndPoint<? extends Interface<?>>, TrafficFlow> copy =
+        Map<Circuit<? extends Interface<?>>, TrafficFlow> copy =
             new HashMap<>(details);
         BridgeInstance br = new BridgeInstance(brName, copy);
         br.listeners.add(listener);
         bridges.put(brName, br);
-        for (EndPoint<? extends Interface<?>> ep : copy.keySet())
+        for (Circuit<? extends Interface<?>> ep : copy.keySet())
             index.put(ep, br);
         return new BridgeReference(br);
     }

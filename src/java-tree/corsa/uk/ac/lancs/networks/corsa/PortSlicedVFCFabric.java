@@ -47,8 +47,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.CorsaREST;
-import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
@@ -142,7 +142,7 @@ public final class PortSlicedVFCFabric implements Fabric {
     @Override
     public Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
+               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
@@ -157,9 +157,9 @@ public final class PortSlicedVFCFabric implements Fabric {
     }
 
     class InternalBridge {
-        final Map<EndPoint<? extends Interface<?>>, TrafficFlow> service;
+        final Map<Circuit<? extends Interface<?>>, TrafficFlow> service;
 
-        public InternalBridge(Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> service) {
+        public InternalBridge(Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> service) {
             this.service = new HashMap<>(service);
         }
 

@@ -37,7 +37,7 @@ package uk.ac.lancs.networks.persist;
 
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Interface;
 
 /**
@@ -63,8 +63,8 @@ final class SwitchTerminal implements Terminal {
         this.dbid = dbid;
     }
 
-    EndPoint<? extends Interface<?>> getInnerEndPoint(int label) {
-        return fabricInterface.getEndPoint(label);
+    Circuit<? extends Interface<?>> getInnerEndPoint(int label) {
+        return fabricInterface.circuit(label);
     }
 
     @Override

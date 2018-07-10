@@ -48,7 +48,7 @@
  * 
  * <p>
  * A physical switch establishes a set of <dfn>bridges</dfn>, each
- * connecting {@link uk.ac.lancs.networks.end_points.EndPoint}s of a
+ * connecting {@link uk.ac.lancs.networks.circuits.Circuit}s of a
  * subset of its interfaces with outgoing shaping and incoming metering
  * of bandwidth (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch
  * can be asked to <em>ensure</em> that a bridge exists with

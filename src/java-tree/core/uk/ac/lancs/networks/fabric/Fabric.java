@@ -41,7 +41,7 @@ import java.util.Map;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
  * Abstracts a physical switch. This is a simpler interface than
@@ -58,7 +58,7 @@ import uk.ac.lancs.networks.end_points.EndPoint;
  * it needs to set up a service (a bridge, at this level).
  * 
  * <p>
- * When end points of several interfaces and bandwidth requirements have
+ * When circuits of several interfaces and bandwidth requirements have
  * been gathered to implement a service, they are a requested as a
  * bridge with {@link #bridge(BridgeListener, Map)}. The physical switch
  * ensures that each requested bridge exists (it might already), and
@@ -88,14 +88,13 @@ public interface Fabric {
      * @param listener an object informed about changes to the state of
      * the bridge
      * 
-     * @param details end points and bandwidth requirements of the
-     * bridge
+     * @param details circuits and bandwidth requirements of the bridge
      * 
      * @return a reference to the bridge
      */
     Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details);
+               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since

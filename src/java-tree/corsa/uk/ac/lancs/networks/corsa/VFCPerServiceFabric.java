@@ -55,13 +55,13 @@ import org.json.simple.parser.ParseException;
 
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
 import uk.ac.lancs.networks.corsa.rest.CorsaREST;
 import uk.ac.lancs.networks.corsa.rest.Meter;
 import uk.ac.lancs.networks.corsa.rest.ReplaceBridgeDescription;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
@@ -173,19 +173,19 @@ public class VFCPerServiceFabric implements Fabric {
     }
 
     class InternalBridge {
-        public InternalBridge(Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> service) {
+        public InternalBridge(Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> service) {
             this.service = new HashMap<>(service);
         }
 
         private String bridgeName;
 
         public InternalBridge(String bridgeName,
-                              Collection<? extends EndPoint<? extends Interface<?>>> endPoints) {
+                              Collection<? extends Circuit<? extends Interface<?>>> endPoints) {
             this.bridgeName = bridgeName;
 
             /* Fake a service description. */
             service = new HashMap<>();
-            for (EndPoint<? extends Interface<?>> ep : endPoints)
+            for (Circuit<? extends Interface<?>> ep : endPoints)
                 service.put(ep, TrafficFlow.of(0.0, 0.0));
 
             /* Mark the bridge as already existing. */
@@ -212,7 +212,7 @@ public class VFCPerServiceFabric implements Fabric {
             listeners.remove(listener);
         }
 
-        final Map<EndPoint<? extends Interface<?>>, TrafficFlow> service;
+        final Map<Circuit<? extends Interface<?>>, TrafficFlow> service;
 
         boolean started;
 
@@ -247,9 +247,9 @@ public class VFCPerServiceFabric implements Fabric {
                     System.err.printf("Attaching tunnels...%n");
                     /* Attach each of the tunnels. */
                     int nextOfPort = 1;
-                    for (Map.Entry<EndPoint<? extends Interface<?>>, TrafficFlow> entry : service
+                    for (Map.Entry<Circuit<? extends Interface<?>>, TrafficFlow> entry : service
                         .entrySet()) {
-                        EndPoint<? extends Interface<?>> ep = entry.getKey();
+                        Circuit<? extends Interface<?>> ep = entry.getKey();
                         CorsaInterface iface =
                             (CorsaInterface) ep.getBundle();
                         TrafficFlow flow = entry.getValue();
@@ -378,16 +378,16 @@ public class VFCPerServiceFabric implements Fabric {
     }
 
     /**
-     * Indexes bridges by the end points they connect. The number of
+     * Indexes bridges by the circuits they connect. The number of
      * entries in this map is the number of bridges.
      */
-    private final Map<Collection<EndPoint<? extends Interface<?>>>, InternalBridge> bridgesByEndPointSet =
+    private final Map<Collection<Circuit<? extends Interface<?>>>, InternalBridge> bridgesByEndPointSet =
         new HashMap<>();
 
     /**
-     * Indexes bridges by each end point.
+     * Indexes bridges by each circuit.
      */
-    private final Map<EndPoint<? extends Interface<?>>, InternalBridge> bridgesByEndPoint =
+    private final Map<Circuit<? extends Interface<?>>, InternalBridge> bridgesByEndPoint =
         new HashMap<>();
 
     /**
@@ -443,38 +443,38 @@ public class VFCPerServiceFabric implements Fabric {
                     + ": Getting tunnels: RSP=" + tunnels.code);
                 continue;
             }
-            Collection<EndPoint<? extends Interface<?>>> endPoints =
+            Collection<Circuit<? extends Interface<?>>> endPoints =
                 new HashSet<>();
             for (Map.Entry<Integer, TunnelDesc> entry : tunnels.message
                 .entrySet()) {
                 @SuppressWarnings("unused")
                 int ofport = entry.getKey();
                 TunnelDesc tun = entry.getValue();
-                EndPoint<? extends Interface<?>> ep = endPointOf(tun);
+                Circuit<? extends Interface<?>> ep = endPointOf(tun);
                 endPoints.add(ep);
             }
 
             /* Create the bridge, and index it. */
             InternalBridge intern = new InternalBridge(bridgeName, endPoints);
             bridgesByEndPointSet.put(endPoints, intern);
-            for (EndPoint<? extends Interface<?>> ep : endPoints) {
+            for (Circuit<? extends Interface<?>> ep : endPoints) {
                 bridgesByEndPoint.put(ep, intern);
             }
         }
     }
 
     /**
-     * Given a tunnel description, work out what abstract end point it
+     * Given a tunnel description, work out what abstract circuit it
      * corresponds to.
      * 
      * @param tun the tunnel description
      * 
-     * @return the corresponding end point
+     * @return the corresponding circuit
      * 
      * @throws IllegalArgumentException if the tunnel isn't a VLAN slice
      * of something
      */
-    private EndPoint<? extends Interface<?>> endPointOf(TunnelDesc tun) {
+    private Circuit<? extends Interface<?>> endPointOf(TunnelDesc tun) {
         return interfaces.getEndPoint(tun);
     }
 
@@ -516,14 +516,14 @@ public class VFCPerServiceFabric implements Fabric {
     @Override
     public synchronized Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
+               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
         InternalBridge intern = bridgesByEndPointSet.get(details.keySet());
         if (intern == null) {
             intern = new InternalBridge(details);
             bridgesByEndPointSet
-                .put(new HashSet<EndPoint<? extends Interface<?>>>(details
+                .put(new HashSet<Circuit<? extends Interface<?>>>(details
                     .keySet()), intern);
-            for (EndPoint<? extends Interface<?>> ep : details.keySet())
+            for (Circuit<? extends Interface<?>> ep : details.keySet())
                 bridgesByEndPoint.put(ep, intern);
         }
         intern.addListener(listener);
@@ -543,9 +543,9 @@ public class VFCPerServiceFabric implements Fabric {
             keep.add(ibr);
         }
 
-        for (Iterator<Map.Entry<Collection<EndPoint<? extends Interface<?>>>, InternalBridge>> iter =
+        for (Iterator<Map.Entry<Collection<Circuit<? extends Interface<?>>>, InternalBridge>> iter =
             bridgesByEndPointSet.entrySet().iterator(); iter.hasNext();) {
-            final Map.Entry<Collection<EndPoint<? extends Interface<?>>>, InternalBridge> entry =
+            final Map.Entry<Collection<Circuit<? extends Interface<?>>>, InternalBridge> entry =
                 iter.next();
             final InternalBridge cand = entry.getValue();
             if (keep.contains(cand)) continue;

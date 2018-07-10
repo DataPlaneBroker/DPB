@@ -48,27 +48,27 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
- * Describes a service by its set of end points and their QoS
+ * Describes a service by its set of circuits and their QoS
  * requirements.
  * 
  * @author simpsons
  */
 public interface ServiceDescription {
     /**
-     * Get the set of end points of the service, and the maximum traffic
-     * at each end point.
+     * Get the set of circuits of the service, and the maximum traffic
+     * at each circuit.
      * 
-     * @return the traffic flows of each end point of the service
+     * @return the traffic flows of each circuit of the service
      */
-    Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+    Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
         endPointFlows();
 
     /**
      * Get the set of bandwidth contributions into the service indexed
-     * by end point.
+     * by circuit.
      * 
      * @return a mapping from each producer to its contributing
      * bandwidth
@@ -76,19 +76,19 @@ public interface ServiceDescription {
      * @deprecated This method will be removed.
      */
     @Deprecated
-    default Map<? extends EndPoint<? extends Terminal>, ? extends Number>
+    default Map<? extends Circuit<? extends Terminal>, ? extends Number>
         producers() {
-        return new AbstractMap<EndPoint<? extends Terminal>, Number>() {
+        return new AbstractMap<Circuit<? extends Terminal>, Number>() {
             @Override
-            public Set<Entry<EndPoint<? extends Terminal>, Number>>
+            public Set<Entry<Circuit<? extends Terminal>, Number>>
                 entrySet() {
-                return new AbstractSet<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
+                return new AbstractSet<Map.Entry<Circuit<? extends Terminal>, Number>>() {
                     @Override
                     public
-                        Iterator<Entry<EndPoint<? extends Terminal>, Number>>
+                        Iterator<Entry<Circuit<? extends Terminal>, Number>>
                         iterator() {
-                        return new Iterator<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>> iterator =
+                        return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
                                 endPointFlows().entrySet().iterator();
 
                             @Override
@@ -98,13 +98,13 @@ public interface ServiceDescription {
 
                             @Override
                             public
-                                Map.Entry<EndPoint<? extends Terminal>, Number>
+                                Map.Entry<Circuit<? extends Terminal>, Number>
                                 next() {
-                                Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> next =
+                                Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<EndPoint<? extends Terminal>, Number>() {
+                                return new Map.Entry<Circuit<? extends Terminal>, Number>() {
                                     @Override
-                                    public EndPoint<? extends Terminal>
+                                    public Circuit<? extends Terminal>
                                         getKey() {
                                         return next.getKey();
                                     }
@@ -134,7 +134,7 @@ public interface ServiceDescription {
 
     /**
      * Get the set of bandwidth tolerances out of the service indexed by
-     * end point.
+     * circuit.
      * 
      * @return a mapping from each consumer to its maximum accepted
      * bandwidth
@@ -142,19 +142,19 @@ public interface ServiceDescription {
      * @deprecated This method will be removed.
      */
     @Deprecated
-    default Map<? extends EndPoint<? extends Terminal>, ? extends Number>
+    default Map<? extends Circuit<? extends Terminal>, ? extends Number>
         consumers() {
-        return new AbstractMap<EndPoint<? extends Terminal>, Number>() {
+        return new AbstractMap<Circuit<? extends Terminal>, Number>() {
             @Override
-            public Set<Entry<EndPoint<? extends Terminal>, Number>>
+            public Set<Entry<Circuit<? extends Terminal>, Number>>
                 entrySet() {
-                return new AbstractSet<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
+                return new AbstractSet<Map.Entry<Circuit<? extends Terminal>, Number>>() {
                     @Override
                     public
-                        Iterator<Entry<EndPoint<? extends Terminal>, Number>>
+                        Iterator<Entry<Circuit<? extends Terminal>, Number>>
                         iterator() {
-                        return new Iterator<Map.Entry<EndPoint<? extends Terminal>, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>> iterator =
+                        return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
                                 endPointFlows().entrySet().iterator();
 
                             @Override
@@ -164,13 +164,13 @@ public interface ServiceDescription {
 
                             @Override
                             public
-                                Map.Entry<EndPoint<? extends Terminal>, Number>
+                                Map.Entry<Circuit<? extends Terminal>, Number>
                                 next() {
-                                Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> next =
+                                Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<EndPoint<? extends Terminal>, Number>() {
+                                return new Map.Entry<Circuit<? extends Terminal>, Number>() {
                                     @Override
-                                    public EndPoint<? extends Terminal>
+                                    public Circuit<? extends Terminal>
                                         getKey() {
                                         return next.getKey();
                                     }
@@ -200,7 +200,7 @@ public interface ServiceDescription {
 
     /**
      * Create a description from a set of producers and consumers. The
-     * full set of end points is the union of the two maps' key sets.
+     * full set of circuits is the union of the two maps' key sets.
      * Anything missing from one key set but present in the other is
      * assumed to be zero. The input data are copied, so changes to them
      * do not affect the resultant object.
@@ -214,14 +214,14 @@ public interface ServiceDescription {
      * @return a description consisting of the provided information
      */
     static ServiceDescription
-        of(Map<? extends EndPoint<? extends Terminal>, ? extends Number> producers,
-           Map<? extends EndPoint<? extends Terminal>, ? extends Number> consumers) {
-        Map<EndPoint<? extends Terminal>, TrafficFlow> result =
+        of(Map<? extends Circuit<? extends Terminal>, ? extends Number> producers,
+           Map<? extends Circuit<? extends Terminal>, ? extends Number> consumers) {
+        Map<Circuit<? extends Terminal>, TrafficFlow> result =
             new HashMap<>();
-        Collection<EndPoint<? extends Terminal>> keys =
+        Collection<Circuit<? extends Terminal>> keys =
             new HashSet<>(producers.keySet());
         if (consumers != null) keys.addAll(consumers.keySet());
-        for (EndPoint<? extends Terminal> ep : keys) {
+        for (Circuit<? extends Terminal> ep : keys) {
             Number ingressObj = producers.get(ep);
             double ingress =
                 ingressObj == null ? 0.0 : ingressObj.doubleValue();
@@ -230,12 +230,12 @@ public interface ServiceDescription {
             double egress = egressObj == null ? 0.0 : egressObj.doubleValue();
             result.put(ep, TrafficFlow.of(ingress, egress));
         }
-        Map<EndPoint<? extends Terminal>, TrafficFlow> finalResult =
+        Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
         return new ServiceDescription() {
             @Override
             public
-                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
                 endPointFlows() {
                 return finalResult;
             }
@@ -243,20 +243,20 @@ public interface ServiceDescription {
     }
 
     /**
-     * Create a description view of a mapping from end points to pairs
-     * of bandwidths. The result is simply a view of the same map, and
+     * Create a description view of a mapping from circuits to pairs of
+     * bandwidths. The result is simply a view of the same map, and
      * reflects changes in that map.
      * 
-     * @param data the mapping from end points to pairs of bandwidths
+     * @param data the mapping from circuits to pairs of bandwidths
      * 
      * @return the description view of the same map
      */
     static ServiceDescription
-        create(Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> data) {
+        create(Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> data) {
         return new ServiceDescription() {
             @Override
             public
-                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
                 endPointFlows() {
                 return data;
             }
@@ -264,20 +264,20 @@ public interface ServiceDescription {
     }
 
     /**
-     * Create a description from a mapping from end points to pairs of
+     * Create a description from a mapping from circuits to pairs of
      * bandwidths.
      * 
-     * @param input a mapping from end point to pairs of numbers, the
+     * @param input a mapping from circuit to pairs of numbers, the
      * first being ingress and the second ingress
      * 
      * @return a description consisting of the provided information
      */
     static ServiceDescription
-        of(Map<? extends EndPoint<? extends Terminal>, ? extends List<? extends Number>> input) {
-        Map<EndPoint<? extends Terminal>, Number> producers =
+        of(Map<? extends Circuit<? extends Terminal>, ? extends List<? extends Number>> input) {
+        Map<Circuit<? extends Terminal>, Number> producers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(0)));
-        Map<EndPoint<? extends Terminal>, Number> consumers =
+        Map<Circuit<? extends Terminal>, Number> consumers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(1)));
         return of(producers, consumers);
@@ -299,7 +299,7 @@ public interface ServiceDescription {
      * @author simpsons
      */
     class Builder {
-        private Map<EndPoint<? extends Terminal>, List<Number>> data =
+        private Map<Circuit<? extends Terminal>, List<Number>> data =
             new HashMap<>();
 
         private Builder() {}
@@ -308,7 +308,7 @@ public interface ServiceDescription {
 
         /**
          * Set the default production bandwidth for
-         * {@link #add(EndPoint)} and {@link #add(Terminal, int)}.
+         * {@link #add(Circuit)} and {@link #add(Terminal, int)}.
          * 
          * @param bandwidth the new default
          * 
@@ -320,92 +320,92 @@ public interface ServiceDescription {
         }
 
         /**
-         * Add an end point producing the default amount.
+         * Add a circuit producing the default amount.
          * 
-         * @param endPoint the end point to add
+         * @param endPoint the circuit to add
          * 
          * @return this object
          */
-        public Builder add(EndPoint<? extends Terminal> endPoint) {
+        public Builder add(Circuit<? extends Terminal> endPoint) {
             return add(endPoint, defaultProduction);
         }
 
         /**
-         * Add an end point specified by terminal and label, producing
-         * the default amount.
+         * Add a circuit specified by terminal and label, producing the
+         * default amount.
          * 
-         * @param terminal the terminal containing the end point
+         * @param terminal the terminal containing the circuit
          * 
-         * @param label the label identifying the end point within the
+         * @param label the label identifying the circuit within the
          * terminal
          * 
          * @return this object
          */
         public Builder add(Terminal terminal, int label) {
-            return add(terminal.getEndPoint(label));
+            return add(terminal.circuit(label));
         }
 
         /**
-         * Add an end point producing and consuming specific amounts.
+         * Add a circuit producing and consuming specific amounts.
          * 
-         * @param endPoint the end point to add
+         * @param endPoint the circuit to add
          * 
-         * @param produced the maximum the end point will produce
+         * @param produced the maximum the circuit will produce
          * 
-         * @param consumed the maximum the end point will consume
+         * @param consumed the maximum the circuit will consume
          * 
          * @return this object
          */
-        public Builder add(EndPoint<? extends Terminal> endPoint,
+        public Builder add(Circuit<? extends Terminal> endPoint,
                            double produced, double consumed) {
             data.put(endPoint, Arrays.asList(produced, consumed));
             return this;
         }
 
         /**
-         * Add an end point producing a specific amount.
+         * Add a circuit producing a specific amount.
          * 
-         * @param endPoint the end point to add
+         * @param endPoint the circuit to add
          * 
-         * @param bandwidth the maximum the end point will produce
+         * @param bandwidth the maximum the circuit will produce
          * 
          * @return this object
          */
-        public Builder add(EndPoint<? extends Terminal> endPoint,
+        public Builder add(Circuit<? extends Terminal> endPoint,
                            double bandwidth) {
             return add(endPoint, bandwidth, Double.MAX_VALUE);
         }
 
         /**
-         * Add an end point specified by terminal and label, producing
-         * and consuming specific amounts.
+         * Add a circuit specified by terminal and label, producing and
+         * consuming specific amounts.
          * 
-         * @param terminal the terminal containing the end point
+         * @param terminal the terminal containing the circuit
          * 
-         * @param label the label identifying the end point within the
+         * @param label the label identifying the circuit within the
          * terminal
          * 
-         * @param produced the maximum the end point will produce
+         * @param produced the maximum the circuit will produce
          * 
-         * @param consumed the maximum the end point will consume
+         * @param consumed the maximum the circuit will consume
          * 
          * @return this object
          */
         public Builder add(Terminal terminal, int label, double produced,
                            double consumed) {
-            return add(terminal.getEndPoint(label), produced, consumed);
+            return add(terminal.circuit(label), produced, consumed);
         }
 
         /**
-         * Add an end point specified by terminal and label, producing a
+         * Add a circuit specified by terminal and label, producing a
          * specific amount.
          * 
-         * @param terminal the terminal containing the end point
+         * @param terminal the terminal containing the circuit
          * 
-         * @param label the label identifying the end point within the
+         * @param label the label identifying the circuit within the
          * terminal
          * 
-         * @param bandwidth the maximum the end point will produce
+         * @param bandwidth the maximum the circuit will produce
          * 
          * @return this object
          */
@@ -427,7 +427,7 @@ public interface ServiceDescription {
      * Create an immutable sanitized version of a description.
      * Production is clamped to a nominal minimum. Consumption is
      * clamped to a maximum computed as the sum of sanitized productions
-     * minus the end point's own production.
+     * minus the circuit's own production.
      * 
      * @param input the unsanitized description
      * 
@@ -439,9 +439,9 @@ public interface ServiceDescription {
                                        double minimumProduction) {
         /* Provide unspecified producers with the nominal amount, and
          * sum all production. */
-        Map<EndPoint<? extends Terminal>, Double> producers = new HashMap<>();
+        Map<Circuit<? extends Terminal>, Double> producers = new HashMap<>();
         double producerSum = 0.0;
-        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : input
+        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
             .endPointFlows().entrySet()) {
             final double production =
                 Math.max(entry.getValue().ingress, minimumProduction);
@@ -449,10 +449,10 @@ public interface ServiceDescription {
             producers.put(entry.getKey(), production);
         }
 
-        /* Limit consumption to the production sum minus the end point's
+        /* Limit consumption to the production sum minus the circuit's
          * production. */
-        Map<EndPoint<? extends Terminal>, Double> consumers = new HashMap<>();
-        for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : input
+        Map<Circuit<? extends Terminal>, Double> consumers = new HashMap<>();
+        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
             .endPointFlows().entrySet()) {
             TrafficFlow flow = entry.getValue();
             final double maximum = producerSum - flow.ingress;
@@ -460,20 +460,20 @@ public interface ServiceDescription {
             consumers.put(entry.getKey(), consumption);
         }
 
-        Map<EndPoint<? extends Terminal>, TrafficFlow> result =
+        Map<Circuit<? extends Terminal>, TrafficFlow> result =
             new HashMap<>();
-        for (EndPoint<? extends Terminal> key : producers.keySet()) {
+        for (Circuit<? extends Terminal> key : producers.keySet()) {
             TrafficFlow flow =
                 TrafficFlow.of(producers.get(key), consumers.get(key));
             result.put(key, flow);
         }
 
-        Map<EndPoint<? extends Terminal>, TrafficFlow> finalResult =
+        Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
         return new ServiceDescription() {
             @Override
             public
-                Map<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow>
+                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
                 endPointFlows() {
                 return finalResult;
             }

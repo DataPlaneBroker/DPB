@@ -33,14 +33,29 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.networks.circuits;
 
 /**
- * Models bundles of numbered end points. A bundle could be a terminal
- * of a network, or an interface of a switch, or a VLAN-tagged interface
- * of a switch. An end point could then identify VLAN-tagged traffic on
- * a network terminal or a switch interface, or double-tagged traffic on
- * a switch interface.
+ * Gathers circuits travelling the same path.
+ * 
+ * @summary A bundle of circuits
+ * 
+ * @param <B> the specific bundle type
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.end_points;
+public interface Bundle<B extends Bundle<B>> {
+    /**
+     * Get the circuit for a given label applied to traffic through this
+     * bundle.
+     * 
+     * @param label the label subdividing traffic on this bundle
+     * 
+     * @return the circuit for the given label
+     */
+    default Circuit<B> circuit(int label) {
+        @SuppressWarnings("unchecked")
+        B self = (B) this;
+        return new Circuit<B>(self, label);
+    }
+}

@@ -35,9 +35,9 @@
  */
 package uk.ac.lancs.networks.corsa;
 
+import uk.ac.lancs.networks.circuits.Bundle;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.end_points.Bundle;
-import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.networks.fabric.TagKind;
 
@@ -67,20 +67,20 @@ public interface CorsaInterface extends Interface<CorsaInterface> {
     TunnelDesc configureTunnel(TunnelDesc desc, int label);
 
     /**
-     * Resolve a label on this interface into an end point. The end
+     * Resolve a label on this interface into a circuit. The end
      * point's interface need not be this interface, and its label need
      * not be the supplied label, but the result must be the canonical
-     * equivalent of calling {@link Bundle#getEndPoint(int)} on this
+     * equivalent of calling {@link Bundle#circuit(int)} on this
      * interface with the provided label.
      * 
-     * @param label the label of the end point within this interface
+     * @param label the label of the circuit within this interface
      * 
-     * @return the resolved end point
+     * @return the resolved circuit
      * 
      * @default This implementation simply calls
-     * {@link Bundle#getEndPoint(int)} on itself with the given label.
+     * {@link Bundle#circuit(int)} on itself with the given label.
      */
-    default EndPoint<Interface<CorsaInterface>> resolve(int label) {
-        return this.getEndPoint(label);
+    default Circuit<Interface<CorsaInterface>> resolve(int label) {
+        return this.circuit(label);
     }
 }

@@ -51,7 +51,7 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.end_points.EndPoint;
+import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -105,21 +105,21 @@ public class DummySwitch implements Network {
             if (this.request != null)
                 throw new IllegalStateException("service in use");
 
-            /* Sanitize the request such that every end point mentioned
-             * in either set is present in both. A minimum bandwidth is
+            /* Sanitize the request such that every circuit mentioned in
+             * either set is present in both. A minimum bandwidth is
              * applied to all implicit and explicit consumers. */
             request = ServiceDescription.sanitize(request, 0.01);
 
-            /* Check that all end points belong to us. */
-            for (EndPoint<? extends Terminal> ep : request.endPointFlows()
+            /* Check that all circuits belong to us. */
+            for (Circuit<? extends Terminal> ep : request.endPointFlows()
                 .keySet()) {
                 Terminal p = ep.getBundle();
                 if (!(p instanceof MyTerminal))
-                    throw new IllegalArgumentException("not my end point: "
+                    throw new IllegalArgumentException("not my circuit: "
                         + ep);
                 MyTerminal mp = (MyTerminal) p;
                 if (mp.owner() != DummySwitch.this)
-                    throw new IllegalArgumentException("not my end point: "
+                    throw new IllegalArgumentException("not my circuit: "
                         + ep);
             }
             this.request = request;
@@ -196,9 +196,9 @@ public class DummySwitch implements Network {
                        released ? "RELEASED" : request == null ? "DORMANT"
                            : active ? "ACTIVE" : "INACTIVE");
             if (request != null) {
-                for (Map.Entry<? extends EndPoint<? extends Terminal>, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .endPointFlows().entrySet()) {
-                    EndPoint<? extends Terminal> ep = entry.getKey();
+                    Circuit<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,
                                flow.egress);
