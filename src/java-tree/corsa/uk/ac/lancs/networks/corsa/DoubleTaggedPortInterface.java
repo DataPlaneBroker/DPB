@@ -152,7 +152,7 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
     }
 
     @Override
-    public Circuit<Interface<CorsaInterface>> resolve(int label) {
+    public Circuit<? extends Interface<CorsaInterface>> resolve(int label) {
         return this.tag(TagKind.VLAN_STAG, label >> 12)
             .circuit(label & 0xfff);
     }

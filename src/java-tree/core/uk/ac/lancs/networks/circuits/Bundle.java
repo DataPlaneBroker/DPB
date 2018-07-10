@@ -53,7 +53,7 @@ public interface Bundle<B extends Bundle<B>> {
      * 
      * @return the circuit for the given label
      */
-    default Circuit<B> circuit(int label) {
+    default Circuit<? extends B> circuit(int label) {
         @SuppressWarnings("unchecked")
         B self = (B) this;
         return new Circuit<B>(self, label);

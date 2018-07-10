@@ -2567,7 +2567,7 @@ public class PersistentAggregator implements Aggregator {
                     Terminal term = subnw.getTerminal(tname);
                     refCache.add(trunkWatcher.get(trid));
                     MyTrunk trunk = trunkWatcher.getBase(trid);
-                    Circuit<Terminal> ep = term.circuit(label);
+                    Circuit<? extends Terminal> ep = term.circuit(label);
                     tunnels.put(trunk, ep);
                 }
             }
