@@ -56,11 +56,11 @@ import uk.ac.lancs.networks.fabric.Interface;
 
 /**
  * Manages a Corsa DP2X000-series switch by creating and maintaining a
- * single VFC whose OF ports are grouped for each service. Traffic
- * arriving on one port of a group only exits on other ports in the same
- * group. The VFC must connect to a controller that this fabric can
- * notify of new port groups. This fabric handles QoS in the tunnels it
- * attaches to the VFC, so the controller does not handle QoS.
+ * single VFC whose OF ports are grouped for each logical bridge.
+ * Traffic arriving on one port of a group only exits on other ports in
+ * the same group. The VFC must connect to a controller that this fabric
+ * can notify of new port groups. This fabric handles QoS in the tunnels
+ * it attaches to the VFC, so the controller does not handle QoS.
  * 
  * @author simpsons
  */
@@ -76,9 +76,42 @@ public final class PortSlicedVFCFabric implements Fabric {
     private final String descPrefix;
 
     /**
-     * @throws NoSuchAlgorithmException
+     * Create a switching fabric for a Corsa.
      * 
-     * @throws KeyManagementException
+     * @param portCount the number of ports on the switch
+     * 
+     * @param maxAggregations the maximum number of supported link
+     * aggregation groups
+     * 
+     * @param descPrefix the prefix of the description text for VFCs
+     * under the control of this fabric
+     * 
+     * @param partialDescSuffix the suffix of the description text used
+     * for new VFCs before their configuration is complete
+     * 
+     * @param fullDescSuffix the suffix of the description text used for
+     * new VFCs as soon as their configuration is complete
+     * 
+     * @param subtype the VFC subtype to use when creating VFCs, e.g.,
+     * <samp>ls-vpn</samp>, <samp>openflow</samp>, etc.
+     * 
+     * @param netns the network namespace for the controller port of a
+     * new VFC if it needs to be created
+     * 
+     * @param controller the IP address and port number of the
+     * controller used for all created VFCs
+     * 
+     * @param service the REST API URI for the Corsa
+     * 
+     * @param cert a certificate to check against the Corsa REST API
+     * 
+     * @param authz an authorization token obtained from the Corsa
+     * 
+     * @throws NoSuchAlgorithmException if there is no SSL support in
+     * this implementation
+     * 
+     * @throws KeyManagementException if there is a problem with the
+     * certficate
      */
     public PortSlicedVFCFabric(int portCount, int maxAggregations,
                                String descPrefix, String partialDescSuffix,
@@ -102,14 +135,14 @@ public final class PortSlicedVFCFabric implements Fabric {
     }
 
     @Override
-    public Interface getInterface(String desc) {
+    public Interface<?> getInterface(String desc) {
         return interfaces.getInterface(desc);
     }
 
     @Override
     public Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<Interface>, ? extends TrafficFlow> details) {
+               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
@@ -124,9 +157,9 @@ public final class PortSlicedVFCFabric implements Fabric {
     }
 
     class InternalBridge {
-        final Map<EndPoint<Interface>, TrafficFlow> service;
+        final Map<EndPoint<? extends Interface<?>>, TrafficFlow> service;
 
-        public InternalBridge(Map<? extends EndPoint<Interface>, ? extends TrafficFlow> service) {
+        public InternalBridge(Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> service) {
             this.service = new HashMap<>(service);
         }
 

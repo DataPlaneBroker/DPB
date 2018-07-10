@@ -79,45 +79,17 @@ public final class DummyFabric implements Fabric {
         this(DEFAULT_MAX_BRIDGES);
     }
 
-    private static class MyInterface implements Interface {
-        final String config;
-
-        MyInterface(String config) {
-            if (config == null)
-                throw new NullPointerException("interface identification");
-            this.config = config;
-        }
-
-        @Override
-        public String toString() {
-            return config;
-        }
-
-        @Override
-        public int hashCode() {
-            return config.hashCode();
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o == null) return false;
-            if (!(o instanceof MyInterface)) return false;
-            MyInterface other = (MyInterface) o;
-            return other.config.equals(config);
-        }
-    }
-
     @Override
-    public Interface getInterface(String desc) {
-        return new MyInterface(desc);
+    public DummyInterface getInterface(String desc) {
+        return new DummyInterface(desc);
     }
 
     private class BridgeInstance {
         final String name;
-        final Map<? extends EndPoint<? extends Interface>, ? extends TrafficFlow> details;
+        final Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details;
 
         BridgeInstance(String name,
-                       Map<? extends EndPoint<? extends Interface>, ? extends TrafficFlow> details) {
+                       Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
             this.name = name;
             this.details = details;
         }
@@ -172,14 +144,15 @@ public final class DummyFabric implements Fabric {
     }
 
     private final Map<String, BridgeInstance> bridges = new HashMap<>();
-    private Map<EndPoint<Interface>, BridgeInstance> index = new HashMap<>();
+    private Map<EndPoint<? extends Interface<?>>, BridgeInstance> index =
+        new HashMap<>();
 
     private int nextBridgeId;
 
     @Override
     public synchronized Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<Interface>, ? extends TrafficFlow> details) {
+               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details) {
         /* Look up all end points to find out if they already belong to
          * a bridge. */
         Collection<BridgeInstance> existingBridges =
@@ -203,11 +176,12 @@ public final class DummyFabric implements Fabric {
 
         /* Create a brand-new bridge. */
         String brName = "br" + nextBridgeId++;
-        Map<EndPoint<Interface>, TrafficFlow> copy = new HashMap<>(details);
+        Map<EndPoint<? extends Interface<?>>, TrafficFlow> copy =
+            new HashMap<>(details);
         BridgeInstance br = new BridgeInstance(brName, copy);
         br.listeners.add(listener);
         bridges.put(brName, br);
-        for (EndPoint<Interface> ep : copy.keySet())
+        for (EndPoint<? extends Interface<?>> ep : copy.keySet())
             index.put(ep, br);
         return new BridgeReference(br);
     }

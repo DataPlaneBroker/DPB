@@ -825,12 +825,13 @@ public class PersistentSwitch implements Switch {
         return result;
     }
 
-    private EndPoint<Interface> mapEndPoint(EndPoint<? extends Terminal> ep) {
+    private EndPoint<? extends Interface<?>>
+        mapEndPoint(EndPoint<? extends Terminal> ep) {
         SwitchTerminal terminal = (SwitchTerminal) ep.getBundle();
         return terminal.getInnerEndPoint(ep.getLabel());
     }
 
-    private <V> Map<EndPoint<Interface>, V>
+    private <V> Map<EndPoint<? extends Interface<?>>, V>
         mapEndPoints(Map<? extends EndPoint<? extends Terminal>, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));

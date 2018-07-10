@@ -33,31 +33,47 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.corsa;
+package uk.ac.lancs.networks.fabric;
 
-/**
- * Identifies the type of tagging used on a label.
- * 
- * @author simpsons
- */
-enum TagKind {
-    /**
-     * General numeric selection
-     */
-    ENUMERATION,
+class DummyInterface implements Interface<DummyInterface> {
+    final String config;
 
-    /**
-     * VLAN service-tag + customer-tag encapsulation
-     */
-    VLAN_STAG_CTAG,
+    DummyInterface(String config) {
+        if (config == null)
+            throw new NullPointerException("interface identification");
+        this.config = config;
+    }
 
-    /**
-     * VLAN service-tag encapsulation
-     */
-    VLAN_STAG,
+    @Override
+    public String toString() {
+        return config;
+    }
 
-    /**
-     * VLAN customer-tag encapsulation
-     */
-    VLAN_CTAG;
+    @Override
+    public int hashCode() {
+        return config.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null) return false;
+        if (!(o instanceof DummyInterface)) return false;
+        DummyInterface other = (DummyInterface) o;
+        return other.config.equals(config);
+    }
+
+    @Override
+    public TagKind getEndPointEncapsulation() {
+        return TagKind.ENUMERATION;
+    }
+
+    @Override
+    public int getMinimumEndPointLabel() {
+        return 0;
+    }
+
+    @Override
+    public int getMaximumEndPointLabel() {
+        return 4095;
+    }
 }

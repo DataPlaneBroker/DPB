@@ -41,25 +41,77 @@ import java.util.regex.Pattern;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.end_points.EndPoint;
 import uk.ac.lancs.networks.fabric.Interface;
+import uk.ac.lancs.networks.fabric.TagKind;
 
 /**
+ * Maps interface definitions to entities in the Corsa interface
+ * hierarchy.
  * 
+ * <p>
+ * The root of the hierarchy consists of two abstract interfaces
+ * representing all physical ports (<samp>phys</samp>) and all
+ * link-aggregation groups (LAGs; <samp>lag</samp>). End points derived
+ * from these represent specific ports or LAGs with no encapsulation.
+ * These are intended to be used when access to a connected device is
+ * not possible with any kind of encapsulation, and so multiple ports or
+ * LAGs must be physically connected to it as a last resort.
+ * 
+ * <p>
+ * Subinterfaces of <samp>phys</samp> and <samp>lag</samp>, such as
+ * <samp>phys.3</samp> or <samp>lag.4</samp> identify specific ports or
+ * LAGs. End points of these interfaces are ctagged VLANs. Interface
+ * definitions such as <samp>4</samp> and <samp>phys4</samp> are aliases
+ * for <samp>phys.4</samp>. Similarly, <samp>lag4</samp> is an alias for
+ * <samp>lag.4</samp>.
+ * 
+ * <p>
+ * Subinterfaces such as <samp>phys.3x2</samp> or <samp>lag.4x2</samp>
+ * also identify specific ports and LAGs. However, their end-points are
+ * 24-bit labels, with the top 12 bits used to form the outer stag VLAN
+ * id, and the bottom 12 to form the inner ctag. These interfaces have
+ * no subinterfaces of their own.
+ * 
+ * <p>
+ * Interfaces such as <samp>phys.3</samp> or <samp>lag.4</samp> can also
+ * have subinterfaces such as <samp>phys.3.100</samp> or
+ * <samp>lag.4.200</samp>. Their end points also represent double-tagged
+ * tunnels, but keep the stag component hidden from the user. These
+ * interfaces have no subinterfaces of their own.
  * 
  * @author simpsons
  */
-final class InterfaceManager {
+public final class InterfaceManager {
     private final AllPortsInterface allPorts;
     private final AllAggregationsInterface allAggregations;
 
+    /**
+     * Create an interface/end-point mapping.
+     * 
+     * @param portCount the number of physical ports of the represented
+     * switch
+     * 
+     * @param maxGroups the highest number link-aggregation group
+     * possible on the switch
+     */
     public InterfaceManager(int portCount, int maxGroups) {
         this.allPorts = new AllPortsInterface(portCount);
         this.allAggregations = new AllAggregationsInterface(maxGroups);
     }
 
     private static final Pattern INTERFACE_PATTERN =
-        Pattern.compile("^(?<type>(?:lag|phys|lag|phys|))"
+        Pattern.compile("^(?<type>(?:lag|phys|))"
             + "(?:\\.?(?<num>[0-9]+)(?<dt>x2)?(?:\\.(?<outer>[0-9]+))?)$");
 
+    /**
+     * Get the interface with the given definition.
+     * 
+     * @param config the interface definition
+     * 
+     * @return the interface matching the definition
+     * 
+     * @throws IllegalArgumentException if the definition is not
+     * recognized
+     */
     public CorsaInterface getInterface(String config) {
         Matcher m = INTERFACE_PATTERN.matcher(config);
         if (!m.matches())
@@ -87,7 +139,22 @@ final class InterfaceManager {
         return result;
     }
 
-    public EndPoint<Interface> getEndPoint(TunnelDesc tun) {
+    /**
+     * Get a fabric end point from a Corsa tunnel description. This
+     * never returns an end point for a double-tagged interface such as
+     * <samp>phys.3x2</samp>. Instead, the end point's label will be the
+     * ctag VLAN id, and the end point's interface will be return
+     * <samp>phys.3.<var>XXX</var></samp>, giving the stag VLAN id,
+     * i.e., the top 12 bits of the label if the end point were to be
+     * expressed as a member of <samp>phys.3x2</samp>. This happens
+     * because the tunnel description is identical in both cases.
+     * 
+     * @param tun the tunnel description, as obtained from a REST call
+     * to the switch
+     * 
+     * @return the end point
+     */
+    public EndPoint<? extends Interface<?>> getEndPoint(TunnelDesc tun) {
         /* Parse the port section. */
         final CorsaInterface iface;
         final int ifacenum;

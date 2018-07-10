@@ -78,7 +78,7 @@ public interface Fabric {
      * 
      * @return a reference which identifies the interface
      */
-    Interface getInterface(String desc);
+    Interface<?> getInterface(String desc);
 
     /**
      * Ensure that a bridge exists. A distinct {@link Bridge} object may
@@ -95,7 +95,7 @@ public interface Fabric {
      */
     Bridge
         bridge(BridgeListener listener,
-               Map<? extends EndPoint<Interface>, ? extends TrafficFlow> details);
+               Map<? extends EndPoint<? extends Interface<?>>, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since

@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
+import uk.ac.lancs.networks.fabric.TagKind;
 
 /**
  * Describes a service-tagged interface.

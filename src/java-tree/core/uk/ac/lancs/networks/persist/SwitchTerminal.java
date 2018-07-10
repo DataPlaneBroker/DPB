@@ -48,11 +48,11 @@ import uk.ac.lancs.networks.fabric.Interface;
 final class SwitchTerminal implements Terminal {
     private final NetworkControl network;
     private final String name;
-    private final Interface fabricInterface;
+    private final Interface<?> fabricInterface;
     private final int dbid;
 
     SwitchTerminal(NetworkControl network, String name,
-                   Interface fabricInterface, int dbid) {
+                   Interface<?> fabricInterface, int dbid) {
         if (network == null) throw new NullPointerException("network");
         if (name == null) throw new NullPointerException("name");
         if (fabricInterface == null)
@@ -63,7 +63,7 @@ final class SwitchTerminal implements Terminal {
         this.dbid = dbid;
     }
 
-    EndPoint<Interface> getInnerEndPoint(int label) {
+    EndPoint<? extends Interface<?>> getInnerEndPoint(int label) {
         return fabricInterface.getEndPoint(label);
     }
 
