@@ -62,7 +62,7 @@ public interface CorsaInterface extends Interface<CorsaInterface> {
      * 
      * @throws IndexOutOfBoundsException if the label is outside the
      * range defined by {@link Interface#getMinimumLabel(TagKind)} and
-     * {@link Interface#getMaximumEndPointLabel()}
+     * {@link Interface#getMaximumCircuitLabel()}
      */
     TunnelDesc configureTunnel(TunnelDesc desc, int label);
 

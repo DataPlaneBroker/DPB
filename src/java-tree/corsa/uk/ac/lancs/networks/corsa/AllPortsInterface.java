@@ -145,17 +145,17 @@ final class AllPortsInterface implements CorsaInterface {
     }
 
     @Override
-    public int getMinimumEndPointLabel() {
+    public int getMinimumCircuitLabel() {
         return 1;
     }
 
     @Override
-    public int getMaximumEndPointLabel() {
+    public int getMaximumCircuitLabel() {
         return portCount;
     }
 
     @Override
-    public TagKind getEndPointEncapsulation() {
+    public TagKind getCircuitEncapsulation() {
         return TagKind.ENUMERATION;
     }
 }

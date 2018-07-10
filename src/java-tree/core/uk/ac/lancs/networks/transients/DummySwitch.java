@@ -111,7 +111,7 @@ public class DummySwitch implements Network {
             request = ServiceDescription.sanitize(request, 0.01);
 
             /* Check that all circuits belong to us. */
-            for (Circuit<? extends Terminal> ep : request.endPointFlows()
+            for (Circuit<? extends Terminal> ep : request.circuitFlows()
                 .keySet()) {
                 Terminal p = ep.getBundle();
                 if (!(p instanceof MyTerminal))
@@ -197,7 +197,7 @@ public class DummySwitch implements Network {
                            : active ? "ACTIVE" : "INACTIVE");
             if (request != null) {
                 for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-                    .endPointFlows().entrySet()) {
+                    .circuitFlows().entrySet()) {
                     Circuit<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,

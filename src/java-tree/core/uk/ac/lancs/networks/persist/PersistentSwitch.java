@@ -151,7 +151,7 @@ public class PersistentSwitch implements Switch {
                 throw new IllegalStateException("service in use");
 
             /* Check that all circuits belong to us. */
-            for (Circuit<? extends Terminal> ep : request.endPointFlows()
+            for (Circuit<? extends Terminal> ep : request.circuitFlows()
                 .keySet()) {
                 Terminal p = ep.getBundle();
                 if (!(p instanceof SwitchTerminal))
@@ -180,7 +180,7 @@ public class PersistentSwitch implements Switch {
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : this.request
-                        .endPointFlows().entrySet()) {
+                        .circuitFlows().entrySet()) {
                         Circuit<? extends Terminal> endPoint = entry.getKey();
                         SwitchTerminal terminal =
                             (SwitchTerminal) endPoint.getBundle();
@@ -248,7 +248,7 @@ public class PersistentSwitch implements Switch {
         void completeActivation() {
             assert Thread.holdsLock(this);
             this.bridge =
-                fabric.bridge(self, mapEndPoints(request.endPointFlows()));
+                fabric.bridge(self, mapEndPoints(request.circuitFlows()));
             callOut(ServiceStatus.ACTIVATING);
             this.bridge.start();
         }
@@ -396,7 +396,7 @@ public class PersistentSwitch implements Switch {
             out.printf("  %3d %-8s (intent=%-8s)", id, status(), intent);
             if (request != null) {
                 for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-                    .endPointFlows().entrySet()) {
+                    .circuitFlows().entrySet()) {
                     Circuit<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,

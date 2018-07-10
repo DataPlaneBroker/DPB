@@ -154,7 +154,7 @@ public final class InterfaceManager {
      * 
      * @return the circuit
      */
-    public Circuit<? extends Interface<?>> getEndPoint(TunnelDesc tun) {
+    public Circuit<? extends Interface<?>> getCircuit(TunnelDesc tun) {
         /* Parse the port section. */
         final CorsaInterface iface;
         final int ifacenum;

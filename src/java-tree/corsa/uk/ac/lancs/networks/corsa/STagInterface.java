@@ -131,17 +131,17 @@ class STagInterface implements CorsaInterface {
     }
 
     @Override
-    public TagKind getEndPointEncapsulation() {
+    public TagKind getCircuitEncapsulation() {
         return TagKind.VLAN_CTAG;
     }
 
     @Override
-    public int getMinimumEndPointLabel() {
+    public int getMinimumCircuitLabel() {
         return 0;
     }
 
     @Override
-    public int getMaximumEndPointLabel() {
+    public int getMaximumCircuitLabel() {
         return 4095;
     }
 }

@@ -162,7 +162,7 @@ public class PersistentAggregator implements Aggregator {
                 ServiceDescription request = subservice.getRequest();
                 if (request != null) {
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-                        .endPointFlows().entrySet()) {
+                        .circuitFlows().entrySet()) {
                         Circuit<? extends Terminal> ep = entry.getKey();
                         TrafficFlow flow = entry.getValue();
                         out.printf("%n        %10s %6g %6g", ep, flow.ingress,
@@ -420,7 +420,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Make sure the request is sane. */
             request = ServiceDescription.sanitize(request, 0.01);
-            if (request.endPointFlows().size() < 2)
+            if (request.circuitFlows().size() < 2)
                 throw new IllegalArgumentException("invalid service"
                     + " description (fewer than" + " two circuits)");
 
@@ -458,7 +458,7 @@ public class PersistentAggregator implements Aggregator {
                 Map<Service, ServiceDescription> subcons =
                     subrequests.stream()
                         .collect(Collectors
-                            .toMap(r -> r.endPointFlows().keySet().iterator()
+                            .toMap(r -> r.circuitFlows().keySet().iterator()
                                 .next().getBundle().getNetwork().newService(),
                                    r -> r));
 
@@ -488,7 +488,7 @@ public class PersistentAggregator implements Aggregator {
                 for (Map.Entry<Service, ServiceDescription> entry : subcons
                     .entrySet()) {
                     System.err.printf("Initiating subservice on %s%n",
-                                      entry.getValue().endPointFlows());
+                                      entry.getValue().circuitFlows());
                     entry.getKey().initiate(entry.getValue());
                 }
 
@@ -499,7 +499,7 @@ public class PersistentAggregator implements Aggregator {
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-                        .endPointFlows().entrySet()) {
+                        .circuitFlows().entrySet()) {
                         Circuit<? extends Terminal> endPoint = entry.getKey();
                         SuperiorTerminal term =
                             (SuperiorTerminal) endPoint.getBundle();
@@ -1709,7 +1709,7 @@ public class PersistentAggregator implements Aggregator {
             new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-            .endPointFlows().entrySet()) {
+            .circuitFlows().entrySet()) {
             Circuit<? extends Terminal> ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 

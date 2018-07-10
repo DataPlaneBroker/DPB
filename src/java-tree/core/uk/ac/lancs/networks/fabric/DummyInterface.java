@@ -63,17 +63,17 @@ class DummyInterface implements Interface<DummyInterface> {
     }
 
     @Override
-    public TagKind getEndPointEncapsulation() {
+    public TagKind getCircuitEncapsulation() {
         return TagKind.ENUMERATION;
     }
 
     @Override
-    public int getMinimumEndPointLabel() {
+    public int getMinimumCircuitLabel() {
         return 0;
     }
 
     @Override
-    public int getMaximumEndPointLabel() {
+    public int getMaximumCircuitLabel() {
         return 4095;
     }
 }

@@ -143,7 +143,7 @@ public interface Interface<T> extends Bundle<Interface<T>> {
      * 
      * @return the circuit encapsulation
      */
-    TagKind getEndPointEncapsulation();
+    TagKind getCircuitEncapsulation();
 
     /**
      * Get the minimum valid label for a kind of encapsulation.
@@ -197,7 +197,7 @@ public interface Interface<T> extends Bundle<Interface<T>> {
      * 
      * @return the minimum valid label
      */
-    int getMinimumEndPointLabel();
+    int getMinimumCircuitLabel();
 
     /**
      * Get the maximum valid label for circuits of this interface. This
@@ -205,7 +205,7 @@ public interface Interface<T> extends Bundle<Interface<T>> {
      * 
      * @return the maximum valid label
      */
-    int getMaximumEndPointLabel();
+    int getMaximumCircuitLabel();
 
     /**
      * Get the encapsulation label used to define this interface with

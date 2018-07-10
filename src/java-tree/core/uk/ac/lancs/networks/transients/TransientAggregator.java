@@ -177,7 +177,7 @@ public class TransientAggregator implements Aggregator {
                 out.printf("%n      inferior %s:", subservice.status());
                 ServiceDescription request = subservice.getRequest();
                 for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-                    .endPointFlows().entrySet()) {
+                    .circuitFlows().entrySet()) {
                     Circuit<? extends Terminal> ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n        %10s %6g %6g", ep, flow.ingress,
@@ -240,7 +240,7 @@ public class TransientAggregator implements Aggregator {
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
             Map<Service, ServiceDescription> subcons = subrequests.stream()
-                .collect(Collectors.toMap(r -> r.endPointFlows().keySet()
+                .collect(Collectors.toMap(r -> r.circuitFlows().keySet()
                     .iterator().next().getBundle().getNetwork().newService(),
                                           r -> r));
 
@@ -1072,7 +1072,7 @@ public class TransientAggregator implements Aggregator {
             new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
-            .endPointFlows().entrySet()) {
+            .circuitFlows().entrySet()) {
             Circuit<? extends Terminal> ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 

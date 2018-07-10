@@ -64,7 +64,7 @@ public interface ServiceDescription {
      * @return the traffic flows of each circuit of the service
      */
     Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
-        endPointFlows();
+        circuitFlows();
 
     /**
      * Get the set of bandwidth contributions into the service indexed
@@ -89,7 +89,7 @@ public interface ServiceDescription {
                         iterator() {
                         return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
                             final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
-                                endPointFlows().entrySet().iterator();
+                                circuitFlows().entrySet().iterator();
 
                             @Override
                             public boolean hasNext() {
@@ -125,7 +125,7 @@ public interface ServiceDescription {
 
                     @Override
                     public int size() {
-                        return endPointFlows().size();
+                        return circuitFlows().size();
                     }
                 };
             }
@@ -155,7 +155,7 @@ public interface ServiceDescription {
                         iterator() {
                         return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
                             final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
-                                endPointFlows().entrySet().iterator();
+                                circuitFlows().entrySet().iterator();
 
                             @Override
                             public boolean hasNext() {
@@ -191,7 +191,7 @@ public interface ServiceDescription {
 
                     @Override
                     public int size() {
-                        return endPointFlows().size();
+                        return circuitFlows().size();
                     }
                 };
             }
@@ -236,7 +236,7 @@ public interface ServiceDescription {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
-                endPointFlows() {
+                circuitFlows() {
                 return finalResult;
             }
         };
@@ -257,7 +257,7 @@ public interface ServiceDescription {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
-                endPointFlows() {
+                circuitFlows() {
                 return data;
             }
         };
@@ -322,12 +322,12 @@ public interface ServiceDescription {
         /**
          * Add a circuit producing the default amount.
          * 
-         * @param endPoint the circuit to add
+         * @param circuit the circuit to add
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> endPoint) {
-            return add(endPoint, defaultProduction);
+        public Builder add(Circuit<? extends Terminal> circuit) {
+            return add(circuit, defaultProduction);
         }
 
         /**
@@ -348,7 +348,7 @@ public interface ServiceDescription {
         /**
          * Add a circuit producing and consuming specific amounts.
          * 
-         * @param endPoint the circuit to add
+         * @param circuit the circuit to add
          * 
          * @param produced the maximum the circuit will produce
          * 
@@ -356,24 +356,24 @@ public interface ServiceDescription {
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> endPoint,
+        public Builder add(Circuit<? extends Terminal> circuit,
                            double produced, double consumed) {
-            data.put(endPoint, Arrays.asList(produced, consumed));
+            data.put(circuit, Arrays.asList(produced, consumed));
             return this;
         }
 
         /**
          * Add a circuit producing a specific amount.
          * 
-         * @param endPoint the circuit to add
+         * @param circuit the circuit to add
          * 
          * @param bandwidth the maximum the circuit will produce
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> endPoint,
+        public Builder add(Circuit<? extends Terminal> circuit,
                            double bandwidth) {
-            return add(endPoint, bandwidth, Double.MAX_VALUE);
+            return add(circuit, bandwidth, Double.MAX_VALUE);
         }
 
         /**
@@ -442,7 +442,7 @@ public interface ServiceDescription {
         Map<Circuit<? extends Terminal>, Double> producers = new HashMap<>();
         double producerSum = 0.0;
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
-            .endPointFlows().entrySet()) {
+            .circuitFlows().entrySet()) {
             final double production =
                 Math.max(entry.getValue().ingress, minimumProduction);
             producerSum += production;
@@ -453,7 +453,7 @@ public interface ServiceDescription {
          * production. */
         Map<Circuit<? extends Terminal>, Double> consumers = new HashMap<>();
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
-            .endPointFlows().entrySet()) {
+            .circuitFlows().entrySet()) {
             TrafficFlow flow = entry.getValue();
             final double maximum = producerSum - flow.ingress;
             final double consumption = Math.min(maximum, flow.egress);
@@ -474,7 +474,7 @@ public interface ServiceDescription {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
-                endPointFlows() {
+                circuitFlows() {
                 return finalResult;
             }
         };

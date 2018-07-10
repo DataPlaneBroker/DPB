@@ -129,7 +129,7 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
 
     @Override
     public TunnelDesc configureTunnel(TunnelDesc desc, int label) {
-        if (label < 0 || label > getMaximumEndPointLabel())
+        if (label < 0 || label > getMaximumCircuitLabel())
             throw new IndexOutOfBoundsException("not valid"
                 + " double-tagged VLAN: " + label);
         return base.configureTunnel(desc, port).vlanId(label >> 12)
@@ -137,17 +137,17 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
     }
 
     @Override
-    public TagKind getEndPointEncapsulation() {
+    public TagKind getCircuitEncapsulation() {
         return TagKind.VLAN_STAG_CTAG;
     }
 
     @Override
-    public int getMinimumEndPointLabel() {
+    public int getMinimumCircuitLabel() {
         return 0;
     }
 
     @Override
-    public int getMaximumEndPointLabel() {
+    public int getMaximumCircuitLabel() {
         return 4096 * 4096 - 1;
     }
 

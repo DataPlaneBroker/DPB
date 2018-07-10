@@ -475,7 +475,7 @@ public class VFCPerServiceFabric implements Fabric {
      * of something
      */
     private Circuit<? extends Interface<?>> endPointOf(TunnelDesc tun) {
-        return interfaces.getEndPoint(tun);
+        return interfaces.getCircuit(tun);
     }
 
     @SuppressWarnings("unused")
