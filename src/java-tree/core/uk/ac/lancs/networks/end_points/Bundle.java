@@ -51,8 +51,9 @@ public interface Bundle<B extends Bundle<B>> {
      * 
      * @return the end point for the given label
      */
-    @SuppressWarnings("unchecked")
     default EndPoint<B> getEndPoint(int label) {
-        return new EndPoint<B>((B) this, label);
+        @SuppressWarnings("unchecked")
+        B self = (B) this;
+        return new EndPoint<B>(self, label);
     }
 }
