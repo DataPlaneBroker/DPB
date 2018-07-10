@@ -63,7 +63,7 @@ final class SwitchTerminal implements Terminal {
         this.dbid = dbid;
     }
 
-    Circuit<? extends Interface<?>> getInnerEndPoint(int label) {
+    Circuit<? extends Interface<?>> getInnerCircuit(int label) {
         return fabricInterface.circuit(label);
     }
 

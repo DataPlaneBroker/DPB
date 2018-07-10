@@ -87,7 +87,7 @@ public final class Commander {
     Switch zwitch = null;
     Aggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
-    Map<Circuit<? extends Terminal>, TrafficFlow> endPoints = new HashMap<>();
+    Map<Circuit<? extends Terminal>, TrafficFlow> circuits = new HashMap<>();
     Service service = null;
     String networkName = null;
     String usage = null;
@@ -343,18 +343,18 @@ public final class Commander {
         if ("-e".equals(arg)) {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
-            Circuit<? extends Terminal> ep = findEndPoint(epid);
+            Circuit<? extends Terminal> ep = findCircuit(epid);
             if (ep == null) {
                 System.err.printf("No circuit [%s]%n", epid);
                 return false;
             }
-            endPoints.put(ep, nextFlow);
+            circuits.put(ep, nextFlow);
             return true;
         }
 
         if ("initiate".equals(arg)) {
-            service.initiate(ServiceDescription.create(endPoints));
-            endPoints.clear();
+            service.initiate(ServiceDescription.create(circuits));
+            circuits.clear();
             nextFlow = TrafficFlow.of(0.0, 0.0);
             return true;
         }
@@ -486,11 +486,11 @@ public final class Commander {
         return network.getControl().getTerminal(terminalName);
     }
 
-    private static final Pattern endPointPattern =
+    private static final Pattern CIRCUIT_PATTERN =
         Pattern.compile("^([^:]+):([\\d]+)$");
 
-    private Circuit<? extends Terminal> findEndPoint(String name) {
-        Matcher m = endPointPattern.matcher(name);
+    private Circuit<? extends Terminal> findCircuit(String name) {
+        Matcher m = CIRCUIT_PATTERN.matcher(name);
         if (!m.matches())
             throw new IllegalArgumentException("not a circuit: " + name);
         String terminalName = m.group(1);

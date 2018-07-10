@@ -41,8 +41,8 @@ import uk.ac.lancs.networks.Terminal;
  * A trunk connects two terminals together, has a configured delay (used
  * as a metric for path finding), an upstream bandwidth capacity (from
  * the first terminal to the second), a downstream capacity (in the
- * opposite direction), and a set of labels (used to form circuits
- * from the terminals).
+ * opposite direction), and a set of labels (used to form circuits from
+ * the terminals).
  * 
  * @summary A trunk connecting terminals of two inferior networks of an
  * aggregator

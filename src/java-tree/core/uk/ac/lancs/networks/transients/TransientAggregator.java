@@ -476,8 +476,8 @@ public class TransientAggregator implements Aggregator {
                 /* Release all trunk resources now. We definitely don't
                  * need them any more. */
                 synchronized (TransientAggregator.this) {
-                    tunnels.forEach((trunk, endPoint) -> {
-                        trunk.releaseTunnel(endPoint);
+                    tunnels.forEach((trunk, circuit) -> {
+                        trunk.releaseTunnel(circuit);
                     });
                 }
                 tunnels.clear();
@@ -747,29 +747,28 @@ public class TransientAggregator implements Aggregator {
         /**
          * Release a tunnel through this trunk.
          * 
-         * @param endPoint either of the tunnel circuits
+         * @param circuit either of the tunnel circuits
          */
-        void releaseTunnel(Circuit<? extends Terminal> endPoint) {
+        void releaseTunnel(Circuit<? extends Terminal> circuit) {
             final int startLabel;
-            if (endPoint.getBundle().equals(start)) {
-                startLabel = endPoint.getLabel();
+            if (circuit.getBundle().equals(start)) {
+                startLabel = circuit.getLabel();
                 if (!startToEndMap.containsKey(startLabel))
-                    throw new IllegalArgumentException("unmapped "
-                        + endPoint);
-            } else if (endPoint.getBundle().equals(end)) {
-                int endLabel = endPoint.getLabel();
+                    throw new IllegalArgumentException("unmapped " + circuit);
+            } else if (circuit.getBundle().equals(end)) {
+                int endLabel = circuit.getLabel();
                 Integer rv = endToStartMap.get(endLabel);
-                if (rv == null) throw new IllegalArgumentException("unmapped "
-                    + endPoint);
+                if (rv == null)
+                    throw new IllegalArgumentException("unmapped " + circuit);
                 startLabel = rv;
             } else {
-                throw new IllegalArgumentException("circuit " + endPoint
+                throw new IllegalArgumentException("circuit " + circuit
                     + " does not belong to " + start + " or " + end);
             }
             if (availableTunnels.get(startLabel))
-                throw new IllegalArgumentException("unallocated " + endPoint);
+                throw new IllegalArgumentException("unallocated " + circuit);
             if (!upstreamAllocations.containsKey(startLabel))
-                throw new IllegalArgumentException("unallocated " + endPoint);
+                throw new IllegalArgumentException("unallocated " + circuit);
 
             /* De-allocate resources. */
             this.upstreamBandwidth += upstreamAllocations.remove(startLabel);
@@ -1068,7 +1067,7 @@ public class TransientAggregator implements Aggregator {
         /* Sanity-check the circuits, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
-        Map<Circuit<? extends Terminal>, List<Double>> innerEndPoints =
+        Map<Circuit<? extends Terminal>, List<Double>> innerCircuits =
             new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
@@ -1100,8 +1099,8 @@ public class TransientAggregator implements Aggregator {
 
             /* Map the outer circuit to an inner one by copying the
              * label. */
-            innerEndPoints.put(innerPort.circuit(ep.getLabel()),
-                               Arrays.asList(produced, consumed));
+            innerCircuits.put(innerPort.circuit(ep.getLabel()),
+                              Arrays.asList(produced, consumed));
 
             /* Get the smallest production. We use it to filter out
              * trunks that no longer have the required bandwidth in
@@ -1117,7 +1116,7 @@ public class TransientAggregator implements Aggregator {
         // System.err.printf("Bandwidths on terminals: %s%n",
         // bandwidths);
         // System.err.printf("Inner circuits: %s%n",
-        // innerTerminalEndPoints);
+        // innerTerminalCircuits);
 
         /* Get the set of terminals to connect. */
         Collection<Terminal> innerTerminals = bandwidths.keySet();
@@ -1292,7 +1291,7 @@ public class TransientAggregator implements Aggregator {
 
             /* Ensure the caller's circuits are included in the requests
              * to inferior switches. */
-            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerEndPoints
+            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerCircuits
                 .entrySet()) {
                 Circuit<? extends Terminal> ep = entry.getKey();
                 subterminals
@@ -1340,7 +1339,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Map the set of caller's circuits to the corresponding inner
          * circuits that our topology consists of. */
-        Collection<Circuit<? extends Terminal>> innerEndPoints =
+        Collection<Circuit<? extends Terminal>> innerCircuits =
             terminals.stream().map(t -> {
                 Terminal p = t.getBundle();
                 if (!(p instanceof MyTerminal))
@@ -1355,11 +1354,11 @@ public class TransientAggregator implements Aggregator {
             }).collect(Collectors.toSet());
         // System.err
         // .println("inner terminal circuits: " +
-        // innerTerminalEndPoints);
+        // innerTerminalCircuits);
 
         /* Get the set of terminals that will be used as destinations in
          * routing. */
-        Collection<Terminal> innerTerminals = innerEndPoints.stream()
+        Collection<Terminal> innerTerminals = innerCircuits.stream()
             .map(Circuit::getBundle).collect(Collectors.toSet());
         // System.err.println("inner terminal terminals: " +
         // innerTerminalPorts);
@@ -1425,7 +1424,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Make sure the caller's circuits are included in their
          * switches' corresponding sets. */
-        for (Circuit<? extends Terminal> t : innerEndPoints)
+        for (Circuit<? extends Terminal> t : innerCircuits)
             subterminals.computeIfAbsent(t.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);

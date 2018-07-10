@@ -373,7 +373,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.execute();
             }
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + endPointTable + " WHERE service_id = ?;")) {
+                + circuitTable + " WHERE service_id = ?;")) {
                 stmt.setInt(1, id);
                 stmt.execute();
             }
@@ -439,7 +439,7 @@ public class PersistentAggregator implements Aggregator {
 
                 /* Check that we are not already in use. */
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("SELECT * FROM " + endPointTable
+                    conn.prepareStatement("SELECT * FROM " + circuitTable
                         + " WHERE service_id = ?" + " LIMIT 1;")) {
                     stmt.setInt(1, id);
                     try (ResultSet rs = stmt.executeQuery()) {
@@ -494,18 +494,18 @@ public class PersistentAggregator implements Aggregator {
 
                 /* Record our service's circuits. */
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("INSERT INTO " + endPointTable
+                    conn.prepareStatement("INSERT INTO " + circuitTable
                         + " (service_id, terminal_id, label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                         .circuitFlows().entrySet()) {
-                        Circuit<? extends Terminal> endPoint = entry.getKey();
+                        Circuit<? extends Terminal> circuit = entry.getKey();
                         SuperiorTerminal term =
-                            (SuperiorTerminal) endPoint.getBundle();
+                            (SuperiorTerminal) circuit.getBundle();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(2, term.id());
-                        stmt.setInt(3, endPoint.getLabel());
+                        stmt.setInt(3, circuit.getLabel());
                         stmt.setDouble(4, flow.ingress);
                         stmt.setDouble(5, flow.egress);
                         stmt.execute();
@@ -736,10 +736,10 @@ public class PersistentAggregator implements Aggregator {
 
         synchronized void
             recover(Connection conn,
-                    Map<Circuit<? extends Terminal>, ? extends TrafficFlow> endPoints,
+                    Map<Circuit<? extends Terminal>, ? extends TrafficFlow> circuits,
                     Collection<? extends Service> subservices)
                 throws SQLException {
-            request = ServiceDescription.create(endPoints);
+            request = ServiceDescription.create(circuits);
 
             clients.clear();
             for (Service srv : subservices) {
@@ -1016,26 +1016,26 @@ public class PersistentAggregator implements Aggregator {
         /**
          * Release a tunnel through this trunk.
          * 
-         * @param endPoint either of the tunnel circuits
+         * @param circuit either of the tunnel circuits
          * 
          * @throws SQLException
          */
         void releaseTunnel(Connection conn,
-                           Circuit<? extends Terminal> endPoint)
+                           Circuit<? extends Terminal> circuit)
             throws SQLException {
             if (disabled) throw new IllegalStateException("trunk removed");
 
             /* Identify whether we're looking at the start or end of
              * this tunnel. */
-            final int label = endPoint.getLabel();
+            final int label = circuit.getLabel();
             final String key;
-            if (endPoint.getBundle().equals(start)) {
+            if (circuit.getBundle().equals(start)) {
                 key = "start_label";
-            } else if (endPoint.getBundle().equals(end)) {
+            } else if (circuit.getBundle().equals(end)) {
                 key = "end_label";
             } else {
                 throw new IllegalArgumentException("not our circuit: "
-                    + endPoint);
+                    + circuit);
             }
 
             /* Find out how much has been allocated. */
@@ -1360,7 +1360,7 @@ public class PersistentAggregator implements Aggregator {
 
     private final Function<? super String, ? extends NetworkControl> inferiors;
 
-    private final String endPointTable, terminalTable, serviceTable,
+    private final String circuitTable, terminalTable, serviceTable,
         subserviceTable, trunkTable, labelTable;
     private final String dbConnectionAddress;
     private final Properties dbConnectionConfig;
@@ -1454,7 +1454,7 @@ public class PersistentAggregator implements Aggregator {
         Configuration dbConfig = config.subview("db");
         this.dbConnectionAddress = dbConfig.get("service");
         this.dbConnectionConfig = dbConfig.toProperties();
-        this.endPointTable = dbConfig.get("end-points.table", "end_points");
+        this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminal_map");
         this.serviceTable = dbConfig.get("services.table", "services");
         this.subserviceTable = dbConfig.get("services.table", "subservices");
@@ -1515,7 +1515,7 @@ public class PersistentAggregator implements Aggregator {
                  * are associated with each initiated service. When no
                  * entries refer to a particular service id, that
                  * service is uninitiated (dormant). */
-                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + circuitTable
                     + " (service_id INTEGER," + " terminal_id INTEGER,"
                     + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
                     + " shaping DECIMAL(9,3),"
@@ -1705,7 +1705,7 @@ public class PersistentAggregator implements Aggregator {
         /* Sanity-check the circuits, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
-        Map<Circuit<? extends Terminal>, List<Double>> innerEndPoints =
+        Map<Circuit<? extends Terminal>, List<Double>> innerCircuits =
             new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
         for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
@@ -1737,8 +1737,8 @@ public class PersistentAggregator implements Aggregator {
 
             /* Map the outer circuit to an inner one by copying the
              * label. */
-            innerEndPoints.put(innerPort.circuit(ep.getLabel()),
-                               Arrays.asList(produced, consumed));
+            innerCircuits.put(innerPort.circuit(ep.getLabel()),
+                              Arrays.asList(produced, consumed));
 
             /* Get the smallest production. We use it to filter out
              * trunks that no longer have the required bandwidth in
@@ -1912,7 +1912,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Ensure the caller's circuits are included in the requests
              * to inferior networks. */
-            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerEndPoints
+            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerCircuits
                 .entrySet()) {
                 Circuit<? extends Terminal> ep = entry.getKey();
                 subterminals
@@ -2299,13 +2299,13 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        final Map<Circuit<? extends Terminal>, TrafficFlow> endPoints =
+        final Map<Circuit<? extends Terminal>, TrafficFlow> circuits =
             new HashMap<>();
         try (PreparedStatement stmt = conn.prepareStatement("SELECT"
             + " tt.name AS terminal_name," + " tt.terminal_id AS terminal_id,"
             + " tt.subnetwork AS subnetwork," + " tt.subname AS subname,"
             + " et.label AS label," + " et.metering AS metering,"
-            + " et.shaping AS shaping" + " FROM " + endPointTable + " AS et"
+            + " et.shaping AS shaping" + " FROM " + circuitTable + " AS et"
             + " LEFT JOIN " + terminalTable + " AS tt"
             + " ON tt.terminal_id = et.terminal_id"
             + " WHERE et.service_id = ?;")) {
@@ -2327,10 +2327,10 @@ public class PersistentAggregator implements Aggregator {
                         new SuperiorTerminal(getControl(), name, innerPort,
                                              tid);
 
-                    final Circuit<? extends Terminal> endPoint =
+                    final Circuit<? extends Terminal> circuit =
                         port.circuit(label);
                     final TrafficFlow enf = TrafficFlow.of(metering, shaping);
-                    endPoints.put(endPoint, enf);
+                    circuits.put(circuit, enf);
                 }
             }
         }
@@ -2353,7 +2353,7 @@ public class PersistentAggregator implements Aggregator {
         }
 
         MyService result = new MyService(id);
-        result.recover(conn, endPoints, subservices);
+        result.recover(conn, circuits, subservices);
         return result;
     }
 
@@ -2519,7 +2519,7 @@ public class PersistentAggregator implements Aggregator {
     private boolean testInitiated(Connection conn, int id)
         throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM "
-            + endPointTable + " WHERE service_id = ?" + " LIMIT 1;")) {
+            + circuitTable + " WHERE service_id = ?" + " LIMIT 1;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();

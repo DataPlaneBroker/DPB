@@ -174,19 +174,19 @@ public class PersistentSwitch implements Switch {
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("INSERT INTO " + endPointTable
+                    conn.prepareStatement("INSERT INTO " + circuitTable
                         + " (service_id, terminal_id,"
                         + " label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : this.request
                         .circuitFlows().entrySet()) {
-                        Circuit<? extends Terminal> endPoint = entry.getKey();
+                        Circuit<? extends Terminal> circuit = entry.getKey();
                         SwitchTerminal terminal =
-                            (SwitchTerminal) endPoint.getBundle();
+                            (SwitchTerminal) circuit.getBundle();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(2, terminal.id());
-                        stmt.setInt(3, endPoint.getLabel());
+                        stmt.setInt(3, circuit.getLabel());
                         stmt.setDouble(4, flow.ingress);
                         stmt.setDouble(5, flow.egress);
                         stmt.execute();
@@ -248,7 +248,7 @@ public class PersistentSwitch implements Switch {
         void completeActivation() {
             assert Thread.holdsLock(this);
             this.bridge =
-                fabric.bridge(self, mapEndPoints(request.circuitFlows()));
+                fabric.bridge(self, mapCircuits(request.circuitFlows()));
             callOut(ServiceStatus.ACTIVATING);
             this.bridge.start();
         }
@@ -315,7 +315,7 @@ public class PersistentSwitch implements Switch {
                 conn.setAutoCommit(false);
                 updateIntent(conn, id, intent = Intent.RELEASE);
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("DELETE FROM " + endPointTable
+                    conn.prepareStatement("DELETE FROM " + circuitTable
                         + " WHERE service_id = ?;")) {
                     stmt.setInt(1, id);
                     stmt.execute();
@@ -432,7 +432,7 @@ public class PersistentSwitch implements Switch {
 
             this.intent = intent;
             if (intent == Intent.ACTIVE) {
-                this.bridge = fabric.bridge(self, mapEndPoints(details));
+                this.bridge = fabric.bridge(self, mapCircuits(details));
                 this.bridge.start();
             }
         }
@@ -517,12 +517,12 @@ public class PersistentSwitch implements Switch {
         /* Record how we talk to the database. */
         this.dbConnectionAddress = dbConfig.get("service");
         this.dbConnectionConfig = dbConfig.toProperties();
-        this.endPointTable = dbConfig.get("end-points.table", "end_points");
+        this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
     }
 
-    private final String endPointTable, terminalTable, serviceTable;
+    private final String circuitTable, terminalTable, serviceTable;
     private final String dbConnectionAddress;
     private final Properties dbConnectionConfig;
 
@@ -555,7 +555,7 @@ public class PersistentSwitch implements Switch {
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
                     + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
-                stmt.execute("CREATE TABLE IF NOT EXISTS " + endPointTable
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + circuitTable
                     + " (service_id INTEGER," + " terminal_id INTEGER,"
                     + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
                     + " shaping DECIMAL(9,3)," + " FOREIGN KEY(service_id)"
@@ -603,7 +603,7 @@ public class PersistentSwitch implements Switch {
                     .executeQuery("SELECT" + " et.service_id AS service_id,"
                         + " tt.name AS terminal_name," + " et.label AS label,"
                         + " et.metering AS metering,"
-                        + " et.shaping AS shaping" + " FROM " + endPointTable
+                        + " et.shaping AS shaping" + " FROM " + circuitTable
                         + " AS et" + " LEFT JOIN " + terminalTable + " AS tt"
                         + " ON tt.terminal_id = et.terminal_id;")) {
                 while (rs.next()) {
@@ -614,12 +614,12 @@ public class PersistentSwitch implements Switch {
                     final double metering = rs.getDouble(4);
                     final double shaping = rs.getDouble(5);
 
-                    final Circuit<? extends Terminal> endPoint =
+                    final Circuit<? extends Terminal> circuit =
                         port.circuit(label);
                     final TrafficFlow enf = TrafficFlow.of(metering, shaping);
                     enforcements
                         .computeIfAbsent(service, k -> new HashMap<>())
-                        .put(endPoint, enf);
+                        .put(circuit, enf);
                 }
             }
 
@@ -825,15 +825,15 @@ public class PersistentSwitch implements Switch {
     }
 
     private Circuit<? extends Interface<?>>
-        mapEndPoint(Circuit<? extends Terminal> ep) {
+        mapCircuit(Circuit<? extends Terminal> ep) {
         SwitchTerminal terminal = (SwitchTerminal) ep.getBundle();
-        return terminal.getInnerEndPoint(ep.getLabel());
+        return terminal.getInnerCircuit(ep.getLabel());
     }
 
     private <V> Map<Circuit<? extends Interface<?>>, V>
-        mapEndPoints(Map<? extends Circuit<? extends Terminal>, ? extends V> input) {
+        mapCircuits(Map<? extends Circuit<? extends Terminal>, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
-            .toMap(e -> mapEndPoint(e.getKey()), Map.Entry::getValue));
+            .toMap(e -> mapCircuit(e.getKey()), Map.Entry::getValue));
     }
 
     @SuppressWarnings("unchecked")
