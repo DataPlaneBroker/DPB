@@ -35,9 +35,6 @@
  */
 package uk.ac.lancs.networks.corsa;
 
-import java.util.Collection;
-import java.util.Collections;
-
 import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.Interface;
@@ -81,23 +78,7 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
 
     @Override
     public String toString() {
-        return base.toString() + ".dt" + port;
-    }
-
-    @Override
-    public CorsaInterface tag(TagKind kind, int label) {
-        if (kind == null) throw new NullPointerException();
-        throw new UnsupportedOperationException("unsupported: " + kind);
-    }
-
-    @Override
-    public Collection<TagKind> getEncapsulations() {
-        return Collections.emptySet();
-    }
-
-    @Override
-    public TagKind getDefaultEncapsulation() {
-        return null;
+        return base.toString() + '.' + port + "x2";
     }
 
     @Override
@@ -108,18 +89,6 @@ final class DoubleTaggedPortInterface implements CorsaInterface {
     @Override
     public TagKind getTagKind() {
         return TagKind.ENUMERATION;
-    }
-
-    @Override
-    public int getMinimumLabel(TagKind kind) {
-        if (kind == null) throw new NullPointerException();
-        throw new UnsupportedOperationException("unsupported: " + kind);
-    }
-
-    @Override
-    public int getMaximumLabel(TagKind kind) {
-        if (kind == null) throw new NullPointerException();
-        throw new UnsupportedOperationException("unsupported: " + kind);
     }
 
     @Override

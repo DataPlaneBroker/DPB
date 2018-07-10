@@ -37,6 +37,7 @@ package uk.ac.lancs.networks.corsa;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.TagKind;
@@ -98,7 +99,7 @@ final class AggregationInterface implements STaggableInterface {
 
     @Override
     public Collection<TagKind> getEncapsulations() {
-        return Collections.singleton(TagKind.VLAN_STAG);
+        return Collections.unmodifiableSet(EnumSet.of(TagKind.VLAN_STAG));
     }
 
     @Override

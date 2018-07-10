@@ -37,6 +37,7 @@ package uk.ac.lancs.networks.corsa;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.TagKind;
@@ -92,22 +93,12 @@ final class AllAggregationsInterface implements CorsaInterface {
 
     @Override
     public Collection<TagKind> getEncapsulations() {
-        return Collections.singleton(TagKind.ENUMERATION);
+        return Collections.unmodifiableSet(EnumSet.of(TagKind.ENUMERATION));
     }
 
     @Override
     public TagKind getDefaultEncapsulation() {
         return TagKind.ENUMERATION;
-    }
-
-    @Override
-    public CorsaInterface untag() {
-        return null;
-    }
-
-    @Override
-    public TagKind getTagKind() {
-        return null;
     }
 
     @Override
@@ -132,11 +123,6 @@ final class AllAggregationsInterface implements CorsaInterface {
         default:
             throw new UnsupportedOperationException("unsupported: " + kind);
         }
-    }
-
-    @Override
-    public int getLabel() {
-        return 0;
     }
 
     @Override
