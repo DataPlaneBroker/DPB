@@ -35,11 +35,11 @@
  */
 
 /**
- * Models bundles of numbered circuits. A bundle could be a terminal of
- * a network, or an interface of a switch, or a VLAN-tagged interface of
- * a switch. A circuit could then identify VLAN-tagged traffic on a
- * network terminal or a switch interface, or double-tagged traffic on a
- * switch interface.
+ * Models bundles of numbered circuits at the end of a link. A bundle
+ * could be a terminal of a network, or an interface of a switch, or a
+ * VLAN-tagged interface of a switch. A circuit could then identify
+ * VLAN-tagged traffic on a network terminal or a switch interface, or
+ * double-tagged traffic on a switch interface.
  * 
  * @author simpsons
  */
