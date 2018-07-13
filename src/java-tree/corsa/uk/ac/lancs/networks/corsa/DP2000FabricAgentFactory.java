@@ -67,10 +67,12 @@ import uk.ac.lancs.scc.jardeps.Service;
 
 /**
  * Creates agents each implementing a Corsa DP2X00-compatible fabric.
- * One type of {@link Fabric} service is implemented, namely
- * {@link VFCPerServiceFabric}, recognized by a configuration parameter
- * called <samp>{@value #TYPE_FIELD}</samp> with the value
- * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp>.
+ * Two types of {@link Fabric} service are implemented, namely
+ * {@link VFCPerServiceFabric} and {@link PortSlicedVFCFabric},
+ * recognized by a configuration parameter called
+ * <samp>{@value #TYPE_FIELD}</samp> with the values
+ * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp> and
+ * <samp>{@value #SHAREDVFC_TYPE_NAME}</samp> respectively.
  * 
  * <table>
  * <thead>
@@ -84,6 +86,10 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <tr>
  * <td><samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp></td>
  * <td>{@link VFCPerServiceFabric}</td>
+ * </tr>
+ * <tr>
+ * <td><samp>{@value #SHAREDVFC_TYPE_NAME}</samp></td>
+ * <td>{@link PortSlicedVFCFabric}</td>
  * </tr>
  * </tbody>
  * </table>
@@ -159,8 +165,30 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <dt><samp>rest.authz.file</samp>
  * 
  * <dd>Specifies the filename (as a URI relative to the containing file)
- * containing the authorization string to be sent with each REST
- * request. The string may be broken into several lines for readability.
+ * containing the authorization string to be sent with each REST request
+ * to the Corsa switch. The string may be broken into several lines for
+ * readability.
+ * 
+ * <dt><samp>ctrl.rest.location</samp>
+ * (<samp>{@value #SHAREDVFC_TYPE_NAME}</samp> only)
+ * 
+ * <dd>Specifies the URI of the controller's REST API. Do not include
+ * <samp>api/v1/</samp> components, as these are added automatically.
+ * 
+ * <dt><samp>ctrl.rest.cert.file</samp> (optional;
+ * <samp>{@value #SHAREDVFC_TYPE_NAME}</samp> only)
+ * 
+ * <dd>Specifies the filename (as a URI relative to the containing file)
+ * containing an X.509 certificate used to verify the identity of the
+ * controller.
+ * 
+ * <dt><samp>ctrl.rest.authz.file</samp> (optional;
+ * <samp>{@value #SHAREDVFC_TYPE_NAME}</samp> only)
+ * 
+ * <dd>Specifies the filename (as a URI relative to the containing file)
+ * containing the authorization string to be sent with each REST request
+ * to the controller. The string may be broken into several lines for
+ * readability.
  * 
  * </dl>
  * 
@@ -203,6 +231,11 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
+    public static final String SHAREDVFC_TYPE_NAME = "corsa-dp2x00-sharedbr";
+
+    /**
+     * @undocumented
+     */
     public static final String DEFAULT_CONTROLLER_HOST = "172.17.1.1";
 
     /**
@@ -228,14 +261,23 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * {@inheritDoc}
      * 
-     * @default This implementation recognizes only the string
-     * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp> in the field
+     * @default This implementation recognizes only the strings
+     * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp> and
+     * <samp>{@value #SHAREDVFC_TYPE_NAME}</samp> in the field
      * <samp>{@value #TYPE_FIELD}</samp>.
      */
     @Override
     public boolean recognize(Configuration conf) {
         String type = conf.get(TYPE_FIELD);
-        return VFCPERSERVICE_TYPE_NAME.equals(type);
+        if (type == null) return false;
+        switch (type) {
+        case VFCPERSERVICE_TYPE_NAME:
+        case SHAREDVFC_TYPE_NAME:
+            return true;
+
+        default:
+            return false;
+        }
     }
 
     @Override
@@ -263,24 +305,62 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final int maxAggregations = Integer.parseInt(conf
             .get("capacity.lags", Integer.toString(portCount / 2)));
         final URI service = URI.create(conf.get("rest.location"));
-        final File certFile = conf.getFile("rest.cert.file");
         final X509Certificate cert;
-        try (InputStream in = new FileInputStream(certFile)) {
-            CertificateFactory cf = CertificateFactory.getInstance("X.509");
-            cert = (X509Certificate) cf.generateCertificate(in);
-        } catch (IOException | CertificateException e) {
-            throw new AgentCreationException("getting certificate from "
-                + certFile, e);
-        }
-        final Path authzFile = conf.getPath("rest.authz.file");
         final String authz;
-        try {
-            authz = Files.readAllLines(authzFile, StandardCharsets.US_ASCII)
-                .stream().collect(Collectors.joining());
-        } catch (IOException e) {
-            throw new AgentCreationException("getting authorization from "
-                + authzFile, e);
+        {
+            final File certFile = conf.getFile("rest.cert.file");
+            try (InputStream in = new FileInputStream(certFile)) {
+                CertificateFactory cf =
+                    CertificateFactory.getInstance("X.509");
+                cert = (X509Certificate) cf.generateCertificate(in);
+            } catch (IOException | CertificateException e) {
+                throw new AgentCreationException("getting certificate from "
+                    + certFile, e);
+            }
+            final Path authzFile = conf.getPath("rest.authz.file");
+            try {
+                authz =
+                    Files.readAllLines(authzFile, StandardCharsets.US_ASCII)
+                        .stream().collect(Collectors.joining());
+            } catch (IOException e) {
+                throw new AgentCreationException("getting authorization from "
+                    + authzFile, e);
+            }
         }
+
+        final URI ctrlService = conf.getLocation("ctrl.rest.location");
+        final X509Certificate ctrlCert;
+        final String ctrlAuthz;
+        {
+            final File ctrlCertFile = conf.getFile("ctrl.rest.cert.file");
+            if (ctrlCertFile == null) {
+                ctrlCert = null;
+            } else {
+                try (InputStream in = new FileInputStream(ctrlCertFile)) {
+                    CertificateFactory cf =
+                        CertificateFactory.getInstance("X.509");
+                    ctrlCert = (X509Certificate) cf.generateCertificate(in);
+                } catch (IOException | CertificateException e) {
+                    throw new AgentCreationException("getting certificate from "
+                        + ctrlCertFile, e);
+                }
+            }
+            final Path ctrlAuthzFile = conf.getPath("ctrl.rest.authz.file");
+            if (ctrlAuthzFile == null) {
+                ctrlAuthz = null;
+            } else {
+                try {
+                    ctrlAuthz = Files
+                        .readAllLines(ctrlAuthzFile,
+                                      StandardCharsets.US_ASCII)
+                        .stream().collect(Collectors.joining());
+                } catch (IOException e) {
+                    throw new AgentCreationException("getting authorization from "
+                        + ctrlAuthzFile, e);
+                }
+            }
+        }
+
         return new CacheAgent(new Agent() {
             @Override
             public Collection<String> getKeys(Class<?> type) {
@@ -294,14 +374,32 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                 if (key != null) return null;
                 if (type != Fabric.class) return null;
                 try {
-                    VFCPerServiceFabric result =
-                        new VFCPerServiceFabric(portCount, maxAggregations,
-                                                maxBridges, descPrefix,
-                                                partialDescSuffix,
-                                                fullDescSuffix, subtype,
-                                                netns, controller, service,
-                                                cert, authz);
-                    return type.cast(result);
+                    if (VFCPERSERVICE_TYPE_NAME
+                        .equals(conf.get(TYPE_FIELD))) {
+                        VFCPerServiceFabric result =
+                            new VFCPerServiceFabric(portCount,
+                                                    maxAggregations,
+                                                    maxBridges, descPrefix,
+                                                    partialDescSuffix,
+                                                    fullDescSuffix, subtype,
+                                                    netns, controller,
+                                                    service, cert, authz);
+                        return type.cast(result);
+                    }
+                    if (SHAREDVFC_TYPE_NAME.equals(conf.get(TYPE_FIELD))) {
+                        PortSlicedVFCFabric result =
+                            new PortSlicedVFCFabric(portCount,
+                                                    maxAggregations,
+                                                    descPrefix,
+                                                    partialDescSuffix,
+                                                    fullDescSuffix, subtype,
+                                                    netns, controller,
+                                                    service, cert, authz,
+                                                    ctrlService, ctrlCert,
+                                                    ctrlAuthz);
+                        return type.cast(result);
+                    }
+                    return null;
                 } catch (KeyManagementException | NoSuchAlgorithmException
                     | IOException | ParseException e) {
                     throw new ServiceCreationException(e);
