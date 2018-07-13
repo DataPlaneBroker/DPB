@@ -87,11 +87,33 @@ public final class PortSlicedVFCFabric implements Fabric {
     private final String subtype;
     private final CorsaREST rest;
     private String bridgeId;
+    private long dpid;
 
     private final SliceControllerREST sliceRest;
     private final String partialDesc;
     private final String fullDesc;
     private final String descPrefix;
+
+    /**
+     * Maps the circuit description of each tunnel attachment to the OF
+     * port of our VFC. The circuit is in canonical form.
+     */
+    private final Map<Circuit<? extends Interface<?>>, Integer> circuitToPort =
+        new HashMap<>();
+
+    /**
+     * Maps each OF port in use on our VFC to the circuit description of
+     * the tunnel attached to it. The circuit is in canonical form.
+     */
+    private final NavigableMap<Integer, Circuit<? extends Interface<?>>> portToCircuit =
+        new TreeMap<>();
+
+    /**
+     * Indexes all bridge slices by their circuit sets. The circuits are
+     * in canonical form.
+     */
+    private final Map<Collection<Circuit<? extends Interface<?>>>, BridgeSlice> bridgesByCircuitSet =
+        new HashMap<>();
 
     /**
      * Create a switching fabric for a Corsa.
@@ -228,8 +250,18 @@ public final class PortSlicedVFCFabric implements Fabric {
                                          Meter.cbs(10));
                     }
 
-                    /* TODO: Tell the controller of the new OF port
-                     * set. */
+                    /* Tell the controller of the new OF port set. */
+                    RESTResponse<Collection<? extends BitSet>> defRsp =
+                        sliceRest.definePortSets(dpid, ofPorts);
+                    if (defRsp.code != 200) {
+                        ServiceResourceException t =
+                            new ServiceResourceException("failed to set slice port set");
+                        for (BridgeSlice slice : bridgesByCircuitSet
+                            .values()) {
+                            slice.inform(l -> l.error(t));
+                            slice.stop();
+                        }
+                    }
                 } catch (ParseException | IOException ex) {
                     ServiceResourceException t =
                         new ServiceResourceException("failed to start slice",
@@ -272,9 +304,6 @@ public final class PortSlicedVFCFabric implements Fabric {
             }
         }
     }
-
-    private final Map<Collection<Circuit<? extends Interface<?>>>, BridgeSlice> bridgesByCircuitSet =
-        new HashMap<>();
 
     @Override
     public synchronized Bridge
@@ -355,20 +384,6 @@ public final class PortSlicedVFCFabric implements Fabric {
     }
 
     /**
-     * Maps the circuit description of each tunnel attachment to the OF
-     * port of our VFC. The circuit is in canonical form.
-     */
-    private final Map<Circuit<? extends Interface<?>>, Integer> circuitToPort =
-        new HashMap<>();
-
-    /**
-     * Maps each OF port in use on our VFC to the circuit description of
-     * the tunnel attached to it. The circuit is in canonical form.
-     */
-    private final NavigableMap<Integer, Circuit<? extends Interface<?>>> portToCircuit =
-        new TreeMap<>();
-
-    /**
      * Refresh the mapping between circuit and port.
      * 
      * @throws IOException if there was an I/O error in fetching the
@@ -431,39 +446,57 @@ public final class PortSlicedVFCFabric implements Fabric {
         if (bridgeId != null) return;
 
         /* Create the VFC in a partial state. */
-        RESTResponse<String> creationRsp = rest.createBridge(new BridgeDesc()
-            .descr(partialDesc).resources(10).subtype(subtype).netns(netns));
-        if (creationRsp.code != 201)
-            throw new RuntimeException("bridge creation failure: "
-                + creationRsp.code);
+        final String bridgeId;
+        {
+            RESTResponse<String> creationRsp =
+                rest.createBridge(new BridgeDesc().descr(partialDesc)
+                    .resources(10).subtype(subtype).netns(netns));
+            if (creationRsp.code != 201)
+                throw new RuntimeException("bridge creation failure: "
+                    + creationRsp.code);
+            bridgeId = creationRsp.message;
+        }
+
+        /* Get the VFC's DPID (or set it? TODO). */
+        {
+            RESTResponse<BridgeDesc> descRsp = rest.getBridgeDesc(bridgeId);
+            if (descRsp.code != 200)
+                throw new RuntimeException("bridge info failure: "
+                    + descRsp.code);
+            this.dpid = descRsp.message.dpid;
+        }
 
         /* Set the VFC's controller. */
-        RESTResponse<Void> ctrlRsp =
-            rest.attachController(this.bridgeId,
-                                  new ControllerConfig().id("learner")
-                                      .host(controller.getAddress())
-                                      .port(controller.getPort()));
-        if (ctrlRsp.code != 201)
-            throw new RuntimeException("bridge controller failure: "
-                + creationRsp.code);
+        {
+            RESTResponse<Void> ctrlRsp =
+                rest.attachController(bridgeId,
+                                      new ControllerConfig().id("learner")
+                                          .host(controller.getAddress())
+                                          .port(controller.getPort()));
+            if (ctrlRsp.code != 201)
+                throw new RuntimeException("bridge controller failure: "
+                    + ctrlRsp.code);
+        }
 
         /* Mark the VFC as in a complete state. */
-        RESTResponse<Void> brPatchRsp =
-            rest.patchBridge(this.bridgeId,
-                             ReplaceBridgeDescription.of(fullDesc));
-        if (brPatchRsp.code != 204)
-            throw new RuntimeException("bridge completion failure: "
-                + creationRsp.code);
+        {
+            RESTResponse<Void> brPatchRsp = rest
+                .patchBridge(bridgeId, ReplaceBridgeDescription.of(fullDesc));
+            if (brPatchRsp.code != 204)
+                throw new RuntimeException("bridge completion failure: "
+                    + brPatchRsp.code);
+        }
 
-        this.bridgeId = creationRsp.message;
+        this.bridgeId = bridgeId;
     }
 
     private void collectPortSets() throws IOException, ParseException {
-        Collection<? extends Collection<Integer>> portSets = null; // TODO
-        for (Collection<Integer> set : portSets) {
+        RESTResponse<Collection<? extends BitSet>> portSets =
+            this.sliceRest.getPortSets(dpid);
+        for (BitSet set : portSets.message) {
             Collection<Circuit<? extends Interface<?>>> circuits =
                 new HashSet<>();
-            for (int i : set)
+            for (int i : BitSetIterable.of(set))
                 circuits.add(portToCircuit.get(i));
             BridgeSlice slice = new BridgeSlice(circuits);
             bridgesByCircuitSet.put(circuits, slice);

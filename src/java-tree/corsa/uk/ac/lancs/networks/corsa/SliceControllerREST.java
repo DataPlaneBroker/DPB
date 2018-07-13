@@ -35,12 +35,24 @@
  */
 package uk.ac.lancs.networks.corsa;
 
+import java.io.IOException;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import org.json.simple.parser.ParseException;
+
+import uk.ac.lancs.rest.JSONEntity;
 import uk.ac.lancs.rest.RESTClient;
+import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
 
 /**
@@ -57,5 +69,38 @@ final class SliceControllerREST extends RESTClient {
             .forCertificate(cert)::newClient, authz);
     }
 
-    // TODO
+    private static Collection<? extends BitSet>
+        decodePortSets(JSONEntity ent) {
+        return null;
+    }
+
+    public RESTResponse<Collection<? extends BitSet>>
+        getPortSets(long dpid) throws IOException, ParseException {
+        return get(String.format("config/%016x", dpid))
+            .adapt(SliceControllerREST::decodePortSets);
+    }
+
+    public RESTResponse<Collection<? extends BitSet>>
+        definePortSets(long dpid, BitSet... sets)
+            throws IOException,
+                ParseException {
+        return definePortSets(dpid, Arrays.asList(sets));
+    }
+
+    public RESTResponse<Collection<? extends BitSet>>
+        definePortSets(long dpid, Collection<? extends BitSet> sets)
+            throws IOException,
+                ParseException {
+        Map<String, List<List<Integer>>> params = new HashMap<>();
+        List<List<Integer>> lists = new ArrayList<>();
+        params.put("slices", lists);
+        for (BitSet set : sets) {
+            List<Integer> list = new ArrayList<>();
+            for (int i : BitSetIterable.of(set))
+                list.add(i);
+            lists.add(list);
+        }
+        return post(String.format("config/%016x", dpid), params)
+            .adapt(SliceControllerREST::decodePortSets);
+    }
 }
