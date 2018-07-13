@@ -121,7 +121,6 @@ public class PersistentAggregatorAgentFactory implements AgentFactory {
                     };
                     PersistentAggregator agg =
                         new PersistentAggregator(executor, inferiors, conf);
-                    agg.init();
                     return type.cast(agg);
                 } catch (SQLException | AgentException ex) {
                     throw new ServiceCreationException(ex);

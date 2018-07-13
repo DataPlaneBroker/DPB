@@ -1410,7 +1410,10 @@ public class PersistentAggregator implements Aggregator {
     }
 
     /**
-     * Create an aggregator with state backed up in a database.
+     * Create an aggregator with state backed up in a database. Ensure
+     * the necessary tables exist in the database. Recreate the internal
+     * service records mentioned in the tables. Obtain subservices used
+     * to build these services.
      * 
      * <p>
      * Configuration consists of the following fields:
@@ -1442,10 +1445,14 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @param config the configuration describing the network and access
      * to the database
+     * 
+     * @throws SQLException if there was an error in accessing the
+     * database
      */
     public PersistentAggregator(Executor executor,
                                 Function<? super String, ? extends NetworkControl> inferiors,
-                                Configuration config) {
+                                Configuration config)
+        throws SQLException {
         this.executor = executor;
         this.inferiors = inferiors;
         this.name = config.get("name");
@@ -1460,17 +1467,7 @@ public class PersistentAggregator implements Aggregator {
         this.subserviceTable = dbConfig.get("services.table", "subservices");
         this.trunkTable = dbConfig.get("trunks.table", "trunks");
         this.labelTable = dbConfig.get("labels.table", "label_map");
-    }
 
-    /**
-     * Initialize the aggregator. Ensure the necessary tables exist in
-     * the database. Recreate the internal service records mentioned in
-     * the tables. Obtain subservices used to build these services.
-     * 
-     * @throws SQLException if there was an error in accessing the
-     * database
-     */
-    public void init() throws SQLException {
         serviceWatcher.start();
         trunkWatcher.start();
 
