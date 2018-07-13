@@ -74,7 +74,7 @@ public interface Agent {
      * 
      * @throws UnknownServiceException if the service does not exist
      */
-    default <T> T getService(Class<? super T> type, String key)
+    default <T> T getService(Class<T> type, String key)
         throws UnknownServiceException {
         T result = findService(type, key);
         if (result == null)
@@ -94,8 +94,7 @@ public interface Agent {
      * 
      * @throws UnknownServiceException if the service does not exist
      */
-    default <T> T getService(Class<? super T> type)
-        throws UnknownServiceException {
+    default <T> T getService(Class<T> type) throws UnknownServiceException {
         return getService(type, null);
     }
 
@@ -111,7 +110,7 @@ public interface Agent {
      * @return the requested service, or {@code null} if it does not
      * exist
      */
-    <T> T findService(Class<? super T> type, String key);
+    <T> T findService(Class<T> type, String key);
 
     /**
      * Get a set of all keys of a service type.
@@ -135,7 +134,7 @@ public interface Agent {
      * @return the requested service, or {@code null} if it does not
      * exist
      */
-    default <T> T findService(Class<? super T> type) {
+    default <T> T findService(Class<T> type) {
         return findService(type, null);
     }
 

@@ -117,16 +117,15 @@ public final class Commander {
             agents.put("system", new Agent() {
                 final Executor executor = IdleExecutor.INSTANCE;
 
-                @SuppressWarnings("unchecked")
                 @Override
-                public <T> T findService(Class<? super T> type, String key) {
+                public <T> T findService(Class<T> type, String key) {
                     if (type == NetworkControl.class) {
                         Network nw = networks.get(key);
                         if (nw == null) return null;
-                        return (T) nw.getControl();
+                        return type.cast(nw.getControl());
                     }
                     if (type == Executor.class && key == null)
-                        return (T) executor;
+                        return type.cast(executor);
                     return null;
                 }
 

@@ -174,12 +174,11 @@ public final class AgentBuilder {
             initiation.initiate();
         }
 
-        @SuppressWarnings("unchecked")
         @Override
-        public <T> T findService(Class<? super T> type, String key) {
+        public <T> T findService(Class<T> type, String key) {
             Map<String, Object> bank = services.get(type);
             if (bank == null) return null;
-            return (T) bank.get(key);
+            return type.cast(bank.get(key));
         }
 
         @Override
