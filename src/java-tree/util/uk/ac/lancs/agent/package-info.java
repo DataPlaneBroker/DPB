@@ -40,6 +40,8 @@
  * As an agent, a single object can contain that state, and present
  * distinct services.
  * 
+ * @todo Cause initiation of agent when first service is requested.
+ * 
  * @author simpsons
  */
 package uk.ac.lancs.agent;

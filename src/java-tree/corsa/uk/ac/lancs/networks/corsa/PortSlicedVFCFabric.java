@@ -35,24 +35,39 @@
  */
 package uk.ac.lancs.networks.corsa;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
+import org.json.simple.parser.ParseException;
+
+import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
+import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
+import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
 import uk.ac.lancs.networks.corsa.rest.CorsaREST;
+import uk.ac.lancs.networks.corsa.rest.Meter;
+import uk.ac.lancs.networks.corsa.rest.ReplaceBridgeDescription;
+import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.Interface;
+import uk.ac.lancs.rest.RESTResponse;
 
 /**
  * Manages a Corsa DP2X000-series switch by creating and maintaining a
@@ -67,9 +82,12 @@ import uk.ac.lancs.networks.fabric.Interface;
 public final class PortSlicedVFCFabric implements Fabric {
     private final InetSocketAddress controller;
     private final InterfaceManager interfaces;
+
     private final String netns;
     private final String subtype;
     private final CorsaREST rest;
+    private String bridgeId;
+
     private final SliceControllerREST sliceRest;
     private final String partialDesc;
     private final String fullDesc;
@@ -139,28 +157,92 @@ public final class PortSlicedVFCFabric implements Fabric {
         return interfaces.getInterface(desc);
     }
 
-    @Override
-    public Bridge
-        bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+    private class BridgeSlice {
+        private final Map<Circuit<? extends Interface<?>>, TrafficFlow> service;
 
-    @Override
-    public void retainBridges(Collection<? extends Bridge> bridges) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+        BridgeSlice(Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+            this.service = new HashMap<>(details);
+        }
 
-    @Override
-    public int capacity() {
-        return 1000;
-    }
+        BridgeSlice(Collection<? extends Circuit<? extends Interface<?>>> circuits) {
+            this.service = new HashMap<>();
+            for (Circuit<? extends Interface<?>> circuit : circuits)
+                service.put(circuit, TrafficFlow.of(0.0, 0.0));
+            started = true;
+        }
 
-    class InternalBridge {
-        final Map<Circuit<? extends Interface<?>>, TrafficFlow> service;
+        void stop() {
+            assert Thread.holdsLock(PortSlicedVFCFabric.this);
 
-        public InternalBridge(Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> service) {
-            this.service = new HashMap<>(service);
+            /* Detach tunnels from ports. */
+            for (Circuit<? extends Interface<?>> circuit : service.keySet()) {
+                /* Find which OF port it is attached to, and detach
+                 * it. */
+                int ofport = circuitToPort.getOrDefault(circuit, 0);
+                if (ofport <= 0) continue;
+                try {
+                    rest.detachTunnel(bridgeId, ofport);
+                } catch (IOException | ParseException e) {
+                    /* Perhaps we don't care by this stage. */
+                }
+            }
+
+            inform(BridgeListener::destroyed);
+            listeners.clear();
+        }
+
+        boolean started = false;
+
+        void start() {
+            assert Thread.holdsLock(PortSlicedVFCFabric.this);
+            if (!started) {
+                try {
+                    /* Allocate each circuit to an OF port, attach them,
+                     * and set the QoS. */
+                    BitSet ofPorts = new BitSet();
+                    for (Map.Entry<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> entry : service
+                        .entrySet()) {
+                        TrafficFlow flow = entry.getValue();
+                        Circuit<? extends Interface<?>> circuit =
+                            entry.getKey();
+
+                        /* Choose the next available OF port, and mark
+                         * it as in use. */
+                        final int ofport = nextFreePort();
+                        ofPorts.set(ofport);
+                        portToCircuit.put(ofport, circuit);
+                        circuitToPort.put(circuit, ofport);
+
+                        /* Attach the circuit to the OF port, setting
+                         * the outgoing QoS. */
+                        TunnelDesc desc = new TunnelDesc();
+                        CorsaInterface iface =
+                            (CorsaInterface) circuit.getBundle();
+                        iface.configureTunnel(desc, iface.getLabel())
+                            .shapedRate(flow.egress).ofport(ofport);
+                        rest.attachTunnel(bridgeId, desc);
+
+                        /* Set the incoming QoS of the tunnel. */
+                        rest.patchTunnel(bridgeId, ofport,
+                                         Meter.cir(flow.ingress * 1024.0),
+                                         Meter.cbs(10));
+                    }
+
+                    /* TODO: Tell the controller of the new OF port
+                     * set. */
+                } catch (ParseException | IOException ex) {
+                    ServiceResourceException t =
+                        new ServiceResourceException("failed to start slice",
+                                                     ex);
+                    for (BridgeSlice slice : bridgesByCircuitSet.values()) {
+                        slice.inform(l -> l.error(t));
+                        slice.stop();
+                    }
+                }
+
+                started = true;
+            }
+            inform(BridgeListener::created);
         }
 
         private final Collection<BridgeListener> listeners = new HashSet<>();
@@ -174,10 +256,236 @@ public final class PortSlicedVFCFabric implements Fabric {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
             listeners.add(listener);
         }
+    }
 
-        void removeListener(BridgeListener listener) {
-            assert Thread.holdsLock(PortSlicedVFCFabric.this);
-            listeners.remove(listener);
+    class BridgeRef implements Bridge {
+        final BridgeSlice internal;
+
+        BridgeRef(BridgeSlice internal) {
+            this.internal = internal;
+        }
+
+        @Override
+        public void start() {
+            synchronized (PortSlicedVFCFabric.this) {
+                internal.start();
+            }
         }
     }
+
+    private final Map<Collection<Circuit<? extends Interface<?>>>, BridgeSlice> bridgesByCircuitSet =
+        new HashMap<>();
+
+    @Override
+    public synchronized Bridge
+        bridge(BridgeListener listener,
+               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+        /* Resolve the circuits to their canonical forms. */
+        Map<Circuit<? extends Interface<?>>, TrafficFlow> resolvedDetails =
+            new HashMap<>();
+        for (Map.Entry<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> entry : details
+            .entrySet())
+            resolvedDetails.put(interfaces.resolve(entry.getKey()),
+                                entry.getValue());
+        details = resolvedDetails;
+
+        BridgeSlice intern = bridgesByCircuitSet.get(details.keySet());
+        if (intern == null) {
+            intern = new BridgeSlice(details);
+            bridgesByCircuitSet.put(new HashSet<>(details.keySet()), intern);
+        }
+        intern.addListener(listener);
+        return new BridgeRef(intern);
+    }
+
+    @Override
+    public synchronized void
+        retainBridges(Collection<? extends Bridge> bridges) {
+        /* Filter the references to consider only our own. */
+        Collection<BridgeSlice> slices = new HashSet<>();
+        for (Bridge br : bridges) {
+            if (!(br instanceof BridgeRef)) continue;
+            BridgeRef ref = (BridgeRef) br;
+            BridgeSlice slice = ref.internal;
+            slices.add(slice);
+        }
+
+        /* Gather all the interface circuits of the listed bridges. */
+        Collection<Circuit<? extends Interface<?>>> retainedCircuits =
+            new HashSet<>();
+        for (BridgeSlice slice : slices)
+            retainedCircuits.addAll(slice.service.keySet());
+
+        /* Get information on all the tunnel attachments for our VFC.
+         * Identify the OF ports that are no longer needed, and detach
+         * them. This will trigger the OF controller to revise its
+         * rules. */
+        for (Iterator<Circuit<? extends Interface<?>>> iter =
+            portToCircuit.values().iterator(); iter.hasNext();) {
+            Circuit<? extends Interface<?>> circuit = iter.next();
+            if (retainedCircuits.contains(circuit)) continue;
+            int ofport = circuitToPort.remove(circuit);
+            iter.remove();
+
+            try {
+                rest.detachTunnel(bridgeId, ofport);
+            } catch (IOException | ParseException e) {
+                ServiceResourceException t =
+                    new ServiceResourceException("error talking"
+                        + " to switch", e);
+                bridgesByCircuitSet.values()
+                    .forEach(s -> s.inform(l -> l.error(t)));
+                bridgesByCircuitSet.values().forEach(BridgeSlice::stop);
+                bridgesByCircuitSet.clear();
+                return;
+            }
+        }
+
+        /* Remove the bridges that weren't retained. */
+        Collection<BridgeSlice> dying =
+            new HashSet<>(bridgesByCircuitSet.values());
+        dying.removeAll(slices);
+        bridgesByCircuitSet.values().retainAll(slices);
+        dying.forEach(BridgeSlice::stop);
+    }
+
+    @Override
+    public int capacity() {
+        return 1000;
+    }
+
+    /**
+     * Maps the circuit description of each tunnel attachment to the OF
+     * port of our VFC. The circuit is in canonical form.
+     */
+    private final Map<Circuit<? extends Interface<?>>, Integer> circuitToPort =
+        new HashMap<>();
+
+    /**
+     * Maps each OF port in use on our VFC to the circuit description of
+     * the tunnel attached to it. The circuit is in canonical form.
+     */
+    private final NavigableMap<Integer, Circuit<? extends Interface<?>>> portToCircuit =
+        new TreeMap<>();
+
+    /**
+     * Refresh the mapping between circuit and port.
+     * 
+     * @throws IOException if there was an I/O error in fetching the
+     * port information
+     * 
+     * @throws ParseException if there was a formatting error
+     */
+    private void loadMapping() throws IOException, ParseException {
+        circuitToPort.clear();
+        portToCircuit.clear();
+        RESTResponse<Map<Integer, TunnelDesc>> tinf =
+            rest.getTunnels(bridgeId);
+        for (Map.Entry<Integer, TunnelDesc> entry : tinf.message.entrySet()) {
+            Circuit<? extends Interface<?>> circuit =
+                interfaces.getCircuit(entry.getValue());
+            Integer port = entry.getKey();
+            circuitToPort.put(circuit, port);
+            portToCircuit.put(port, circuit);
+        }
+    }
+
+    private int nextFreePort() {
+        int cand = 1;
+        for (int k : portToCircuit.keySet()) {
+            if (k != cand) return cand;
+            cand++;
+        }
+        return cand;
+    }
+
+    private void cleanUpVFCs() throws IOException, ParseException {
+        RESTResponse<Collection<String>> bridgeNames = rest.getBridgeNames();
+        if (bridgeNames.code != 200)
+            throw new RuntimeException("unable to list bridge names; rsp="
+                + bridgeNames.code);
+        for (String bridgeId : bridgeNames.message) {
+            RESTResponse<BridgeDesc> info = rest.getBridgeDesc(bridgeId);
+            if (info.code != 200) {
+                logger.warning("Bridge " + info + ": Getting info: RSP="
+                    + info.code);
+                continue;
+            }
+
+            /* Ignore VFCs with the wrong prefix. */
+            String descr = info.message.descr;
+            if (descr == null || !descr.startsWith(this.descPrefix)) continue;
+
+            /* Recognize an already established VFC. */
+            if (descr.equals(this.fullDesc)) {
+                this.bridgeId = bridgeId;
+                continue;
+            }
+
+            /* Delete others. */
+            rest.destroyBridge(bridgeId);
+        }
+    }
+
+    private void establishVFC() throws IOException, ParseException {
+        if (bridgeId != null) return;
+
+        /* Create the VFC in a partial state. */
+        RESTResponse<String> creationRsp = rest.createBridge(new BridgeDesc()
+            .descr(partialDesc).resources(10).subtype(subtype).netns(netns));
+        if (creationRsp.code != 201)
+            throw new RuntimeException("bridge creation failure: "
+                + creationRsp.code);
+
+        /* Set the VFC's controller. */
+        RESTResponse<Void> ctrlRsp =
+            rest.attachController(this.bridgeId,
+                                  new ControllerConfig().id("learner")
+                                      .host(controller.getAddress())
+                                      .port(controller.getPort()));
+        if (ctrlRsp.code != 201)
+            throw new RuntimeException("bridge controller failure: "
+                + creationRsp.code);
+
+        /* Mark the VFC as in a complete state. */
+        RESTResponse<Void> brPatchRsp =
+            rest.patchBridge(this.bridgeId,
+                             ReplaceBridgeDescription.of(fullDesc));
+        if (brPatchRsp.code != 204)
+            throw new RuntimeException("bridge completion failure: "
+                + creationRsp.code);
+
+        this.bridgeId = creationRsp.message;
+    }
+
+    private void collectPortSets() throws IOException, ParseException {
+        Collection<? extends Collection<Integer>> portSets = null; // TODO
+        for (Collection<Integer> set : portSets) {
+            Collection<Circuit<? extends Interface<?>>> circuits =
+                new HashSet<>();
+            for (int i : set)
+                circuits.add(portToCircuit.get(i));
+            BridgeSlice slice = new BridgeSlice(circuits);
+            bridgesByCircuitSet.put(circuits, slice);
+        }
+    }
+
+    synchronized void init() throws IOException, ParseException {
+        /* Go through all VFCs whose descriptions match our configured
+         * prefix. Destroy them unless they match our full name. */
+        cleanUpVFCs();
+
+        /* Create a bridge if it was not already established. */
+        establishVFC();
+
+        /* Load the mapping between OF port and circuit. */
+        loadMapping();
+
+        /* Get port sets from the controller, and create corresponding
+         * bridge entities. */
+        collectPortSets();
+    }
+
+    private static final Logger logger =
+        Logger.getLogger("uk.ac.lancs.networks.corsa.dp2000");
 }

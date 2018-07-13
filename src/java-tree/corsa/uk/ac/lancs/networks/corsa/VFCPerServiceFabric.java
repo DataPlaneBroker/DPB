@@ -520,9 +520,7 @@ public class VFCPerServiceFabric implements Fabric {
         InternalBridge intern = bridgesByCircuitSet.get(details.keySet());
         if (intern == null) {
             intern = new InternalBridge(details);
-            bridgesByCircuitSet
-                .put(new HashSet<Circuit<? extends Interface<?>>>(details
-                    .keySet()), intern);
+            bridgesByCircuitSet.put(new HashSet<>(details.keySet()), intern);
             for (Circuit<? extends Interface<?>> ep : details.keySet())
                 bridgesByCircuit.put(ep, intern);
         }

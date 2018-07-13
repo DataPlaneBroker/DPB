@@ -180,4 +180,19 @@ public final class InterfaceManager {
         return iface.tag(TagKind.ENUMERATION, ifacenum)
             .tag(TagKind.VLAN_STAG, tun.vlanId).circuit(tun.innerVlanId);
     }
+
+    /**
+     * Resolve a circuit to its canonical form.
+     * 
+     * @throws ClassCastException if the interface is of the wrong type
+     * 
+     * @param circuit the circuit to be resolved
+     * 
+     * @return the input circuit resolved to its canonical form
+     */
+    public Circuit<? extends Interface<?>>
+        resolve(Circuit<? extends Interface<?>> circuit) {
+        CorsaInterface iface = (CorsaInterface) circuit.getBundle();
+        return iface.resolve(circuit.getLabel());
+    }
 }
