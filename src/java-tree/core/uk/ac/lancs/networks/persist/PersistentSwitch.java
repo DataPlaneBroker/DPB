@@ -467,7 +467,9 @@ public class PersistentSwitch implements Switch {
 
     /**
      * Create a network mapping to a single switch, with state backed up
-     * in a database.
+     * in a database. Ensure the necessary tables exist in the database.
+     * Recreate the internal service records mentioned in the tables.
+     * Flush out any other bridges in the back-end.
      * 
      * <p>
      * Configuration consists of the following fields:
@@ -508,11 +510,16 @@ public class PersistentSwitch implements Switch {
      * 
      * @throws IllegalArgumentException if no factory recognizes the
      * back-end type
+     * 
+     * @throws SQLException if there was an error in accessing the
+     * database
      */
-    public PersistentSwitch(String name, Executor executor,
-                            Configuration dbConfig) {
+    public PersistentSwitch(String name, Executor executor, Fabric fabric,
+                            Configuration dbConfig)
+        throws SQLException {
         this.executor = executor;
         this.name = name;
+        this.fabric = fabric;
 
         /* Record how we talk to the database. */
         this.dbConnectionAddress = dbConfig.get("service");
@@ -520,22 +527,6 @@ public class PersistentSwitch implements Switch {
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
-    }
-
-    private final String circuitTable, terminalTable, serviceTable;
-    private final String dbConnectionAddress;
-    private final Properties dbConnectionConfig;
-
-    /**
-     * Initialize the switch. Ensure the necessary tables exist in the
-     * database. Recreate the internal service records mentioned in the
-     * tables. Flush out any other bridges in the back-end.
-     * 
-     * @throws SQLException if there was an error in accessing the
-     * database
-     */
-    public synchronized void init(Fabric fabric) throws SQLException {
-        this.fabric = fabric;
         if (!services.isEmpty())
             throw new IllegalStateException("services already running in "
                 + name);
@@ -571,13 +562,13 @@ public class PersistentSwitch implements Switch {
                         + " FROM " + terminalTable + ";")) {
                 while (rs.next()) {
                     final int id = rs.getInt(1);
-                    final String name = rs.getString(2);
+                    final String tname = rs.getString(2);
                     final String config = rs.getString(3);
 
                     SwitchTerminal port =
-                        new SwitchTerminal(getControl(), name,
+                        new SwitchTerminal(getControl(), tname,
                                            fabric.getInterface(config), id);
-                    terminals.put(name, port);
+                    terminals.put(tname, port);
                 }
             }
 
@@ -637,6 +628,10 @@ public class PersistentSwitch implements Switch {
             retainBridges();
         }
     }
+
+    private final String circuitTable, terminalTable, serviceTable;
+    private final String dbConnectionAddress;
+    private final Properties dbConnectionConfig;
 
     /**
      * Ensure that we have no more bridges running than necessary.

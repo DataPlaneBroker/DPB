@@ -116,13 +116,13 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
                 try {
                     Agent system = ctxt.getAgent("system");
                     Executor executor = system.getService(Executor.class);
-                    PersistentSwitch result =
-                        new PersistentSwitch(switchName, executor, dbConf);
                     /* Get the fabric. */
                     Agent fabricAgent = ctxt.getAgent(agent);
                     Fabric fabric =
                         fabricAgent.getService(Fabric.class, agentKey);
-                    result.init(fabric);
+                    PersistentSwitch result =
+                        new PersistentSwitch(switchName, executor, fabric,
+                                             dbConf);
                     return type.cast(result);
                 } catch (AgentException | SQLException ex) {
                     throw new ServiceCreationException(ex);
