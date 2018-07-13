@@ -301,7 +301,6 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                 fullDescSuffix, subtype,
                                                 netns, controller, service,
                                                 cert, authz);
-                    result.init();
                     return type.cast(result);
                 } catch (KeyManagementException | NoSuchAlgorithmException
                     | IOException | ParseException e) {

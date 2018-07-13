@@ -95,14 +95,6 @@ public class VFCPerServiceFabric implements Fabric {
     private final String fullDesc;
 
     /**
-     * Bridges whose descriptions begin with this string (but not
-     * {@link #fullDesc}) should be destroyed at start-up, because they
-     * were part of the previous incarnation but were either not
-     * completely configured or were used in a different way.
-     */
-    private final String descPrefix;
-
-    /**
      * The network namespace for new bridges
      */
     private final String netns;
@@ -112,7 +104,11 @@ public class VFCPerServiceFabric implements Fabric {
     private final CorsaREST rest;
 
     /**
-     * Create a switching fabric for a Corsa.
+     * Create a switching fabric for a Corsa. The switch is scanned for
+     * bridges. Each bridge described as partially configured is
+     * removed. Remaining bridges not described as fully configured are
+     * ignored. Other bridges are recognized, and internal records are
+     * created for them.
      * 
      * @param portCount the number of ports on the switch
      * 
@@ -151,6 +147,11 @@ public class VFCPerServiceFabric implements Fabric {
      * 
      * @throws KeyManagementException if there is a problem with the
      * certficate
+     * 
+     * @throws IOException if there was an I/O error in contacting the
+     * switch
+     * 
+     * @throws ParseException if a switch response failed to parse
      */
     public VFCPerServiceFabric(int portCount, int maxAggregations,
                                int maxBridges, String descPrefix,
@@ -160,16 +161,76 @@ public class VFCPerServiceFabric implements Fabric {
                                URI service, X509Certificate cert,
                                String authz)
         throws KeyManagementException,
-            NoSuchAlgorithmException {
+            NoSuchAlgorithmException,
+            IOException,
+            ParseException {
         this.interfaces = new InterfaceManager(portCount, maxAggregations);
         this.maxBridges = maxBridges;
-        this.descPrefix = descPrefix;
         this.partialDesc = descPrefix + partialDescSuffix;
         this.fullDesc = descPrefix + fullDescSuffix;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
         this.rest = new CorsaREST(service, cert, authz);
+
+        /* Contact the switch, and get information on all bridges. */
+        RESTResponse<Collection<String>> bridges = rest.getBridgeNames();
+        if (bridges.code != 200) throw new RuntimeException("unable to "
+            + "get list of bridges; rsp=" + bridges.code);
+        for (String bridgeName : bridges.message) {
+            RESTResponse<BridgeDesc> bridgeInfo =
+                rest.getBridgeDesc(bridgeName);
+            if (bridgeInfo.code != 200) {
+                logger.warning("Bridge " + bridgeName + ": Getting info: RSP="
+                    + bridgeInfo.code);
+                continue;
+            }
+
+            /* Bridges with no description text are not under our
+             * control, and should be ignored. */
+            if (bridgeInfo.message.descr == null) continue;
+
+            /* Bridges that are marked as ours and are complete should
+             * be analyzed to see what they connect. */
+            if (!bridgeInfo.message.descr.equals(fullDesc)) {
+                /* Other bridges marked with our prefix are either
+                 * leftovers from our previous incarnation or from the
+                 * system we've replaced. */
+                if (bridgeInfo.message.descr.startsWith(descPrefix))
+                    rest.destroyBridge(bridgeName);
+
+                /* Bridges that are not related to us should be
+                 * ignored. */
+                continue;
+            }
+
+            /* Find out how the bridge is connected. Derive a partial
+             * service description from it. */
+            RESTResponse<Map<Integer, TunnelDesc>> tunnels =
+                rest.getTunnels(bridgeName);
+            if (tunnels.code != 200) {
+                logger.warning("Bridge " + bridgeName
+                    + ": Getting tunnels: RSP=" + tunnels.code);
+                continue;
+            }
+            Collection<Circuit<? extends Interface<?>>> circuits =
+                new HashSet<>();
+            for (Map.Entry<Integer, TunnelDesc> entry : tunnels.message
+                .entrySet()) {
+                @SuppressWarnings("unused")
+                int ofport = entry.getKey();
+                TunnelDesc tun = entry.getValue();
+                Circuit<? extends Interface<?>> ep = circuitOf(tun);
+                circuits.add(ep);
+            }
+
+            /* Create the bridge, and index it. */
+            InternalBridge intern = new InternalBridge(bridgeName, circuits);
+            bridgesByCircuitSet.put(circuits, intern);
+            for (Circuit<? extends Interface<?>> ep : circuits) {
+                bridgesByCircuit.put(ep, intern);
+            }
+        }
     }
 
     class InternalBridge {
@@ -389,79 +450,6 @@ public class VFCPerServiceFabric implements Fabric {
      */
     private final Map<Circuit<? extends Interface<?>>, InternalBridge> bridgesByCircuit =
         new HashMap<>();
-
-    /**
-     * Initialize the fabric. The switch is scanned for bridges. Each
-     * bridge described as partially configured is removed. Remaining
-     * bridges not described as fully configured are ignored. Other
-     * bridges are recognized, and internal records are created for
-     * them.
-     * 
-     * @throws IOException if there was an I/O error in contacting the
-     * switch
-     * 
-     * @throws ParseException if a switch response failed to parse
-     */
-    public synchronized void init() throws IOException, ParseException {
-        /* Contact the switch, and get information on all bridges. */
-        RESTResponse<Collection<String>> bridges = rest.getBridgeNames();
-        if (bridges.code != 200) throw new RuntimeException("unable to "
-            + "get list of bridges; rsp=" + bridges.code);
-        for (String bridgeName : bridges.message) {
-            RESTResponse<BridgeDesc> bridgeInfo =
-                rest.getBridgeDesc(bridgeName);
-            if (bridgeInfo.code != 200) {
-                logger.warning("Bridge " + bridgeName + ": Getting info: RSP="
-                    + bridgeInfo.code);
-                continue;
-            }
-
-            /* Bridges with no description text are not under our
-             * control, and should be ignored. */
-            if (bridgeInfo.message.descr == null) continue;
-
-            /* Bridges that are marked as ours and are complete should
-             * be analyzed to see what they connect. */
-            if (!bridgeInfo.message.descr.equals(fullDesc)) {
-                /* Other bridges marked with our prefix are either
-                 * leftovers from our previous incarnation or from the
-                 * system we've replaced. */
-                if (bridgeInfo.message.descr.startsWith(descPrefix))
-                    rest.destroyBridge(bridgeName);
-
-                /* Bridges that are not related to us should be
-                 * ignored. */
-                continue;
-            }
-
-            /* Find out how the bridge is connected. Derive a partial
-             * service description from it. */
-            RESTResponse<Map<Integer, TunnelDesc>> tunnels =
-                rest.getTunnels(bridgeName);
-            if (tunnels.code != 200) {
-                logger.warning("Bridge " + bridgeName
-                    + ": Getting tunnels: RSP=" + tunnels.code);
-                continue;
-            }
-            Collection<Circuit<? extends Interface<?>>> circuits =
-                new HashSet<>();
-            for (Map.Entry<Integer, TunnelDesc> entry : tunnels.message
-                .entrySet()) {
-                @SuppressWarnings("unused")
-                int ofport = entry.getKey();
-                TunnelDesc tun = entry.getValue();
-                Circuit<? extends Interface<?>> ep = circuitOf(tun);
-                circuits.add(ep);
-            }
-
-            /* Create the bridge, and index it. */
-            InternalBridge intern = new InternalBridge(bridgeName, circuits);
-            bridgesByCircuitSet.put(circuits, intern);
-            for (Circuit<? extends Interface<?>> ep : circuits) {
-                bridgesByCircuit.put(ep, intern);
-            }
-        }
-    }
 
     /**
      * Given a tunnel description, work out what abstract circuit it
