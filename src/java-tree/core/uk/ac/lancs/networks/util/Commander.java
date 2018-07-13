@@ -604,6 +604,10 @@ public final class Commander {
      * 
      * <dd>Dump the current network's status.
      * 
+     * <dt><samp>wait</samp>
+     * 
+     * <dd>Wait for inactivity before next command or exit.
+     * 
      * </dl>
      * 
      * @throws Exception if something went wrong
