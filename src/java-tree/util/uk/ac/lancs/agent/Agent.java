@@ -73,9 +73,13 @@ public interface Agent {
      * @return the requested service
      * 
      * @throws UnknownServiceException if the service does not exist
+     * 
+     * @throws ServiceCreationException if obtaining the service for the
+     * first time failed
      */
     default <T> T getService(Class<T> type, String key)
-        throws UnknownServiceException {
+        throws UnknownServiceException,
+            ServiceCreationException {
         T result = findService(type, key);
         if (result == null)
             throw new UnknownServiceException(key + " of " + type);
@@ -93,8 +97,13 @@ public interface Agent {
      * @return the requested service
      * 
      * @throws UnknownServiceException if the service does not exist
+     * 
+     * @throws ServiceCreationException if obtaining the service for the
+     * first time failed
      */
-    default <T> T getService(Class<T> type) throws UnknownServiceException {
+    default <T> T getService(Class<T> type)
+        throws UnknownServiceException,
+            ServiceCreationException {
         return getService(type, null);
     }
 
@@ -109,8 +118,12 @@ public interface Agent {
      * 
      * @return the requested service, or {@code null} if it does not
      * exist
+     * 
+     * @throws ServiceCreationException if obtaining the service for the
+     * first time failed
      */
-    <T> T findService(Class<T> type, String key);
+    <T> T findService(Class<T> type, String key)
+        throws ServiceCreationException;
 
     /**
      * Get a set of all keys of a service type.
@@ -133,20 +146,11 @@ public interface Agent {
      * 
      * @return the requested service, or {@code null} if it does not
      * exist
+     * 
+     * @throws ServiceCreationException if obtaining the service for the
+     * first time failed
      */
-    default <T> T findService(Class<T> type) {
+    default <T> T findService(Class<T> type) throws ServiceCreationException {
         return findService(type, null);
     }
-
-    /**
-     * Initiate the agent. Invoking again should have no effect. This
-     * method allows several agents to be created in one phase,
-     * configured with respect to each other in the next, and finally to
-     * be initiated together.
-     * 
-     * @default This implementation does nothing.
-     * 
-     * @throws AgentInitiationException if initiation could not complete
-     */
-    default void initiate() throws AgentInitiationException {}
 }

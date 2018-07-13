@@ -36,13 +36,13 @@
 package uk.ac.lancs.agent;
 
 /**
- * Indicates a problem initiating an agent.
+ * Indicates a problem creating a new service.
  * 
- * @see Agent#initiate()
+ * @see Agent#findService(Class, String)
  * 
  * @author simpsons
  */
-public class AgentInitiationException extends AgentException {
+public class ServiceCreationException extends AgentException {
     /**
      * 
      */
@@ -51,14 +51,14 @@ public class AgentInitiationException extends AgentException {
     /**
      * Create an exception with no cause and no detail message.
      */
-    public AgentInitiationException() {}
+    public ServiceCreationException() {}
 
     /**
      * Create an exception with a detail message.
      * 
      * @param message the detail message
      */
-    public AgentInitiationException(String message) {
+    public ServiceCreationException(String message) {
         super(message);
     }
 
@@ -67,7 +67,7 @@ public class AgentInitiationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentInitiationException(Throwable cause) {
+    public ServiceCreationException(Throwable cause) {
         super(cause);
     }
 
@@ -78,7 +78,7 @@ public class AgentInitiationException extends AgentException {
      * 
      * @param cause the cause
      */
-    public AgentInitiationException(String message, Throwable cause) {
+    public ServiceCreationException(String message, Throwable cause) {
         super(message, cause);
     }
 }

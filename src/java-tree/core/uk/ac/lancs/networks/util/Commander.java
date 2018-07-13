@@ -54,7 +54,7 @@ import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
-import uk.ac.lancs.agent.AgentInitiationException;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.InvalidServiceException;
@@ -97,7 +97,7 @@ public final class Commander {
             InvalidServiceException,
             NetworkManagementException,
             AgentCreationException,
-            AgentInitiationException {
+            ServiceCreationException {
         usage = null;
         final String arg = iter.next();
         if (config == null) {
@@ -105,12 +105,7 @@ public final class Commander {
 
             /* Create an agent context to allow agents to discover each
              * other. */
-            AgentContext agentContext = new AgentContext() {
-                @Override
-                public Agent findAgent(String name) {
-                    return agents.get(name);
-                }
-            };
+            AgentContext agentContext = agents::get;
 
             /* Provide an executor to other agents, and a way to find
              * networks by name. */
@@ -182,13 +177,6 @@ public final class Commander {
                 }
             }
 
-            /* Initiate all agents in order of declaration. Use of
-             * LinkedHashMap ensures the insertion order is reflected in
-             * iteration. */
-            System.out.printf("Initiating agents...%n");
-            for (Agent agent : agents.values()) {
-                agent.initiate();
-            }
             return true;
         }
 
@@ -513,7 +501,7 @@ public final class Commander {
             InvalidServiceException,
             NetworkManagementException,
             AgentCreationException,
-            AgentInitiationException {
+            ServiceCreationException {
         try {
             for (Iterator<String> iter = Arrays.asList(args).iterator(); iter
                 .hasNext();) {
@@ -526,7 +514,11 @@ public final class Commander {
 
     /**
      * Load networks from configuration, then modify them according to
-     * command-line arguments.
+     * command-line arguments. Agents are provided with an
+     * {@link AgentContext} that includes an agent called
+     * <samp>system</samp>, which in turn defines a default
+     * {@link Executor} service, and a keyed {@link NetworkControl}
+     * service indexed by network name.
      * 
      * @param args The first argument must be a configuraton file. The
      * following switches are recognized:

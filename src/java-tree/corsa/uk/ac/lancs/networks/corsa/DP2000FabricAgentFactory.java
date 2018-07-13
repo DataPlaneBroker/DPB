@@ -49,16 +49,18 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.stream.Collectors;
 
 import org.json.simple.parser.ParseException;
 
 import uk.ac.lancs.agent.Agent;
-import uk.ac.lancs.agent.AgentBuilder;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
-import uk.ac.lancs.agent.AgentInitiationException;
+import uk.ac.lancs.agent.CacheAgent;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.scc.jardeps.Service;
@@ -279,22 +281,32 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             throw new AgentCreationException("getting authorization from "
                 + authzFile, e);
         }
-        final VFCPerServiceFabric fabric;
-        try {
-            fabric =
-                new VFCPerServiceFabric(portCount, maxAggregations,
-                                        maxBridges, descPrefix,
-                                        partialDescSuffix, fullDescSuffix,
-                                        subtype, netns, controller, service,
-                                        cert, authz);
-        } catch (KeyManagementException | NoSuchAlgorithmException e) {
-            throw new AgentCreationException("building fabric", e);
-        }
-        return AgentBuilder.start().add(fabric, Fabric.class).create(() -> {
-            try {
-                fabric.init();
-            } catch (IOException | ParseException e) {
-                throw new AgentInitiationException(e);
+        return new CacheAgent(new Agent() {
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == Fabric.class) return Collections.singleton(null);
+                return Collections.emptySet();
+            }
+
+            @Override
+            public <T> T findService(Class<T> type, String key)
+                throws ServiceCreationException {
+                if (key != null) return null;
+                if (type != Fabric.class) return null;
+                try {
+                    VFCPerServiceFabric result =
+                        new VFCPerServiceFabric(portCount, maxAggregations,
+                                                maxBridges, descPrefix,
+                                                partialDescSuffix,
+                                                fullDescSuffix, subtype,
+                                                netns, controller, service,
+                                                cert, authz);
+                    result.init();
+                    return type.cast(result);
+                } catch (KeyManagementException | NoSuchAlgorithmException
+                    | IOException | ParseException e) {
+                    throw new ServiceCreationException(e);
+                }
             }
         });
     }

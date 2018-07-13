@@ -36,15 +36,17 @@
 package uk.ac.lancs.networks.persist;
 
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.Executor;
 
 import uk.ac.lancs.agent.Agent;
-import uk.ac.lancs.agent.AgentBuilder;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentException;
 import uk.ac.lancs.agent.AgentFactory;
-import uk.ac.lancs.agent.AgentInitiationException;
+import uk.ac.lancs.agent.CacheAgent;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.mgmt.Network;
@@ -93,32 +95,39 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
-        try {
-            Agent system = ctxt.getAgent("system");
-            Executor executor = system.getService(Executor.class);
-            PersistentSwitch result =
-                new PersistentSwitch(conf.get("name"), executor,
-                                     conf.subview("db"));
+        final String switchName = conf.get("name");
+        final Configuration dbConf = conf.subview("db");
+        final String agent = conf.get("fabric.agent");
+        final String agentKey = conf.get("fabric.agent.key");
+        return new CacheAgent(new Agent() {
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == Network.class || type == Switch.class)
+                    return Collections.singleton(null);
+                return Collections.emptySet();
+            }
 
-            return AgentBuilder.start().add(result, Network.class)
-                .add(result, Switch.class).create(() -> {
-                    try {
-                        /* Get the fabric. */
-                        String agent = conf.get("fabric.agent");
-                        String key = conf.get("fabric.agent.key");
-                        Agent fabricAgent = ctxt.getAgent(agent);
-                        Fabric fabric =
-                            fabricAgent.getService(Fabric.class, key);
-                        result.init(fabric);
-                    } catch (AgentException e) {
-                        throw new AgentInitiationException(e);
-                    } catch (SQLException e) {
-                        throw new AgentInitiationException("DB error", e);
-                    }
-                });
-        } catch (AgentException ex) {
-            throw new AgentCreationException(TYPE_NAME, ex);
-        }
+            @Override
+            public <T> T findService(Class<T> type, String key)
+                throws ServiceCreationException {
+                if (key != null) return null;
+                if (type != Network.class && type != Switch.class)
+                    return null;
+                try {
+                    Agent system = ctxt.getAgent("system");
+                    Executor executor = system.getService(Executor.class);
+                    PersistentSwitch result =
+                        new PersistentSwitch(switchName, executor, dbConf);
+                    /* Get the fabric. */
+                    Agent fabricAgent = ctxt.getAgent(agent);
+                    Fabric fabric =
+                        fabricAgent.getService(Fabric.class, agentKey);
+                    result.init(fabric);
+                    return type.cast(result);
+                } catch (AgentException | SQLException ex) {
+                    throw new ServiceCreationException(ex);
+                }
+            }
+        });
     }
-
 }

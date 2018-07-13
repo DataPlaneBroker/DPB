@@ -35,11 +35,15 @@
  */
 package uk.ac.lancs.networks.fabric;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import uk.ac.lancs.agent.Agent;
-import uk.ac.lancs.agent.AgentBuilder;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.agent.CacheAgent;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.scc.jardeps.Service;
 
@@ -89,7 +93,20 @@ public final class DummyFabricAgentFactory implements AgentFactory {
             maxBridges = -1;
         else
             maxBridges = Integer.parseInt(maxBridgesText);
-        DummyFabric fabric = new DummyFabric(maxBridges);
-        return AgentBuilder.start().add(fabric, Fabric.class).create();
+        return new CacheAgent(new Agent() {
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == Fabric.class) return Collections.singleton(null);
+                return Collections.emptySet();
+            }
+
+            @Override
+            public <T> T findService(Class<T> type, String key)
+                throws ServiceCreationException {
+                if (key != null) return null;
+                if (type != Fabric.class) return null;
+                return type.cast(new DummyFabric(maxBridges));
+            }
+        });
     }
 }

@@ -36,16 +36,18 @@
 package uk.ac.lancs.networks.persist;
 
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
 
 import uk.ac.lancs.agent.Agent;
-import uk.ac.lancs.agent.AgentBuilder;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentException;
 import uk.ac.lancs.agent.AgentFactory;
-import uk.ac.lancs.agent.AgentInitiationException;
+import uk.ac.lancs.agent.CacheAgent;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.mgmt.Aggregator;
@@ -92,23 +94,39 @@ public class PersistentAggregatorAgentFactory implements AgentFactory {
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
-        try {
-            Agent system = ctxt.getAgent("system");
-            Executor executor = system.getService(Executor.class);
-            Function<String, NetworkControl> inferiors =
-                n -> system.findService(NetworkControl.class, n);
-            PersistentAggregator agg =
-                new PersistentAggregator(executor, inferiors, conf);
-            return AgentBuilder.start().add(agg, Network.class)
-                .add(agg, Aggregator.class).create(() -> {
-                    try {
-                        agg.init();
-                    } catch (SQLException e) {
-                        throw new AgentInitiationException("DB error", e);
-                    }
-                });
-        } catch (AgentException ex) {
-            throw new AgentCreationException(TYPE_NAME, ex);
-        }
+        return new CacheAgent(new Agent() {
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == Network.class || type == Aggregator.class)
+                    return Collections.singleton(null);
+                return Collections.emptySet();
+            }
+
+            @Override
+            public <T> T findService(Class<T> type, String key)
+                throws ServiceCreationException {
+                if (key != null) return null;
+                if (type != Network.class && type != Aggregator.class)
+                    return null;
+                try {
+                    Agent system = ctxt.getAgent("system");
+                    Executor executor = system.getService(Executor.class);
+                    Function<String, NetworkControl> inferiors = n -> {
+                        try {
+                            return system.findService(NetworkControl.class,
+                                                      n);
+                        } catch (ServiceCreationException e) {
+                            return null;
+                        }
+                    };
+                    PersistentAggregator agg =
+                        new PersistentAggregator(executor, inferiors, conf);
+                    agg.init();
+                    return type.cast(agg);
+                } catch (SQLException | AgentException ex) {
+                    throw new ServiceCreationException(ex);
+                }
+            }
+        });
     }
 }

@@ -35,46 +35,57 @@
  */
 package uk.ac.lancs.agent;
 
-import uk.ac.lancs.config.Configuration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Allows agents to find each other.
- * 
- * <p>
- * Agents are named according to the application that is assembling
- * them. Since an agent receives a {@link Configuration} object as its
- * configuration, applications will typically co-opt a parameter such as
- * <samp>name</samp> in that configuration to define the agent's name.
+ * Wraps another agent to cache all its responses. The wrapped agent
+ * therefore does not need to store anything, just generate the service
+ * on demand, knowing it will not be asked for a duplicate. Responses to
+ * requests for absent services are also cached.
  * 
  * @author simpsons
  */
-public interface AgentContext {
+public final class CacheAgent implements Agent {
+    private final Agent base;
+    private final Map<Class<?>, Map<String, Object>> cache = new HashMap<>();;
+
     /**
-     * Get a named agent.
+     * Create a caching agent wrapped around another agent.
      * 
-     * @default This implementation passes its argument to
-     * {@link #findAgent(String)}, and throws the exception if the
-     * result is {@code null}.
-     * 
-     * @param name the agent's name
-     * 
-     * @return the requested agent
-     * 
-     * @throws UnknownAgentException if the requested agent does not
-     * exist
+     * @param base the agent to be wrapped
      */
-    default Agent getAgent(String name) throws UnknownAgentException {
-        Agent result = findAgent(name);
-        if (result == null) throw new UnknownAgentException(name);
-        return result;
+    public CacheAgent(Agent base) {
+        this.base = base;
     }
 
     /**
-     * Find a named agent without raising an exception if missing.
+     * {@inheritDoc}
      * 
-     * @param name the agent's name
-     * 
-     * @return the requested agent, or {@code null} if not found
+     * @default This implementation checks the cache to see if the
+     * particular service has already been requested. Otherwise, it
+     * delegates to the base agent, and stores the result in the cache.
      */
-    Agent findAgent(String name);
+    @Override
+    public <T> T findService(Class<T> type, String key)
+        throws ServiceCreationException {
+        Map<String, Object> bank =
+            cache.computeIfAbsent(type, k -> new HashMap<>());
+        Object result = bank.get(key);
+        if (result != null) return type.cast(result);
+        T typedResult = base.findService(type, key);
+        bank.put(key, typedResult);
+        return typedResult;
+    }
+
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation simply delegates to the base agent.
+     */
+    @Override
+    public Collection<String> getKeys(Class<?> type) {
+        return base.getKeys(type);
+    }
 }
