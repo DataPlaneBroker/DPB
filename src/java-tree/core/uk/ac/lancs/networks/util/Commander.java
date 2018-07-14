@@ -581,8 +581,8 @@ public final class Commander {
      * <dt><samp>--out <var>rate</var></samp>
      * <dt><samp>-b <var>rate</var></samp>
      * 
-     * <dd>Set the ingress/egress rate or both rates of subsequent end
-     * points.
+     * <dd>Set the ingress/egress rate or both rates of subsequent
+     * circuits.
      * 
      * <dt><samp>-e <var>terminal</var>:<var>label</var></samp>
      * 
@@ -591,8 +591,8 @@ public final class Commander {
      * 
      * <dt><samp>initiate</samp>
      * 
-     * <dd>Initiate the current service with the current set of end
-     * points and rates.
+     * <dd>Initiate the current service with the current set of circuits
+     * and rates.
      * 
      * <dt><samp>activate</samp>
      * <dt><samp>deactivate</samp>
