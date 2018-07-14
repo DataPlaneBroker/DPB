@@ -65,8 +65,9 @@ final class SliceControllerREST extends RESTClient {
                                String authz)
         throws NoSuchAlgorithmException,
             KeyManagementException {
-        super(service.resolve("api/v1/"), SecureSingleCertificateHttpProvider
-            .forCertificate(cert)::newClient, authz);
+        super(service.resolve("api/v1/"),
+              SecureSingleCertificateHttpProvider.forCertificate(cert),
+              authz);
     }
 
     private static Collection<? extends BitSet>

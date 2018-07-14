@@ -40,6 +40,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.function.Supplier;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -112,7 +113,8 @@ public final class SecureSingleCertificateHttpProvider {
      * Create an HTTP provider based on a single certificate. The
      * generated HTTP clients will do no host checking.
      * 
-     * @param cert the certficate
+     * @param cert the certficate, or {@code null} if plain HTTP is to
+     * be used rather than HTTPS
      * 
      * @return an entity generating HTTP clients
      * 
@@ -121,10 +123,10 @@ public final class SecureSingleCertificateHttpProvider {
      * @throws NoSuchAlgorithmException if SSL is an unknown context
      * type
      */
-    public static SecureSingleCertificateHttpProvider
-        forCertificate(X509Certificate cert)
-            throws KeyManagementException,
-                NoSuchAlgorithmException {
-        return new SecureSingleCertificateHttpProvider(getContextForCert(cert));
+    public static Supplier<HttpClient> forCertificate(X509Certificate cert)
+        throws KeyManagementException,
+            NoSuchAlgorithmException {
+        if (cert == null) return HttpClients::createDefault;
+        return new SecureSingleCertificateHttpProvider(getContextForCert(cert))::newClient;
     }
 }

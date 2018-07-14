@@ -76,8 +76,9 @@ public final class CorsaREST extends RESTClient {
     public CorsaREST(URI service, X509Certificate cert, String authz)
         throws NoSuchAlgorithmException,
             KeyManagementException {
-        super(service.resolve("api/v1/"), SecureSingleCertificateHttpProvider
-            .forCertificate(cert)::newClient, authz);
+        super(service.resolve("api/v1/"),
+              SecureSingleCertificateHttpProvider.forCertificate(cert),
+              authz);
     }
 
     /**
