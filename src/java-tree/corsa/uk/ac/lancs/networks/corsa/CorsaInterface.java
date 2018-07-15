@@ -67,7 +67,7 @@ public interface CorsaInterface extends Interface<CorsaInterface> {
     TunnelDesc configureTunnel(TunnelDesc desc, int label);
 
     /**
-     * Resolve a label on this interface into a circuit. The end point's
+     * Resolve a label on this interface into a circuit. The circuit's
      * interface need not be this interface, and its label need not be
      * the supplied label, but the result must be the canonical
      * equivalent of calling {@link Bundle#circuit(int)} on this
