@@ -72,7 +72,16 @@ final class SliceControllerREST extends RESTClient {
 
     private static Collection<? extends BitSet>
         decodePortSets(JSONEntity ent) {
-        return null;
+        Collection<BitSet> result = new ArrayList<>();
+        @SuppressWarnings("unchecked")
+        List<List<Long>> ints = ent.array;
+        for (List<Long> ii : ints) {
+            BitSet bs = new BitSet();
+            for (long i : ii)
+                bs.set((int) i);
+            result.add(bs);
+        }
+        return result;
     }
 
     public RESTResponse<Collection<? extends BitSet>>

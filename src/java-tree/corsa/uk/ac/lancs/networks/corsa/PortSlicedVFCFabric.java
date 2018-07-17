@@ -152,6 +152,12 @@ public final class PortSlicedVFCFabric implements Fabric {
      * 
      * @throws KeyManagementException if there is a problem with the
      * certficate
+     * 
+     * @throws ParseException if responses from the controller were
+     * malformed
+     * 
+     * @throws IOException if there was an I/O in contacting the
+     * controller
      */
     public PortSlicedVFCFabric(int portCount, int maxAggregations,
                                String descPrefix, String partialDescSuffix,
@@ -161,7 +167,9 @@ public final class PortSlicedVFCFabric implements Fabric {
                                String authz, URI ctrlService,
                                X509Certificate ctrlCert, String ctrlAuthz)
         throws KeyManagementException,
-            NoSuchAlgorithmException {
+            NoSuchAlgorithmException,
+            IOException,
+            ParseException {
         this.interfaces = new InterfaceManager(portCount, maxAggregations);
         this.descPrefix = descPrefix;
         this.partialDesc = descPrefix + partialDescSuffix;
@@ -172,6 +180,29 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.sliceRest =
             new SliceControllerREST(ctrlService, ctrlCert, ctrlAuthz);
         this.rest = new CorsaREST(service, cert, authz);
+
+        /* Go through all VFCs whose descriptions match our configured
+         * prefix. Destroy them unless they match our full name. */
+        cleanUpVFCs();
+
+        /* Create a bridge if it was not already established. */
+        establishVFC();
+
+        /* Get the VFC's DPID (or set it? TODO). */
+        {
+            RESTResponse<BridgeDesc> descRsp = rest.getBridgeDesc(bridgeId);
+            if (descRsp.code != 200)
+                throw new RuntimeException("bridge info failure: "
+                    + descRsp.code);
+            this.dpid = descRsp.message.dpid;
+        }
+
+        /* Load the mapping between OF port and circuit. */
+        loadMapping();
+
+        /* Get port sets from the controller, and create corresponding
+         * bridge entities. */
+        collectPortSets();
     }
 
     @Override
@@ -240,7 +271,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                         TunnelDesc desc = new TunnelDesc();
                         CorsaInterface iface =
                             (CorsaInterface) circuit.getBundle();
-                        iface.configureTunnel(desc, iface.getLabel())
+                        iface.configureTunnel(desc, circuit.getLabel())
                             .shapedRate(flow.egress).ofport(ofport);
                         rest.attachTunnel(bridgeId, desc);
 
@@ -457,15 +488,6 @@ public final class PortSlicedVFCFabric implements Fabric {
             bridgeId = creationRsp.message;
         }
 
-        /* Get the VFC's DPID (or set it? TODO). */
-        {
-            RESTResponse<BridgeDesc> descRsp = rest.getBridgeDesc(bridgeId);
-            if (descRsp.code != 200)
-                throw new RuntimeException("bridge info failure: "
-                    + descRsp.code);
-            this.dpid = descRsp.message.dpid;
-        }
-
         /* Set the VFC's controller. */
         {
             RESTResponse<Void> ctrlRsp =
@@ -501,22 +523,6 @@ public final class PortSlicedVFCFabric implements Fabric {
             BridgeSlice slice = new BridgeSlice(circuits);
             bridgesByCircuitSet.put(circuits, slice);
         }
-    }
-
-    synchronized void init() throws IOException, ParseException {
-        /* Go through all VFCs whose descriptions match our configured
-         * prefix. Destroy them unless they match our full name. */
-        cleanUpVFCs();
-
-        /* Create a bridge if it was not already established. */
-        establishVFC();
-
-        /* Load the mapping between OF port and circuit. */
-        loadMapping();
-
-        /* Get port sets from the controller, and create corresponding
-         * bridge entities. */
-        collectPortSets();
     }
 
     private static final Logger logger =
