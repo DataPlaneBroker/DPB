@@ -263,6 +263,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                          * it as in use. */
                         final int ofport = nextFreePort();
                         ofPorts.set(ofport);
+                        assert circuit != null;
                         portToCircuit.put(ofport, circuit);
                         circuitToPort.put(circuit, ofport);
 
@@ -340,6 +341,8 @@ public final class PortSlicedVFCFabric implements Fabric {
     public synchronized Bridge
         bridge(BridgeListener listener,
                Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+        System.err.printf("%nShared bridge, original circuits: %s%n",
+                          details.keySet());
         /* Resolve the circuits to their canonical forms. */
         Map<Circuit<? extends Interface<?>>, TrafficFlow> resolvedDetails =
             new HashMap<>();
@@ -348,6 +351,8 @@ public final class PortSlicedVFCFabric implements Fabric {
             resolvedDetails.put(interfaces.resolve(entry.getKey()),
                                 entry.getValue());
         details = resolvedDetails;
+        System.err.printf("%nShared bridge, resolved circuits: %s%n",
+                          details.keySet());
 
         BridgeSlice intern = bridgesByCircuitSet.get(details.keySet());
         if (intern == null) {
@@ -383,6 +388,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         for (Iterator<Circuit<? extends Interface<?>>> iter =
             portToCircuit.values().iterator(); iter.hasNext();) {
             Circuit<? extends Interface<?>> circuit = iter.next();
+            assert circuit != null;
             if (retainedCircuits.contains(circuit)) continue;
             int ofport = circuitToPort.remove(circuit);
             iter.remove();
@@ -430,7 +436,9 @@ public final class PortSlicedVFCFabric implements Fabric {
         for (Map.Entry<Integer, TunnelDesc> entry : tinf.message.entrySet()) {
             Circuit<? extends Interface<?>> circuit =
                 interfaces.getCircuit(entry.getValue());
-            Integer port = entry.getKey();
+            int port = entry.getKey();
+            System.err.printf("%s <-> %d%n", circuit, port);
+            assert circuit != null;
             circuitToPort.put(circuit, port);
             portToCircuit.put(port, circuit);
         }

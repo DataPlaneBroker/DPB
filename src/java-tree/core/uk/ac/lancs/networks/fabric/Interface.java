@@ -54,6 +54,9 @@ public interface Interface<T> extends Bundle<Interface<T>> {
      * @param kind the kind of encapsulation, or {@code null} for the
      * default
      * 
+     * @param TagKind circuitKind the kind of circuits to create from
+     * the subinterface, or {@code null} if all are acceptable
+     * 
      * @param label the label to tag with
      * 
      * @return an interface based on this one but tagged with the
@@ -72,7 +75,7 @@ public interface Interface<T> extends Bundle<Interface<T>> {
      * throw {@link UnsupportedOperationException} to report the tag
      * kind as unsupported.
      */
-    default T tag(TagKind kind, int label) {
+    default T tag(TagKind kind, TagKind circuitKind, int label) {
         if (kind == null) throw new NullPointerException();
         throw new UnsupportedOperationException("unsupported: " + kind);
     }

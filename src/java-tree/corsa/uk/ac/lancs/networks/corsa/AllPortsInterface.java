@@ -38,6 +38,7 @@ package uk.ac.lancs.networks.corsa;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.function.IntFunction;
 
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.TagKind;
@@ -48,17 +49,28 @@ import uk.ac.lancs.networks.fabric.TagKind;
  * @author simpsons
  */
 final class AllPortsInterface implements CorsaInterface {
-    private final int portCount;
+    private final int minPort;
+    private final int maxPort;
+    private final String name;
+    private final IntFunction<String> mapping;
 
-    public AllPortsInterface(int portCount) {
-        this.portCount = portCount;
+    public AllPortsInterface(String name, IntFunction<String> mapping,
+                             int minPort, int maxPort) {
+        this.name = name;
+        this.minPort = minPort;
+        this.maxPort = maxPort;
+        this.mapping = mapping;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + portCount;
+        result =
+            prime * result + ((mapping == null) ? 0 : mapping.hashCode());
+        result = prime * result + minPort;
+        result = prime * result + ((name == null) ? 0 : name.hashCode());
+        result = prime * result + maxPort;
         return result;
     }
 
@@ -68,23 +80,31 @@ final class AllPortsInterface implements CorsaInterface {
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
         AllPortsInterface other = (AllPortsInterface) obj;
-        if (portCount != other.portCount) return false;
+        if (mapping == null) {
+            if (other.mapping != null) return false;
+        } else if (!mapping.equals(other.mapping)) return false;
+        if (minPort != other.minPort) return false;
+        if (name == null) {
+            if (other.name != null) return false;
+        } else if (!name.equals(other.name)) return false;
+        if (maxPort != other.maxPort) return false;
         return true;
     }
 
     @Override
     public String toString() {
-        return "phys";
+        return name;
     }
 
     @Override
-    public CorsaInterface tag(TagKind kind, int label) {
+    public CorsaInterface tag(TagKind kind, TagKind circuitKind, int label) {
         if (kind == null) kind = TagKind.ENUMERATION;
         switch (kind) {
         case ENUMERATION:
-            if (label < 1 || label > portCount)
+            if (label < 1 || label > maxPort)
                 throw new IllegalArgumentException("illegal port: " + label);
-            return new PortInterface(this, label);
+            return new PortInterface(this, label,
+                                     circuitKind == TagKind.VLAN_STAG_CTAG);
 
         default:
             throw new UnsupportedOperationException("unsupported: " + kind);
@@ -106,7 +126,7 @@ final class AllPortsInterface implements CorsaInterface {
         if (kind == null) kind = TagKind.ENUMERATION;
         switch (kind) {
         case ENUMERATION:
-            return 1;
+            return minPort;
 
         default:
             throw new UnsupportedOperationException("unsupported: " + kind);
@@ -118,7 +138,7 @@ final class AllPortsInterface implements CorsaInterface {
         if (kind == null) kind = TagKind.ENUMERATION;
         switch (kind) {
         case ENUMERATION:
-            return portCount;
+            return maxPort;
 
         default:
             throw new UnsupportedOperationException("unsupported: " + kind);
@@ -127,17 +147,17 @@ final class AllPortsInterface implements CorsaInterface {
 
     @Override
     public TunnelDesc configureTunnel(TunnelDesc desc, int label) {
-        return desc.port(Integer.toString(label)).noInnerVlanId().noVlanId();
+        return desc.port(mapping.apply(label)).noInnerVlanId().noVlanId();
     }
 
     @Override
     public int getMinimumCircuitLabel() {
-        return 1;
+        return minPort;
     }
 
     @Override
     public int getMaximumCircuitLabel() {
-        return portCount;
+        return maxPort;
     }
 
     @Override

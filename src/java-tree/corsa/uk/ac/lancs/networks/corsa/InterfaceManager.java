@@ -81,8 +81,7 @@ import uk.ac.lancs.networks.fabric.TagKind;
  * @author simpsons
  */
 public final class InterfaceManager {
-    private final AllPortsInterface allPorts;
-    private final AllAggregationsInterface allAggregations;
+    private final AllPortsInterface allPorts, allAggregations;
 
     /**
      * Create an interface/circuit mapping.
@@ -94,8 +93,10 @@ public final class InterfaceManager {
      * possible on the switch
      */
     public InterfaceManager(int portCount, int maxGroups) {
-        this.allPorts = new AllPortsInterface(portCount);
-        this.allAggregations = new AllAggregationsInterface(maxGroups);
+        this.allPorts =
+            new AllPortsInterface("phys", Integer::toString, 1, portCount);
+        this.allAggregations =
+            new AllPortsInterface("lag", p -> "lag" + p, 1, maxGroups);
     }
 
     private static final Pattern INTERFACE_PATTERN =
@@ -129,12 +130,15 @@ public final class InterfaceManager {
             throw new AssertionError("unreachable");
         }
         if (m.group("num") != null) {
-            TagKind kind = null;
-            if ("x2".equals(m.group("dt"))) kind = TagKind.VLAN_STAG_CTAG;
-            result = result.tag(kind, Integer.parseInt(m.group("num")));
-            if (m.group("outer") != null) {
-                result = result.tag(null, Integer.parseInt(m.group("outer")));
-            }
+            final TagKind kind;
+            if ("x2".equals(m.group("dt")))
+                kind = TagKind.VLAN_STAG_CTAG;
+            else
+                kind = TagKind.VLAN_STAG;
+            result = result.tag(TagKind.ENUMERATION, kind,
+                                Integer.parseInt(m.group("num")));
+            if (m.group("outer") != null) result =
+                result.tag(null, null, Integer.parseInt(m.group("outer")));
         }
         return result;
     }
@@ -167,18 +171,20 @@ public final class InterfaceManager {
         }
 
         /* Recognize abstract ports called "phys" or "lag", so that
-         * "phys:3" identifies port 3, and "lag:4" identifies link
+         * "phys.3" identifies port 3, and "lag.4" identifies link
          * aggregation group 4. In these cases, the circuit label is not
          * a VLAN id. */
         if (tun.vlanId < 0) return iface.circuit(ifacenum);
 
         /* Recognize single-tagged tunnels. */
-        if (tun.innerVlanId < 0) return iface
-            .tag(TagKind.ENUMERATION, ifacenum).circuit(tun.vlanId);
+        if (tun.innerVlanId < 0)
+            return iface.tag(TagKind.ENUMERATION, TagKind.VLAN_CTAG, ifacenum)
+                .circuit(tun.vlanId);
 
         /* Recognize double-tagged tunnels. */
-        return iface.tag(TagKind.ENUMERATION, ifacenum)
-            .tag(TagKind.VLAN_STAG, tun.vlanId).circuit(tun.innerVlanId);
+        return iface.tag(TagKind.ENUMERATION, null, ifacenum)
+            .tag(TagKind.VLAN_STAG, TagKind.VLAN_CTAG, tun.vlanId)
+            .circuit(tun.innerVlanId);
     }
 
     /**
