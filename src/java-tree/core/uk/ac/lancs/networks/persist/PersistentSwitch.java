@@ -637,7 +637,8 @@ public class PersistentSwitch implements Switch {
      * Ensure that we have no more bridges running than necessary.
      */
     private void retainBridges() {
-        assert Thread.holdsLock(this);
+        // assert Thread.holdsLock(this); // Not true any more, as
+        // initialization now takes place inside constructor.
         fabric.retainBridges(services.values().stream().map(srv -> srv.bridge)
             .filter(b -> b != null).collect(Collectors.toSet()));
     }
