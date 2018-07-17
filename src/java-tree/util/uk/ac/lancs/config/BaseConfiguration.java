@@ -105,7 +105,7 @@ final class BaseConfiguration implements Configuration {
             if (subconfs == null) continue;
             for (Configuration subconf : subconfs) {
                 Configuration.Reference value = subconf.find(appendage);
-                if (value != null) return null;
+                if (value != null) return value;
             }
         }
         return null;
