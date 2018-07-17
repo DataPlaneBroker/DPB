@@ -381,7 +381,8 @@ public class TunnelDesc {
         case "ctag-ctag":
             this.tpid = Integer
                 .parseInt(((String) root.get("tpid")).substring(2), 16);
-            this.innerVlanId = (int) (long) (Long) root.get("inner-vlan-id");
+            Long ivi = (Long) root.get("inner-vlan-id");
+            this.innerVlanId = ivi == null ? -1 : (int) (long) ivi;
             /* Fall-through! */
         case "ctag":
         case "untagged":
