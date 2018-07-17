@@ -126,16 +126,20 @@ public final class ConfigurationContext {
     public static void main(String[] args) throws Exception {
         ConfigurationContext ctxt = new ConfigurationContext();
         Configuration base = ctxt.get(new File(args[0]));
-        Configuration sop = base.subview("slough-fabric-brperlink");
-        Configuration foo = base.reference("", "uob-fabric");
-        for (String key : base.keys()) {
-            System.out.printf("base %s -> %s%n", key, base.get(key));
-        }
-        for (String key : sop.keys()) {
-            System.out.printf("sop %s -> %s%n", key, sop.get(key));
-        }
-        for (String key : foo.keys()) {
-            System.out.printf("foo %s -> %s%n", key, foo.get(key));
+        for (int i = 1; i < args.length; i++) {
+            Configuration sub = base.subview(args[i]);
+            System.out.printf("%nSubview %s:%n", args[i]);
+            for (String key : sub.keys()) {
+                System.out.printf("  %s -> [%s]%n", key, sub.get(key));
+                try {
+                    URI loc = sub.getLocation(key);
+                    System.out.printf("  (as URI) -> [%s]%n", loc);
+                    File file = sub.getFile(key);
+                    System.out.printf("  (as File) -> [%s]%n", file);
+                } catch (IllegalArgumentException ex) {
+                    // Ignore.
+                }
+            }
         }
     }
 }
