@@ -120,7 +120,11 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <dt><samp>description.partial</samp> (default
  * <samp>{@value #DEFAULT_PARTIAL_DESCRIPTION_SUFFIX}</samp>)
  * <dt><samp>description.complete</samp> (default
- * <samp>{@value #DEFAULT_COMPLETE_DESCRIPTION_SUFFIX}</samp>)
+ * <samp>{@value #DEFAULT_VFCPERSERVICE_COMPLETE_DESCRIPTION_SUFFIX}</samp>
+ * for <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp>)
+ * <dt><samp>description.complete</samp> (default
+ * <samp>{@value #DEFAULT_SHAREDVFC_COMPLETE_DESCRIPTION_SUFFIX}</samp>
+ * for <samp>{@value #SHAREDVFC_TYPE_NAME}</samp>)
  * 
  * <dd>Specify the strings used in the text descriptions of each bridge.
  * The partial text is used on creation, and the complete text is used
@@ -209,8 +213,14 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String DEFAULT_COMPLETE_DESCRIPTION_SUFFIX =
+    public static final String DEFAULT_VFCPERSERVICE_COMPLETE_DESCRIPTION_SUFFIX =
         "complete";
+
+    /**
+     * @undocumented
+     */
+    public static final String DEFAULT_SHAREDVFC_COMPLETE_DESCRIPTION_SUFFIX =
+        "shared";
 
     /**
      * @undocumented
@@ -283,12 +293,16 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
+        final String implType = conf.get(TYPE_FIELD);
         final String descPrefix =
             conf.get("description.prefix", DEFAULT_DESCRIPTION_PREFIX);
         final String partialDescSuffix = conf
             .get("description.partial", DEFAULT_PARTIAL_DESCRIPTION_SUFFIX);
-        final String fullDescSuffix = conf
-            .get("description.complete", DEFAULT_COMPLETE_DESCRIPTION_SUFFIX);
+        final String fullDescSuffix =
+            conf.get("description.complete",
+                     VFCPERSERVICE_TYPE_NAME.equals(implType)
+                         ? DEFAULT_VFCPERSERVICE_COMPLETE_DESCRIPTION_SUFFIX
+                         : DEFAULT_SHAREDVFC_COMPLETE_DESCRIPTION_SUFFIX);
         final String subtype = conf.get("subtype", DEFAULT_SUBYTPE);
         final String netns =
             conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
@@ -374,8 +388,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                 if (key != null) return null;
                 if (type != Fabric.class) return null;
                 try {
-                    if (VFCPERSERVICE_TYPE_NAME
-                        .equals(conf.get(TYPE_FIELD))) {
+                    if (VFCPERSERVICE_TYPE_NAME.equals(implType)) {
                         VFCPerServiceFabric result =
                             new VFCPerServiceFabric(portCount,
                                                     maxAggregations,
@@ -386,7 +399,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     service, cert, authz);
                         return type.cast(result);
                     }
-                    if (SHAREDVFC_TYPE_NAME.equals(conf.get(TYPE_FIELD))) {
+                    if (SHAREDVFC_TYPE_NAME.equals(implType)) {
                         PortSlicedVFCFabric result =
                             new PortSlicedVFCFabric(portCount,
                                                     maxAggregations,
