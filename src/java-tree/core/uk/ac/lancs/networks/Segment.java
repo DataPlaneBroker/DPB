@@ -56,7 +56,7 @@ import uk.ac.lancs.networks.circuits.Circuit;
  * 
  * @author simpsons
  */
-public interface ServiceDescription {
+public interface Segment {
     /**
      * Get the set of circuits of the service, and the maximum traffic
      * at each circuit.
@@ -213,7 +213,7 @@ public interface ServiceDescription {
      * 
      * @return a description consisting of the provided information
      */
-    static ServiceDescription
+    static Segment
         of(Map<? extends Circuit<? extends Terminal>, ? extends Number> producers,
            Map<? extends Circuit<? extends Terminal>, ? extends Number> consumers) {
         Map<Circuit<? extends Terminal>, TrafficFlow> result =
@@ -232,7 +232,7 @@ public interface ServiceDescription {
         }
         Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
-        return new ServiceDescription() {
+        return new Segment() {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
@@ -251,9 +251,9 @@ public interface ServiceDescription {
      * 
      * @return the description view of the same map
      */
-    static ServiceDescription
+    static Segment
         create(Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> data) {
-        return new ServiceDescription() {
+        return new Segment() {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
@@ -272,7 +272,7 @@ public interface ServiceDescription {
      * 
      * @return a description consisting of the provided information
      */
-    static ServiceDescription
+    static Segment
         of(Map<? extends Circuit<? extends Terminal>, ? extends List<? extends Number>> input) {
         Map<Circuit<? extends Terminal>, Number> producers =
             input.entrySet().stream().collect(Collectors
@@ -294,7 +294,7 @@ public interface ServiceDescription {
 
     /**
      * Accumulates service description data. Obtain one with
-     * {@link ServiceDescription#start()}.
+     * {@link Segment#start()}.
      * 
      * @author simpsons
      */
@@ -418,7 +418,7 @@ public interface ServiceDescription {
          * 
          * @return the corresponding service description
          */
-        public ServiceDescription create() {
+        public Segment create() {
             return of(data);
         }
     }
@@ -435,8 +435,7 @@ public interface ServiceDescription {
      * 
      * @return the sanitized description
      */
-    static ServiceDescription sanitize(ServiceDescription input,
-                                       double minimumProduction) {
+    static Segment sanitize(Segment input, double minimumProduction) {
         /* Provide unspecified producers with the nominal amount, and
          * sum all production. */
         Map<Circuit<? extends Terminal>, Double> producers = new HashMap<>();
@@ -470,7 +469,7 @@ public interface ServiceDescription {
 
         Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
-        return new ServiceDescription() {
+        return new Segment() {
             @Override
             public
                 Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>

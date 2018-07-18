@@ -50,8 +50,8 @@ import java.util.Collection;
  * subswitches.
  * 
  * <p>
- * Call {@link #initiate(ServiceDescription)} with service parameters
- * (circuits and bandwidth) to initiate a service.
+ * Call {@link #define(Segment)} with service parameters (circuits and
+ * bandwidth) to initiate a service.
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#INACTIVE INACTIVE})</code>
  * will be invoked if the service is established (but not yet
  * activated).
@@ -108,7 +108,7 @@ public interface Service {
      * @return the associated request, or {@code null} if this service
      * is released or has not been initiated
      */
-    ServiceDescription getRequest();
+    Segment getRequest();
 
     /**
      * Initiate allocation of resources.
@@ -117,7 +117,7 @@ public interface Service {
      * 
      * @throws InvalidServiceException if the request is invalid
      */
-    void initiate(ServiceDescription request) throws InvalidServiceException;
+    void define(Segment request) throws InvalidServiceException;
 
     /**
      * Add a listener for events.

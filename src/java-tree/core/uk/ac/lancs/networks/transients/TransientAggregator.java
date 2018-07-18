@@ -58,7 +58,7 @@ import java.util.stream.IntStream;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
@@ -175,7 +175,7 @@ public class TransientAggregator implements Aggregator {
 
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", subservice.status());
-                ServiceDescription request = subservice.getRequest();
+                Segment request = subservice.getRequest();
                 for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                     .circuitFlows().entrySet()) {
                     Circuit<? extends Terminal> ep = entry.getKey();
@@ -203,7 +203,7 @@ public class TransientAggregator implements Aggregator {
          * bandwidth. If {@code null}, the service is not initiated.
          */
         Map<MyTrunk, Circuit<? extends Terminal>> tunnels;
-        ServiceDescription request;
+        Segment request;
 
         int dormantCount, inactiveCount, activeCount, failedCount,
             releasedCount;
@@ -219,7 +219,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void initiate(ServiceDescription request)
+        public synchronized void define(Segment request)
             throws InvalidServiceException {
 
             if (intent == Intent.RELEASE) if (clients.isEmpty())
@@ -229,17 +229,17 @@ public class TransientAggregator implements Aggregator {
 
             if (tunnels != null)
                 throw new IllegalStateException("service in use");
-            request = ServiceDescription.sanitize(request, 0.01);
+            request = Segment.sanitize(request, 0.01);
             tunnels = new HashMap<>();
 
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
-            Collection<ServiceDescription> subrequests = new HashSet<>();
+            Collection<Segment> subrequests = new HashSet<>();
             plotAsymmetricTree(request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
-            Map<Service, ServiceDescription> subcons = subrequests.stream()
+            Map<Service, Segment> subcons = subrequests.stream()
                 .collect(Collectors.toMap(r -> r.circuitFlows().keySet()
                     .iterator().next().getBundle().getNetwork().newService(),
                                           r -> r));
@@ -253,9 +253,8 @@ public class TransientAggregator implements Aggregator {
             /* Tell each of the subconnections to initiate spanning
              * trees with their respective circuits. */
             try {
-                for (Map.Entry<Service, ServiceDescription> entry : subcons
-                    .entrySet())
-                    entry.getKey().initiate(entry.getValue());
+                for (Map.Entry<Service, Segment> entry : subcons.entrySet())
+                    entry.getKey().define(entry.getValue());
             } catch (InvalidServiceException ex) {
                 release();
                 throw ex;
@@ -599,7 +598,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized ServiceDescription getRequest() {
+        public synchronized Segment getRequest() {
             return request;
         }
 
@@ -1056,9 +1055,9 @@ public class TransientAggregator implements Aggregator {
      * submitted to each inferior switch
      */
     synchronized void
-        plotAsymmetricTree(ServiceDescription request,
+        plotAsymmetricTree(Segment request,
                            Map<? super MyTrunk, ? super Circuit<? extends Terminal>> tunnels,
-                           Collection<? super ServiceDescription> subrequests) {
+                           Collection<? super Segment> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
         // System.err.printf("Request consumers: %s%n",
@@ -1305,7 +1304,7 @@ public class TransientAggregator implements Aggregator {
              * request. */
             for (Map<Circuit<? extends Terminal>, List<Double>> reqs : subterminals
                 .values()) {
-                subrequests.add(ServiceDescription.of(reqs));
+                subrequests.add(Segment.of(reqs));
             }
             return;
         } while (true);

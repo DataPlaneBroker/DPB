@@ -38,7 +38,7 @@
 import java.io.PrintWriter;
 
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
@@ -89,10 +89,10 @@ public class TestDummy {
         c2.addListener(cl2);
 
         /* Initiate some connections. */
-        c1.initiate(ServiceDescription.start().add(left, 1, 10.0)
-            .add(down, 1, 10.0).create());
-        c2.initiate(ServiceDescription.start().add(left, 4, 7.0)
-            .add(right, 6, 7.0).add(up, 3, 7.0).create());
+        c1.define(Segment.start().add(left, 1, 10.0).add(down, 1, 10.0)
+            .create());
+        c2.define(Segment.start().add(left, 4, 7.0).add(right, 6, 7.0)
+            .add(up, 3, 7.0).create());
 
         /* Wait until there's nothing to do. */
         IdleExecutor.processAll();

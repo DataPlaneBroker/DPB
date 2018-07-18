@@ -60,7 +60,7 @@ import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
@@ -340,7 +340,7 @@ public final class Commander {
         }
 
         if ("initiate".equals(arg)) {
-            service.initiate(ServiceDescription.create(circuits));
+            service.define(Segment.create(circuits));
             circuits.clear();
             nextFlow = TrafficFlow.of(0.0, 0.0);
             return true;

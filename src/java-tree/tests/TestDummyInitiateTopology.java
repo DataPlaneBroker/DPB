@@ -1,7 +1,7 @@
 import java.io.PrintWriter;
 
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
@@ -140,7 +140,7 @@ public class TestDummyInitiateTopology {
         MyListener cl1 = new MyListener("c1");
         c1.addListener(cl1);
 
-        c1.initiate(ServiceDescription.start().produce(100.0)
+        c1.define(Segment.start().produce(100.0)
             .add(aggregator.getControl().getTerminal("lancs.vms"), 1234)
             .add(aggregator.getControl().getTerminal("bristol.vms"), 1111)
             .add(aggregator.getControl().getTerminal("slough.vms"), 2222)

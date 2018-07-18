@@ -46,7 +46,7 @@ import java.util.Map;
 
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
@@ -97,10 +97,10 @@ public class DummySwitch implements Network {
         }
 
         boolean active, released;
-        ServiceDescription request;
+        Segment request;
 
         @Override
-        public synchronized void initiate(ServiceDescription request) {
+        public synchronized void define(Segment request) {
             if (released) throw new IllegalStateException("service released");
             if (this.request != null)
                 throw new IllegalStateException("service in use");
@@ -108,7 +108,7 @@ public class DummySwitch implements Network {
             /* Sanitize the request such that every circuit mentioned in
              * either set is present in both. A minimum bandwidth is
              * applied to all implicit and explicit consumers. */
-            request = ServiceDescription.sanitize(request, 0.01);
+            request = Segment.sanitize(request, 0.01);
 
             /* Check that all circuits belong to us. */
             for (Circuit<? extends Terminal> ep : request.circuitFlows()
@@ -214,7 +214,7 @@ public class DummySwitch implements Network {
         }
 
         @Override
-        public synchronized ServiceDescription getRequest() {
+        public synchronized Segment getRequest() {
             return request;
         }
 

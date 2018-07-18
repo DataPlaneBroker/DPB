@@ -61,7 +61,7 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
@@ -118,7 +118,7 @@ public class PersistentSwitch implements Switch {
          * Records the description of the service, purely for diagnostic
          * purposes. When this is set, we are no longer dormant.
          */
-        ServiceDescription request;
+        Segment request;
 
         /**
          * Records our reference into the fabric. When set, we are
@@ -137,7 +137,7 @@ public class PersistentSwitch implements Switch {
         final Collection<Throwable> bridgeErrors = new HashSet<>();
 
         @Override
-        public synchronized void initiate(ServiceDescription request)
+        public synchronized void define(Segment request)
             throws InvalidServiceException {
             switch (intent) {
             case RELEASE:
@@ -166,7 +166,7 @@ public class PersistentSwitch implements Switch {
             /* Sanitize the request such that no circuit produces less
              * than a token amount, and that no circuit's egress rate is
              * greater than the sum of the others' ingress rates. */
-            this.request = ServiceDescription.sanitize(request, 0.01);
+            this.request = Segment.sanitize(request, 0.01);
 
             callOut(ServiceStatus.ESTABLISHING);
 
@@ -413,7 +413,7 @@ public class PersistentSwitch implements Switch {
         }
 
         @Override
-        public synchronized ServiceDescription getRequest() {
+        public synchronized Segment getRequest() {
             return request;
         }
 
@@ -428,7 +428,7 @@ public class PersistentSwitch implements Switch {
 
             /* Convert the details into a service request which we store
              * for the user to retrieve. */
-            this.request = ServiceDescription.create(details);
+            this.request = Segment.create(details);
 
             this.intent = intent;
             if (intent == Intent.ACTIVE) {

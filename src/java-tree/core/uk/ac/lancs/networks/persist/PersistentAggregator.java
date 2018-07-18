@@ -64,7 +64,7 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceDescription;
+import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
@@ -159,7 +159,7 @@ public class PersistentAggregator implements Aggregator {
                 assert Thread.holdsLock(MyService.this);
 
                 out.printf("%n      inferior %s:", subservice.status());
-                ServiceDescription request = subservice.getRequest();
+                Segment request = subservice.getRequest();
                 if (request != null) {
                     for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
                         .circuitFlows().entrySet()) {
@@ -400,7 +400,7 @@ public class PersistentAggregator implements Aggregator {
          * This is just a cache of what we got from the user
          * (sanitized), or what we recovered from the database.
          */
-        ServiceDescription request;
+        Segment request;
 
         /**
          * Holds errors not attached to circuits of subservices.
@@ -415,11 +415,11 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void initiate(ServiceDescription request)
+        public synchronized void define(Segment request)
             throws InvalidServiceException {
 
             /* Make sure the request is sane. */
-            request = ServiceDescription.sanitize(request, 0.01);
+            request = Segment.sanitize(request, 0.01);
             if (request.circuitFlows().size() < 2)
                 throw new IllegalArgumentException("invalid service"
                     + " description (fewer than" + " two circuits)");
@@ -450,17 +450,16 @@ public class PersistentAggregator implements Aggregator {
 
                 /* Plot a spanning tree across this network, allocating
                  * tunnels. */
-                Collection<ServiceDescription> subrequests = new HashSet<>();
+                Collection<Segment> subrequests = new HashSet<>();
                 plotAsymmetricTree(conn, this, request, subrequests);
 
                 /* Create subservices for each inferior network, and a
                  * distinct reference of our own for each one. */
-                Map<Service, ServiceDescription> subcons =
-                    subrequests.stream()
-                        .collect(Collectors
-                            .toMap(r -> r.circuitFlows().keySet().iterator()
-                                .next().getBundle().getNetwork().newService(),
-                                   r -> r));
+                Map<Service, Segment> subcons = subrequests.stream()
+                    .collect(Collectors
+                        .toMap(r -> r.circuitFlows().keySet().iterator()
+                            .next().getBundle().getNetwork().newService(),
+                               r -> r));
 
                 /* If we fail, ensure we release all these resources. */
                 redundantServices.addAll(subcons.keySet());
@@ -485,11 +484,10 @@ public class PersistentAggregator implements Aggregator {
 
                 /* Tell each of the subconnections to initiate spanning
                  * trees with their respective circuits. */
-                for (Map.Entry<Service, ServiceDescription> entry : subcons
-                    .entrySet()) {
+                for (Map.Entry<Service, Segment> entry : subcons.entrySet()) {
                     System.err.printf("Initiating subservice on %s%n",
                                       entry.getValue().circuitFlows());
-                    entry.getKey().initiate(entry.getValue());
+                    entry.getKey().define(entry.getValue());
                 }
 
                 /* Record our service's circuits. */
@@ -730,7 +728,7 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized ServiceDescription getRequest() {
+        public synchronized Segment getRequest() {
             return request;
         }
 
@@ -739,7 +737,7 @@ public class PersistentAggregator implements Aggregator {
                     Map<Circuit<? extends Terminal>, ? extends TrafficFlow> circuits,
                     Collection<? extends Service> subservices)
                 throws SQLException {
-            request = ServiceDescription.create(circuits);
+            request = Segment.create(circuits);
 
             clients.clear();
             for (Service srv : subservices) {
@@ -1696,8 +1694,8 @@ public class PersistentAggregator implements Aggregator {
      * @throws SQLException if there was an error accessing the database
      */
     void plotAsymmetricTree(Connection conn, MyService service,
-                            ServiceDescription request,
-                            Collection<? super ServiceDescription> subrequests)
+                            Segment request,
+                            Collection<? super Segment> subrequests)
         throws SQLException {
         /* Sanity-check the circuits, map them to internal terminals,
          * and record bandwidth requirements. */
@@ -1922,7 +1920,7 @@ public class PersistentAggregator implements Aggregator {
              * request. */
             for (Map<Circuit<? extends Terminal>, List<Double>> reqs : subterminals
                 .values()) {
-                subrequests.add(ServiceDescription.of(reqs));
+                subrequests.add(Segment.of(reqs));
             }
             return;
         } while (true);
