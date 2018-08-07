@@ -38,7 +38,7 @@ package uk.ac.lancs.networks.circuits;
 /**
  * Gathers circuits travelling the same path.
  * 
- * @summary A bundle of circuits
+ * @resume A bundle of circuits
  * 
  * @param <B> the specific bundle type
  * 

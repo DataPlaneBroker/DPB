@@ -41,7 +41,7 @@ package uk.ac.lancs.networks.circuits;
  * from other circuits of the same bundle by an integer label. Get a
  * circuit by calling {@link Bundle#circuit(int)}.
  * 
- * @summary A numbered division of a bundle
+ * @resume A numbered division of a bundle
  * 
  * @param <B> the bundle type
  * 

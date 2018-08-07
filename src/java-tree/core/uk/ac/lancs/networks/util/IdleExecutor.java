@@ -49,7 +49,7 @@ public final class IdleExecutor implements Executor {
     private IdleExecutor() {}
 
     /**
-     * @summary The sole instance of this executor
+     * @resume The sole instance of this executor
      */
     public static final IdleExecutor INSTANCE = new IdleExecutor();
 

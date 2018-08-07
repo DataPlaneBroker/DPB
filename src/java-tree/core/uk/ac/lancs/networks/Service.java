@@ -89,7 +89,7 @@ import java.util.Collection;
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus) ServiceListener.newStatus}({@linkplain ServiceStatus#RELEASED RELEASED})</code>
  * when all resources have been released.
  * 
- * @summary A connectivity service with QoS guarantees
+ * @resume A connectivity service with QoS guarantees
  * 
  * @author simpsons
  */

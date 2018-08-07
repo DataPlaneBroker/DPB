@@ -43,7 +43,7 @@ import uk.ac.lancs.networks.NetworkControl;
  * Operations include removing terminals, dumping status and obtaining
  * the control interface.
  * 
- * @summary A basic commandable network
+ * @resume A basic commandable network
  * 
  * @author simpsons
  */

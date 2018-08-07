@@ -43,7 +43,7 @@ import uk.ac.lancs.networks.circuits.Bundle;
 /**
  * Represents a
  * 
- * @summary A partitionable interface of a back-end switch
+ * @resume A partitionable interface of a back-end switch
  * 
  * @author simpsons
  */

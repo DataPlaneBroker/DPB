@@ -38,7 +38,7 @@ package uk.ac.lancs.networks;
 /**
  * The initial state is {@link #DORMANT}.
  * 
- * @summary A service status, distinguishing between dormant, inactive,
+ * @resume A service status, distinguishing between dormant, inactive,
  * active and released states, including intermediate states
  * 
  * @author simpsons

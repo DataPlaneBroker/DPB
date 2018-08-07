@@ -39,7 +39,7 @@ import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary A terminal of an aggregator, mapping to an inferior terminal
+ * @resume A terminal of an aggregator, mapping to an inferior terminal
  * 
  * @author simpsons
  */

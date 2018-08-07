@@ -38,7 +38,7 @@ package uk.ac.lancs.networks.mgmt;
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * @summary A network switch which allows terminals to be added and
+ * @resume A network switch which allows terminals to be added and
  * mapped to a fabric interface
  * 
  * @author simpsons

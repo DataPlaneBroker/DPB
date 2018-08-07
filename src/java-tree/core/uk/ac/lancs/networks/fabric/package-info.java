@@ -57,7 +57,7 @@
  * others, allowing the remote management software of a switch to
  * restart after breakdown without disrupting any existing bridges.
  * 
- * @summary Switching-fabric API
+ * @resume Switching-fabric API
  * 
  * @author simpsons
  */

@@ -41,7 +41,7 @@ import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Interface;
 
 /**
- * @summary A terminal of a switch, mapping to a fabric interface
+ * @resume A terminal of a switch, mapping to a fabric interface
  * 
  * @author simpsons
  */

@@ -39,18 +39,18 @@ package uk.ac.lancs.networks;
  * A bidirectional flow is modelled, having distinct ingress and egress
  * flow rates.
  * 
- * @summary A description of traffic flow through a point on a surface
+ * @resume A description of traffic flow through a point on a surface
  * 
  * @author simpsons
  */
 public final class TrafficFlow {
     /**
-     * @summary The flow of traffic into the surface
+     * @resume The flow of traffic into the surface
      */
     public final double ingress;
 
     /**
-     * @summary The flow of traffic out of the surface
+     * @resume The flow of traffic out of the surface
      */
     public final double egress;
 

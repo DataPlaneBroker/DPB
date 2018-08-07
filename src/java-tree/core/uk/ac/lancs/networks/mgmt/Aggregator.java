@@ -60,7 +60,7 @@ import uk.ac.lancs.networks.Terminal;
  * service requests to the inferior networks owning the terminals at the
  * ends of the trunks that contribute to the spanning tree.
  * 
- * @summary A network that is an aggregate of inferior networks
+ * @resume A network that is an aggregate of inferior networks
  * 
  * @author simpsons
  */

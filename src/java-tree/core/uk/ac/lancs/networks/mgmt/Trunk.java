@@ -44,7 +44,7 @@ import uk.ac.lancs.networks.Terminal;
  * opposite direction), and a set of labels (used to form circuits from
  * the terminals).
  * 
- * @summary A trunk connecting terminals of two inferior networks of an
+ * @resume A trunk connecting terminals of two inferior networks of an
  * aggregator
  * 
  * @author simpsons

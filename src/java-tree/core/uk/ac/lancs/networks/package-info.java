@@ -54,7 +54,7 @@
  * Port and link management should be done through
  * {@link uk.ac.lancs.networks.mgmt}.
  * 
- * @summary Hierarchical out-of-band management of connectivity services
+ * @resume Hierarchical out-of-band management of connectivity services
  * sliced from a physical network
  * 
  * @author simpsons

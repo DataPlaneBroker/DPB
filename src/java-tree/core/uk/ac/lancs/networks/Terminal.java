@@ -45,7 +45,7 @@ import uk.ac.lancs.networks.circuits.Bundle;
  * The {@link Object#toString()} method should fully identify the
  * terminal.
  * 
- * @summary A point of access to a network
+ * @resume A point of access to a network
  * 
  * @author simpsons
  */

@@ -35,7 +35,7 @@
  */
 
 /**
- * @summary Fabric abstractions for generic OpenFlow switches
+ * @resume Fabric abstractions for generic OpenFlow switches
  * 
  * @author simpsons
  */

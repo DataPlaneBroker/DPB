@@ -35,7 +35,7 @@
  */
 
 /**
- * @summary Classes to operate a DP2000-series CORSA switch via REST
+ * @resume Classes to operate a DP2000-series CORSA switch via REST
  * 
  * @author simpsons
  */

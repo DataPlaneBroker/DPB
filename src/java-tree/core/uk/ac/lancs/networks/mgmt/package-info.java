@@ -62,7 +62,7 @@
  * {@link uk.ac.lancs.agent.AgentFactory}s, which are supplied with
  * textual configuration and run-time resources to build networks.
  * 
- * @summary Interfaces for managing networks, switches, aggregators and
+ * @resume Interfaces for managing networks, switches, aggregators and
  * trunks
  * 
  * @author simpsons

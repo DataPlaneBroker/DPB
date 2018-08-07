@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * @summary An immutable identifier for a virtual circuit supporting
+ * @resume An immutable identifier for a virtual circuit supporting
  * double-, single- and un-tagged VLAN traffic.
  * 
  * @author simpsons
@@ -118,7 +118,7 @@ public final class VLANCircuitId {
      * {@value #TUPLE_PATTERN_TEXT}
      * </pre>
      * 
-     * @summary A regular expression matching circuit ids
+     * @resume A regular expression matching circuit ids
      */
     public static final Pattern TUPLE_PATTERN =
         Pattern.compile(TUPLE_PATTERN_TEXT);
