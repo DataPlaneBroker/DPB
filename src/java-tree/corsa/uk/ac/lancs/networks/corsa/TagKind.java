@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric;
+package uk.ac.lancs.networks.corsa;
 
 /**
  * Identifies the type of tagging used on a label.

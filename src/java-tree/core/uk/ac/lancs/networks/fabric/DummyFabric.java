@@ -86,10 +86,10 @@ public final class DummyFabric implements Fabric {
 
     private class BridgeInstance {
         final String name;
-        final Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details;
+        final Map<? extends Channel, ? extends TrafficFlow> details;
 
         BridgeInstance(String name,
-                       Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+                       Map<? extends Channel, ? extends TrafficFlow> details) {
             this.name = name;
             this.details = details;
         }
@@ -144,15 +144,14 @@ public final class DummyFabric implements Fabric {
     }
 
     private final Map<String, BridgeInstance> bridges = new HashMap<>();
-    private Map<Circuit<? extends Interface<?>>, BridgeInstance> index =
-        new HashMap<>();
+    private Map<Channel, BridgeInstance> index = new HashMap<>();
 
     private int nextBridgeId;
 
     @Override
     public synchronized Bridge
         bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+               Map<? extends Channel, ? extends TrafficFlow> details) {
         /* Look up all circuits to find out if they already belong to a
          * bridge. */
         Collection<BridgeInstance> existingBridges =
@@ -176,12 +175,11 @@ public final class DummyFabric implements Fabric {
 
         /* Create a brand-new bridge. */
         String brName = "br" + nextBridgeId++;
-        Map<Circuit<? extends Interface<?>>, TrafficFlow> copy =
-            new HashMap<>(details);
+        Map<Channel, TrafficFlow> copy = new HashMap<>(details);
         BridgeInstance br = new BridgeInstance(brName, copy);
         br.listeners.add(listener);
         bridges.put(brName, br);
-        for (Circuit<? extends Interface<?>> ep : copy.keySet())
+        for (Channel ep : copy.keySet())
             index.put(ep, br);
         return new BridgeReference(br);
     }

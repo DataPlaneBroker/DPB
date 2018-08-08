@@ -33,29 +33,66 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.circuits;
+package uk.ac.lancs.networks.fabric;
 
 /**
- * Gathers circuits travelling the same path.
- * 
- * @resume A bundle of circuits
- * 
- * @param <B> the specific bundle type
+ * Identifies a channel within a fabric interface.
  * 
  * @author simpsons
  */
-public interface Bundle<B extends Bundle<B>> {
+public class Channel {
+    private final Interface iface;
+    private final int label;
+
+    Channel(Interface iface, int label) {
+        if (iface == null) throw new NullPointerException("null interface");
+        this.iface = iface;
+        this.label = label;
+    }
+
     /**
-     * Get the circuit for a given label applied to traffic through this
-     * bundle.
+     * Get the interface that this channel belongs to.
      * 
-     * @param label the label subdividing traffic on this bundle
-     * 
-     * @return the circuit for the given label
+     * @return the channel's interface
      */
-    default Circuit<? extends B> circuit(int label) {
-        @SuppressWarnings("unchecked")
-        B self = (B) this;
-        return new Circuit<B>(self, label);
+    public Interface getInterface() {
+        return iface;
+    }
+
+    /**
+     * Get the label distinguishing it from other channels in the same
+     * label.
+     * 
+     * @return the channel's label
+     */
+    public int getLabel() {
+        return label;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((iface == null) ? 0 : iface.hashCode());
+        result = prime * result + label;
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        Channel other = (Channel) obj;
+        if (iface == null) {
+            if (other.iface != null) return false;
+        } else if (!iface.equals(other.iface)) return false;
+        if (label != other.label) return false;
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return iface.toString() + ':' + label;
     }
 }

@@ -49,9 +49,9 @@ import javax.json.JsonException;
 
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
+import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.Interface;
 
@@ -81,7 +81,7 @@ public final class VLANCircuitFabric implements Fabric {
     }
 
     @Override
-    public Interface<?> getInterface(String desc) {
+    public Interface getInterface(String desc) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
@@ -149,13 +149,6 @@ public final class VLANCircuitFabric implements Fabric {
     }
 
     @Override
-    public Bridge
-        bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
     public void retainBridges(Collection<? extends Bridge> bridges) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
@@ -163,5 +156,12 @@ public final class VLANCircuitFabric implements Fabric {
     @Override
     public int capacity() {
         return 1;
+    }
+
+    @Override
+    public Bridge
+        bridge(BridgeListener listener,
+               Map<? extends Channel, ? extends TrafficFlow> details) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }

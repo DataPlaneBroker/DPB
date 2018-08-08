@@ -36,7 +36,6 @@
 package uk.ac.lancs.networks.corsa;
 
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.fabric.TagKind;
 
 /**
  * Describes a service-tagged interface.

@@ -38,10 +38,8 @@ package uk.ac.lancs.networks.corsa;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.fabric.Interface;
-import uk.ac.lancs.networks.fabric.TagKind;
+import uk.ac.lancs.networks.fabric.Channel;
 
 /**
  * Maps interface definitions to entities in the Corsa interface
@@ -158,7 +156,7 @@ public final class InterfaceManager {
      * 
      * @return the circuit
      */
-    public Circuit<? extends Interface<?>> getCircuit(TunnelDesc tun) {
+    public Channel getCircuit(TunnelDesc tun) {
         /* Parse the port section. */
         final CorsaInterface iface;
         final int ifacenum;
@@ -174,17 +172,17 @@ public final class InterfaceManager {
          * "phys.3" identifies port 3, and "lag.4" identifies link
          * aggregation group 4. In these cases, the circuit label is not
          * a VLAN id. */
-        if (tun.vlanId < 0) return iface.circuit(ifacenum);
+        if (tun.vlanId < 0) return iface.channel(ifacenum);
 
         /* Recognize single-tagged tunnels. */
         if (tun.innerVlanId < 0)
             return iface.tag(TagKind.ENUMERATION, TagKind.VLAN_CTAG, ifacenum)
-                .circuit(tun.vlanId);
+                .channel(tun.vlanId);
 
         /* Recognize double-tagged tunnels. */
         return iface.tag(TagKind.ENUMERATION, null, ifacenum)
             .tag(TagKind.VLAN_STAG, TagKind.VLAN_CTAG, tun.vlanId)
-            .circuit(tun.innerVlanId);
+            .channel(tun.innerVlanId);
     }
 
     /**
@@ -196,9 +194,8 @@ public final class InterfaceManager {
      * 
      * @return the input circuit resolved to its canonical form
      */
-    public Circuit<? extends Interface<?>>
-        resolve(Circuit<? extends Interface<?>> circuit) {
-        CorsaInterface iface = (CorsaInterface) circuit.getBundle();
+    public Channel resolve(Channel circuit) {
+        CorsaInterface iface = (CorsaInterface) circuit.getInterface();
         return iface.resolve(circuit.getLabel());
     }
 }

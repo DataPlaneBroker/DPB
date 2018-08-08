@@ -38,6 +38,7 @@ package uk.ac.lancs.networks.persist;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.circuits.Circuit;
+import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Interface;
 
 /**
@@ -48,11 +49,11 @@ import uk.ac.lancs.networks.fabric.Interface;
 final class SwitchTerminal implements Terminal {
     private final NetworkControl network;
     private final String name;
-    private final Interface<?> fabricInterface;
+    private final Interface fabricInterface;
     private final int dbid;
 
     SwitchTerminal(NetworkControl network, String name,
-                   Interface<?> fabricInterface, int dbid) {
+                   Interface fabricInterface, int dbid) {
         if (network == null) throw new NullPointerException("network");
         if (name == null) throw new NullPointerException("name");
         if (fabricInterface == null)
@@ -63,8 +64,8 @@ final class SwitchTerminal implements Terminal {
         this.dbid = dbid;
     }
 
-    Circuit<? extends Interface<?>> getInnerCircuit(int label) {
-        return fabricInterface.circuit(label);
+    Channel getInnerCircuit(int label) {
+        return fabricInterface.channel(label);
     }
 
     @Override

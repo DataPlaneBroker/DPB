@@ -59,8 +59,8 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
@@ -87,7 +87,7 @@ public final class Commander {
     Switch zwitch = null;
     Aggregator aggregator = null;
     TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
-    Map<Circuit<? extends Terminal>, TrafficFlow> circuits = new HashMap<>();
+    Map<Circuit, TrafficFlow> circuits = new HashMap<>();
     Service service = null;
     String networkName = null;
     String usage = null;
@@ -330,7 +330,7 @@ public final class Commander {
         if ("-e".equals(arg)) {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
-            Circuit<? extends Terminal> ep = findCircuit(epid);
+            Circuit ep = findCircuit(epid);
             if (ep == null) {
                 System.err.printf("No circuit [%s]%n", epid);
                 return false;
@@ -476,7 +476,7 @@ public final class Commander {
     private static final Pattern CIRCUIT_PATTERN =
         Pattern.compile("^([^:]+):([\\d]+)$");
 
-    private Circuit<? extends Terminal> findCircuit(String name) {
+    private Circuit findCircuit(String name) {
         Matcher m = CIRCUIT_PATTERN.matcher(name);
         if (!m.matches())
             throw new IllegalArgumentException("not a circuit: " + name);

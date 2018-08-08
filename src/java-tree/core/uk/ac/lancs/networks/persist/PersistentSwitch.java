@@ -60,8 +60,8 @@ import java.util.stream.Collectors;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
@@ -70,8 +70,8 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
+import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Fabric;
-import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.routing.span.Edge;
@@ -151,8 +151,7 @@ public class PersistentSwitch implements Switch {
                 throw new IllegalStateException("service in use");
 
             /* Check that all circuits belong to us. */
-            for (Circuit<? extends Terminal> ep : request.circuitFlows()
-                .keySet()) {
+            for (Circuit ep : request.circuitFlows().keySet()) {
                 Terminal p = ep.getBundle();
                 if (!(p instanceof SwitchTerminal))
                     throw new InvalidServiceException("circuit " + ep
@@ -179,9 +178,9 @@ public class PersistentSwitch implements Switch {
                         + " label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
-                    for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : this.request
+                    for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : this.request
                         .circuitFlows().entrySet()) {
-                        Circuit<? extends Terminal> circuit = entry.getKey();
+                        Circuit circuit = entry.getKey();
                         SwitchTerminal terminal =
                             (SwitchTerminal) circuit.getBundle();
                         TrafficFlow flow = entry.getValue();
@@ -395,9 +394,9 @@ public class PersistentSwitch implements Switch {
         synchronized void dump(PrintWriter out) {
             out.printf("  %3d %-8s (intent=%-8s)", id, status(), intent);
             if (request != null) {
-                for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
                     .circuitFlows().entrySet()) {
-                    Circuit<? extends Terminal> ep = entry.getKey();
+                    Circuit ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,
                                flow.egress);
@@ -422,8 +421,7 @@ public class PersistentSwitch implements Switch {
             return id;
         }
 
-        void recover(Map<Circuit<? extends Terminal>, TrafficFlow> details,
-                     Intent intent) {
+        void recover(Map<Circuit, TrafficFlow> details, Intent intent) {
             assert this.request == null;
 
             /* Convert the details into a service request which we store
@@ -587,7 +585,7 @@ public class PersistentSwitch implements Switch {
             }
 
             /* Recover service's details. */
-            Map<MyService, Map<Circuit<? extends Terminal>, TrafficFlow>> enforcements =
+            Map<MyService, Map<Circuit, TrafficFlow>> enforcements =
                 new HashMap<>();
             try (Statement stmt = conn.createStatement();
                 ResultSet rs = stmt
@@ -605,8 +603,7 @@ public class PersistentSwitch implements Switch {
                     final double metering = rs.getDouble(4);
                     final double shaping = rs.getDouble(5);
 
-                    final Circuit<? extends Terminal> circuit =
-                        port.circuit(label);
+                    final Circuit circuit = port.circuit(label);
                     final TrafficFlow enf = TrafficFlow.of(metering, shaping);
                     enforcements
                         .computeIfAbsent(service, k -> new HashMap<>())
@@ -617,7 +614,7 @@ public class PersistentSwitch implements Switch {
             conn.commit();
 
             /* Apply the services' details to the service objects. */
-            for (Map.Entry<MyService, Map<Circuit<? extends Terminal>, TrafficFlow>> entry : enforcements
+            for (Map.Entry<MyService, Map<Circuit, TrafficFlow>> entry : enforcements
                 .entrySet()) {
                 MyService srv = entry.getKey();
                 srv.recover(entry.getValue(), intents.get(srv.id));
@@ -820,14 +817,13 @@ public class PersistentSwitch implements Switch {
         return result;
     }
 
-    private Circuit<? extends Interface<?>>
-        mapCircuit(Circuit<? extends Terminal> ep) {
+    private Channel mapCircuit(Circuit ep) {
         SwitchTerminal terminal = (SwitchTerminal) ep.getBundle();
         return terminal.getInnerCircuit(ep.getLabel());
     }
 
-    private <V> Map<Circuit<? extends Interface<?>>, V>
-        mapCircuits(Map<? extends Circuit<? extends Terminal>, ? extends V> input) {
+    private <V> Map<Channel, V>
+        mapCircuits(Map<? extends Circuit, ? extends V> input) {
         return input.entrySet().stream().collect(Collectors
             .toMap(e -> mapCircuit(e.getKey()), Map.Entry::getValue));
     }

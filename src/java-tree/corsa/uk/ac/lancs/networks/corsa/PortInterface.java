@@ -39,10 +39,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
-import uk.ac.lancs.networks.fabric.Interface;
-import uk.ac.lancs.networks.fabric.TagKind;
+import uk.ac.lancs.networks.fabric.Channel;
 
 /**
  * 
@@ -203,12 +201,12 @@ final class PortInterface implements STaggableInterface {
     }
 
     @Override
-    public Circuit<? extends Interface<CorsaInterface>> resolve(int label) {
+    public Channel resolve(int label) {
         if (doubleTagged)
             return base.tag(TagKind.ENUMERATION, TagKind.VLAN_STAG, port)
                 .tag(TagKind.VLAN_STAG, TagKind.VLAN_CTAG, label >> 12)
-                .circuit(label & 0xfff);
+                .channel(label & 0xfff);
         else
-            return circuit(label);
+            return channel(label);
     }
 }

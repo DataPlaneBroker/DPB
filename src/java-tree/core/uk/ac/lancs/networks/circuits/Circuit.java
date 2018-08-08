@@ -35,39 +35,41 @@
  */
 package uk.ac.lancs.networks.circuits;
 
+import uk.ac.lancs.networks.Terminal;
+
 /**
- * Identifies a numbered virtual circuit within a bundle of other
- * circuits. Every circuit belongs to a bundle, and is distinguished
- * from other circuits of the same bundle by an integer label. Get a
+ * Identifies a numbered virtual circuit within a terminal of other
+ * circuits. Every circuit belongs to a terminal, and is distinguished
+ * from other circuits of the same terminal by an integer label. Get a
  * circuit by calling {@link Bundle#circuit(int)}.
  * 
- * @resume A numbered division of a bundle
+ * @resume A numbered division of a terminal
  * 
  * @param <B> the bundle type
  * 
  * @author simpsons
  */
-public final class Circuit<B extends Bundle<B>> {
-    private final B bundle;
+public final class Circuit {
+    private final Terminal bundle;
     private final int label;
 
-    Circuit(B bundle, int label) {
+    public Circuit(Terminal bundle, int label) {
         if (bundle == null) throw new NullPointerException("null bundle");
         this.bundle = bundle;
         this.label = label;
     }
 
     /**
-     * Get the containing bundle of the circuit.
+     * Get the containing terminal of the circuit.
      * 
-     * @return the circuit's containing bundle
+     * @return the circuit's containing terminal
      */
-    public B getBundle() {
+    public Terminal getBundle() {
         return bundle;
     }
 
     /**
-     * Get the label that subdivides the bundle to identify the
+     * Get the label that subdivides the terminal to identify the
      * connection.
      * 
      * @return the circuit label
@@ -103,7 +105,7 @@ public final class Circuit<B extends Bundle<B>> {
         if (this == obj) return true;
         if (obj == null) return false;
         if (getClass() != obj.getClass()) return false;
-        Circuit<?> other = (Circuit<?>) obj;
+        Circuit other = (Circuit) obj;
         if (label != other.label) return false;
         assert bundle != null;
         assert other.bundle != null;
@@ -114,7 +116,7 @@ public final class Circuit<B extends Bundle<B>> {
      * Get a string representation of this circuit.
      * 
      * @return a string representation of this circuit, consisting of
-     * the bundle and the label
+     * the terminal and the label
      */
     @Override
     public String toString() {

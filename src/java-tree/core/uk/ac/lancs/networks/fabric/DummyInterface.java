@@ -35,7 +35,7 @@
  */
 package uk.ac.lancs.networks.fabric;
 
-class DummyInterface implements Interface<DummyInterface> {
+class DummyInterface implements Interface {
     final String config;
 
     DummyInterface(String config) {
@@ -60,20 +60,5 @@ class DummyInterface implements Interface<DummyInterface> {
         if (!(o instanceof DummyInterface)) return false;
         DummyInterface other = (DummyInterface) o;
         return other.config.equals(config);
-    }
-
-    @Override
-    public TagKind getCircuitEncapsulation() {
-        return TagKind.ENUMERATION;
-    }
-
-    @Override
-    public int getMinimumCircuitLabel() {
-        return 0;
-    }
-
-    @Override
-    public int getMaximumCircuitLabel() {
-        return 4095;
     }
 }

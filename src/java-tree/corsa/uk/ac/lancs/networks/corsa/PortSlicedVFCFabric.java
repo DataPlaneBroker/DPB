@@ -54,7 +54,6 @@ import java.util.logging.Logger;
 
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
 import uk.ac.lancs.networks.corsa.rest.CorsaREST;
@@ -63,6 +62,7 @@ import uk.ac.lancs.networks.corsa.rest.ReplaceBridgeDescription;
 import uk.ac.lancs.networks.corsa.rest.TunnelDesc;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
+import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.Interface;
 import uk.ac.lancs.rest.RESTResponse;
@@ -96,21 +96,20 @@ public final class PortSlicedVFCFabric implements Fabric {
      * Maps the circuit description of each tunnel attachment to the OF
      * port of our VFC. The circuit is in canonical form.
      */
-    private final Map<Circuit<? extends Interface<?>>, Integer> circuitToPort =
-        new HashMap<>();
+    private final Map<Channel, Integer> circuitToPort = new HashMap<>();
 
     /**
      * Maps each OF port in use on our VFC to the circuit description of
      * the tunnel attached to it. The circuit is in canonical form.
      */
-    private final NavigableMap<Integer, Circuit<? extends Interface<?>>> portToCircuit =
+    private final NavigableMap<Integer, Channel> portToCircuit =
         new TreeMap<>();
 
     /**
      * Indexes all bridge slices by their circuit sets. The circuits are
      * in canonical form.
      */
-    private final Map<Collection<Circuit<? extends Interface<?>>>, BridgeSlice> bridgesByCircuitSet =
+    private final Map<Collection<Channel>, BridgeSlice> bridgesByCircuitSet =
         new HashMap<>();
 
     /**
@@ -200,20 +199,20 @@ public final class PortSlicedVFCFabric implements Fabric {
     }
 
     @Override
-    public Interface<?> getInterface(String desc) {
+    public Interface getInterface(String desc) {
         return interfaces.getInterface(desc);
     }
 
     private class BridgeSlice {
-        private final Map<Circuit<? extends Interface<?>>, TrafficFlow> service;
+        private final Map<Channel, TrafficFlow> service;
 
-        BridgeSlice(Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+        BridgeSlice(Map<? extends Channel, ? extends TrafficFlow> details) {
             this.service = new HashMap<>(details);
         }
 
-        BridgeSlice(Collection<? extends Circuit<? extends Interface<?>>> circuits) {
+        BridgeSlice(Collection<? extends Channel> circuits) {
             this.service = new HashMap<>();
-            for (Circuit<? extends Interface<?>> circuit : circuits)
+            for (Channel circuit : circuits)
                 service.put(circuit, TrafficFlow.of(0.0, 0.0));
             started = true;
         }
@@ -222,7 +221,7 @@ public final class PortSlicedVFCFabric implements Fabric {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
 
             /* Detach tunnels from ports. */
-            for (Circuit<? extends Interface<?>> circuit : service.keySet()) {
+            for (Channel circuit : service.keySet()) {
                 /* Find which OF port it is attached to, and detach
                  * it. */
                 int ofport = circuitToPort.getOrDefault(circuit, 0);
@@ -247,11 +246,10 @@ public final class PortSlicedVFCFabric implements Fabric {
                     /* Allocate each circuit to an OF port, attach them,
                      * and set the QoS. */
                     BitSet ofPorts = new BitSet();
-                    for (Map.Entry<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> entry : service
+                    for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : service
                         .entrySet()) {
                         TrafficFlow flow = entry.getValue();
-                        Circuit<? extends Interface<?>> circuit =
-                            entry.getKey();
+                        Channel circuit = entry.getKey();
 
                         /* Choose the next available OF port, and mark
                          * it as in use. */
@@ -265,7 +263,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                          * the outgoing QoS. */
                         TunnelDesc desc = new TunnelDesc();
                         CorsaInterface iface =
-                            (CorsaInterface) circuit.getBundle();
+                            (CorsaInterface) circuit.getInterface();
                         iface.configureTunnel(desc, circuit.getLabel())
                             .shapedRate(flow.egress).ofport(ofport);
                         rest.attachTunnel(bridgeId, desc);
@@ -334,13 +332,12 @@ public final class PortSlicedVFCFabric implements Fabric {
     @Override
     public synchronized Bridge
         bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+               Map<? extends Channel, ? extends TrafficFlow> details) {
         System.err.printf("%nShared bridge, original circuits: %s%n",
                           details.keySet());
         /* Resolve the circuits to their canonical forms. */
-        Map<Circuit<? extends Interface<?>>, TrafficFlow> resolvedDetails =
-            new HashMap<>();
-        for (Map.Entry<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> entry : details
+        Map<Channel, TrafficFlow> resolvedDetails = new HashMap<>();
+        for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : details
             .entrySet())
             resolvedDetails.put(interfaces.resolve(entry.getKey()),
                                 entry.getValue());
@@ -370,8 +367,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         }
 
         /* Gather all the interface circuits of the listed bridges. */
-        Collection<Circuit<? extends Interface<?>>> retainedCircuits =
-            new HashSet<>();
+        Collection<Channel> retainedCircuits = new HashSet<>();
         for (BridgeSlice slice : slices)
             retainedCircuits.addAll(slice.service.keySet());
 
@@ -379,9 +375,9 @@ public final class PortSlicedVFCFabric implements Fabric {
          * Identify the OF ports that are no longer needed, and detach
          * them. This will trigger the OF controller to revise its
          * rules. */
-        for (Iterator<Circuit<? extends Interface<?>>> iter =
-            portToCircuit.values().iterator(); iter.hasNext();) {
-            Circuit<? extends Interface<?>> circuit = iter.next();
+        for (Iterator<Channel> iter = portToCircuit.values().iterator(); iter
+            .hasNext();) {
+            Channel circuit = iter.next();
             assert circuit != null;
             if (retainedCircuits.contains(circuit)) continue;
             int ofport = circuitToPort.remove(circuit);
@@ -426,8 +422,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         RESTResponse<Map<Integer, TunnelDesc>> tinf =
             rest.getTunnels(bridgeId);
         for (Map.Entry<Integer, TunnelDesc> entry : tinf.message.entrySet()) {
-            Circuit<? extends Interface<?>> circuit =
-                interfaces.getCircuit(entry.getValue());
+            Channel circuit = interfaces.getCircuit(entry.getValue());
             int port = entry.getKey();
             System.err.printf("%s <-> %d%n", circuit, port);
             assert circuit != null;
@@ -516,8 +511,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         RESTResponse<Collection<? extends BitSet>> portSets =
             this.sliceRest.getPortSets(dpid);
         for (BitSet set : portSets.message) {
-            Collection<Circuit<? extends Interface<?>>> circuits =
-                new HashSet<>();
+            Collection<Channel> circuits = new HashSet<>();
             for (int i : BitSetIterable.of(set))
                 circuits.add(portToCircuit.get(i));
             BridgeSlice slice = new BridgeSlice(circuits);

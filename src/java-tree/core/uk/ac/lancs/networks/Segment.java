@@ -63,8 +63,7 @@ public interface Segment {
      * 
      * @return the traffic flows of each circuit of the service
      */
-    Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
-        circuitFlows();
+    Map<? extends Circuit, ? extends TrafficFlow> circuitFlows();
 
     /**
      * Get the set of bandwidth contributions into the service indexed
@@ -76,19 +75,15 @@ public interface Segment {
      * @deprecated This method will be removed.
      */
     @Deprecated
-    default Map<? extends Circuit<? extends Terminal>, ? extends Number>
-        producers() {
-        return new AbstractMap<Circuit<? extends Terminal>, Number>() {
+    default Map<? extends Circuit, ? extends Number> producers() {
+        return new AbstractMap<Circuit, Number>() {
             @Override
-            public Set<Entry<Circuit<? extends Terminal>, Number>>
-                entrySet() {
-                return new AbstractSet<Map.Entry<Circuit<? extends Terminal>, Number>>() {
+            public Set<Entry<Circuit, Number>> entrySet() {
+                return new AbstractSet<Map.Entry<Circuit, Number>>() {
                     @Override
-                    public
-                        Iterator<Entry<Circuit<? extends Terminal>, Number>>
-                        iterator() {
-                        return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
+                    public Iterator<Entry<Circuit, Number>> iterator() {
+                        return new Iterator<Map.Entry<Circuit, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends Circuit, ? extends TrafficFlow>> iterator =
                                 circuitFlows().entrySet().iterator();
 
                             @Override
@@ -97,15 +92,12 @@ public interface Segment {
                             }
 
                             @Override
-                            public
-                                Map.Entry<Circuit<? extends Terminal>, Number>
-                                next() {
-                                Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> next =
+                            public Map.Entry<Circuit, Number> next() {
+                                Map.Entry<? extends Circuit, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<Circuit<? extends Terminal>, Number>() {
+                                return new Map.Entry<Circuit, Number>() {
                                     @Override
-                                    public Circuit<? extends Terminal>
-                                        getKey() {
+                                    public Circuit getKey() {
                                         return next.getKey();
                                     }
 
@@ -142,19 +134,15 @@ public interface Segment {
      * @deprecated This method will be removed.
      */
     @Deprecated
-    default Map<? extends Circuit<? extends Terminal>, ? extends Number>
-        consumers() {
-        return new AbstractMap<Circuit<? extends Terminal>, Number>() {
+    default Map<? extends Circuit, ? extends Number> consumers() {
+        return new AbstractMap<Circuit, Number>() {
             @Override
-            public Set<Entry<Circuit<? extends Terminal>, Number>>
-                entrySet() {
-                return new AbstractSet<Map.Entry<Circuit<? extends Terminal>, Number>>() {
+            public Set<Entry<Circuit, Number>> entrySet() {
+                return new AbstractSet<Map.Entry<Circuit, Number>>() {
                     @Override
-                    public
-                        Iterator<Entry<Circuit<? extends Terminal>, Number>>
-                        iterator() {
-                        return new Iterator<Map.Entry<Circuit<? extends Terminal>, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>> iterator =
+                    public Iterator<Entry<Circuit, Number>> iterator() {
+                        return new Iterator<Map.Entry<Circuit, Number>>() {
+                            final Iterator<? extends Map.Entry<? extends Circuit, ? extends TrafficFlow>> iterator =
                                 circuitFlows().entrySet().iterator();
 
                             @Override
@@ -163,15 +151,12 @@ public interface Segment {
                             }
 
                             @Override
-                            public
-                                Map.Entry<Circuit<? extends Terminal>, Number>
-                                next() {
-                                Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> next =
+                            public Map.Entry<Circuit, Number> next() {
+                                Map.Entry<? extends Circuit, ? extends TrafficFlow> next =
                                     iterator.next();
-                                return new Map.Entry<Circuit<? extends Terminal>, Number>() {
+                                return new Map.Entry<Circuit, Number>() {
                                     @Override
-                                    public Circuit<? extends Terminal>
-                                        getKey() {
+                                    public Circuit getKey() {
                                         return next.getKey();
                                     }
 
@@ -213,15 +198,12 @@ public interface Segment {
      * 
      * @return a description consisting of the provided information
      */
-    static Segment
-        of(Map<? extends Circuit<? extends Terminal>, ? extends Number> producers,
-           Map<? extends Circuit<? extends Terminal>, ? extends Number> consumers) {
-        Map<Circuit<? extends Terminal>, TrafficFlow> result =
-            new HashMap<>();
-        Collection<Circuit<? extends Terminal>> keys =
-            new HashSet<>(producers.keySet());
+    static Segment of(Map<? extends Circuit, ? extends Number> producers,
+                      Map<? extends Circuit, ? extends Number> consumers) {
+        Map<Circuit, TrafficFlow> result = new HashMap<>();
+        Collection<Circuit> keys = new HashSet<>(producers.keySet());
         if (consumers != null) keys.addAll(consumers.keySet());
-        for (Circuit<? extends Terminal> ep : keys) {
+        for (Circuit ep : keys) {
             Number ingressObj = producers.get(ep);
             double ingress =
                 ingressObj == null ? 0.0 : ingressObj.doubleValue();
@@ -230,12 +212,11 @@ public interface Segment {
             double egress = egressObj == null ? 0.0 : egressObj.doubleValue();
             result.put(ep, TrafficFlow.of(ingress, egress));
         }
-        Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
+        Map<Circuit, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
         return new Segment() {
             @Override
-            public
-                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
+            public Map<? extends Circuit, ? extends TrafficFlow>
                 circuitFlows() {
                 return finalResult;
             }
@@ -252,11 +233,10 @@ public interface Segment {
      * @return the description view of the same map
      */
     static Segment
-        create(Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> data) {
+        create(Map<? extends Circuit, ? extends TrafficFlow> data) {
         return new Segment() {
             @Override
-            public
-                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
+            public Map<? extends Circuit, ? extends TrafficFlow>
                 circuitFlows() {
                 return data;
             }
@@ -273,11 +253,11 @@ public interface Segment {
      * @return a description consisting of the provided information
      */
     static Segment
-        of(Map<? extends Circuit<? extends Terminal>, ? extends List<? extends Number>> input) {
-        Map<Circuit<? extends Terminal>, Number> producers =
+        of(Map<? extends Circuit, ? extends List<? extends Number>> input) {
+        Map<Circuit, Number> producers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(0)));
-        Map<Circuit<? extends Terminal>, Number> consumers =
+        Map<Circuit, Number> consumers =
             input.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().get(1)));
         return of(producers, consumers);
@@ -299,8 +279,7 @@ public interface Segment {
      * @author simpsons
      */
     class Builder {
-        private Map<Circuit<? extends Terminal>, List<Number>> data =
-            new HashMap<>();
+        private Map<Circuit, List<Number>> data = new HashMap<>();
 
         private Builder() {}
 
@@ -326,7 +305,7 @@ public interface Segment {
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> circuit) {
+        public Builder add(Circuit circuit) {
             return add(circuit, defaultProduction);
         }
 
@@ -356,8 +335,8 @@ public interface Segment {
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> circuit,
-                           double produced, double consumed) {
+        public Builder add(Circuit circuit, double produced,
+                           double consumed) {
             data.put(circuit, Arrays.asList(produced, consumed));
             return this;
         }
@@ -371,8 +350,7 @@ public interface Segment {
          * 
          * @return this object
          */
-        public Builder add(Circuit<? extends Terminal> circuit,
-                           double bandwidth) {
+        public Builder add(Circuit circuit, double bandwidth) {
             return add(circuit, bandwidth, Double.MAX_VALUE);
         }
 
@@ -438,9 +416,9 @@ public interface Segment {
     static Segment sanitize(Segment input, double minimumProduction) {
         /* Provide unspecified producers with the nominal amount, and
          * sum all production. */
-        Map<Circuit<? extends Terminal>, Double> producers = new HashMap<>();
+        Map<Circuit, Double> producers = new HashMap<>();
         double producerSum = 0.0;
-        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
+        for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : input
             .circuitFlows().entrySet()) {
             final double production =
                 Math.max(entry.getValue().ingress, minimumProduction);
@@ -450,8 +428,8 @@ public interface Segment {
 
         /* Limit consumption to the production sum minus the circuit's
          * production. */
-        Map<Circuit<? extends Terminal>, Double> consumers = new HashMap<>();
-        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : input
+        Map<Circuit, Double> consumers = new HashMap<>();
+        for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : input
             .circuitFlows().entrySet()) {
             TrafficFlow flow = entry.getValue();
             final double maximum = producerSum - flow.ingress;
@@ -459,20 +437,18 @@ public interface Segment {
             consumers.put(entry.getKey(), consumption);
         }
 
-        Map<Circuit<? extends Terminal>, TrafficFlow> result =
-            new HashMap<>();
-        for (Circuit<? extends Terminal> key : producers.keySet()) {
+        Map<Circuit, TrafficFlow> result = new HashMap<>();
+        for (Circuit key : producers.keySet()) {
             TrafficFlow flow =
                 TrafficFlow.of(producers.get(key), consumers.get(key));
             result.put(key, flow);
         }
 
-        Map<Circuit<? extends Terminal>, TrafficFlow> finalResult =
+        Map<Circuit, TrafficFlow> finalResult =
             Collections.unmodifiableMap(result);
         return new Segment() {
             @Override
-            public
-                Map<? extends Circuit<? extends Terminal>, ? extends TrafficFlow>
+            public Map<? extends Circuit, ? extends TrafficFlow>
                 circuitFlows() {
                 return finalResult;
             }

@@ -57,8 +57,8 @@ import java.util.stream.IntStream;
 
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
@@ -176,9 +176,9 @@ public class TransientAggregator implements Aggregator {
             void dump(PrintWriter out) {
                 out.printf("%n      inferior %s:", subservice.status());
                 Segment request = subservice.getRequest();
-                for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
+                for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
                     .circuitFlows().entrySet()) {
-                    Circuit<? extends Terminal> ep = entry.getKey();
+                    Circuit ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n        %10s %6g %6g", ep, flow.ingress,
                                flow.egress);
@@ -202,7 +202,7 @@ public class TransientAggregator implements Aggregator {
          * This holds the set of trunks on which we have allocated
          * bandwidth. If {@code null}, the service is not initiated.
          */
-        Map<MyTrunk, Circuit<? extends Terminal>> tunnels;
+        Map<MyTrunk, Circuit> tunnels;
         Segment request;
 
         int dormantCount, inactiveCount, activeCount, failedCount,
@@ -576,11 +576,10 @@ public class TransientAggregator implements Aggregator {
                 break;
 
             default:
-                for (Map.Entry<MyTrunk, Circuit<? extends Terminal>> tunnel : tunnels
+                for (Map.Entry<MyTrunk, Circuit> tunnel : tunnels
                     .entrySet()) {
-                    Circuit<? extends Terminal> ep1 = tunnel.getValue();
-                    Circuit<? extends Terminal> ep2 =
-                        tunnel.getKey().getPeer(ep1);
+                    Circuit ep1 = tunnel.getValue();
+                    Circuit ep2 = tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
                 }
                 for (Client cli : clients) {
@@ -685,7 +684,7 @@ public class TransientAggregator implements Aggregator {
          * @throws IllegalArgumentException if the circuit does not
          * belong to either terminal of this trunk
          */
-        Circuit<? extends Terminal> getPeer(Circuit<? extends Terminal> p) {
+        Circuit getPeer(Circuit p) {
             synchronized (TransientAggregator.this) {
                 if (p.getBundle().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
@@ -716,9 +715,8 @@ public class TransientAggregator implements Aggregator {
          * @return the circuit at the start of the tunnel, or
          * {@code null} if no further resource remains
          */
-        Circuit<? extends Terminal>
-            allocateTunnel(double upstreamBandwidth,
-                           double downstreamBandwidth) {
+        Circuit allocateTunnel(double upstreamBandwidth,
+                               double downstreamBandwidth) {
             /* Sanity-check bandwidth. */
             if (upstreamBandwidth < 0)
                 throw new IllegalArgumentException("negative upstream: "
@@ -748,7 +746,7 @@ public class TransientAggregator implements Aggregator {
          * 
          * @param circuit either of the tunnel circuits
          */
-        void releaseTunnel(Circuit<? extends Terminal> circuit) {
+        void releaseTunnel(Circuit circuit) {
             final int startLabel;
             if (circuit.getBundle().equals(start)) {
                 startLabel = circuit.getLabel();
@@ -1056,7 +1054,7 @@ public class TransientAggregator implements Aggregator {
      */
     synchronized void
         plotAsymmetricTree(Segment request,
-                           Map<? super MyTrunk, ? super Circuit<? extends Terminal>> tunnels,
+                           Map<? super MyTrunk, ? super Circuit> tunnels,
                            Collection<? super Segment> subrequests) {
         // System.err.printf("Request producers: %s%n",
         // request.producers());
@@ -1066,12 +1064,11 @@ public class TransientAggregator implements Aggregator {
         /* Sanity-check the circuits, map them to internal terminals,
          * and record bandwidth requirements. */
         Map<Terminal, List<Double>> bandwidths = new HashMap<>();
-        Map<Circuit<? extends Terminal>, List<Double>> innerCircuits =
-            new HashMap<>();
+        Map<Circuit, List<Double>> innerCircuits = new HashMap<>();
         double smallestBandwidthSoFar = Double.MAX_VALUE;
-        for (Map.Entry<? extends Circuit<? extends Terminal>, ? extends TrafficFlow> entry : request
+        for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
             .circuitFlows().entrySet()) {
-            Circuit<? extends Terminal> ep = entry.getKey();
+            Circuit ep = entry.getKey();
             TrafficFlow flow = entry.getValue();
 
             /* Map this circuit to an inferior switch's terminal. */
@@ -1267,17 +1264,16 @@ public class TransientAggregator implements Aggregator {
             /* Allocate tunnels along identified trunks. Also gather end
              * points per terminal group, and bandwidth required on
              * each. */
-            Map<Collection<Terminal>, Map<Circuit<? extends Terminal>, List<Double>>> subterminals =
+            Map<Collection<Terminal>, Map<Circuit, List<Double>>> subterminals =
                 new HashMap<>();
             for (Map.Entry<MyTrunk, List<Double>> trunkReq : edgeBandwidths
                 .entrySet()) {
                 MyTrunk trunk = trunkReq.getKey();
                 double upstream = trunkReq.getValue().get(0);
                 double downstream = trunkReq.getValue().get(1);
-                Circuit<? extends Terminal> ep1 =
-                    trunk.allocateTunnel(upstream, downstream);
+                Circuit ep1 = trunk.allocateTunnel(upstream, downstream);
                 tunnels.put(trunk, ep1);
-                Circuit<? extends Terminal> ep2 = trunk.getPeer(ep1);
+                Circuit ep2 = trunk.getPeer(ep1);
                 subterminals
                     .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
                                      k -> new HashMap<>())
@@ -1290,9 +1286,9 @@ public class TransientAggregator implements Aggregator {
 
             /* Ensure the caller's circuits are included in the requests
              * to inferior switches. */
-            for (Map.Entry<Circuit<? extends Terminal>, List<Double>> entry : innerCircuits
+            for (Map.Entry<Circuit, List<Double>> entry : innerCircuits
                 .entrySet()) {
-                Circuit<? extends Terminal> ep = entry.getKey();
+                Circuit ep = entry.getKey();
                 subterminals
                     .computeIfAbsent(terminalGroups.get(ep.getBundle()),
                                      k -> new HashMap<>())
@@ -1302,8 +1298,7 @@ public class TransientAggregator implements Aggregator {
 
             /* For each terminal group, create a new connection
              * request. */
-            for (Map<Circuit<? extends Terminal>, List<Double>> reqs : subterminals
-                .values()) {
+            for (Map<Circuit, List<Double>> reqs : subterminals.values()) {
                 subrequests.add(Segment.of(reqs));
             }
             return;
@@ -1329,28 +1324,26 @@ public class TransientAggregator implements Aggregator {
      * to this switch
      */
     synchronized void
-        plotTree(Collection<? extends Circuit<? extends Terminal>> terminals,
-                 double bandwidth,
-                 Map<? super MyTrunk, ? super Circuit<? extends Terminal>> tunnels,
-                 Map<? super NetworkControl, Collection<Circuit<? extends Terminal>>> subterminals) {
+        plotTree(Collection<? extends Circuit> terminals, double bandwidth,
+                 Map<? super MyTrunk, ? super Circuit> tunnels,
+                 Map<? super NetworkControl, Collection<Circuit>> subterminals) {
         // System.err.println("outer terminal circuits: " +
         // terminals);
 
         /* Map the set of caller's circuits to the corresponding inner
          * circuits that our topology consists of. */
-        Collection<Circuit<? extends Terminal>> innerCircuits =
-            terminals.stream().map(t -> {
-                Terminal p = t.getBundle();
-                if (!(p instanceof MyTerminal))
-                    throw new IllegalArgumentException("circuit " + t
-                        + " not part of " + name);
-                MyTerminal xp = (MyTerminal) p;
-                if (xp.owner() != this)
-                    throw new IllegalArgumentException("circuit " + t
-                        + " not part of " + name);
-                Terminal ip = xp.innerPort();
-                return ip.circuit(t.getLabel());
-            }).collect(Collectors.toSet());
+        Collection<Circuit> innerCircuits = terminals.stream().map(t -> {
+            Terminal p = t.getBundle();
+            if (!(p instanceof MyTerminal))
+                throw new IllegalArgumentException("circuit " + t
+                    + " not part of " + name);
+            MyTerminal xp = (MyTerminal) p;
+            if (xp.owner() != this)
+                throw new IllegalArgumentException("circuit " + t
+                    + " not part of " + name);
+            Terminal ip = xp.innerPort();
+            return ip.circuit(t.getLabel());
+        }).collect(Collectors.toSet());
         // System.err
         // .println("inner terminal circuits: " +
         // innerTerminalCircuits);
@@ -1405,14 +1398,13 @@ public class TransientAggregator implements Aggregator {
             /* Create a tunnel along this trunk, and remember one end of
              * it. */
             MyTrunk firstTrunk = trunks.get(edge.first());
-            Circuit<? extends Terminal> ep1 =
-                firstTrunk.allocateTunnel(bandwidth, bandwidth);
+            Circuit ep1 = firstTrunk.allocateTunnel(bandwidth, bandwidth);
             tunnels.put(firstTrunk, ep1);
 
             /* Get both circuits, find out what switches they correspond
              * to, and add each circuit to its switch's respective set
              * of circuits. */
-            Circuit<? extends Terminal> ep2 = firstTrunk.getPeer(ep1);
+            Circuit ep2 = firstTrunk.getPeer(ep1);
             subterminals.computeIfAbsent(ep1.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep1);
@@ -1423,7 +1415,7 @@ public class TransientAggregator implements Aggregator {
 
         /* Make sure the caller's circuits are included in their
          * switches' corresponding sets. */
-        for (Circuit<? extends Terminal> t : innerCircuits)
+        for (Circuit t : innerCircuits)
             subterminals.computeIfAbsent(t.getBundle().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);

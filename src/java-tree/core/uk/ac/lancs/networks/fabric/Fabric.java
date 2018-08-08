@@ -41,7 +41,6 @@ import java.util.Map;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
  * Abstracts a physical switch. This is a simpler interface than
@@ -78,7 +77,7 @@ public interface Fabric {
      * 
      * @return a reference which identifies the interface
      */
-    Interface<?> getInterface(String desc);
+    Interface getInterface(String desc);
 
     /**
      * Ensure that a bridge exists. A distinct {@link Bridge} object may
@@ -92,9 +91,8 @@ public interface Fabric {
      * 
      * @return a reference to the bridge
      */
-    Bridge
-        bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details);
+    Bridge bridge(BridgeListener listener,
+                  Map<? extends Channel, ? extends TrafficFlow> details);
 
     /**
      * Retain only the specified bridges, discarding all others. Since

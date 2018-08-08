@@ -35,7 +35,7 @@
  */
 package uk.ac.lancs.networks;
 
-import uk.ac.lancs.networks.circuits.Bundle;
+import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
  * A terminal is an accessible interface to a network, and consists of
@@ -49,7 +49,7 @@ import uk.ac.lancs.networks.circuits.Bundle;
  * 
  * @author simpsons
  */
-public interface Terminal extends Bundle<Terminal> {
+public interface Terminal {
     /**
      * Get the network directly owning this terminal.
      * 
@@ -63,4 +63,16 @@ public interface Terminal extends Bundle<Terminal> {
      * @return the name of the terminal
      */
     String name();
+
+    /**
+     * Get the circuit for a given label applied to traffic through this
+     * terminal.
+     * 
+     * @param label the label subdividing traffic on this terminal
+     * 
+     * @return the circuit for the given label
+     */
+    default Circuit circuit(int label) {
+        return new Circuit(this, label);
+    }
 }
