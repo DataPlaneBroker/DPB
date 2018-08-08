@@ -112,7 +112,7 @@ public class DummySwitch implements Network {
 
             /* Check that all circuits belong to us. */
             for (Circuit ep : request.circuitFlows().keySet()) {
-                Terminal p = ep.getBundle();
+                Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new IllegalArgumentException("not my circuit: "
                         + ep);

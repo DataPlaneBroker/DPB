@@ -241,7 +241,7 @@ public class TransientAggregator implements Aggregator {
              * distinct reference of our own for each one. */
             Map<Service, Segment> subcons = subrequests.stream()
                 .collect(Collectors.toMap(r -> r.circuitFlows().keySet()
-                    .iterator().next().getBundle().getNetwork().newService(),
+                    .iterator().next().getTerminal().getNetwork().newService(),
                                           r -> r));
 
             /* Create a client for each subservice. */
@@ -686,12 +686,12 @@ public class TransientAggregator implements Aggregator {
          */
         Circuit getPeer(Circuit p) {
             synchronized (TransientAggregator.this) {
-                if (p.getBundle().equals(start)) {
+                if (p.getTerminal().equals(start)) {
                     Integer other = startToEndMap.get(p.getLabel());
                     if (other == null) return null;
                     return end.circuit(other);
                 }
-                if (p.getBundle().equals(end)) {
+                if (p.getTerminal().equals(end)) {
                     Integer other = endToStartMap.get(p.getLabel());
                     if (other == null) return null;
                     return start.circuit(other);
@@ -748,11 +748,11 @@ public class TransientAggregator implements Aggregator {
          */
         void releaseTunnel(Circuit circuit) {
             final int startLabel;
-            if (circuit.getBundle().equals(start)) {
+            if (circuit.getTerminal().equals(start)) {
                 startLabel = circuit.getLabel();
                 if (!startToEndMap.containsKey(startLabel))
                     throw new IllegalArgumentException("unmapped " + circuit);
-            } else if (circuit.getBundle().equals(end)) {
+            } else if (circuit.getTerminal().equals(end)) {
                 int endLabel = circuit.getLabel();
                 Integer rv = endToStartMap.get(endLabel);
                 if (rv == null)
@@ -1072,7 +1072,7 @@ public class TransientAggregator implements Aggregator {
             TrafficFlow flow = entry.getValue();
 
             /* Map this circuit to an inferior switch's terminal. */
-            Terminal outerPort = ep.getBundle();
+            Terminal outerPort = ep.getTerminal();
             if (!(outerPort instanceof MyTerminal))
                 throw new IllegalArgumentException("circuit " + ep
                     + " not part of " + name);
@@ -1275,11 +1275,11 @@ public class TransientAggregator implements Aggregator {
                 tunnels.put(trunk, ep1);
                 Circuit ep2 = trunk.getPeer(ep1);
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep1.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep1, Arrays.asList(downstream, upstream));
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep2.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep2.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep2, Arrays.asList(upstream, downstream));
             }
@@ -1290,7 +1290,7 @@ public class TransientAggregator implements Aggregator {
                 .entrySet()) {
                 Circuit ep = entry.getKey();
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }
@@ -1333,7 +1333,7 @@ public class TransientAggregator implements Aggregator {
         /* Map the set of caller's circuits to the corresponding inner
          * circuits that our topology consists of. */
         Collection<Circuit> innerCircuits = terminals.stream().map(t -> {
-            Terminal p = t.getBundle();
+            Terminal p = t.getTerminal();
             if (!(p instanceof MyTerminal))
                 throw new IllegalArgumentException("circuit " + t
                     + " not part of " + name);
@@ -1351,7 +1351,7 @@ public class TransientAggregator implements Aggregator {
         /* Get the set of terminals that will be used as destinations in
          * routing. */
         Collection<Terminal> innerTerminals = innerCircuits.stream()
-            .map(Circuit::getBundle).collect(Collectors.toSet());
+            .map(Circuit::getTerminal).collect(Collectors.toSet());
         // System.err.println("inner terminal terminals: " +
         // innerTerminalPorts);
 
@@ -1405,10 +1405,10 @@ public class TransientAggregator implements Aggregator {
              * to, and add each circuit to its switch's respective set
              * of circuits. */
             Circuit ep2 = firstTrunk.getPeer(ep1);
-            subterminals.computeIfAbsent(ep1.getBundle().getNetwork(),
+            subterminals.computeIfAbsent(ep1.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep1);
-            subterminals.computeIfAbsent(ep2.getBundle().getNetwork(),
+            subterminals.computeIfAbsent(ep2.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(ep2);
         }
@@ -1416,7 +1416,7 @@ public class TransientAggregator implements Aggregator {
         /* Make sure the caller's circuits are included in their
          * switches' corresponding sets. */
         for (Circuit t : innerCircuits)
-            subterminals.computeIfAbsent(t.getBundle().getNetwork(),
+            subterminals.computeIfAbsent(t.getTerminal().getNetwork(),
                                          k -> new HashSet<>())
                 .add(t);
 

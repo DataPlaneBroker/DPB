@@ -43,17 +43,15 @@ package uk.ac.lancs.networks;
  * 
  * @resume A numbered division of a terminal
  * 
- * @param <B> the bundle type
- * 
  * @author simpsons
  */
 public final class Circuit {
-    private final Terminal bundle;
+    private final Terminal circuit;
     private final int label;
 
-    public Circuit(Terminal bundle, int label) {
-        if (bundle == null) throw new NullPointerException("null bundle");
-        this.bundle = bundle;
+    Circuit(Terminal terminal, int label) {
+        if (terminal == null) throw new NullPointerException("null terminal");
+        this.circuit = terminal;
         this.label = label;
     }
 
@@ -62,8 +60,8 @@ public final class Circuit {
      * 
      * @return the circuit's containing terminal
      */
-    public Terminal getBundle() {
-        return bundle;
+    public Terminal getTerminal() {
+        return circuit;
     }
 
     /**
@@ -86,7 +84,8 @@ public final class Circuit {
         final int prime = 31;
         int result = 1;
         result = prime * result + label;
-        result = prime * result + ((bundle == null) ? 0 : bundle.hashCode());
+        result =
+            prime * result + ((circuit == null) ? 0 : circuit.hashCode());
         return result;
     }
 
@@ -105,9 +104,9 @@ public final class Circuit {
         if (getClass() != obj.getClass()) return false;
         Circuit other = (Circuit) obj;
         if (label != other.label) return false;
-        assert bundle != null;
-        assert other.bundle != null;
-        return bundle.equals(other.bundle);
+        assert circuit != null;
+        assert other.circuit != null;
+        return circuit.equals(other.circuit);
     }
 
     /**
@@ -118,6 +117,6 @@ public final class Circuit {
      */
     @Override
     public String toString() {
-        return bundle + ":" + label;
+        return circuit + ":" + label;
     }
 }

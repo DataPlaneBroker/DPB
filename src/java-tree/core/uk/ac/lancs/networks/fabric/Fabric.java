@@ -56,13 +56,13 @@ import uk.ac.lancs.networks.TrafficFlow;
  * it needs to set up a service (a bridge, at this level).
  * 
  * <p>
- * When circuits of several interfaces and bandwidth requirements have
+ * When channels of several interfaces and bandwidth requirements have
  * been gathered to implement a service, they are a requested as a
- * bridge with {@link #bridge(BridgeListener, java.util.Map)}. The
- * physical switch ensures that each requested bridge exists (it might
- * already), and then a call to {@link #retainBridges(Collection)} can
- * be used at the end of a recovery phase to flush out resources left
- * over from previous invocations.
+ * bridge with {@link #bridge(BridgeListener, Map)}. The physical switch
+ * ensures that each requested bridge exists (it might already), and
+ * then a call to {@link #retainBridges(Collection)} can be used at the
+ * end of a recovery phase to flush out resources left over from
+ * previous invocations.
  * 
  * @author simpsons
  */
@@ -86,7 +86,7 @@ public interface Fabric {
      * @param listener an object informed about changes to the state of
      * the bridge
      * 
-     * @param details circuits and bandwidth requirements of the bridge
+     * @param details channels and bandwidth requirements of the bridge
      * 
      * @return a reference to the bridge
      */

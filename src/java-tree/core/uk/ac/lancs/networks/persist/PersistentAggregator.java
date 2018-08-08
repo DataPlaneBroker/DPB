@@ -458,7 +458,7 @@ public class PersistentAggregator implements Aggregator {
                 Map<Service, Segment> subcons = subrequests.stream()
                     .collect(Collectors
                         .toMap(r -> r.circuitFlows().keySet().iterator()
-                            .next().getBundle().getNetwork().newService(),
+                            .next().getTerminal().getNetwork().newService(),
                                r -> r));
 
                 /* If we fail, ensure we release all these resources. */
@@ -500,7 +500,7 @@ public class PersistentAggregator implements Aggregator {
                         .circuitFlows().entrySet()) {
                         Circuit circuit = entry.getKey();
                         SuperiorTerminal term =
-                            (SuperiorTerminal) circuit.getBundle();
+                            (SuperiorTerminal) circuit.getTerminal();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(2, term.id());
                         stmt.setInt(3, circuit.getLabel());
@@ -899,11 +899,11 @@ public class PersistentAggregator implements Aggregator {
 
             final String indexKey, resultKey;
             final Terminal base;
-            if (p.getBundle().equals(start)) {
+            if (p.getTerminal().equals(start)) {
                 indexKey = "start_label";
                 resultKey = "end_label";
                 base = end;
-            } else if (p.getBundle().equals(end)) {
+            } else if (p.getTerminal().equals(end)) {
                 indexKey = "end_label";
                 resultKey = "start_label";
                 base = start;
@@ -1023,9 +1023,9 @@ public class PersistentAggregator implements Aggregator {
              * this tunnel. */
             final int label = circuit.getLabel();
             final String key;
-            if (circuit.getBundle().equals(start)) {
+            if (circuit.getTerminal().equals(start)) {
                 key = "start_label";
-            } else if (circuit.getBundle().equals(end)) {
+            } else if (circuit.getTerminal().equals(end)) {
                 key = "end_label";
             } else {
                 throw new IllegalArgumentException("not our circuit: "
@@ -1704,7 +1704,7 @@ public class PersistentAggregator implements Aggregator {
             TrafficFlow flow = entry.getValue();
 
             /* Map this circuit to an inferior network's terminal. */
-            Terminal outerPort = ep.getBundle();
+            Terminal outerPort = ep.getTerminal();
             if (!(outerPort instanceof SuperiorTerminal))
                 throw new IllegalArgumentException("circuit " + ep
                     + " not part of " + name);
@@ -1891,11 +1891,11 @@ public class PersistentAggregator implements Aggregator {
                 // tunnels.put(trunk, ep1);
                 Circuit ep2 = trunk.getPeer(ep1);
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep1.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep1.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep1, Arrays.asList(downstream, upstream));
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep2.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep2.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep2, Arrays.asList(upstream, downstream));
             }
@@ -1906,7 +1906,7 @@ public class PersistentAggregator implements Aggregator {
                 .entrySet()) {
                 Circuit ep = entry.getKey();
                 subterminals
-                    .computeIfAbsent(terminalGroups.get(ep.getBundle()),
+                    .computeIfAbsent(terminalGroups.get(ep.getTerminal()),
                                      k -> new HashMap<>())
                     .put(ep, entry.getValue());
             }

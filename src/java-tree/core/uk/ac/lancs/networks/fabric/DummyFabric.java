@@ -151,7 +151,7 @@ public final class DummyFabric implements Fabric {
     public synchronized Bridge
         bridge(BridgeListener listener,
                Map<? extends Channel, ? extends TrafficFlow> details) {
-        /* Look up all circuits to find out if they already belong to a
+        /* Look up all channels to find out if they already belong to a
          * bridge. */
         Collection<BridgeInstance> existingBridges =
             details.keySet().stream().map(index::get).filter(br -> br != null)
@@ -168,7 +168,7 @@ public final class DummyFabric implements Fabric {
             return new BridgeReference(br);
         }
 
-        /* If any non-matching bridges have requested circuits, the
+        /* If any non-matching bridges have requested channels, the
          * action was a failure. TODO: Maybe throw an exception? */
         if (!existingBridges.isEmpty()) return null;
 

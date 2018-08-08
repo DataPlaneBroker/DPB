@@ -152,7 +152,7 @@ public class PersistentSwitch implements Switch {
 
             /* Check that all circuits belong to us. */
             for (Circuit ep : request.circuitFlows().keySet()) {
-                Terminal p = ep.getBundle();
+                Terminal p = ep.getTerminal();
                 if (!(p instanceof SwitchTerminal))
                     throw new InvalidServiceException("circuit " + ep
                         + " not part of " + name);
@@ -182,7 +182,7 @@ public class PersistentSwitch implements Switch {
                         .circuitFlows().entrySet()) {
                         Circuit circuit = entry.getKey();
                         SwitchTerminal terminal =
-                            (SwitchTerminal) circuit.getBundle();
+                            (SwitchTerminal) circuit.getTerminal();
                         TrafficFlow flow = entry.getValue();
                         stmt.setInt(2, terminal.id());
                         stmt.setInt(3, circuit.getLabel());
@@ -818,7 +818,7 @@ public class PersistentSwitch implements Switch {
     }
 
     private Channel mapCircuit(Circuit ep) {
-        SwitchTerminal terminal = (SwitchTerminal) ep.getBundle();
+        SwitchTerminal terminal = (SwitchTerminal) ep.getTerminal();
         return terminal.getInnerCircuit(ep.getLabel());
     }
 
