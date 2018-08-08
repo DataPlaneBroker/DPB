@@ -72,7 +72,8 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp> and
  * <samp>{@value #SHAREDVFC_TYPE_NAME}</samp> respectively.
  * 
- * <table>
+ * <table summary="This table lists Corsa fabric implementations
+ * supported by this factory, and how to select them.">
  * <thead>
  * <tr>
  * <th>Value of <samp>{@value #TYPE_FIELD}</samp></th>

@@ -38,7 +38,7 @@ package uk.ac.lancs.networks;
 /**
  * Indicates immediate detection of an invalid service description. This
  * kind of exception can occur immediately on calling
- * {@link Service#define(ServiceDescription)}.
+ * {@link Service#define(Segment)}.
  * 
  * @author simpsons
  */

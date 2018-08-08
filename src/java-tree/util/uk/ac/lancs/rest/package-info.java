@@ -36,12 +36,10 @@
 
 /**
  * Provides some basic tools for invoking REST APIs. {@link RESTClient}
- * provides a wrapper around {@link HttpClient} to perform REST
- * invocations, and {@link JSONParser} is used to parse responses.
+ * provides a wrapper around {@link org.apache.http.client.HttpClient}
+ * to perform REST invocations, and {@link javax.json.JsonReader} is
+ * used to parse responses.
  * 
  * @author simpsons
  */
 package uk.ac.lancs.rest;
-
-import org.apache.http.client.HttpClient;
-import org.json.simple.parser.JSONParser;

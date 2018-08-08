@@ -174,7 +174,7 @@ public interface Configuration {
      * 
      * @return the keys
      * 
-     * @default <code>{@link #keys(String) keys}("")</code> is invoked.
+     * @default <code>{@linkplain #keys(String) keys}("")</code> is invoked.
      */
     default Iterable<String> keys() {
         return keys("");

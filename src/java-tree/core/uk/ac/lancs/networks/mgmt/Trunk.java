@@ -88,7 +88,9 @@ public interface Trunk {
      * 
      * @param amount the amount to deduct from the available bandwidth
      * in each direction
-     * @throws NetworkManagementException
+     * 
+     * @throws NetworkManagementException if the amount exceeds either
+     * of the available levels
      * 
      * @throws IllegalArgumentException if the amount is negative
      * 

@@ -544,7 +544,7 @@ public final class Commander {
      * 
      * <dd>Remove the named terminal.
      * 
-     * <dt><samp>add-trunk</samp> <var>network</var>:<var>terminal</var>
+     * <dt><samp>add-trunk <var>network</var>:<var>terminal</var>
      * <var>network</var>:<var>terminal</var></samp>
      * 
      * <dd>Create a trunk in the current aggregator connecting two
