@@ -40,8 +40,11 @@ import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -148,9 +151,33 @@ public final class VLANCircuitFabric implements Fabric {
         }
     }
 
+    private final Map<Collection<Channel>, Slice> slicesByChannelSet =
+        new HashMap<>();
+
     @Override
-    public void retainBridges(Collection<? extends Bridge> bridges) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+    public synchronized void
+        retainBridges(Collection<? extends Bridge> bridges) {
+        /* Filter the references to consider only our own. */
+        Collection<Slice> slices = new HashSet<>();
+        for (Bridge br : bridges) {
+            if (!(br instanceof BridgeRef)) continue;
+            BridgeRef ref = (BridgeRef) br;
+            Slice slice = ref.slice;
+            slices.add(slice);
+        }
+
+        /* Identify what we are not retaining. */
+        Collection<Slice> dropped = new ArrayList<>();
+        for (Iterator<Slice> iter =
+            slicesByChannelSet.values().iterator(); iter.hasNext();) {
+            Slice slice = iter.next();
+            if (slices.contains(slice)) continue;
+            dropped.add(slice);
+            iter.remove();
+        }
+
+        /* Tell the unretained slices to stop. */
+        dropped.forEach(Slice::stop);
     }
 
     @Override
@@ -158,10 +185,19 @@ public final class VLANCircuitFabric implements Fabric {
         return 1;
     }
 
+    private Collection<VLANCircuitId>
+        map(Collection<? extends Channel> channels) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
     @Override
-    public Bridge
+    public synchronized Bridge
         bridge(BridgeListener listener,
                Map<? extends Channel, ? extends TrafficFlow> details) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        Collection<Channel> key = new HashSet<>(details.keySet());
+        Slice slice =
+            slicesByChannelSet.computeIfAbsent(key, k -> new Slice(map(k)));
+        slice.addListener(listener);
+        return new BridgeRef(slice);
     }
 }
