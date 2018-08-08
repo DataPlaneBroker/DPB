@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric.openflow;
+package uk.ac.lancs.networks.openflow;
 
 import java.io.IOException;
 import java.net.URI;

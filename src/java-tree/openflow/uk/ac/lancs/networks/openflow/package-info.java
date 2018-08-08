@@ -39,4 +39,4 @@
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.fabric.openflow;
+package uk.ac.lancs.networks.openflow;

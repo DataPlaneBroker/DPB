@@ -33,44 +33,30 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric.openflow;
+package uk.ac.lancs.networks.openflow;
 
-import java.util.Collection;
-import java.util.Map;
-
-import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
-import uk.ac.lancs.networks.fabric.Bridge;
-import uk.ac.lancs.networks.fabric.BridgeListener;
-import uk.ac.lancs.networks.fabric.Fabric;
-import uk.ac.lancs.networks.fabric.Interface;
+import uk.ac.lancs.agent.Agent;
+import uk.ac.lancs.agent.AgentContext;
+import uk.ac.lancs.agent.AgentCreationException;
+import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.config.Configuration;
 
 /**
- * Manages the slicing of an OpenFlow switch by VLAN circuit ids through
- * a REST interface on its controller.
+ * 
  * 
  * @author simpsons
  */
-public final class VLANCircuitFabric implements Fabric {
+public final class VLANCircuitFabricAgentFactory implements AgentFactory {
+
     @Override
-    public Interface<?> getInterface(String desc) {
+    public boolean recognize(Configuration conf) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
     @Override
-    public Bridge
-        bridge(BridgeListener listener,
-               Map<? extends Circuit<? extends Interface<?>>, ? extends TrafficFlow> details) {
+    public Agent makeAgent(AgentContext ctxt, Configuration conf)
+        throws AgentCreationException {
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
-    @Override
-    public void retainBridges(Collection<? extends Bridge> bridges) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
-    public int capacity() {
-        return 1;
-    }
 }

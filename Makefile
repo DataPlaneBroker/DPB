@@ -33,6 +33,13 @@ deps_corsa += core
 roots_corsa += uk.ac.lancs.networks.corsa.DP2000FabricAgentFactory
 roots_corsa += uk.ac.lancs.networks.corsa.rest.CorsaREST
 
+SELECTED_JARS += initiate-dpb-openflow
+trees_initiate-dpb-openflow += openflow
+deps_openflow += util
+deps_openflow += core
+roots_openflow += \
+uk.ac.lancs.networks.openflow.VLANCircuitFabricAgentFactory
+
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
 roots_util += uk.ac.lancs.config.ConfigurationContext
@@ -66,6 +73,7 @@ DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
 DOC_PKGS += uk.ac.lancs.networks.fabric
+DOC_PKGS += uk.ac.lancs.networks.openflow
 DOC_PKGS += uk.ac.lancs.networks.corsa
 DOC_PKGS += uk.ac.lancs.networks.corsa.rest
 DOC_PKGS += uk.ac.lancs.config

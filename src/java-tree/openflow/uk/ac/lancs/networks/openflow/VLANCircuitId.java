@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.fabric.openflow;
+package uk.ac.lancs.networks.openflow;
 
 import java.util.AbstractList;
 import java.util.Collections;
@@ -110,9 +110,11 @@ public final class VLANCircuitId {
             + ">[0-9]+)(?:\\\\.(?<" + INNER_VLAN_GROUP_NAME + ">[0-9]+))?)?";
     /**
      * Matches strings identifying circuits. The groups
-     * <samp>{@value #port}</samp>, <samp>{@value #vlan}</samp> and
-     * <samp>{@value #innerVlan}</samp> are present if specified. The
-     * pattern is compatible with the result of {@link #toString()}:
+     * <samp>{@value #PORT_GROUP_NAME}</samp>,
+     * <samp>{@value #VLAN_GROUP_NAME}</samp> and
+     * <samp>{@value #INNER_VLAN_GROUP_NAME}</samp> are present if
+     * specified. The pattern is compatible with the result of
+     * {@link #toString()}:
      * 
      * <pre>
      * {@value #TUPLE_PATTERN_TEXT}
@@ -191,7 +193,7 @@ public final class VLANCircuitId {
 
     /**
      * Get a string representation of this circuit id. The result is
-     * compatible with {@value #TUPLE_PATTERN}.
+     * compatible with {@link #TUPLE_PATTERN}.
      * 
      * @return a string of the form <samp>5</samp>, <samp>5.100</samp>
      * or <samp>5.100.20</samp>
