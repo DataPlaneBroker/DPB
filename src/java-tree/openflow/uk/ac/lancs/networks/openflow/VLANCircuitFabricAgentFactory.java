@@ -43,6 +43,8 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
@@ -77,6 +79,10 @@ import uk.ac.lancs.networks.fabric.Fabric;
  * {@value #DEFAULT_PORT_COUNT})
  * 
  * <dd>Specifies the number of ports in the switch.
+ * 
+ * <dt><samp>dpid</samp>
+ * 
+ * <dd>Specifies the datapath id of the switch.
  * 
  * <dt><samp>ctrl.rest.location</samp>
  * 
@@ -131,6 +137,7 @@ public final class VLANCircuitFabricAgentFactory implements AgentFactory {
         throws AgentCreationException {
         final int portCount = Integer.parseInt(conf
             .get("capacity.ports", Integer.toString(DEFAULT_PORT_COUNT)));
+        final long dpid = Long.parseLong(conf.get("dpid"));
         final URI ctrlService = conf.getLocation("ctrl.rest.location");
         final X509Certificate ctrlCert;
         final String ctrlAuthz;
@@ -176,10 +183,15 @@ public final class VLANCircuitFabricAgentFactory implements AgentFactory {
                 throws ServiceCreationException {
                 if (key != null) return null;
                 if (type != Fabric.class) return null;
-                VLANCircuitFabric result =
-                    new VLANCircuitFabric(portCount, ctrlService, ctrlCert,
-                                          ctrlAuthz);
-                return type.cast(result);
+                try {
+                    VLANCircuitFabric result =
+                        new VLANCircuitFabric(portCount, dpid, ctrlService,
+                                              ctrlCert, ctrlAuthz);
+                    return type.cast(result);
+                } catch (KeyManagementException
+                    | NoSuchAlgorithmException ex) {
+                    throw new ServiceCreationException(ex);
+                }
             }
         });
     }

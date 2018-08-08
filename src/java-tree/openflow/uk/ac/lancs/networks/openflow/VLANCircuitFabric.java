@@ -36,6 +36,8 @@
 package uk.ac.lancs.networks.openflow;
 
 import java.net.URI;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Map;
@@ -54,11 +56,21 @@ import uk.ac.lancs.networks.fabric.Interface;
  * @author simpsons
  */
 public final class VLANCircuitFabric implements Fabric {
+    private final long dpid;
+    private final VLANCircuitControllerREST sliceRest;
+
     /**
+     * @throws NoSuchAlgorithmException
+     * @throws KeyManagementException
      * 
      */
-    public VLANCircuitFabric(int portCount, URI ctrlService,
-                             X509Certificate ctrlCert, String ctrlAuthz) {
+    public VLANCircuitFabric(int portCount, long dpid, URI ctrlService,
+                             X509Certificate ctrlCert, String ctrlAuthz)
+        throws KeyManagementException,
+            NoSuchAlgorithmException {
+        this.dpid = dpid;
+        this.sliceRest =
+            new VLANCircuitControllerREST(ctrlService, ctrlCert, ctrlAuthz);
         throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
