@@ -35,28 +35,152 @@
  */
 package uk.ac.lancs.networks.openflow;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.stream.Collectors;
+
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
+import uk.ac.lancs.agent.CacheAgent;
+import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.fabric.Fabric;
 
 /**
+ * Creates agents each implementing a simple fabric that accepts sets of
+ * 1-, 2- and 3-tuples identifying raw ports, ctagged ports or
+ * stag-ctagged ports as network service end points to be connected
+ * together. Tuple sets are passed over a REST interface defined by
+ * {@link VLANCircuitControllerREST}, usually to an OpenFlow controller.
+ * QoS parameters are ignored. The service type is {@link Fabric},
+ * implemented by {@link VLANCircuitFabric}.
  * 
+ * <p>
+ * The following configuration properties are recognized:
+ * 
+ * <dl>
+ * 
+ * <dt><samp>capacity.ports</samp> (default
+ * {@value #DEFAULT_PORT_COUNT})
+ * 
+ * <dd>Specifies the number of ports in the switch.
+ * 
+ * <dt><samp>ctrl.rest.location</samp>
+ * 
+ * <dd>Specifies the URI of the controller's REST API. Do not include
+ * <samp>api/v1/</samp> components, as these are added automatically.
+ * 
+ * <dt><samp>ctrl.rest.cert.file</samp>
+ * 
+ * <dd>Specifies the filename (as a URI relative to the containing file)
+ * containing an X.509 certificate used to verify the identity of the
+ * controller.
+ * 
+ * <dt><samp>ctrl.rest.authz.file</samp>
+ * 
+ * <dd>Specifies the filename (as a URI relative to the containing file)
+ * containing the authorization string to be sent with each REST request
+ * to the controller. The string may be broken into several lines for
+ * readability.
+ * 
+ * </dl>
  * 
  * @author simpsons
  */
 public final class VLANCircuitFabricAgentFactory implements AgentFactory {
+    private static final String TYPE_FIELD = "type";
+    private static final String VLANCIRCUIT_TYPE_NAME =
+        "openflow-vlancircuit";
+    private static final int DEFAULT_PORT_COUNT = 32;
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation recognizes only the string
+     * <samp>{@value #VLANCIRCUIT_TYPE_NAME}</samp> in the field
+     * <samp>{@value #TYPE_FIELD}</samp>.
+     */
     @Override
     public boolean recognize(Configuration conf) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        String type = conf.get(TYPE_FIELD);
+        if (type == null) return false;
+        switch (type) {
+        case VLANCIRCUIT_TYPE_NAME:
+            return true;
+
+        default:
+            return false;
+        }
     }
 
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+        final int portCount = Integer.parseInt(conf
+            .get("capacity.ports", Integer.toString(DEFAULT_PORT_COUNT)));
+        final URI ctrlService = conf.getLocation("ctrl.rest.location");
+        final X509Certificate ctrlCert;
+        final String ctrlAuthz;
+        {
+            final File ctrlCertFile = conf.getFile("ctrl.rest.cert.file");
+            if (ctrlCertFile == null) {
+                ctrlCert = null;
+            } else {
+                try (InputStream in = new FileInputStream(ctrlCertFile)) {
+                    CertificateFactory cf =
+                        CertificateFactory.getInstance("X.509");
+                    ctrlCert = (X509Certificate) cf.generateCertificate(in);
+                } catch (IOException | CertificateException e) {
+                    throw new AgentCreationException("getting certificate from "
+                        + ctrlCertFile, e);
+                }
+            }
+            final Path ctrlAuthzFile = conf.getPath("ctrl.rest.authz.file");
+            if (ctrlAuthzFile == null) {
+                ctrlAuthz = null;
+            } else {
+                try {
+                    ctrlAuthz = Files
+                        .readAllLines(ctrlAuthzFile,
+                                      StandardCharsets.US_ASCII)
+                        .stream().collect(Collectors.joining());
+                } catch (IOException e) {
+                    throw new AgentCreationException("getting authorization from "
+                        + ctrlAuthzFile, e);
+                }
+            }
+        }
 
+        return new CacheAgent(new Agent() {
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == Fabric.class) return Collections.singleton(null);
+                return Collections.emptySet();
+            }
+
+            @Override
+            public <T> T findService(Class<T> type, String key)
+                throws ServiceCreationException {
+                if (key != null) return null;
+                if (type != Fabric.class) return null;
+                VLANCircuitFabric result =
+                    new VLANCircuitFabric(portCount, ctrlService, ctrlCert,
+                                          ctrlAuthz);
+                return type.cast(result);
+            }
+        });
+    }
 }

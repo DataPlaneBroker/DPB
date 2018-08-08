@@ -58,11 +58,29 @@ import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
 
 /**
- * 
+ * Wraps a REST interface to an OpenFlow controller implementing a
+ * VLAN-circuit sliced learning switch.
  * 
  * @author simpsons
  */
-final class VLANCircuitControllerREST extends RESTClient {
+public final class VLANCircuitControllerREST extends RESTClient {
+    /**
+     * Create a REST client to talk to a controller.
+     * 
+     * @param service the URI of the service; <samp>api/v1/</samp> is
+     * appended internally.
+     * 
+     * @param cert the certificate for verifying the identity of the
+     * service, or {@code null} if not required
+     * 
+     * @param authz an authorization string to include with each
+     * request, or {@code null} if not required
+     * 
+     * @throws KeyManagementException if there is a problem with the key
+     * 
+     * @throws NoSuchAlgorithmException if SSL is an unknown context
+     * type
+     */
     public VLANCircuitControllerREST(URI service, X509Certificate cert,
                                      String authz)
         throws NoSuchAlgorithmException,
@@ -89,6 +107,17 @@ final class VLANCircuitControllerREST extends RESTClient {
         return result;
     }
 
+    /**
+     * Get the current set of circuit id sets that identify slices of
+     * the switch.
+     * 
+     * @param dpid the datapath id of the switch being controlled
+     * 
+     * @return the REST response, including a set of sets of circuit ids
+     * 
+     * @throws IOException if there was an I/O in talking with the
+     * controller
+     */
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         getCircuitSets(long dpid) throws IOException {
@@ -96,6 +125,20 @@ final class VLANCircuitControllerREST extends RESTClient {
             .adapt(VLANCircuitControllerREST::decodeCircuitSets);
     }
 
+    /**
+     * Add a new set of circuit ids to form a new slice. Overlaps or
+     * conflicts with circuits of other slices will cause those circuits
+     * to be removed from those slices.
+     * 
+     * @param dpid the datapath id of the switch being controlled
+     * 
+     * @param sets the additional sets of circuit ids to apply
+     * 
+     * @return the REST response, including a set of sets of circuit ids
+     * 
+     * @throws IOException if there was an I/O in talking with the
+     * controller
+     */
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,
@@ -104,6 +147,20 @@ final class VLANCircuitControllerREST extends RESTClient {
         return defineCircuitSets(dpid, Arrays.asList(sets));
     }
 
+    /**
+     * Add a new set of circuit ids to form a new slice. Overlaps or
+     * conflicts with circuits of other slices will cause those circuits
+     * to be removed from those slices.
+     * 
+     * @param dpid the datapath id of the switch being controlled
+     * 
+     * @param sets the additional sets of circuit ids to apply
+     * 
+     * @return the REST response, including a set of sets of circuit ids
+     * 
+     * @throws IOException if there was an I/O in talking with the
+     * controller
+     */
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,

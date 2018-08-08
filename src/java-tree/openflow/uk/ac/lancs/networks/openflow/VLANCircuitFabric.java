@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.openflow;
 
+import java.net.URI;
+import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Map;
 
@@ -52,6 +54,14 @@ import uk.ac.lancs.networks.fabric.Interface;
  * @author simpsons
  */
 public final class VLANCircuitFabric implements Fabric {
+    /**
+     * 
+     */
+    public VLANCircuitFabric(int portCount, URI ctrlService,
+                             X509Certificate ctrlCert, String ctrlAuthz) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
     @Override
     public Interface<?> getInterface(String desc) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
