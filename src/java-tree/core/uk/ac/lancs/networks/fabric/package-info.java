@@ -39,16 +39,16 @@
  * switch.
  * 
  * <p>
- * The {@link uk.ac.lancs.networks.Terminal}s of a physical switch are
- * <dfn>interfaces</dfn>, which might correspond to physical ports, or
- * to ports with some sort of tagging, or to port aggregations. An
- * interface is described by an implemenation-defined string, and
+ * The terminals of a physical switch are <dfn>interfaces</dfn>, which
+ * might correspond to physical ports, or to ports with some sort of
+ * tagging, or to port aggregations. An interface is described by an
+ * implemenation-defined string, and
  * {@link uk.ac.lancs.networks.fabric.Fabric#getInterface(String)} can
  * be used to obtain one.
  * 
  * <p>
  * A physical switch establishes a set of <dfn>bridges</dfn>, each
- * connecting {@link uk.ac.lancs.networks.circuits.Circuit}s of a subset
+ * connecting {@link uk.ac.lancs.networks.fabric.Channel}s of a subset
  * of its interfaces with outgoing shaping and incoming metering of
  * bandwidth (an {@link uk.ac.lancs.networks.TrafficFlow}). A switch can
  * be asked to <em>ensure</em> that a bridge exists with
@@ -62,5 +62,3 @@
  * @author simpsons
  */
 package uk.ac.lancs.networks.fabric;
-
-import java.util.Map;

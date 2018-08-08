@@ -200,7 +200,7 @@ public interface CorsaInterface extends Interface {
     /**
      * Get the minimum valid label for circuits of this interface. This
      * prescribes the acceptable range for
-     * {@link Interface#circuit(int)}.
+     * {@link Interface#channel(int)}.
      * 
      * @return the minimum valid label
      */
@@ -209,7 +209,7 @@ public interface CorsaInterface extends Interface {
     /**
      * Get the maximum valid label for circuits of this interface. This
      * prescribes the acceptable range for
-     * {@link Interface#circuit(int)}.
+     * {@link Interface#channel(int)}.
      * 
      * @return the maximum valid label
      */
@@ -248,7 +248,7 @@ public interface CorsaInterface extends Interface {
      * Resolve a label on this interface into a circuit. The circuit's
      * interface need not be this interface, and its label need not be
      * the supplied label, but the result must be the canonical
-     * equivalent of calling {@link Interface#circuit(int)} on this
+     * equivalent of calling {@link Interface#channel(int)} on this
      * interface with the provided label.
      * 
      * @param label the label of the circuit within this interface
@@ -256,7 +256,7 @@ public interface CorsaInterface extends Interface {
      * @return the resolved circuit
      * 
      * @default This implementation simply calls
-     * {@link Interface#circuit(int)} on itself with the given label.
+     * {@link Interface#channel(int)} on itself with the given label.
      */
     default Channel resolve(int label) {
         return this.channel(label);

@@ -33,15 +33,13 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.circuits;
-
-import uk.ac.lancs.networks.Terminal;
+package uk.ac.lancs.networks;
 
 /**
  * Identifies a numbered virtual circuit within a terminal of other
  * circuits. Every circuit belongs to a terminal, and is distinguished
  * from other circuits of the same terminal by an integer label. Get a
- * circuit by calling {@link Bundle#circuit(int)}.
+ * circuit by calling {@link Terminal#circuit(int)}.
  * 
  * @resume A numbered division of a terminal
  * 

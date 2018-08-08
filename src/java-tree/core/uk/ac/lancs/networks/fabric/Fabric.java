@@ -39,7 +39,6 @@ import java.util.Collection;
 import java.util.Map;
 
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 
 /**
@@ -50,7 +49,7 @@ import uk.ac.lancs.networks.TrafficFlow;
  * 
  * <p>
  * Physical or virtual interfaces on the switch correspond to
- * {@link Terminal}s in the higher abstraction, and are identifiable by
+ * {@link Interface}s in the higher abstraction, and are identifiable by
  * implementation-defined strings, usually supplied to the management of
  * the network abstraction along with an abstract terminal name. The
  * network passes this abstraction to {@link #getInterface(String)} when
@@ -59,11 +58,11 @@ import uk.ac.lancs.networks.TrafficFlow;
  * <p>
  * When circuits of several interfaces and bandwidth requirements have
  * been gathered to implement a service, they are a requested as a
- * bridge with {@link #bridge(BridgeListener, Map)}. The physical switch
- * ensures that each requested bridge exists (it might already), and
- * then a call to {@link #retainBridges(Collection)} can be used at the
- * end of a recovery phase to flush out resources left over from
- * previous invocations.
+ * bridge with {@link #bridge(BridgeListener, java.util.Map)}. The
+ * physical switch ensures that each requested bridge exists (it might
+ * already), and then a call to {@link #retainBridges(Collection)} can
+ * be used at the end of a recovery phase to flush out resources left
+ * over from previous invocations.
  * 
  * @author simpsons
  */

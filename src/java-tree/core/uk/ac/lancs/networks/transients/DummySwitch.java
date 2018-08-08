@@ -44,14 +44,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.routing.span.Edge;
 

@@ -35,8 +35,6 @@
  */
 package uk.ac.lancs.networks;
 
-import uk.ac.lancs.networks.circuits.Circuit;
-
 /**
  * A terminal is an accessible interface to a network, and consists of
  * multiple circuits, distinguishable by an integral label.

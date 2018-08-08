@@ -48,8 +48,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import uk.ac.lancs.networks.circuits.Circuit;
-
 /**
  * Describes a service by its set of circuits and their QoS
  * requirements.

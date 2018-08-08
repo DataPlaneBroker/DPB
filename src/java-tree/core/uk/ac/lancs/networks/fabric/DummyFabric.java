@@ -45,7 +45,6 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.circuits.Circuit;
 
 /**
  * Does nothing but report on requested changes.

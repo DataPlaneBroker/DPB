@@ -37,8 +37,8 @@
 /**
  * The primary class is {@link uk.ac.lancs.networks.NetworkControl},
  * which allows the creation of {@link uk.ac.lancs.networks.Service}s
- * across it, connecting {@link uk.ac.lancs.networks.circuits.Circuit}s
- * with certain QoS requirements. Circuits are numbered subdivisions of
+ * across it, connecting {@link uk.ac.lancs.networks.Circuit}s with
+ * certain QoS requirements. Circuits are numbered subdivisions of
  * {@link uk.ac.lancs.networks.Terminal}s, points of access for traffic
  * into and out of a network.
  * 

@@ -37,7 +37,6 @@ package uk.ac.lancs.networks.persist;
 
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Interface;
 
