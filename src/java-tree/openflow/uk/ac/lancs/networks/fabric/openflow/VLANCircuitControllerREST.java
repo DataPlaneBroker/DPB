@@ -99,14 +99,13 @@ final class VLANCircuitControllerREST extends RESTClient {
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,
-                          Collection<? extends VLANCircuitId>... sets)
+                          @SuppressWarnings("unchecked") Collection<? extends VLANCircuitId>... sets)
             throws IOException {
         return defineCircuitSets(dpid, Arrays.asList(sets));
     }
 
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
-
         defineCircuitSets(long dpid,
                           Collection<? extends Collection<? extends VLANCircuitId>> sets)
             throws IOException {
