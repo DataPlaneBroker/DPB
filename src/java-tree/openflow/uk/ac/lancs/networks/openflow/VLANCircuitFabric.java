@@ -35,13 +35,19 @@
  */
 package uk.ac.lancs.networks.openflow;
 
+import java.io.IOException;
 import java.net.URI;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.function.Consumer;
 
+import javax.json.JsonException;
+
+import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
 import uk.ac.lancs.networks.fabric.Bridge;
@@ -77,6 +83,69 @@ public final class VLANCircuitFabric implements Fabric {
     @Override
     public Interface<?> getInterface(String desc) {
         throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    private class Slice {
+        private final Collection<VLANCircuitId> circuits;
+
+        Slice(Collection<? extends VLANCircuitId> circuits) {
+            this.circuits = new HashSet<>(circuits);
+        }
+
+        boolean started = false;
+
+        void start() {
+            assert Thread.holdsLock(VLANCircuitFabric.this);
+            if (!started) {
+                try {
+                    sliceRest.defineCircuitSet(dpid, circuits);
+                } catch (IOException | JsonException ex) {
+                    ServiceResourceException t =
+                        new ServiceResourceException("could not connect "
+                            + circuits, ex);
+                    inform(l -> l.error(t));
+                    return;
+                }
+                started = true;
+            }
+            inform(BridgeListener::created);
+        }
+
+        void stop() {
+            assert Thread.holdsLock(VLANCircuitFabric.this);
+
+            // TODO
+
+            inform(BridgeListener::destroyed);
+            listeners.clear();
+        }
+
+        private final Collection<BridgeListener> listeners = new HashSet<>();
+
+        void inform(Consumer<BridgeListener> action) {
+            assert Thread.holdsLock(VLANCircuitFabric.this);
+            listeners.forEach(action);
+        }
+
+        void addListener(BridgeListener listener) {
+            assert Thread.holdsLock(VLANCircuitFabric.this);
+            listeners.add(listener);
+        }
+    }
+
+    private class BridgeRef implements Bridge {
+        final Slice slice;
+
+        BridgeRef(Slice slice) {
+            this.slice = slice;
+        }
+
+        @Override
+        public void start() {
+            synchronized (VLANCircuitFabric.this) {
+                slice.start();
+            }
+        }
     }
 
     @Override

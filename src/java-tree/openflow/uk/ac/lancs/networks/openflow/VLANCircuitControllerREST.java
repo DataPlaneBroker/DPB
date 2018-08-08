@@ -118,7 +118,7 @@ public final class VLANCircuitControllerREST extends RESTClient {
      * @throws IOException if there was an I/O in talking with the
      * controller
      */
-    public
+    public final
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         getCircuitSets(long dpid) throws IOException {
         return get(String.format("config/%016x", dpid))
@@ -132,23 +132,22 @@ public final class VLANCircuitControllerREST extends RESTClient {
      * 
      * @param dpid the datapath id of the switch being controlled
      * 
-     * @param sets the additional sets of circuit ids to apply
+     * @param set the additional set of circuit ids to apply
      * 
      * @return the REST response, including a set of sets of circuit ids
      * 
      * @throws IOException if there was an I/O in talking with the
      * controller
      */
-    public
+    public final
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
-        defineCircuitSets(long dpid,
-                          @SuppressWarnings("unchecked") Collection<? extends VLANCircuitId>... sets)
+        defineCircuitSet(long dpid, Collection<? extends VLANCircuitId> set)
             throws IOException {
-        return defineCircuitSets(dpid, Arrays.asList(sets));
+        return defineCircuitSets(dpid, Arrays.asList(set));
     }
 
     /**
-     * Add a new set of circuit ids to form a new slice. Overlaps or
+     * Add new sets of circuit ids to form a new slice. Overlaps or
      * conflicts with circuits of other slices will cause those circuits
      * to be removed from those slices.
      * 
@@ -161,7 +160,7 @@ public final class VLANCircuitControllerREST extends RESTClient {
      * @throws IOException if there was an I/O in talking with the
      * controller
      */
-    public
+    public final
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,
                           Collection<? extends Collection<? extends VLANCircuitId>> sets)
@@ -178,4 +177,6 @@ public final class VLANCircuitControllerREST extends RESTClient {
         return post(String.format("config/%016x", dpid), params)
             .adapt(VLANCircuitControllerREST::decodeCircuitSets);
     }
+
+    // TODO: Add a routine to delete circuits.
 }
