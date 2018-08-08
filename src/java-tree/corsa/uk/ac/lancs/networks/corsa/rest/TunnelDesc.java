@@ -37,13 +37,14 @@ package uk.ac.lancs.networks.corsa.rest;
 
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonNumber;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonStructure;
 
 /**
  * Describes an existing tunnel or one to be created.
@@ -255,22 +256,21 @@ public class TunnelDesc {
      * 
      * @return the JSON representation of this tunnel
      */
-    @SuppressWarnings("unchecked")
-    public JSONObject toJSON() {
+    public JsonObject toJSON() {
         if (ofport < 0) throw new IllegalStateException("ofport must be set");
         if (port == null) throw new IllegalStateException("port must be set");
-        JSONObject result = new JSONObject();
-        result.put("ofport", ofport);
-        result.put("port", port);
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("ofport", ofport);
+        result.add("port", port);
         if (vlanId >= 0) {
-            result.put("vlan-id", vlanId);
-            if (innerVlanId >= 0) result.put("inner-vlan-id", innerVlanId);
+            result.add("vlan-id", vlanId);
+            if (innerVlanId >= 0) result.add("inner-vlan-id", innerVlanId);
         }
-        if (trafficClass >= 0) result.put("traffic-class", trafficClass);
-        if (shapedRate >= 0) result.put("shaped-rate", shapedRate);
-        if (descr != null) result.put("ifdescr", descr);
+        if (trafficClass >= 0) result.add("traffic-class", trafficClass);
+        if (shapedRate >= 0) result.add("shaped-rate", shapedRate);
+        if (descr != null) result.add("ifdescr", descr);
         /* TODO: vlan-range parameter can be provided too. */
-        return result;
+        return result.build();
     }
 
     /**
@@ -283,11 +283,11 @@ public class TunnelDesc {
      * 
      * @return the requested mapping; never {@code null}
      */
-    public static Map<Integer, TunnelDesc> of(JSONEntity entity) {
-        if (entity.array != null)
-            return of(entity.array);
+    public static Map<Integer, TunnelDesc> of(JsonStructure entity) {
+        if (entity instanceof JsonArray)
+            return of((JsonArray) entity);
         else
-            return of(entity.map);
+            return of((JsonObject) entity);
     }
 
     /**
@@ -298,7 +298,7 @@ public class TunnelDesc {
      * 
      * @return the requested mapping; never {@code null}
      */
-    public static Map<Integer, TunnelDesc> of(JSONObject json) {
+    public static Map<Integer, TunnelDesc> of(JsonObject json) {
         TunnelDesc desc = new TunnelDesc(json);
         return Collections.singletonMap(desc.ofport, desc);
     }
@@ -311,11 +311,9 @@ public class TunnelDesc {
      * 
      * @return the requested mapping; never {@code null}
      */
-    public static Map<Integer, TunnelDesc> of(JSONArray json) {
+    public static Map<Integer, TunnelDesc> of(JsonArray json) {
         Map<Integer, TunnelDesc> tunnels = new HashMap<>();
-        @SuppressWarnings("unchecked")
-        List<JSONObject> list = json;
-        for (JSONObject entry : list) {
+        for (JsonObject entry : json.getValuesAs(JsonObject.class)) {
             TunnelDesc desc = new TunnelDesc(entry);
             int key = desc.ofport;
             tunnels.put(key, desc);
@@ -344,8 +342,8 @@ public class TunnelDesc {
      * 
      * @param entity the JSON entity
      */
-    public TunnelDesc(JSONEntity entity) {
-        this(entity.map);
+    public TunnelDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
@@ -369,31 +367,32 @@ public class TunnelDesc {
      * 
      * @param root the JSON object
      */
-    public TunnelDesc(JSONObject root) {
-        this.ofport = (int) (long) (Long) root.get("ofport");
-        this.type = (String) root.get("type");
-        this.port = (String) root.get("port");
+    public TunnelDesc(JsonObject root) {
+        this.ofport = root.getJsonNumber("ofport").intValue();
+        this.type = root.getString("type");
+        this.port = root.getString("port");
         innerVlanId = vlanId = -1;
         trafficClass = -1;
         tpid = -1;
         switch (type) {
         case "stag-ctag":
         case "ctag-ctag":
-            this.tpid = Integer
-                .parseInt(((String) root.get("tpid")).substring(2), 16);
-            Long ivi = (Long) root.get("inner-vlan-id");
-            this.innerVlanId = ivi == null ? -1 : (int) (long) ivi;
+            this.tpid =
+                Integer.parseInt(root.getString("tpid").substring(2), 16);
+            JsonNumber ivi = root.getJsonNumber("inner-vlan-id");
+            this.innerVlanId = ivi == null ? -1 : ivi.intValue();
             /* Fall-through! */
         case "ctag":
         case "untagged":
-            this.vlanId = (int) (long) (Long) root.get("vlan-id");
-            this.trafficClass = (int) (long) (Long) root.get("traffic-class");
+            this.vlanId = root.getJsonNumber("vlan-id").intValue();
+            this.trafficClass =
+                root.getJsonNumber("traffic-class").intValue();
             break;
         default:
             break;
         }
 
-        this.isShaped = (Boolean) root.get("is-shaped");
+        this.isShaped = root.getBoolean("is-shaped");
         shapedRate = -1;
         queueProfile = null;
         if (isShaped) {
@@ -402,8 +401,8 @@ public class TunnelDesc {
             this.queueProfile = root.get("queue-profile").toString();
         }
 
-        this.operationalState = (String) root.get("oper-state");
-        this.descr = (String) root.get("ifdescr");
+        this.operationalState = root.getString("oper-state");
+        this.descr = root.getString("ifdescr");
 
         @SuppressWarnings("unchecked")
         Map<String, Long> meter = (Map<String, Long>) root.get("meter");

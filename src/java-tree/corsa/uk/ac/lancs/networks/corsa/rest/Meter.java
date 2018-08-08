@@ -35,14 +35,16 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import org.json.simple.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
 /**
  * Describes an operation to set a tunnel's metering.
  * 
  * @author simpsons
  */
-public class Meter<T> implements TunnelPatchOp {
+public class Meter<T extends Number> implements TunnelPatchOp {
     private final String part;
     private final T value;
 
@@ -107,13 +109,12 @@ public class Meter<T> implements TunnelPatchOp {
      * 
      * @return the JSON representation of this meter
      */
-    @SuppressWarnings("unchecked")
     @Override
-    public JSONObject marshal() {
-        JSONObject result = new JSONObject();
-        result.put("op", "replace");
-        result.put("path", "/meter/" + part);
-        result.put("value", value);
-        return result;
+    public JsonObject marshal() {
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("op", "replace");
+        result.add("path", "/meter/" + part);
+        result.add("value", value.doubleValue());
+        return result.build();
     }
 }

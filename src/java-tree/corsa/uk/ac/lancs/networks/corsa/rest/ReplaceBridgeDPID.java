@@ -35,7 +35,9 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import org.json.simple.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
 /**
  * Replaces a bridge's DPID.
@@ -65,13 +67,12 @@ public final class ReplaceBridgeDPID implements BridgePatchOp {
      * 
      * @return the JSON representation of this bridge DPID replacement
      */
-    @SuppressWarnings("unchecked")
     @Override
-    public JSONObject marshal() {
-        JSONObject result = new JSONObject();
-        result.put("op", "replace");
-        result.put("path", "/dpid");
-        result.put("value", "0x" + Long.toHexString(value));
-        return result;
+    public JsonObject marshal() {
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("op", "replace");
+        result.add("path", "/dpid");
+        result.add("value", "0x" + Long.toHexString(value));
+        return result.build();
     }
 }

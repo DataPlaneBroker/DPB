@@ -37,7 +37,9 @@ package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.InetAddress;
 
-import org.json.simple.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
 /**
  * Describes the configuration of a new controller.
@@ -118,17 +120,16 @@ public class ControllerConfig {
      * 
      * @return a JSON object representing this configuration
      */
-    @SuppressWarnings("unchecked")
-    public JSONObject toJSON() {
+    public JsonObject toJSON() {
         if (id == null) throw new IllegalStateException("id must be set");
         if (host == null) throw new IllegalStateException("host must be set");
         if (port <= 0 || port > 65535)
             throw new IllegalStateException("port must be set");
-        JSONObject result = new JSONObject();
-        result.put("controller", id);
-        result.put("ip", host.getHostAddress());
-        result.put("port", port);
-        result.put("tls", tls);
-        return result;
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("controller", id);
+        result.add("ip", host.getHostAddress());
+        result.add("port", port);
+        result.add("tls", tls);
+        return result.build();
     }
 }

@@ -52,8 +52,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-import org.json.simple.parser.ParseException;
-
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
@@ -153,9 +151,6 @@ public final class PortSlicedVFCFabric implements Fabric {
      * @throws KeyManagementException if there is a problem with the
      * certficate
      * 
-     * @throws ParseException if responses from the controller were
-     * malformed
-     * 
      * @throws IOException if there was an I/O in contacting the
      * controller
      */
@@ -168,8 +163,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                                X509Certificate ctrlCert, String ctrlAuthz)
         throws KeyManagementException,
             NoSuchAlgorithmException,
-            IOException,
-            ParseException {
+            IOException {
         this.interfaces = new InterfaceManager(portCount, maxAggregations);
         this.descPrefix = descPrefix;
         this.partialDesc = descPrefix + partialDescSuffix;
@@ -235,7 +229,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                 if (ofport <= 0) continue;
                 try {
                     rest.detachTunnel(bridgeId, ofport);
-                } catch (IOException | ParseException e) {
+                } catch (IOException e) {
                     /* Perhaps we don't care by this stage. */
                 }
             }
@@ -294,7 +288,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                             slice.stop();
                         }
                     }
-                } catch (ParseException | IOException ex) {
+                } catch (IOException ex) {
                     ServiceResourceException t =
                         new ServiceResourceException("failed to start slice",
                                                      ex);
@@ -395,7 +389,7 @@ public final class PortSlicedVFCFabric implements Fabric {
 
             try {
                 rest.detachTunnel(bridgeId, ofport);
-            } catch (IOException | ParseException e) {
+            } catch (IOException e) {
                 ServiceResourceException t =
                     new ServiceResourceException("error talking"
                         + " to switch", e);
@@ -425,10 +419,8 @@ public final class PortSlicedVFCFabric implements Fabric {
      * 
      * @throws IOException if there was an I/O error in fetching the
      * port information
-     * 
-     * @throws ParseException if there was a formatting error
      */
-    private void loadMapping() throws IOException, ParseException {
+    private void loadMapping() throws IOException {
         circuitToPort.clear();
         portToCircuit.clear();
         RESTResponse<Map<Integer, TunnelDesc>> tinf =
@@ -453,7 +445,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         return cand;
     }
 
-    private void cleanUpVFCs() throws IOException, ParseException {
+    private void cleanUpVFCs() throws IOException {
         RESTResponse<Collection<String>> bridgeNames = rest.getBridgeNames();
         if (bridgeNames.code != 200)
             throw new RuntimeException("unable to list bridge names; rsp="
@@ -481,7 +473,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         }
     }
 
-    private void establishVFC() throws IOException, ParseException {
+    private void establishVFC() throws IOException {
         if (bridgeId != null) return;
 
         /* Create the VFC in a partial state. */
@@ -520,7 +512,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.bridgeId = bridgeId;
     }
 
-    private void collectPortSets() throws IOException, ParseException {
+    private void collectPortSets() throws IOException {
         RESTResponse<Collection<? extends BitSet>> portSets =
             this.sliceRest.getPortSets(dpid);
         for (BitSet set : portSets.message) {

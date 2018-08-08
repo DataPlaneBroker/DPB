@@ -36,13 +36,13 @@
 package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.JsonObject;
+import javax.json.JsonStructure;
+import javax.json.JsonValue;
+import javax.json.JsonValue.ValueType;
 
 /**
  * Describes the Corsa REST API.
@@ -115,8 +115,8 @@ public class APIDesc {
      * 
      * @param entity the JSON object
      */
-    public APIDesc(JSONEntity entity) {
-        this(entity.map);
+    public APIDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
@@ -124,15 +124,13 @@ public class APIDesc {
      * 
      * @param root the JSON object
      */
-    public APIDesc(JSONObject root) {
-        JSONObject links = (JSONObject) root.get("links");
-        @SuppressWarnings("unchecked")
-        Collection<Map.Entry<String, JSONObject>> entries = links.entrySet();
-        for (Map.Entry<String, JSONObject> entry : entries) {
-            String key = entry.getKey();
-            String value = (String) entry.getValue().get("href");
-            URI href = URI.create(value);
-            generic.put(key, href);
+    public APIDesc(JsonObject root) {
+        JsonObject links = root.getJsonObject("links");
+        for (Map.Entry<String, JsonValue> entry : links.entrySet()) {
+            if (entry.getValue().getValueType() != ValueType.OBJECT) continue;
+            JsonObject obj = (JsonObject) entry.getValue();
+            URI href = URI.create(obj.getString("href"));
+            generic.put(entry.getKey(), href);
         }
         users = generic.get("users");
         datapath = generic.get("datapath");

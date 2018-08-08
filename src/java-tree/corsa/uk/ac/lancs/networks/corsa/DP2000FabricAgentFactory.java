@@ -53,8 +53,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
-import org.json.simple.parser.ParseException;
-
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
@@ -414,7 +412,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                     }
                     return null;
                 } catch (KeyManagementException | NoSuchAlgorithmException
-                    | IOException | ParseException e) {
+                    | IOException e) {
                     throw new ServiceCreationException(e);
                 }
             }

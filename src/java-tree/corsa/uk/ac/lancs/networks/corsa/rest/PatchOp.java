@@ -35,7 +35,7 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import org.json.simple.JSONObject;
+import javax.json.JsonObject;
 
 /**
  * Describes an operation to patch an entity.
@@ -48,5 +48,5 @@ public interface PatchOp {
      * 
      * @return a JSON representation of the operation
      */
-    JSONObject marshal();
+    JsonObject marshal();
 }

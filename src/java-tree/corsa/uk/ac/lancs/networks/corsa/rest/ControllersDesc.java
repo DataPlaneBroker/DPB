@@ -36,13 +36,12 @@
 package uk.ac.lancs.networks.corsa.rest;
 
 import java.net.URI;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.JsonObject;
+import javax.json.JsonStructure;
+import javax.json.JsonValue;
 
 /**
  * Describes controllers of a bridge.
@@ -60,25 +59,21 @@ public class ControllersDesc {
      * 
      * @param entity the JSON object
      */
-    public ControllersDesc(JSONEntity entity) {
-        this(entity.map);
+    public ControllersDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
      * Create a description of controllers from a JSON object.
      */
-    public ControllersDesc(JSONObject root) {
-        JSONObject links = (JSONObject) root.get("links");
+    public ControllersDesc(JsonObject root) {
+        JsonObject links = root.getJsonObject("links");
         if (links != null) {
             this.links = new HashMap<>();
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                this.links.put(key, href);
+            for (Map.Entry<String, JsonValue> entry : links.entrySet()) {
+                JsonObject value = (JsonObject) entry.getValue();
+                URI href = URI.create(value.getString("href"));
+                this.links.put(entry.getKey(), href);
             }
         }
     }

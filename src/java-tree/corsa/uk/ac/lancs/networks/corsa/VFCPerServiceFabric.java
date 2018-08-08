@@ -51,8 +51,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import org.json.simple.parser.ParseException;
-
 import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.circuits.Circuit;
@@ -150,8 +148,6 @@ public class VFCPerServiceFabric implements Fabric {
      * 
      * @throws IOException if there was an I/O error in contacting the
      * switch
-     * 
-     * @throws ParseException if a switch response failed to parse
      */
     public VFCPerServiceFabric(int portCount, int maxAggregations,
                                int maxBridges, String descPrefix,
@@ -162,8 +158,7 @@ public class VFCPerServiceFabric implements Fabric {
                                String authz)
         throws KeyManagementException,
             NoSuchAlgorithmException,
-            IOException,
-            ParseException {
+            IOException {
         this.interfaces = new InterfaceManager(portCount, maxAggregations);
         this.maxBridges = maxBridges;
         this.partialDesc = descPrefix + partialDescSuffix;
@@ -384,7 +379,7 @@ public class VFCPerServiceFabric implements Fabric {
 
                     destroyBridge = false;
                     started = true;
-                } catch (IOException | ParseException e) {
+                } catch (IOException e) {
                     ServiceResourceException t =
                         new ServiceResourceException("error talking"
                             + " to switch", e);
@@ -393,7 +388,7 @@ public class VFCPerServiceFabric implements Fabric {
                 } finally {
                     if (destroyBridge && this.bridgeName != null) try {
                         rest.destroyBridge(this.bridgeName);
-                    } catch (IOException | ParseException e) {
+                    } catch (IOException e) {
                         /* These are unlikely to happen at this
                          * stage. */
                     }
@@ -428,7 +423,7 @@ public class VFCPerServiceFabric implements Fabric {
                      * again. */
                     inform(BridgeListener::destroyed);
                     listeners.clear();
-                } catch (IOException | ParseException e) {
+                } catch (IOException e) {
                     logger.log(Level.WARNING,
                                "Error talking to switch to delete bridge "
                                    + bridgeName,

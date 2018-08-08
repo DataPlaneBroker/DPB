@@ -47,10 +47,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import org.json.simple.parser.ParseException;
+import javax.json.JsonArray;
+import javax.json.JsonNumber;
+import javax.json.JsonStructure;
 
-import uk.ac.lancs.rest.JSONEntity;
 import uk.ac.lancs.rest.RESTClient;
 import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
@@ -71,14 +73,17 @@ final class VLANCircuitControllerREST extends RESTClient {
     }
 
     private static Collection<? extends Collection<? extends VLANCircuitId>>
-        decodeCircuitSets(JSONEntity ent) {
+        decodeCircuitSets(JsonStructure ent) {
         Collection<Collection<VLANCircuitId>> result = new ArrayList<>();
-        @SuppressWarnings("unchecked")
-        List<List<List<Long>>> ints = ent.array;
-        for (List<List<Long>> ii : ints) {
+        JsonArray array = (JsonArray) ent;
+        for (JsonArray val1 : array.getValuesAs(JsonArray.class)) {
             Collection<VLANCircuitId> slice = new HashSet<>();
-            for (List<Long> iii : ii)
-                slice.add(new VLANCircuitId(iii));
+            for (JsonArray val2 : val1.getValuesAs(JsonArray.class)) {
+                List<Integer> ints = val2.getValuesAs(JsonNumber.class)
+                    .stream().map(JsonNumber::intValue)
+                    .collect(Collectors.toList());
+                slice.add(new VLANCircuitId(ints));
+            }
             result.add(slice);
         }
         return result;
@@ -86,7 +91,7 @@ final class VLANCircuitControllerREST extends RESTClient {
 
     public
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
-        getCircuitSets(long dpid) throws IOException, ParseException {
+        getCircuitSets(long dpid) throws IOException {
         return get(String.format("config/%016x", dpid))
             .adapt(VLANCircuitControllerREST::decodeCircuitSets);
     }
@@ -95,8 +100,7 @@ final class VLANCircuitControllerREST extends RESTClient {
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,
                           Collection<? extends VLANCircuitId>... sets)
-            throws IOException,
-                ParseException {
+            throws IOException {
         return defineCircuitSets(dpid, Arrays.asList(sets));
     }
 
@@ -105,8 +109,7 @@ final class VLANCircuitControllerREST extends RESTClient {
 
         defineCircuitSets(long dpid,
                           Collection<? extends Collection<? extends VLANCircuitId>> sets)
-            throws IOException,
-                ParseException {
+            throws IOException {
         Map<String, List<List<List<Integer>>>> params = new HashMap<>();
         List<List<List<Integer>>> lists = new ArrayList<>();
         params.put("slices", lists);

@@ -35,7 +35,9 @@
  */
 package uk.ac.lancs.networks.corsa.rest;
 
-import org.json.simple.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
 /**
  * Replaces a tunnel's description text.
@@ -66,13 +68,12 @@ public final class ReplaceTunnelDescription implements TunnelPatchOp {
      * @return the JSON representation of this tunnel description
      * replacement
      */
-    @SuppressWarnings("unchecked")
     @Override
-    public JSONObject marshal() {
-        JSONObject result = new JSONObject();
-        result.put("op", "replace");
-        result.put("path", "/ifdescr");
-        result.put("value", descr);
-        return result;
+    public JsonObject marshal() {
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("op", "replace");
+        result.add("path", "/ifdescr");
+        result.add("value", descr);
+        return result.build();
     }
 }

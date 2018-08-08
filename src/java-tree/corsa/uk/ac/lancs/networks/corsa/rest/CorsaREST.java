@@ -49,11 +49,11 @@ import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Map;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.ParseException;
+import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObject;
+import javax.json.JsonStructure;
 
-import uk.ac.lancs.rest.JSONEntity;
 import uk.ac.lancs.rest.RESTClient;
 import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
@@ -86,13 +86,9 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the switch API description
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<APIDesc>
-        getAPIDesc() throws IOException, ParseException {
+    public RESTResponse<APIDesc> getAPIDesc() throws IOException {
         return get("").adapt(APIDesc::new);
     }
 
@@ -101,15 +97,13 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the list of bridges
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<Map<String, BridgeDesc>>
-        getBridgeDescs() throws IOException, ParseException {
-        RESTResponse<JSONEntity> rsp = get("bridges?list=true");
-        return rsp.adapt(s -> BridgeDesc.of((JSONArray) s.map.get("list")));
+    public RESTResponse<Map<String, BridgeDesc>> getBridgeDescs()
+        throws IOException {
+        RESTResponse<JsonStructure> rsp = get("bridges?list=true");
+        return rsp
+            .adapt(s -> BridgeDesc.of(((JsonObject) s).getJsonArray("list")));
     }
 
     /**
@@ -117,19 +111,12 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return a set of all bridge names
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<Collection<String>>
-        getBridgeNames() throws IOException, ParseException {
-        return get("bridges").adapt(s -> {
-            @SuppressWarnings("unchecked")
-            Map<String, JSONObject> links =
-                (Map<String, JSONObject>) s.map.get("links");
-            return links.keySet();
-        });
+    public RESTResponse<Collection<String>> getBridgeNames()
+        throws IOException {
+        return get("bridges")
+            .adapt(s -> ((JsonObject) s).getJsonObject("links").keySet());
     }
 
     /**
@@ -140,15 +127,12 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the bridge details
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<BridgeDesc>
-        getBridgeDesc(String name) throws IOException, ParseException {
+    public RESTResponse<BridgeDesc> getBridgeDesc(String name)
+        throws IOException {
         return get("bridges/" + name).adapt(s -> {
-            return new BridgeDesc(s.map).bridge(name);
+            return new BridgeDesc(s).bridge(name);
         });
     }
 
@@ -159,13 +143,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the bridge's name
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<String>
-        createBridge(BridgeDesc desc) throws IOException, ParseException {
+    public RESTResponse<String> createBridge(BridgeDesc desc)
+        throws IOException {
         if (desc.name != null)
             return post("bridges", desc.toJSON()).adapt(s -> desc.name);
 
@@ -206,19 +187,14 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    @SuppressWarnings("unchecked")
     public RESTResponse<Void> patchBridge(String bridge, BridgePatchOp... ops)
-        throws IOException,
-            ParseException {
-        JSONArray root = new JSONArray();
+        throws IOException {
+        JsonArrayBuilder root = Json.createArrayBuilder();
         for (PatchOp op : ops)
             root.add(op.marshal());
-        return patch("bridges/" + bridge, root).adapt(s -> null);
+        return patch("bridges/" + bridge, root.build()).adapt(s -> null);
     }
 
     /**
@@ -233,20 +209,15 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    @SuppressWarnings("unchecked")
     public RESTResponse<Void> patchTunnel(String bridge, int ofport,
                                           TunnelPatchOp... ops)
-        throws IOException,
-            ParseException {
-        JSONArray root = new JSONArray();
+        throws IOException {
+        JsonArrayBuilder root = Json.createArrayBuilder();
         for (PatchOp op : ops)
             root.add(op.marshal());
-        return patch("bridges/" + bridge + "/tunnels/" + ofport, root)
+        return patch("bridges/" + bridge + "/tunnels/" + ofport, root.build())
             .adapt(s -> null);
     }
 
@@ -258,13 +229,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<Void>
-        destroyBridge(String bridge) throws IOException, ParseException {
+    public RESTResponse<Void> destroyBridge(String bridge)
+        throws IOException {
         return delete("bridges/" + bridge).adapt(s -> null);
     }
 
@@ -276,13 +244,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<ControllersDesc>
-        getControllers(String bridge) throws IOException, ParseException {
+    public RESTResponse<ControllersDesc> getControllers(String bridge)
+        throws IOException {
         return get("bridges/" + bridge + "/controllers")
             .adapt(ControllersDesc::new);
     }
@@ -297,15 +262,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<ControllerDesc> getController(String bridge,
-                                                      String ctrl)
-        throws IOException,
-            ParseException {
+    public RESTResponse<ControllerDesc>
+        getController(String bridge, String ctrl) throws IOException {
         return get("bridges/" + bridge + "/controllers/" + ctrl)
             .adapt(ControllerDesc::new);
     }
@@ -320,15 +280,11 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<Void> attachController(String bridge,
                                                ControllerConfig config)
-        throws IOException,
-            ParseException {
+        throws IOException {
         return post("bridges/" + bridge + "/controllers", config.toJSON())
             .adapt(s -> null);
     }
@@ -343,14 +299,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<Void> detachController(String bridge, String ctrl)
-        throws IOException,
-            ParseException {
+        throws IOException {
         return delete("bridges/" + bridge + "/controllers/" + ctrl)
             .adapt(s -> null);
     }
@@ -363,15 +315,12 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return a map from ofport to tunnel description
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
-    public RESTResponse<Map<Integer, TunnelDesc>>
-        getTunnels(String bridge) throws IOException, ParseException {
+    public RESTResponse<Map<Integer, TunnelDesc>> getTunnels(String bridge)
+        throws IOException {
         return get("bridges/" + bridge + "/tunnels?list=true")
-            .adapt(s -> TunnelDesc.of((JSONArray) s.map.get("list")));
+            .adapt(s -> TunnelDesc.of(((JsonObject) s).getJsonArray("list")));
     }
 
     /**
@@ -384,14 +333,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<Void> attachTunnel(String bridge, TunnelDesc config)
-        throws IOException,
-            ParseException {
+        throws IOException {
         return post("bridges/" + bridge + "/tunnels", config.toJSON())
             .adapt(s -> null);
     }
@@ -406,14 +351,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<TunnelDesc> getTunnel(String bridge, int ofport)
-        throws IOException,
-            ParseException {
+        throws IOException {
         return get("bridges/" + bridge + "/tunnels/" + ofport)
             .adapt(TunnelDesc::new);
     }
@@ -428,14 +369,10 @@ public final class CorsaREST extends RESTClient {
      * 
      * @return the response
      * 
-     * @throws ParseException if the response was not in the expected
-     * format
-     * 
      * @throws IOException if there was an I/O error
      */
     public RESTResponse<Void> detachTunnel(String bridge, int ofport)
-        throws IOException,
-            ParseException {
+        throws IOException {
         return delete("bridges/" + bridge + "/tunnels/" + ofport)
             .adapt(s -> null);
     }

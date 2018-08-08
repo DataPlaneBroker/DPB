@@ -39,13 +39,14 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.JsonArray;
+import javax.json.JsonObject;
+import javax.json.JsonString;
+import javax.json.JsonStructure;
+import javax.json.JsonValue;
 
 /**
  * Lists basic bridge details and supported bridge subtypes.
@@ -70,8 +71,8 @@ public class BridgesDesc {
      * 
      * @param entity the JSON object
      */
-    public BridgesDesc(JSONEntity entity) {
-        this(entity.map);
+    public BridgesDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
@@ -79,25 +80,18 @@ public class BridgesDesc {
      * 
      * @param root the JSON object
      */
-    public BridgesDesc(JSONObject root) {
-        JSONArray brList = (JSONArray) root.get("supported-subtypes");
-        if (brList != null) {
-            for (@SuppressWarnings("unchecked")
-            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
-                supportedSubtypes.add(iter.next());
-            }
-        }
+    public BridgesDesc(JsonObject root) {
+        JsonArray brList = root.getJsonArray("supported-subtypes");
+        if (brList != null) supportedSubtypes
+            .addAll(brList.getValuesAs(JsonString.class).stream()
+                .map(JsonString::getString).collect(Collectors.toList()));
 
-        JSONObject links = (JSONObject) root.get("links");
+        JsonObject links = root.getJsonObject("links");
         if (links != null) {
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                bridges.put(key, href);
+            for (Map.Entry<String, JsonValue> entry : links.entrySet()) {
+                JsonObject obj = (JsonObject) entry.getValue();
+                URI href = URI.create(obj.getString("href"));
+                bridges.put(entry.getKey(), href);
             }
         }
     }

@@ -38,9 +38,8 @@ package uk.ac.lancs.networks.corsa.rest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.JsonObject;
+import javax.json.JsonStructure;
 
 /**
  * Describes an existing controller's configuration and status.
@@ -88,8 +87,8 @@ public class ControllerDesc {
      * 
      * @param entity the JSON entity
      */
-    public ControllerDesc(JSONEntity entity) {
-        this(entity.map);
+    public ControllerDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
@@ -97,17 +96,17 @@ public class ControllerDesc {
      * 
      * @param root the JSON object
      */
-    public ControllerDesc(JSONObject root) {
-        this.id = (String) root.get("controller");
+    public ControllerDesc(JsonObject root) {
+        this.id = root.getString("controller");
         try {
-            this.host = InetAddress.getByName((String) root.get("host"));
+            this.host = InetAddress.getByName(root.getString("host"));
         } catch (UnknownHostException e) {
             this.host = null;
         }
-        this.port = (Integer) root.get("port");
-        this.message = (String) root.get("message");
-        this.role = (String) root.get("role");
-        this.tls = (Boolean) root.get("tls");
-        this.connected = (Boolean) root.get("connected");
+        this.port = root.getInt("port");
+        this.message = root.getString("message");
+        this.role = root.getString("role");
+        this.tls = root.getBoolean("tls");
+        this.connected = root.getBoolean("connected");
     }
 }

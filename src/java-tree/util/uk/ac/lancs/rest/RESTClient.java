@@ -36,13 +36,22 @@
 package uk.ac.lancs.rest;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
+import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+
+import javax.json.Json;
+import javax.json.JsonReader;
+import javax.json.JsonReaderFactory;
+import javax.json.JsonStructure;
+import javax.json.JsonValue;
+import javax.json.stream.JsonGenerator;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -54,10 +63,6 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.ContentType;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 /**
  * Performs basic REST operations to a specified service.
@@ -80,6 +85,9 @@ public class RESTClient {
      */
     protected final Supplier<? extends HttpClient> httpProvider;
 
+    private final JsonReaderFactory readerFactory =
+        Json.createReaderFactory(Collections.emptyMap());
+
     /**
      * Create a REST client for a given service, using the supplied HTTP
      * clients and authorization.
@@ -99,24 +107,17 @@ public class RESTClient {
         this.httpProvider = httpProvider;
     }
 
-    private RESTResponse<JSONEntity>
-        request(HttpUriRequest request) throws IOException, ParseException {
+    private RESTResponse<JsonStructure> request(HttpUriRequest request)
+        throws IOException {
         HttpClient client = httpProvider.get();
         if (authz != null) request.setHeader("Authorization", authz);
         HttpResponse rsp = client.execute(request);
         final int code = rsp.getStatusLine().getStatusCode();
         HttpEntity ent = rsp.getEntity();
-        final JSONEntity result;
-        if (ent == null) {
-            result = null;
-        } else {
-            try (Reader in = new InputStreamReader(ent.getContent(),
-                                                   StandardCharsets.UTF_8)) {
-                JSONParser parser = new JSONParser();
-                result = new JSONEntity(parser.parse(in));
-            }
-        }
-        return new RESTResponse<JSONEntity>(code, result);
+        JsonReader reader = readerFactory
+            .createReader(ent.getContent(), StandardCharsets.UTF_8);
+        JsonStructure result = reader.read();
+        return new RESTResponse<JsonStructure>(code, result);
     }
 
     /**
@@ -127,11 +128,8 @@ public class RESTClient {
      * @return the JSON response and code
      * 
      * @throws IOException if an I/O error occurred
-     * 
-     * @throws ParseException if the JSON was malformed
      */
-    protected RESTResponse<JSONEntity>
-        get(String sub) throws IOException, ParseException {
+    protected RESTResponse<JsonStructure> get(String sub) throws IOException {
         URI location = service.resolve(sub);
         HttpGet request = new HttpGet(location);
         return request(request);
@@ -145,11 +143,9 @@ public class RESTClient {
      * @return the JSON response and code
      * 
      * @throws IOException if an I/O error occurred
-     * 
-     * @throws ParseException if the JSON was malformed
      */
-    protected RESTResponse<JSONEntity>
-        delete(String sub) throws IOException, ParseException {
+    protected RESTResponse<JsonStructure> delete(String sub)
+        throws IOException {
         URI location = service.resolve(sub);
         HttpDelete request = new HttpDelete(location);
         return request(request);
@@ -165,12 +161,9 @@ public class RESTClient {
      * @return the JSON response and code
      * 
      * @throws IOException if an I/O error occurred
-     * 
-     * @throws ParseException if the JSON was malformed
      */
-    protected RESTResponse<JSONEntity> post(String sub, Map<?, ?> params)
-        throws IOException,
-            ParseException {
+    protected RESTResponse<JsonStructure> post(String sub, Map<?, ?> params)
+        throws IOException {
         URI location = service.resolve(sub);
         HttpPost request = new HttpPost(location);
         request.setEntity(entityOf(params));
@@ -188,27 +181,68 @@ public class RESTClient {
      * @return the JSON response and code
      * 
      * @throws IOException if an I/O error occurred
-     * 
-     * @throws ParseException if the JSON was malformed
      */
-    protected RESTResponse<JSONEntity>
-        patch(String sub, List<?> params) throws IOException, ParseException {
+    protected RESTResponse<JsonStructure> patch(String sub, List<?> params)
+        throws IOException {
         URI location = service.resolve(sub);
         HttpPatch request = new HttpPatch(location);
         request.setEntity(entityOf(params));
         return request(request);
     }
 
-    private static HttpEntity entityOf(Map<?, ?> params) {
-        return EntityBuilder.create()
-            .setContentType(ContentType.APPLICATION_JSON)
-            .setText(JSONObject.toJSONString(params)).build();
+    private static HttpEntity entityOf(Map<?, ?> params) throws IOException {
+        try (StringWriter out = new StringWriter();
+            JsonGenerator gen = Json.createGenerator(out)) {
+            for (Map.Entry<?, ?> entry : params.entrySet()) {
+                String key = entry.getKey().toString();
+                Object obj = entry.getValue();
+                if (obj instanceof JsonValue)
+                    gen.write(key, (JsonValue) obj);
+                else if (obj instanceof BigDecimal)
+                    gen.write(key, (BigDecimal) obj);
+                else if (obj instanceof Boolean)
+                    gen.write(key, (Boolean) obj);
+                else if (obj instanceof BigInteger)
+                    gen.write(key, (BigInteger) obj);
+                else if (obj instanceof Long || obj instanceof Integer)
+                    gen.write(key, ((Number) obj).longValue());
+                else if (obj instanceof Float || obj instanceof Double)
+                    gen.write(key, ((Number) obj).doubleValue());
+                else
+                    gen.write(key, obj.toString());
+            }
+            gen.flush();
+            String text = out.toString();
+            return EntityBuilder.create()
+                .setContentType(ContentType.APPLICATION_JSON).setText(text)
+                .build();
+        }
     }
 
-    private static HttpEntity entityOf(List<?> params) {
-        String text = JSONArray.toJSONString(params);
-        return EntityBuilder.create()
-            .setContentType(ContentType.APPLICATION_JSON).setText(text)
-            .build();
+    private static HttpEntity entityOf(List<?> params) throws IOException {
+        try (StringWriter out = new StringWriter();
+            JsonGenerator gen = Json.createGenerator(out)) {
+            for (Object obj : params) {
+                if (obj instanceof JsonValue)
+                    gen.write((JsonValue) obj);
+                else if (obj instanceof BigDecimal)
+                    gen.write((BigDecimal) obj);
+                else if (obj instanceof Boolean)
+                    gen.write((Boolean) obj);
+                else if (obj instanceof BigInteger)
+                    gen.write((BigInteger) obj);
+                else if (obj instanceof Long || obj instanceof Integer)
+                    gen.write(((Number) obj).longValue());
+                else if (obj instanceof Float || obj instanceof Double)
+                    gen.write(((Number) obj).doubleValue());
+                else
+                    gen.write(obj.toString());
+            }
+            gen.flush();
+            String text = out.toString();
+            return EntityBuilder.create()
+                .setContentType(ContentType.APPLICATION_JSON).setText(text)
+                .build();
+        }
     }
 }

@@ -39,14 +39,16 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-
-import uk.ac.lancs.rest.JSONEntity;
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonString;
+import javax.json.JsonStructure;
+import javax.json.JsonValue;
 
 /**
  * Describes a bridge configuration.
@@ -216,22 +218,21 @@ public class BridgeDesc {
      * 
      * @return the requested JSON representation of this bridge
      */
-    @SuppressWarnings("unchecked")
-    public JSONObject toJSON() {
+    public JsonObject toJSON() {
         if (subtype == null)
             throw new IllegalStateException("subtype must be set");
         if (resources == null)
             throw new IllegalStateException("resources must be set");
-        JSONObject result = new JSONObject();
-        result.put("bridge", name);
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        result.add("bridge", name);
         if (dpid != null)
-            result.put("dpid", "0x" + Long.toUnsignedString(dpid, 16));
-        if (subtype != null) result.put("subtype", subtype);
-        if (resources != null) result.put("resources", resources);
-        if (trafficClass != null) result.put("traffic-class", trafficClass);
-        if (netns != null) result.put("netns", netns);
-        if (descr != null) result.put("bridge-descr", descr);
-        return result;
+            result.add("dpid", "0x" + Long.toUnsignedString(dpid, 16));
+        if (subtype != null) result.add("subtype", subtype);
+        if (resources != null) result.add("resources", resources);
+        if (trafficClass != null) result.add("traffic-class", trafficClass);
+        if (netns != null) result.add("netns", netns);
+        if (descr != null) result.add("bridge-descr", descr);
+        return result.build();
     }
 
     /**
@@ -239,8 +240,8 @@ public class BridgeDesc {
      * 
      * @param entity the JSON object
      */
-    public BridgeDesc(JSONEntity entity) {
-        this(entity.map);
+    public BridgeDesc(JsonStructure entity) {
+        this((JsonObject) entity);
     }
 
     /**
@@ -251,11 +252,9 @@ public class BridgeDesc {
      * 
      * @return the requested mapping; never {@code null}
      */
-    public static Map<String, BridgeDesc> of(JSONArray json) {
+    public static Map<String, BridgeDesc> of(JsonArray json) {
         Map<String, BridgeDesc> bridges = new HashMap<>();
-        @SuppressWarnings("unchecked")
-        List<JSONObject> list = json;
-        for (JSONObject entry : list) {
+        for (JsonObject entry : json.getValuesAs(JsonObject.class)) {
             BridgeDesc desc = new BridgeDesc(entry);
             String key = desc.name;
             bridges.put(key, desc);
@@ -268,41 +267,33 @@ public class BridgeDesc {
      * 
      * @param root the JSON object
      */
-    public BridgeDesc(JSONObject root) {
-        name = (String) root.get("bridge");
+    public BridgeDesc(JsonObject root) {
+        name = root.getString("bridge");
         if (name == null) {
-            JSONObject links = (JSONObject) root.get("links");
-            JSONObject self = (JSONObject) links.get("self");
+            JsonObject links = root.getJsonObject("links");
+            JsonObject self = links.getJsonObject("self");
             if (self != null) name = self.get("bridge").toString();
         }
-        String dpidText = (String) root.get("dpid");
+        String dpidText = root.getString("dpid");
         if (dpidText != null) dpid = Long.parseUnsignedLong(dpidText, 16);
-        subtype = (String) root.get("subtype");
-        String resourcesText = (String) root.get("resources");
+        subtype = root.getString("subtype");
+        String resourcesText = root.getString("resources");
         if (resourcesText != null)
             resources = Integer.parseInt(resourcesText);
         trafficClass = getIntFromString(root.get("traffic-class"));
-        netns = (String) root.get("netns");
-        descr = (String) root.get("bridge-descr");
-        JSONArray brList = (JSONArray) root.get("protocols");
-        if (brList != null) {
-            protocols = new ArrayList<>();
-            for (@SuppressWarnings("unchecked")
-            Iterator<String> iter = brList.iterator(); iter.hasNext();) {
-                protocols.add(iter.next());
-            }
-        }
-        JSONObject links = (JSONObject) root.get("links");
+        netns = root.getString("netns");
+        descr = root.getString("bridge-descr");
+        JsonArray brList = root.getJsonArray("protocols");
+        if (brList != null) protocols =
+            new ArrayList<>(brList.getValuesAs(JsonString.class).stream()
+                .map(JsonString::getString).collect(Collectors.toList()));
+        JsonObject links = root.getJsonObject("links");
         if (links != null) {
             this.links = new HashMap<>();
-            @SuppressWarnings("unchecked")
-            Collection<Map.Entry<String, JSONObject>> entries =
-                links.entrySet();
-            for (Map.Entry<String, JSONObject> entry : entries) {
-                String key = entry.getKey();
-                String value = (String) entry.getValue().get("href");
-                URI href = URI.create(value);
-                this.links.put(key, href);
+            for (Map.Entry<String, JsonValue> entry : links.entrySet()) {
+                JsonObject value = (JsonObject) entry.getValue();
+                URI href = URI.create(value.getString("href"));
+                this.links.put(entry.getKey(), href);
             }
         }
     }

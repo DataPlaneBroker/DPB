@@ -48,9 +48,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.json.simple.parser.ParseException;
+import javax.json.JsonArray;
+import javax.json.JsonNumber;
+import javax.json.JsonStructure;
 
-import uk.ac.lancs.rest.JSONEntity;
 import uk.ac.lancs.rest.RESTClient;
 import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
@@ -71,36 +72,32 @@ final class SliceControllerREST extends RESTClient {
     }
 
     private static Collection<? extends BitSet>
-        decodePortSets(JSONEntity ent) {
+        decodePortSets(JsonStructure ent) {
         Collection<BitSet> result = new ArrayList<>();
-        @SuppressWarnings("unchecked")
-        List<List<Long>> ints = ent.array;
-        for (List<Long> ii : ints) {
+        for (JsonArray val1 : ((JsonArray) ent)
+            .getValuesAs(JsonArray.class)) {
             BitSet bs = new BitSet();
-            for (long i : ii)
-                bs.set((int) i);
+            for (JsonNumber val2 : val1.getValuesAs(JsonNumber.class))
+                bs.set(val2.intValue());
             result.add(bs);
         }
         return result;
     }
 
-    public RESTResponse<Collection<? extends BitSet>>
-        getPortSets(long dpid) throws IOException, ParseException {
+    public RESTResponse<Collection<? extends BitSet>> getPortSets(long dpid)
+        throws IOException {
         return get(String.format("config/%016x", dpid))
             .adapt(SliceControllerREST::decodePortSets);
     }
 
     public RESTResponse<Collection<? extends BitSet>>
-        definePortSets(long dpid, BitSet... sets)
-            throws IOException,
-                ParseException {
+        definePortSets(long dpid, BitSet... sets) throws IOException {
         return definePortSets(dpid, Arrays.asList(sets));
     }
 
     public RESTResponse<Collection<? extends BitSet>>
         definePortSets(long dpid, Collection<? extends BitSet> sets)
-            throws IOException,
-                ParseException {
+            throws IOException {
         Map<String, List<List<Integer>>> params = new HashMap<>();
         List<List<Integer>> lists = new ArrayList<>();
         params.put("slices", lists);
