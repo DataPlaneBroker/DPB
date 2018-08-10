@@ -69,6 +69,11 @@ public class Channel {
         return label;
     }
 
+    /**
+     * Get the hash code of this channel identifier.
+     * 
+     * @return the channel's hash code
+     */
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -78,6 +83,14 @@ public class Channel {
         return result;
     }
 
+    /**
+     * Determine whether another object identifies the same channel.
+     * 
+     * @param obj the other object to test
+     * 
+     * @return {@code true} if the other object is a channel identifier
+     * for the same channel as this one
+     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;
@@ -91,6 +104,12 @@ public class Channel {
         return true;
     }
 
+    /**
+     * Get a string representation of this channel identifier.
+     * 
+     * @return the string representation of the channel's interface,
+     * with a colon and theis channel's label appended
+     */
     @Override
     public String toString() {
         return iface.toString() + ':' + label;
