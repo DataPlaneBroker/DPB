@@ -41,12 +41,17 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.json.JsonException;
 
@@ -65,10 +70,12 @@ import uk.ac.lancs.networks.fabric.Interface;
  * @author simpsons
  */
 public final class VLANCircuitFabric implements Fabric {
+    private final int portCount;
     private final long dpid;
     private final VLANCircuitControllerREST sliceRest;
 
     /**
+     * 
      * @throws NoSuchAlgorithmException
      * @throws KeyManagementException
      * 
@@ -77,15 +84,81 @@ public final class VLANCircuitFabric implements Fabric {
                              X509Certificate ctrlCert, String ctrlAuthz)
         throws KeyManagementException,
             NoSuchAlgorithmException {
+        this.portCount = portCount;
         this.dpid = dpid;
         this.sliceRest =
             new VLANCircuitControllerREST(ctrlService, ctrlCert, ctrlAuthz);
-        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
+
+    private static abstract class VLANCircuitInterface implements Interface {
+        protected final List<Integer> prefix;
+
+        protected VLANCircuitInterface(List<Integer> prefix) {
+            this.prefix = prefix;
+        }
+
+        abstract VLANCircuitId getId(int label);
+    }
+
+    private class SingleTagger extends VLANCircuitInterface {
+        private final int minLabel;
+        private final int maxLabel;
+
+        SingleTagger(List<Integer> prefix, int minLabel, int maxLabel) {
+            super(prefix);
+            this.minLabel = minLabel;
+            this.maxLabel = maxLabel;
+        }
+
+        @Override
+        VLANCircuitId getId(int label) {
+            if (label < minLabel || label > maxLabel)
+                throw new IllegalArgumentException("label out of range: "
+                    + label);
+            List<Integer> in = new ArrayList<>(prefix.size() + 1);
+            in.addAll(prefix);
+            in.add(label);
+            return new VLANCircuitId(in);
+        }
+    }
+
+    private class DoubleTagger extends VLANCircuitInterface {
+        protected DoubleTagger(List<Integer> prefix) {
+            super(prefix);
+        }
+
+        @Override
+        VLANCircuitId getId(int label) {
+            if (label < 0 || label > 0xffffff)
+                throw new IllegalArgumentException("label out of range: "
+                    + label);
+            List<Integer> in = new ArrayList<>(prefix.size() + 2);
+            in.addAll(prefix);
+            in.add(label >> 12);
+            in.add(label & 0xfff);
+            return new VLANCircuitId(in);
+        }
+    }
+
+    private static final Pattern INTERFACE_PATTERN =
+        Pattern.compile("^(?<phys>phys)|"
+            + "(?:(?<port>[0-9]+)(?:(?<x2>x2)|(?:\\.(?<outer>[0-9]+))))$");
 
     @Override
     public Interface getInterface(String desc) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        Matcher m = INTERFACE_PATTERN.matcher(desc);
+        if (!m.matches())
+            throw new IllegalArgumentException("bad interface: " + desc);
+        if (m.group("phys") != null)
+            return new SingleTagger(Collections.emptyList(), 1, portCount);
+        int port = Integer.parseInt(m.group("port"));
+        if (m.group("x2") != null)
+            return new DoubleTagger(Collections.singletonList(port));
+        if (m.group("outer") == null)
+            return new SingleTagger(Collections.singletonList(port), 0,
+                                    0xfff);
+        int outer = Integer.parseInt(m.group("outer"));
+        return new SingleTagger(Arrays.asList(port, outer), 0, 0xfff);
     }
 
     private class Slice {
@@ -182,12 +255,19 @@ public final class VLANCircuitFabric implements Fabric {
 
     @Override
     public int capacity() {
-        return 1;
+        return 1000;
     }
 
     private Collection<VLANCircuitId>
         map(Collection<? extends Channel> channels) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        Collection<VLANCircuitId> result = new HashSet<>();
+        for (Channel c : channels) {
+            if (!(c.getInterface() instanceof VLANCircuitInterface)) continue;
+            VLANCircuitInterface iface =
+                (VLANCircuitInterface) c.getInterface();
+            result.add(iface.getId(c.getLabel()));
+        }
+        return result;
     }
 
     @Override
