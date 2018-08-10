@@ -140,9 +140,19 @@ public final class PortSlicedVFCFabric implements Fabric {
      * 
      * @param service the REST API URI for the Corsa
      * 
-     * @param cert a certificate to check against the Corsa REST API
+     * @param cert a certificate to check against the Corsa REST API, or
+     * {@code null} if not required
      * 
-     * @param authz an authorization token obtained from the Corsa
+     * @param authz an authorization to use with the Corsa REST API, or
+     * {@code null} if not required
+     * 
+     * @param ctrlService the REST API URI for the controller
+     * 
+     * @param ctrlCert a certificate to check against the controller
+     * REST API, or {@code null} if not required
+     * 
+     * @param ctrlAuthz an authorization token to use with the
+     * controller REST API, or {@code null} if not required
      * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
