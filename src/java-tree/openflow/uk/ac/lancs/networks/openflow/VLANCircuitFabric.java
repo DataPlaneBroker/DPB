@@ -75,10 +75,26 @@ public final class VLANCircuitFabric implements Fabric {
     private final VLANCircuitControllerREST sliceRest;
 
     /**
+     * Create a fabric to operate a switch controller that accepts sets
+     * of VLAN-slicing tuples as slice descriptions.
      * 
-     * @throws NoSuchAlgorithmException
-     * @throws KeyManagementException
+     * @param portCount the number of ports on the switch
      * 
+     * @param dpid the datapath identifier of the switch
+     * 
+     * @param ctrlService the REST API URI for the controller
+     * 
+     * @param ctrlCert a certificate to check against the controller
+     * REST API, or {@code null} if not required
+     * 
+     * @param ctrlAuthz an authorization token to use with the
+     * controller REST API, or {@code null} if not required
+     * 
+     * @throws NoSuchAlgorithmException if there is no SSL support in
+     * this implementation
+     * 
+     * @throws KeyManagementException if there is a problem with the
+     * certficate
      */
     public VLANCircuitFabric(int portCount, long dpid, URI ctrlService,
                              X509Certificate ctrlCert, String ctrlAuthz)
@@ -190,8 +206,11 @@ public final class VLANCircuitFabric implements Fabric {
         void stop() {
             assert Thread.holdsLock(VLANCircuitFabric.this);
 
-            // TODO
-
+            try {
+                sliceRest.discardCircuits(dpid, circuits);
+            } catch (IOException | JsonException e) {
+                /* Don't care at this point. */
+            }
             inform(BridgeListener::destroyed);
             listeners.clear();
         }

@@ -178,5 +178,28 @@ public final class VLANCircuitControllerREST extends RESTClient {
             .adapt(VLANCircuitControllerREST::decodeCircuitSets);
     }
 
-    // TODO: Add a routine to delete circuits.
+    /**
+     * Discard circuit ids.
+     * 
+     * @param dpid the datapath id of the switch being controlled
+     * 
+     * @param circuits the circuits to be removed
+     * 
+     * @return the REST response
+     * 
+     * @throws IOException if there was an I/O in talking with the
+     * controller
+     */
+    public final RESTResponse<Void>
+        discardCircuits(long dpid,
+                        Collection<? extends VLANCircuitId> circuits)
+            throws IOException {
+        List<List<Integer>> list = new ArrayList<>();
+        for (VLANCircuitId c : circuits)
+            list.add(c.asList());
+        Map<String, List<List<Integer>>> params = new HashMap<>();
+        params.put("disused", list);
+        return post(String.format("config/%016x", dpid), params)
+            .adapt(s -> null);
+    }
 }
