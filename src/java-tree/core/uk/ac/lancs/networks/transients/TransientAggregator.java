@@ -67,6 +67,7 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.NoSuchTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalInUseException;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
@@ -1009,9 +1010,7 @@ public class TransientAggregator implements Aggregator {
     public synchronized void removeTrunk(Terminal p)
         throws NetworkManagementException {
         MyTrunk t = trunks.get(p);
-        if (t == null)
-            throw new TerminalManagementException(this, p,
-                                                  "no trunk with terminal");
+        if (t == null) throw new NoSuchTrunkException(this, p);
         trunks.keySet().removeAll(t.getTerminals());
     }
 

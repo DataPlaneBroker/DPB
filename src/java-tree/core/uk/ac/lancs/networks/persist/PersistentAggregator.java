@@ -75,6 +75,7 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.NoSuchTerminalException;
+import uk.ac.lancs.networks.mgmt.NoSuchTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
@@ -1624,8 +1625,7 @@ public class PersistentAggregator implements Aggregator {
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0)
-                throw new NetworkManagementException(PersistentAggregator.this,
-                                                     "no trunk for " + p);
+                throw new NoSuchTrunkException(PersistentAggregator.this, p);
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + trunkTable + " WHERE trunk_id = ?;")) {
                 stmt.setInt(1, id);

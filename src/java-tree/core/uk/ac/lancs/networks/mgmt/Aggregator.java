@@ -93,6 +93,9 @@ public interface Aggregator extends Network {
      * 
      * @param terminal either of the trunk's terminals
      * 
+     * @param NoSuchTrunkException if the terminal did not identify a
+     * trunk managed by this aggregator
+     * 
      * @throws NetworkManagementException if the terminal could not be
      * removed
      */
@@ -117,6 +120,9 @@ public interface Aggregator extends Network {
      * 
      * @return the requested trunk
      * 
+     * @param NoSuchTrunkException if the terminal did not identify a
+     * trunk managed by this aggregator
+     * 
      * @throws NetworkManagementException if there was an error in
      * getting the trunk
      * 
@@ -127,10 +133,7 @@ public interface Aggregator extends Network {
      */
     default Trunk getTrunk(Terminal t) throws NetworkManagementException {
         Trunk result = findTrunk(t);
-        if (result == null)
-            throw new TerminalManagementException(this, t,
-                                                  "no trunk associated"
-                                                      + " with terminal");
+        if (result == null) throw new NoSuchTrunkException(this, t);
         return result;
     }
 

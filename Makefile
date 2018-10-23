@@ -25,6 +25,7 @@ roots_core += uk.ac.lancs.networks.mgmt.TerminalExistsException
 roots_core += uk.ac.lancs.networks.mgmt.TrunkManagementException
 roots_core += uk.ac.lancs.networks.mgmt.OwnTerminalException
 roots_core += uk.ac.lancs.networks.mgmt.LabelsInUseException
+roots_core += uk.ac.lancs.networks.mgmt.NoSuchTrunkException
 roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorAgentFactory
