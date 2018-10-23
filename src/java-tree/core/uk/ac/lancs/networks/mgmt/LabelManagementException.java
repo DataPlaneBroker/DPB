@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.util.BitSet;
+
 import uk.ac.lancs.networks.Terminal;
 
 /**
@@ -45,24 +47,15 @@ import uk.ac.lancs.networks.Terminal;
 public class LabelManagementException extends TerminalManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final int lowerLabel, upperLabel;
+    private final BitSet labels;
 
     /**
-     * Get the lowest label to which this exception pertains.
+     * Get the labels to which this exception pertains.
      * 
-     * @return the label
+     * @return the label set
      */
-    public int getLowerLabel() {
-        return lowerLabel;
-    }
-
-    /**
-     * Get the highest label to which this exception pertains.
-     * 
-     * @return the label
-     */
-    public int getUpperLabel() {
-        return upperLabel;
+    public BitSet getLabels() {
+        return labels;
     }
 
     /**
@@ -76,18 +69,19 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      * 
-     * @param lowerLabel the lowest label to which this exception
-     * pertains
-     * 
-     * @param upperLabel the highest label to which this exception
-     * pertains
+     * @param labels the labels to which this exception pertains
      */
     public LabelManagementException(Network network, Terminal terminal,
-                                    int lowerLabel, int upperLabel,
-                                    String message, Throwable cause) {
+                                    BitSet labels, String message,
+                                    Throwable cause) {
         super(network, terminal, message, cause);
-        this.lowerLabel = lowerLabel;
-        this.upperLabel = upperLabel;
+        this.labels = (BitSet) labels.clone();
+    }
+
+    private static BitSet ofOne(int label) {
+        BitSet result = new BitSet();
+        result.set(label);
+        return result;
     }
 
     /**
@@ -106,7 +100,7 @@ public class LabelManagementException extends TerminalManagementException {
     public LabelManagementException(Network network, Terminal terminal,
                                     int label, String message,
                                     Throwable cause) {
-        this(network, terminal, label, label, message, cause);
+        this(network, terminal, ofOne(label), message, cause);
     }
 
     /**
@@ -118,18 +112,12 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      * 
-     * @param lowerLabel the lowest label to which this exception
-     * pertains
-     * 
-     * @param upperLabel the highest label to which this exception
-     * pertains
+     * @param labels the labels to which this exception pertains
      */
     public LabelManagementException(Network network, Terminal terminal,
-                                    int lowerLabel, int upperLabel,
-                                    String message) {
+                                    BitSet labels, String message) {
         super(network, terminal, message);
-        this.lowerLabel = lowerLabel;
-        this.upperLabel = upperLabel;
+        this.labels = (BitSet) labels.clone();
     }
 
     /**
@@ -145,7 +133,7 @@ public class LabelManagementException extends TerminalManagementException {
      */
     public LabelManagementException(Network network, Terminal terminal,
                                     int label, String message) {
-        this(network, terminal, label, label, message);
+        this(network, terminal, ofOne(label), message);
     }
 
     /**
@@ -157,18 +145,12 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      * 
-     * @param lowerLabel the lowest label to which this exception
-     * pertains
-     * 
-     * @param upperLabel the highest label to which this exception
-     * pertains
+     * @param labels the labels to which this exception pertains
      */
     public LabelManagementException(Network network, Terminal terminal,
-                                    int lowerLabel, int upperLabel,
-                                    Throwable cause) {
+                                    BitSet labels, Throwable cause) {
         super(network, terminal, cause);
-        this.lowerLabel = lowerLabel;
-        this.upperLabel = upperLabel;
+        this.labels = (BitSet) labels.clone();
     }
 
     /**
@@ -184,7 +166,7 @@ public class LabelManagementException extends TerminalManagementException {
      */
     public LabelManagementException(Network network, Terminal terminal,
                                     int label, Throwable cause) {
-        this(network, terminal, label, label, cause);
+        this(network, terminal, ofOne(label), cause);
     }
 
     /**
@@ -194,17 +176,12 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      * 
-     * @param lowerLabel the lowest label to which this exception
-     * pertains
-     * 
-     * @param upperLabel the highest label to which this exception
-     * pertains
+     * @param labels the labels to which this exception pertains
      */
     public LabelManagementException(Network network, Terminal terminal,
-                                    int lowerLabel, int upperLabel) {
+                                    BitSet labels) {
         super(network, terminal);
-        this.lowerLabel = lowerLabel;
-        this.upperLabel = upperLabel;
+        this.labels = (BitSet) labels.clone();
     }
 
     /**
@@ -218,6 +195,6 @@ public class LabelManagementException extends TerminalManagementException {
      */
     public LabelManagementException(Network network, Terminal terminal,
                                     int label) {
-        this(network, terminal, label, label);
+        this(network, terminal, ofOne(label));
     }
 }

@@ -48,6 +48,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PrimitiveIterator.OfInt;
 import java.util.Queue;
 import java.util.ServiceLoader;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -55,6 +56,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
 import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
@@ -530,10 +532,12 @@ public final class NetworkServer {
                         .add("type", req.getString("type")).build());
                 }
             } catch (LabelManagementException ex) {
+                JsonArrayBuilder arr = Json.createArrayBuilder();
+                for (OfInt iter = ex.getLabels().stream().iterator(); iter
+                    .hasNext();)
+                    arr.add(iter.nextInt());
                 return one(Json.createObjectBuilder()
-                    .add("error", "terminal-mgmt")
-                    .add("lower-label", ex.getLowerLabel())
-                    .add("upper-label", ex.getUpperLabel())
+                    .add("error", "terminal-mgmt").add("labels", arr.build())
                     .add("terminal", ex.getTerminal().name())
                     .add("msg", ex.getMessage()).build());
             } catch (TerminalManagementException ex) {

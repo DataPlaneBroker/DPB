@@ -35,16 +35,34 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.util.BitSet;
+
 import uk.ac.lancs.networks.Terminal;
 
 /**
- * Indicates that a label is in use, so can't be released or used for
- * another purpose.
+ * Indicates that one or more labels are in use, so can't be released or
+ * used for another purpose.
  * 
  * @author simpsons
  */
-public class LabelInUseException extends LabelManagementException {
+public class LabelsInUseException extends LabelManagementException {
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param network the network originating this exception
+     * 
+     * @param cause the cause
+     * 
+     * @param terminal the terminal to which this exception pertains
+     * 
+     * @param labels the labels to which this exception pertains
+     */
+    public LabelsInUseException(Network network, Terminal terminal,
+                               BitSet labels, Throwable cause) {
+        super(network, terminal, labels, "labels in use: " + labels, cause);
+    }
 
     /**
      * Create an exception with a cause.
@@ -57,7 +75,7 @@ public class LabelInUseException extends LabelManagementException {
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelInUseException(Network network, Terminal terminal, int label,
+    public LabelsInUseException(Network network, Terminal terminal, int label,
                                Throwable cause) {
         super(network, terminal, label, "label in use: " + label, cause);
     }
@@ -69,9 +87,23 @@ public class LabelInUseException extends LabelManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      * 
+     * @param labels the labels to which this exception pertains
+     */
+    public LabelsInUseException(Network network, Terminal terminal,
+                               BitSet labels) {
+        super(network, terminal, labels, "labels in use: " + labels);
+    }
+
+    /**
+     * Create an exception.
+     * 
+     * @param network the network originating this exception
+     * 
+     * @param terminal the terminal to which this exception pertains
+     * 
      * @param label the label to which this exception pertains
      */
-    public LabelInUseException(Network network, Terminal terminal,
+    public LabelsInUseException(Network network, Terminal terminal,
                                int label) {
         super(network, terminal, label, "label in use: " + label);
     }
