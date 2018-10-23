@@ -36,33 +36,34 @@
 package uk.ac.lancs.networks.mgmt;
 
 /**
- * Indicates an error in managing a network. This error is due to the
- * caller attempting to re-configure the network in a way that does not
- * make sense.
+ * Indicates an error in managing a trunk.
  * 
  * @author simpsons
  */
-public class NetworkManagementException extends Exception {
+public class TrunkManagementException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final Network network;
+    private final Trunk trunk;
 
     /**
-     * Get the network in which this exception occurred.
+     * Get the trunk to which this exception pertains.
      * 
-     * @return the network originating the exception
+     * @return the trunk originating this exception
      */
-    public Network getNetwork() {
-        return network;
+    public Trunk getTrunk() {
+        return trunk;
     }
 
     /**
      * Create an exception.
      * 
      * @param network the network originating this exception
+     * 
+     * @param trunk the trunk originating this exception
      */
-    public NetworkManagementException(Network network) {
-        this.network = network;
+    public TrunkManagementException(Network network, Trunk trunk) {
+        super(network);
+        this.trunk = trunk;
     }
 
     /**
@@ -71,10 +72,13 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param message the detail message
+     * 
+     * @param trunk the trunk originating this exception
      */
-    public NetworkManagementException(Network network, String message) {
-        super(message);
-        this.network = network;
+    public TrunkManagementException(Network network, Trunk trunk,
+                                    String message) {
+        super(network, message);
+        this.trunk = trunk;
     }
 
     /**
@@ -83,10 +87,13 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param cause the cause
+     * 
+     * @param trunk the trunk originating this exception
      */
-    public NetworkManagementException(Network network, Throwable cause) {
-        super(cause);
-        this.network = network;
+    public TrunkManagementException(Network network, Trunk trunk,
+                                    Throwable cause) {
+        super(network, cause);
+        this.trunk = trunk;
     }
 
     /**
@@ -97,10 +104,13 @@ public class NetworkManagementException extends Exception {
      * @param message the detail message
      * 
      * @param cause the cause
+     * 
+     * @param trunk the trunk originating this exception
      */
-    public NetworkManagementException(Network network, String message,
-                                      Throwable cause) {
-        super(message, cause);
-        this.network = network;
+    public TrunkManagementException(Network network, Trunk trunk,
+                                    String message, Throwable cause) {
+        super(network, message, cause);
+        this.trunk = trunk;
     }
+
 }

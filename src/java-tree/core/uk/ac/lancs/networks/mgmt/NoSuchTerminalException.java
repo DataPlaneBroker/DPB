@@ -36,45 +36,22 @@
 package uk.ac.lancs.networks.mgmt;
 
 /**
- * Indicates an error in managing a network. This error is due to the
- * caller attempting to re-configure the network in a way that does not
- * make sense.
+ * Indicates that a sought terminal does not exist in a given network.
  * 
  * @author simpsons
  */
-public class NetworkManagementException extends Exception {
+public class NoSuchTerminalException extends TerminalNameException {
     private static final long serialVersionUID = 1L;
-
-    private final Network network;
-
-    /**
-     * Get the network in which this exception occurred.
-     * 
-     * @return the network originating the exception
-     */
-    public Network getNetwork() {
-        return network;
-    }
 
     /**
      * Create an exception.
      * 
      * @param network the network originating this exception
-     */
-    public NetworkManagementException(Network network) {
-        this.network = network;
-    }
-
-    /**
-     * Create an exception with a detail message.
      * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
+     * @param name the requested terminal name
      */
-    public NetworkManagementException(Network network, String message) {
-        super(message);
-        this.network = network;
+    public NoSuchTerminalException(Network network, String name) {
+        super(network, name, "no such terminal: " + name);
     }
 
     /**
@@ -83,24 +60,11 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param cause the cause
+     * 
+     * @param name the requested terminal name
      */
-    public NetworkManagementException(Network network, Throwable cause) {
-        super(cause);
-        this.network = network;
-    }
-
-    /**
-     * Create an exception with a detail message and a cause.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
-     */
-    public NetworkManagementException(Network network, String message,
-                                      Throwable cause) {
-        super(message, cause);
-        this.network = network;
+    public NoSuchTerminalException(Network network, String name,
+                                   Throwable cause) {
+        super(network, name, "no such terminal: " + name, cause);
     }
 }

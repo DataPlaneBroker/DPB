@@ -35,47 +35,18 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import uk.ac.lancs.networks.Terminal;
+
 /**
- * Indicates an error in managing a network. This error is due to the
- * caller attempting to re-configure the network in a way that does not
- * make sense.
+ * Indicates that a terminal reference supplied to a network should not
+ * refer to a terminal belonging to that network.
+ * 
+ * @see Aggregator#addTrunk(Terminal, Terminal)
  * 
  * @author simpsons
  */
-public class NetworkManagementException extends Exception {
+public class OwnTerminalException extends TerminalManagementException {
     private static final long serialVersionUID = 1L;
-
-    private final Network network;
-
-    /**
-     * Get the network in which this exception occurred.
-     * 
-     * @return the network originating the exception
-     */
-    public Network getNetwork() {
-        return network;
-    }
-
-    /**
-     * Create an exception.
-     * 
-     * @param network the network originating this exception
-     */
-    public NetworkManagementException(Network network) {
-        this.network = network;
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     */
-    public NetworkManagementException(Network network, String message) {
-        super(message);
-        this.network = network;
-    }
 
     /**
      * Create an exception with a cause.
@@ -83,24 +54,22 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param cause the cause
+     * 
+     * @param terminal the terminal to which this exception pertains
      */
-    public NetworkManagementException(Network network, Throwable cause) {
-        super(cause);
-        this.network = network;
+    public OwnTerminalException(Network network, Terminal terminal,
+                                Throwable cause) {
+        super(network, terminal, "terminal belongs to network", cause);
     }
 
     /**
-     * Create an exception with a detail message and a cause.
+     * Create an exception.
      * 
      * @param network the network originating this exception
      * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
+     * @param terminal the terminal to which this exception pertains
      */
-    public NetworkManagementException(Network network, String message,
-                                      Throwable cause) {
-        super(message, cause);
-        this.network = network;
+    public OwnTerminalException(Network network, Terminal terminal) {
+        super(network, terminal, "terminal belongs to network");
     }
 }

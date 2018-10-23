@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.ac.lancs.networks.Circuit;
+import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
@@ -53,6 +54,8 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -100,7 +103,8 @@ public class DummySwitch implements Network {
         Segment request;
 
         @Override
-        public synchronized void define(Segment request) {
+        public synchronized void define(Segment request)
+            throws InvalidServiceException {
             if (released) throw new IllegalStateException("service released");
             if (this.request != null)
                 throw new IllegalStateException("service in use");
@@ -114,11 +118,11 @@ public class DummySwitch implements Network {
             for (Circuit ep : request.circuitFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
-                    throw new IllegalArgumentException("not my circuit: "
+                    throw new InvalidServiceException("not my circuit: "
                         + ep);
                 MyTerminal mp = (MyTerminal) p;
                 if (mp.owner() != DummySwitch.this)
-                    throw new IllegalArgumentException("not my circuit: "
+                    throw new InvalidServiceException("not my circuit: "
                         + ep);
             }
             this.request = request;
@@ -262,10 +266,10 @@ public class DummySwitch implements Network {
      * 
      * @return the new terminal
      */
-    public synchronized Terminal addTerminal(String name) {
+    public synchronized Terminal addTerminal(String name)
+        throws NetworkManagementException {
         if (terminals.containsKey(name))
-            throw new IllegalArgumentException("terminal name in use: "
-                + name);
+            throw new TerminalExistsException(this, name);
         MyTerminal terminal = new MyTerminal(name);
         terminals.put(name, terminal);
         return terminal;

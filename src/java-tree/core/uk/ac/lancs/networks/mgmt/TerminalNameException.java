@@ -36,33 +36,36 @@
 package uk.ac.lancs.networks.mgmt;
 
 /**
- * Indicates an error in managing a network. This error is due to the
- * caller attempting to re-configure the network in a way that does not
- * make sense.
+ * Indicates a problem with a proposed terminal name. This exception is
+ * for duplicate names and missing names. Problems with the syntax of
+ * the name should be dealt with by {@link IllegalArgumentException}.
  * 
  * @author simpsons
  */
-public class NetworkManagementException extends Exception {
+public class TerminalNameException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final Network network;
+    private final String name;
 
     /**
-     * Get the network in which this exception occurred.
+     * Get the terminal name to which this exception pertains.
      * 
-     * @return the network originating the exception
+     * @return the terminal name
      */
-    public Network getNetwork() {
-        return network;
+    public String getName() {
+        return name;
     }
 
     /**
      * Create an exception.
      * 
      * @param network the network originating this exception
+     * 
+     * @param name the terminal name
      */
-    public NetworkManagementException(Network network) {
-        this.network = network;
+    public TerminalNameException(Network network, String name) {
+        super(network);
+        this.name = name;
     }
 
     /**
@@ -71,10 +74,13 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param message the detail message
+     * 
+     * @param name the terminal name
      */
-    public NetworkManagementException(Network network, String message) {
-        super(message);
-        this.network = network;
+    public TerminalNameException(Network network, String name,
+                                 String message) {
+        super(network, message);
+        this.name = name;
     }
 
     /**
@@ -83,10 +89,13 @@ public class NetworkManagementException extends Exception {
      * @param network the network originating this exception
      * 
      * @param cause the cause
+     * 
+     * @param name the terminal name
      */
-    public NetworkManagementException(Network network, Throwable cause) {
-        super(cause);
-        this.network = network;
+    public TerminalNameException(Network network, String name,
+                                 Throwable cause) {
+        super(network, cause);
+        this.name = name;
     }
 
     /**
@@ -97,10 +106,12 @@ public class NetworkManagementException extends Exception {
      * @param message the detail message
      * 
      * @param cause the cause
+     * 
+     * @param name the terminal name
      */
-    public NetworkManagementException(Network network, String message,
-                                      Throwable cause) {
-        super(message, cause);
-        this.network = network;
+    public TerminalNameException(Network network, String name, String message,
+                                 Throwable cause) {
+        super(network, message, cause);
+        this.name = name;
     }
 }

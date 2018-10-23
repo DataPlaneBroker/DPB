@@ -655,8 +655,10 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new NetworkResourceException("id unreported"
-                        + " for new terminal " + name);
+                    throw new NetworkResourceException(PersistentSwitch.this,
+                                                       "id unreported"
+                                                           + " for new terminal "
+                                                           + name);
                 final int id = rs.getInt(1);
                 SwitchTerminal terminal =
                     new SwitchTerminal(getControl(), name,
@@ -665,9 +667,12 @@ public class PersistentSwitch implements Switch {
                 return terminal;
             }
         } catch (SQLException ex) {
-            throw new NetworkResourceException("DB failure"
-                + " in creating terminal " + name + " on " + desc
-                + " in database", ex);
+            throw new NetworkResourceException(PersistentSwitch.this,
+                                               "DB failure"
+                                                   + " in creating terminal "
+                                                   + name + " on " + desc
+                                                   + " in database",
+                                               ex);
         }
     }
 
@@ -683,12 +688,15 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
-            throw new NetworkResourceException("DB failure"
-                + " in removing terminal " + name, ex);
+            throw new NetworkResourceException(PersistentSwitch.this,
+                                               "DB failure"
+                                                   + " in removing terminal "
+                                                   + name,
+                                               ex);
         }
     }
 
-    private synchronized Terminal getTerminal(String id) {
+    private synchronized Terminal getTerminalInternal(String id) {
         return terminals.get(id);
     }
 
@@ -705,7 +713,7 @@ public class PersistentSwitch implements Switch {
     private final NetworkControl control = new NetworkControl() {
         @Override
         public Terminal getTerminal(String id) {
-            return PersistentSwitch.this.getTerminal(id);
+            return PersistentSwitch.this.getTerminalInternal(id);
         }
 
         @Override

@@ -77,8 +77,11 @@ public interface Trunk {
      * 
      * @throws IllegalArgumentException if either amount is negative
      * 
-     * @throws NetworkManagementException if either amount exceeds the
+     * @throws TrunkManagementException if either amount exceeds the
      * corresponding available level
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
      */
     void withdrawBandwidth(double upstream, double downstream)
         throws NetworkManagementException;
@@ -89,13 +92,17 @@ public interface Trunk {
      * @param amount the amount to deduct from the available bandwidth
      * in each direction
      * 
-     * @throws NetworkManagementException if the amount exceeds either
-     * of the available levels
-     * 
      * @throws IllegalArgumentException if the amount is negative
      * 
-     * @throws NetworkManagementException if the amount exceeds either
+     * @throws TrunkManagementException if the amount exceeds either
      * available level
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
+     * 
+     * @default This implementation calls
+     * {@link #withdrawBandwidth(double, double)}, using passing the
+     * argument twice
      */
     default void withdrawBandwidth(double amount)
         throws NetworkManagementException {
@@ -132,6 +139,10 @@ public interface Trunk {
      * both directions
      * 
      * @throws IllegalArgumentException if the amount is negative
+     * 
+     * @default This implementation calls
+     * {@link #provideBandwidth(double, double)}, passing the argument
+     * twice.
      */
     default void provideBandwidth(double amount) {
         provideBandwidth(amount, amount);
@@ -149,8 +160,10 @@ public interface Trunk {
      * @param endBase the first available label at the end side of the
      * link
      * 
-     * @throws NetworkManagementException if any of the labels are in
-     * use
+     * @throws TrunkManagementException if any of the labels are in use
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
      */
     void defineLabelRange(int startBase, int amount, int endBase)
         throws NetworkManagementException;
@@ -169,8 +182,11 @@ public interface Trunk {
      * @param amount the number of labels from the base to make
      * available
      * 
-     * @throws NetworkManagementException if any of the labels are in
+     * @throws TrunkManagementException if any of the labels are in
      * use
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
      */
     default void defineLabelRange(int startBase, int amount)
         throws NetworkManagementException {
@@ -185,8 +201,11 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws NetworkManagementException if elements of the range
+     * @throws TrunkManagementException if elements of the range
      * cannot be revoked
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
      */
     void revokeStartLabelRange(int startBase, int amount)
         throws NetworkManagementException;
@@ -199,8 +218,11 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws NetworkManagementException if elements of the range
+     * @throws TrunkManagementException if elements of the range
      * cannot be revoked
+     * 
+     * @throws NetworkManagementException if the change cannot be made
+     * for other reasons
      */
     void revokeEndLabelRange(int endBase, int amount)
         throws NetworkManagementException;

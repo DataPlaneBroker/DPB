@@ -38,6 +38,7 @@ package uk.ac.lancs.networks.mgmt;
 import java.io.PrintWriter;
 
 import uk.ac.lancs.networks.NetworkControl;
+import uk.ac.lancs.networks.Terminal;
 
 /**
  * Operations include removing terminals, dumping status and obtaining
@@ -59,6 +60,32 @@ public interface Network {
      * removed
      */
     void removeTerminal(String name) throws NetworkManagementException;
+
+    /**
+     * Get a terminal on this network.
+     * 
+     * @param name the local name of the terminal
+     * 
+     * @return the identified terminal
+     * 
+     * @throws NoSuchTerminalException if no terminal was found with the
+     * given name
+     * 
+     * @throws NetworkManagementException the terminal could not be
+     * obtained for other reasons
+     * 
+     * @default This implementation gets the control interface with
+     * {@link #getControl()}, and invokes
+     * {@link NetworkControl#getTerminal(String)} on it with the
+     * supplied argument. If that returns {@code null}, an exception is
+     * thrown.
+     */
+    default Terminal getTerminal(String name)
+        throws NetworkManagementException {
+        Terminal result = getControl().getTerminal(name);
+        if (result == null) throw new NoSuchTerminalException(this, name);
+        return result;
+    }
 
     /**
      * Dump status.

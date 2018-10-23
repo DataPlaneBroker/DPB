@@ -76,8 +76,11 @@ public interface Aggregator extends Network {
      * 
      * @throws NullPointerException if either terminal is null
      * 
+     * @throws OwnTerminalException if either of the terminals belongs
+     * to this aggregator
+     * 
      * @throws NetworkManagementException if a trunk could not be
-     * created between the two terminals
+     * created between the two terminals for other reasons
      * 
      * @constructor
      */
@@ -105,6 +108,31 @@ public interface Aggregator extends Network {
      * {@code null} if none exist with that terminal
      */
     Trunk findTrunk(Terminal t);
+
+    /**
+     * Get an existing trunk connected to a terminal. If found,
+     * <code>result.{@linkplain Trunk#position(Terminal) position}(t) == 0</code>.
+     * 
+     * @param t one of the terminals of the trunk
+     * 
+     * @return the requested trunk
+     * 
+     * @throws NetworkManagementException if there was an error in
+     * getting the trunk
+     * 
+     * @default This implementation invokes
+     * {@link #findTrunk(Terminal)}, and returns the result. However, if
+     * the result is null a {@link TerminalManagementException} is
+     * thrown.
+     */
+    default Trunk getTrunk(Terminal t) throws NetworkManagementException {
+        Trunk result = findTrunk(t);
+        if (result == null)
+            throw new TerminalManagementException(this, t,
+                                                  "no trunk associated"
+                                                      + " with terminal");
+        return result;
+    }
 
     /**
      * Add a new external terminal exposing an inferior switch's

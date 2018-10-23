@@ -44,37 +44,62 @@ package uk.ac.lancs.networks.mgmt;
 public class NetworkResourceException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
+    private final Network network;
+
+    /**
+     * Get the network originating this exception.
+     * 
+     * @return the originating network
+     */
+    public Network getNetwork() {
+        return network;
+    }
+
     /**
      * Create an exception.
+     * 
+     * @param network the originating network
      */
-    public NetworkResourceException() {}
+    public NetworkResourceException(Network network) {
+        this.network = network;
+    }
 
     /**
      * Create an exception with a detail message.
      * 
+     * @param network the originating network
+     * 
      * @param message the detail message
      */
-    public NetworkResourceException(String message) {
+    public NetworkResourceException(Network network, String message) {
         super(message);
+        this.network = network;
     }
 
     /**
      * Create an exception with a cause.
      * 
+     * @param network the originating network
+     * 
      * @param cause the cause
      */
-    public NetworkResourceException(Throwable cause) {
+    public NetworkResourceException(Network network, Throwable cause) {
         super(cause);
+        this.network = network;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
+     * @param network the originating network
+     * 
      * @param message the detail message
      * 
      * @param cause the cause
      */
-    public NetworkResourceException(String message, Throwable cause) {
+    public NetworkResourceException(Network network, String message,
+                                    Throwable cause) {
         super(message, cause);
+        this.network = network;
     }
 }

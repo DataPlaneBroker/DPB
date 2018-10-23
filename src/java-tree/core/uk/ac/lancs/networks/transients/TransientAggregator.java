@@ -66,6 +66,9 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
+import uk.ac.lancs.networks.mgmt.TerminalManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -240,9 +243,9 @@ public class TransientAggregator implements Aggregator {
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
             Map<Service, Segment> subcons = subrequests.stream()
-                .collect(Collectors.toMap(r -> r.circuitFlows().keySet()
-                    .iterator().next().getTerminal().getNetwork().newService(),
-                                          r -> r));
+                .collect(Collectors
+                    .toMap(r -> r.circuitFlows().keySet().iterator().next()
+                        .getTerminal().getNetwork().newService(), r -> r));
 
             /* Create a client for each subservice. */
             clients.addAll(subcons.keySet().stream().map(Client::new)
@@ -1001,9 +1004,12 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized void removeTrunk(Terminal p) {
+    public synchronized void removeTrunk(Terminal p)
+        throws NetworkManagementException {
         MyTrunk t = trunks.get(p);
-        if (t == null) return; // TODO: error?
+        if (t == null)
+            throw new TerminalManagementException(this, p,
+                                                  "no trunk with terminal");
         trunks.keySet().removeAll(t.getTerminals());
     }
 
@@ -1016,9 +1022,10 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized Terminal addTerminal(String name, Terminal inner) {
+    public synchronized Terminal addTerminal(String name, Terminal inner)
+        throws NetworkManagementException {
         if (terminals.containsKey(name))
-            throw new IllegalArgumentException("name in use: " + name);
+            throw new TerminalExistsException(this, name);
         MyTerminal result = new MyTerminal(name, inner);
         terminals.put(name, result);
         return result;

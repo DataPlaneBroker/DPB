@@ -74,7 +74,10 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.NoSuchTerminalException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.FIBSpanGuide;
@@ -455,11 +458,11 @@ public class PersistentAggregator implements Aggregator {
 
                 /* Create subservices for each inferior network, and a
                  * distinct reference of our own for each one. */
-                Map<Service, Segment> subcons = subrequests.stream()
-                    .collect(Collectors
-                        .toMap(r -> r.circuitFlows().keySet().iterator()
-                            .next().getTerminal().getNetwork().newService(),
-                               r -> r));
+                Map<Service, Segment> subcons =
+                    subrequests.stream()
+                        .collect(Collectors.toMap(r -> r.circuitFlows()
+                            .keySet().iterator().next().getTerminal()
+                            .getNetwork().newService(), r -> r));
 
                 /* If we fail, ensure we release all these resources. */
                 redundantServices.addAll(subcons.keySet());
@@ -1143,8 +1146,10 @@ public class PersistentAggregator implements Aggregator {
                     stmt.setInt(1, dbid);
                     try (ResultSet rs = stmt.executeQuery()) {
                         if (!rs.next())
-                            throw new NetworkResourceException("missing"
-                                + " trunk id: " + dbid);
+                            throw new NetworkResourceException(PersistentAggregator.this,
+                                                               "missing"
+                                                                   + " trunk id: "
+                                                                   + dbid);
                         final double upstreamCapacity = rs.getDouble(1);
                         final double downstreamCapacity = rs.getDouble(2);
                         if (upstream > upstreamCapacity)
@@ -1161,7 +1166,8 @@ public class PersistentAggregator implements Aggregator {
                 updateTrunkCapacity(conn, this.dbid, -upstream, -downstream);
                 conn.commit();
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1178,7 +1184,8 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 updateTrunkCapacity(conn, this.dbid, +upstream, +downstream);
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1193,7 +1200,8 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(2, dbid);
                 stmt.execute();
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1218,8 +1226,10 @@ public class PersistentAggregator implements Aggregator {
                             inUse.set(rs.getInt(1));
                     }
                     if (!inUse.isEmpty())
-                        throw new NetworkManagementException(key + " in use: "
-                            + inUse);
+                        throw new TrunkManagementException(PersistentAggregator.this,
+                                                           this,
+                                                           key + " in use: "
+                                                               + inUse);
                 }
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + labelTable
@@ -1240,7 +1250,8 @@ public class PersistentAggregator implements Aggregator {
             try {
                 revokeInternalRange("start_label", startBase, amount);
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1251,7 +1262,8 @@ public class PersistentAggregator implements Aggregator {
             try {
                 revokeInternalRange("end_label", endBase, amount);
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1286,8 +1298,10 @@ public class PersistentAggregator implements Aggregator {
                             startInUse.set(rs.getInt(1));
                     }
                     if (!startInUse.isEmpty())
-                        throw new NetworkManagementException("range in use: "
-                            + startInUse);
+                        throw new TrunkManagementException(PersistentAggregator.this,
+                                                           this,
+                                                           "range in use: "
+                                                               + startInUse);
                 }
 
                 /* Add all the labels. */
@@ -1305,7 +1319,8 @@ public class PersistentAggregator implements Aggregator {
 
                 conn.commit();
             } catch (SQLException e) {
-                throw new NetworkResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1325,8 +1340,12 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 commissionTrunk(conn, dbid, false);
             } catch (SQLException e) {
-                throw new NetworkResourceException("DB failure "
-                    + "setting trunk " + dbid + " commissioned status", e);
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "DB failure "
+                                                       + "setting trunk "
+                                                       + dbid
+                                                       + " commissioned status",
+                                                   e);
             }
         }
 
@@ -1335,8 +1354,12 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 commissionTrunk(conn, dbid, true);
             } catch (SQLException e) {
-                throw new NetworkResourceException("DB failure "
-                    + "setting trunk " + dbid + " commissioned status", e);
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "DB failure "
+                                                       + "setting trunk "
+                                                       + dbid
+                                                       + " commissioned status",
+                                                   e);
             }
         }
 
@@ -1346,8 +1369,12 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return getTrunkCommissioned(conn, dbid);
             } catch (SQLException e) {
-                throw new NetworkResourceException("DB failure "
-                    + "fetching trunk " + dbid + " commissioned status", e);
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "DB failure "
+                                                       + "fetching trunk "
+                                                       + dbid
+                                                       + " commissioned status",
+                                                   e);
             }
         }
     }
@@ -1398,8 +1425,10 @@ public class PersistentAggregator implements Aggregator {
             out.flush();
             conn.commit();
         } catch (SQLException e) {
-            throw new NetworkResourceException("unable to dump network "
-                + name, e);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "unable to dump network "
+                                                   + name,
+                                               e);
         }
     }
 
@@ -1572,15 +1601,21 @@ public class PersistentAggregator implements Aggregator {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new NetworkResourceException("failed to generate"
-                        + " id for new trunk " + p1 + " to " + p2);
+                    throw new NetworkResourceException(PersistentAggregator.this,
+                                                       "failed to generate"
+                                                           + " id for new trunk "
+                                                           + p1 + " to "
+                                                           + p2);
                 final int id = rs.getInt(1);
                 conn.commit();
                 return trunkWatcher.get(id);
             }
         } catch (SQLException ex) {
-            throw new NetworkResourceException("DB failure creating"
-                + " trunk from " + p1 + " to " + p2, ex);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "DB failure creating"
+                                                   + " trunk from " + p1
+                                                   + " to " + p2,
+                                               ex);
         }
     }
 
@@ -1589,7 +1624,8 @@ public class PersistentAggregator implements Aggregator {
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0)
-                throw new NetworkManagementException("no trunk for " + p);
+                throw new NetworkManagementException(PersistentAggregator.this,
+                                                     "no trunk for " + p);
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + trunkTable + " WHERE trunk_id = ?;")) {
                 stmt.setInt(1, id);
@@ -1599,7 +1635,8 @@ public class PersistentAggregator implements Aggregator {
             MyTrunk trunk = trunkWatcher.getBase(id);
             trunk.disable();
         } catch (SQLException e) {
-            throw new NetworkResourceException("removing trunk for " + p, e);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "removing trunk for " + p, e);
         }
     }
 
@@ -1612,7 +1649,8 @@ public class PersistentAggregator implements Aggregator {
             if (result.position(p) == 1) return result.reverse();
             return result;
         } catch (SQLException e) {
-            throw new NetworkResourceException("finding trunk for " + p, e);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "finding trunk for " + p, e);
         }
     }
 
@@ -1636,11 +1674,15 @@ public class PersistentAggregator implements Aggregator {
 
             }
         } catch (SQLIntegrityConstraintViolationException ex) {
-            throw new NetworkManagementException("name in use: " + name, ex);
+            throw new TerminalExistsException(PersistentAggregator.this, name,
+                                              ex);
         } catch (SQLException ex) {
-            throw new NetworkResourceException("DB failure"
-                + " creating terminal " + name + " on " + inner
-                + " in database", ex);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "DB failure"
+                                                   + " creating terminal "
+                                                   + name + " on " + inner
+                                                   + " in database",
+                                               ex);
         }
     }
 
@@ -1658,11 +1700,13 @@ public class PersistentAggregator implements Aggregator {
             stmt.setString(1, name);
             int done = stmt.executeUpdate();
             if (done == 0)
-                throw new NetworkManagementException("no such terminal: "
-                    + name);
+                throw new NoSuchTerminalException(PersistentAggregator.this,
+                                                  name);
         } catch (SQLException ex) {
-            throw new NetworkResourceException("could not remove terminal "
-                + name + " from database", ex);
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "could not remove terminal "
+                                                   + name + " from database",
+                                               ex);
         }
     }
 
@@ -2027,8 +2071,11 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return PersistentAggregator.this.getTerminal(conn, id);
             } catch (SQLException e) {
-                throw new NetworkResourceException("DB failure"
-                    + " looking up terminal " + id, e);
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "DB failure"
+                                                       + " looking up terminal "
+                                                       + id,
+                                                   e);
             }
         }
 
@@ -2038,8 +2085,10 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return getAllTerminals(conn).keySet();
             } catch (SQLException e) {
-                throw new NetworkResourceException("DB failure"
-                    + " listing terminals", e);
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "DB failure"
+                                                       + " listing terminals",
+                                                   e);
             }
         }
 
