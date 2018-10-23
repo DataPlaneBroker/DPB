@@ -68,6 +68,7 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
+import uk.ac.lancs.networks.mgmt.TerminalInUseException;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
@@ -990,13 +991,14 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized Trunk addTrunk(Terminal p1, Terminal p2) {
+    public synchronized Trunk addTrunk(Terminal p1, Terminal p2)
+        throws NetworkManagementException {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         if (trunks.containsKey(p1))
-            throw new IllegalArgumentException("terminal in use: " + p1);
+            throw new TerminalInUseException(this, p1);
         if (trunks.containsKey(p2))
-            throw new IllegalArgumentException("terminal in use: " + p2);
+            throw new TerminalInUseException(this, p2);
         MyTrunk trunk = new MyTrunk(p1, p2);
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
