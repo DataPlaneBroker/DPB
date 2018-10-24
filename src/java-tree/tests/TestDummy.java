@@ -37,8 +37,8 @@
 
 import java.io.PrintWriter;
 
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
@@ -58,10 +58,10 @@ public class TestDummy {
     public static void main(String[] args) throws Exception {
         DummySwitch zwitch = new DummySwitch("dummy");
 
-        Terminal left = zwitch.addTerminal("left");
-        Terminal right = zwitch.addTerminal("right");
-        Terminal up = zwitch.addTerminal("up");
-        Terminal down = zwitch.addTerminal("down");
+        Terminal left = zwitch.addTerminal("left", null);
+        Terminal right = zwitch.addTerminal("right", null);
+        Terminal up = zwitch.addTerminal("up", null);
+        Terminal down = zwitch.addTerminal("down", null);
 
         /* Create a couple of dormant connections. */
         Service c1 = zwitch.getControl().newService();

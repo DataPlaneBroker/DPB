@@ -53,8 +53,8 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -63,7 +63,7 @@ import uk.ac.lancs.routing.span.Edge;
  * 
  * @author simpsons
  */
-public class DummySwitch implements Network {
+public class DummySwitch implements Switch {
     private class MyTerminal implements Terminal {
         private final String name;
 
@@ -259,14 +259,9 @@ public class DummySwitch implements Network {
         this.name = name;
     }
 
-    /**
-     * Create a terminal with the given name.
-     * 
-     * @param name the new terminal's name
-     * 
-     * @return the new terminal
-     */
-    public synchronized Terminal addTerminal(String name)
+    @Override
+    public synchronized Terminal addTerminal(String terminalName,
+                                             String interfaceName)
         throws NetworkManagementException {
         if (terminals.containsKey(name))
             throw new TerminalExistsException(this, name);

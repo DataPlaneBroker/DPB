@@ -1,7 +1,7 @@
 import java.io.PrintWriter;
 
-import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.Segment;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
@@ -74,27 +74,27 @@ public class TestDummyInitiateTopology {
     public static void main(String[] args) throws Exception {
         /* Model the Corsas at each site. */
         DummySwitch slough = new DummySwitch("slough");
-        slough.addTerminal("vms");
-        slough.addTerminal("bristol");
-        slough.addTerminal("kcl");
-        slough.addTerminal("edin");
-        slough.addTerminal("lancs");
+        slough.addTerminal("vms", null);
+        slough.addTerminal("bristol", null);
+        slough.addTerminal("kcl", null);
+        slough.addTerminal("edin", null);
+        slough.addTerminal("lancs", null);
 
         DummySwitch bristol = new DummySwitch("bristol");
-        bristol.addTerminal("vms");
-        bristol.addTerminal("slough");
+        bristol.addTerminal("vms", null);
+        bristol.addTerminal("slough", null);
 
         DummySwitch kcl = new DummySwitch("kcl");
-        kcl.addTerminal("vms");
-        kcl.addTerminal("slough");
+        kcl.addTerminal("vms", null);
+        kcl.addTerminal("slough", null);
 
         DummySwitch edin = new DummySwitch("edin");
-        edin.addTerminal("vms");
-        edin.addTerminal("slough");
+        edin.addTerminal("vms", null);
+        edin.addTerminal("slough", null);
 
         DummySwitch lancs = new DummySwitch("lancs");
-        lancs.addTerminal("vms");
-        lancs.addTerminal("slough");
+        lancs.addTerminal("vms", null);
+        lancs.addTerminal("slough", null);
 
         /* Create an aggregator to control the site switches. */
         TransientAggregator aggregator =

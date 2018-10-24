@@ -70,7 +70,6 @@ import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NoSuchTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalInUseException;
-import uk.ac.lancs.networks.mgmt.TerminalManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;

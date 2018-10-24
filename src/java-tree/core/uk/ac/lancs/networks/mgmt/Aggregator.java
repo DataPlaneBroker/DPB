@@ -128,8 +128,8 @@ public interface Aggregator extends Network {
      * 
      * @default This implementation invokes
      * {@link #findTrunk(Terminal)}, and returns the result. However, if
-     * the result is null a {@link TerminalManagementException} is
-     * thrown.
+     * the result is {@code null}, a {@link TerminalManagementException}
+     * is thrown.
      */
     default Trunk getTrunk(Terminal t) throws NetworkManagementException {
         Trunk result = findTrunk(t);
@@ -147,8 +147,11 @@ public interface Aggregator extends Network {
      * 
      * @return the newly created terminal
      * 
+     * @throws TerminalExistsException if the proposed name is already
+     * in use as a terminal identifier
+     * 
      * @throws NetworkManagementException if the terminal could not be
-     * added
+     * added for other reasons
      */
     Terminal addTerminal(String name, Terminal inner)
         throws NetworkManagementException;
