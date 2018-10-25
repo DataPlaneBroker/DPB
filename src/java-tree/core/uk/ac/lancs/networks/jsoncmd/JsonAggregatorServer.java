@@ -36,13 +36,10 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 
 import javax.json.JsonObject;
 
-import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
-import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 
 /**
@@ -53,13 +50,10 @@ import uk.ac.lancs.networks.mgmt.NetworkManagementException;
  */
 public class JsonAggregatorServer extends JsonNetworkServer {
     private final Aggregator network;
-    private final Function<? super String, ? extends Network> subnets;
 
-    public JsonAggregatorServer(Aggregator network,
-                                Function<? super String, ? extends Network> subnets) {
+    public JsonAggregatorServer(Aggregator network) {
         super(network, true);
         this.network = network;
-        this.subnets = subnets;
     }
 
     @Override
@@ -72,9 +66,7 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                 String name = req.getString("terminal-name");
                 String subNetName = req.getString("subnetwork-name");
                 String subTermName = req.getString("subterminal-name");
-                Network subnet = subnets.apply(subNetName);
-                Terminal subterm = subnet.getTerminal(subTermName);
-                network.addTerminal(name, subterm);
+                network.addTerminal(name, subNetName, subTermName);
                 return empty();
             }
 

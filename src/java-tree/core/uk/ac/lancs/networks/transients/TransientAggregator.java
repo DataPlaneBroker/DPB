@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -984,6 +985,7 @@ public class TransientAggregator implements Aggregator {
 
     private final Executor executor;
     private final String name;
+    private final Function<? super String, ? extends NetworkControl> subnets;
 
     private final Map<String, MyTerminal> terminals = new HashMap<>();
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
@@ -998,9 +1000,11 @@ public class TransientAggregator implements Aggregator {
      * 
      * @param name the new switch's name
      */
-    public TransientAggregator(Executor executor, String name) {
+    public TransientAggregator(Executor executor, String name,
+                               Function<? super String, ? extends NetworkControl> subnets) {
         this.executor = executor;
         this.name = name;
+        this.subnets = subnets;
     }
 
     @Override
@@ -1035,10 +1039,19 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized Terminal addTerminal(String name, Terminal inner)
+    public synchronized Terminal addTerminal(String name, String subnet,
+                                             String subterm)
         throws NetworkManagementException {
         if (terminals.containsKey(name))
             throw new TerminalExistsException(this, name);
+        NetworkControl subnetRef = subnets.apply(subnet);
+        if (subnetRef == null)
+            throw new NetworkManagementException(this, "unknown network: "
+                + subnet);
+        Terminal inner = subnetRef.getTerminal(subterm);
+        if (inner == null)
+            throw new NetworkManagementException(this, "unknown terminal in "
+                + subnet + ": " + subterm);
         MyTerminal result = new MyTerminal(name, inner);
         terminals.put(name, result);
         return result;

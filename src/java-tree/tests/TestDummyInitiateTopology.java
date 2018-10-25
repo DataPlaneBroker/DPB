@@ -1,5 +1,8 @@
 import java.io.PrintWriter;
+import java.util.HashMap;
+import java.util.Map;
 
+import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
@@ -68,12 +71,22 @@ public class TestDummyInitiateTopology {
         return result;
     }
 
+    private static void
+        addNetworkControl(Map<? super String, ? super NetworkControl> into,
+                          Network network) {
+        NetworkControl ctrl = network.getControl();
+        into.put(ctrl.name(), ctrl);
+    }
+
     /**
      * @param args
      */
     public static void main(String[] args) throws Exception {
+        Map<String, NetworkControl> inferiors = new HashMap<>();
+
         /* Model the Corsas at each site. */
         DummySwitch slough = new DummySwitch("slough");
+        addNetworkControl(inferiors, slough);
         slough.addTerminal("vms", null);
         slough.addTerminal("bristol", null);
         slough.addTerminal("kcl", null);
@@ -81,36 +94,36 @@ public class TestDummyInitiateTopology {
         slough.addTerminal("lancs", null);
 
         DummySwitch bristol = new DummySwitch("bristol");
+        addNetworkControl(inferiors, bristol);
         bristol.addTerminal("vms", null);
         bristol.addTerminal("slough", null);
 
         DummySwitch kcl = new DummySwitch("kcl");
+        addNetworkControl(inferiors, kcl);
         kcl.addTerminal("vms", null);
         kcl.addTerminal("slough", null);
 
         DummySwitch edin = new DummySwitch("edin");
+        addNetworkControl(inferiors, edin);
         edin.addTerminal("vms", null);
         edin.addTerminal("slough", null);
 
         DummySwitch lancs = new DummySwitch("lancs");
+        addNetworkControl(inferiors, lancs);
         lancs.addTerminal("vms", null);
         lancs.addTerminal("slough", null);
 
         /* Create an aggregator to control the site switches. */
         TransientAggregator aggregator =
-            new TransientAggregator(IdleExecutor.INSTANCE, "initiate");
+            new TransientAggregator(IdleExecutor.INSTANCE, "initiate",
+                                    inferiors::get);
 
         /* Expose inferior switches' unlinked ports. */
-        aggregator.addTerminal("lancs.vms",
-                               lancs.getControl().getTerminal("vms"));
-        aggregator.addTerminal("bristol.vms",
-                               bristol.getControl().getTerminal("vms"));
-        aggregator.addTerminal("kcl.vms",
-                               kcl.getControl().getTerminal("vms"));
-        aggregator.addTerminal("edin.vms",
-                               edin.getControl().getTerminal("vms"));
-        aggregator.addTerminal("slough.vms",
-                               slough.getControl().getTerminal("vms"));
+        aggregator.addTerminal("lancs.vms", "lancs", "vms");
+        aggregator.addTerminal("bristol.vms", "bristol", "vms");
+        aggregator.addTerminal("kcl.vms", "kcl", "vms");
+        aggregator.addTerminal("edin.vms", "edin", "vms");
+        aggregator.addTerminal("slough.vms", "slough", "vms");
 
         /* Link up the inferior switches within the superior. */
         link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);

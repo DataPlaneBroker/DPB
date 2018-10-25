@@ -1669,8 +1669,16 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public Terminal addTerminal(String name, Terminal inner)
+    public Terminal addTerminal(String name, String subnet, String subterm)
         throws NetworkManagementException {
+        NetworkControl subnetRef = inferiors.apply(subnet);
+        if (subnetRef == null)
+            throw new NetworkManagementException(this, "unknown network: "
+                + subnet);
+        Terminal inner = subnetRef.getTerminal(subterm);
+        if (inner == null)
+            throw new NetworkManagementException(this, "unknown terminal in "
+                + subnet + ": " + subterm);
         try (Connection conn = openDatabase();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + terminalTable

@@ -428,7 +428,8 @@ public final class Commander {
             String desc = iter.next();
             if (aggregator != null) {
                 Terminal inner = findTerminal(desc);
-                aggregator.addTerminal(name, inner);
+                aggregator.addTerminal(name, inner.getNetwork().name(),
+                                       inner.name());
             } else if (zwitch != null) {
                 zwitch.addTerminal(name, desc);
             } else {

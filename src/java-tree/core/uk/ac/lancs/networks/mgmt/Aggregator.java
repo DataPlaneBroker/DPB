@@ -153,7 +153,7 @@ public interface Aggregator extends Network {
      * @throws NetworkManagementException if the terminal could not be
      * added for other reasons
      */
-    Terminal addTerminal(String name, Terminal inner)
+    Terminal addTerminal(String name, String subnet, String subterm)
         throws NetworkManagementException;
     /* TODO: Take two strings (subnetwork name and terminal) in place of
      * ADT. It makes it hard to do a remote call otherwise. */

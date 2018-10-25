@@ -35,6 +35,7 @@
  */
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.lang.reflect.UndeclaredThrowableException;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
@@ -86,10 +87,19 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
     }
 
     @Override
-    public Terminal addTerminal(String name, Terminal inner)
+    public Terminal addTerminal(String name, String subnet, String subterm)
         throws NetworkManagementException {
         JsonObject req = Json.createObjectBuilder().add("type", "add-trunk")
-            .add("terminal-name", name).build();
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+            .add("terminal-name", name).add("subnetwork-name", subnet)
+            .add("subterminal-name", subterm).build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (NetworkManagementException | RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        return getKnownTerminal(name);
     }
 }
