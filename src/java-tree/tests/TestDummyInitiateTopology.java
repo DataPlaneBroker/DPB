@@ -64,7 +64,8 @@ public class TestDummyInitiateTopology {
         throws NetworkManagementException {
         Terminal p1 = zwitch1.getControl().getTerminal(port1);
         Terminal p2 = zwitch2.getControl().getTerminal(port2);
-        Trunk result = aggregator.addTrunk(p1, p2);
+        Trunk result = aggregator.addTrunk(p1.getNetwork().name(), p1.name(),
+                                           p2.getNetwork().name(), p2.name());
         result.provideBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
         result.setDelay(1.0);

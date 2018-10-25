@@ -225,8 +225,17 @@ public final class Commander {
 
         if ("close".equals(arg)) {
             usage = arg + " <terminal-name> <label>-<label>";
-            Terminal term = findTerminal(iter.next());
+            String termText = iter.next();
             String rangeText = iter.next();
+
+            Matcher tm = terminalPattern.matcher(termText);
+            if (!tm.matches()) {
+                System.err.printf("Illegal terminal: %s%n", termText);
+                return false;
+            }
+            String subnet = tm.group(1);
+            String subterm = tm.group(2);
+
             Matcher m = labelRangePattern.matcher(rangeText);
             if (!m.matches()) {
                 System.err.printf("Illegal range: %s%n", rangeText);
@@ -235,15 +244,24 @@ public final class Commander {
             int start = Integer.parseInt(m.group(1));
             int amount = Integer.parseInt(m.group(2)) - start + 1;
 
-            Trunk tr = aggregator.findTrunk(term);
+            Trunk tr = aggregator.findTrunk(subnet, subterm);
             tr.revokeStartLabelRange(start, amount);
             return true;
         }
 
         if ("open".equals(arg)) {
             usage = arg + " <terminal-name> <label>-<label>[:<label>]";
-            Terminal term = findTerminal(iter.next());
+            String termText = iter.next();
             String rangeText = iter.next();
+
+            Matcher tm = terminalPattern.matcher(termText);
+            if (!tm.matches()) {
+                System.err.printf("Illegal terminal: %s%n", termText);
+                return false;
+            }
+            String subnet = tm.group(1);
+            String subterm = tm.group(2);
+
             Matcher m = labelMapPattern.matcher(rangeText);
             if (!m.matches()) {
                 System.err.printf("Illegal map: %s%n", rangeText);
@@ -254,7 +272,7 @@ public final class Commander {
             int other =
                 m.group(3) == null ? start : Integer.parseInt(m.group(3));
 
-            Trunk tr = aggregator.findTrunk(term);
+            Trunk tr = aggregator.findTrunk(subnet, subterm);
             tr.defineLabelRange(start, amount, other);
             return true;
         }
@@ -263,14 +281,18 @@ public final class Commander {
             boolean add = arg.charAt(0) == 'r';
             usage = arg + " <terminal-name>";
             String termText = iter.next();
-            Terminal term = findTerminal(termText);
-            if (term == null) {
-                System.err.printf("No terminal [%s]%n", termText);
+
+            Matcher tm = terminalPattern.matcher(termText);
+            if (!tm.matches()) {
+                System.err.printf("Illegal terminal: %s%n", termText);
                 return false;
             }
-            Trunk tr = aggregator.findTrunk(term);
+            String subnet = tm.group(1);
+            String subterm = tm.group(2);
+
+            Trunk tr = aggregator.findTrunk(subnet, subterm);
             if (tr == null) {
-                System.err.printf("No trunk for %s%n", term);
+                System.err.printf("No trunk for %s:%s%n", subnet, subterm);
                 return false;
             }
             if (add)
@@ -283,12 +305,16 @@ public final class Commander {
             boolean add = arg.charAt(0) == 'p';
             usage = arg + " <terminal-name> <rate>[:<rate>]";
             String termText = iter.next();
-            Terminal term = findTerminal(termText);
-            if (term == null) {
-                System.err.printf("No terminal [%s]%n", termText);
+            String rateText = iter.next();
+
+            Matcher tm = terminalPattern.matcher(termText);
+            if (!tm.matches()) {
+                System.err.printf("Illegal terminal: %s%n", termText);
                 return false;
             }
-            String rateText = iter.next();
+            String subnet = tm.group(1);
+            String subterm = tm.group(2);
+
             Matcher m = bandwidthPattern.matcher(rateText);
             if (!m.matches()) {
                 System.err.printf("Unrecognized rate: %s%n", rateText);
@@ -297,9 +323,9 @@ public final class Commander {
             double uprate = Double.parseDouble(m.group(1));
             double downrate =
                 m.group(2) == null ? uprate : Double.parseDouble(m.group(2));
-            Trunk tr = aggregator.findTrunk(term);
+            Trunk tr = aggregator.findTrunk(subnet, subterm);
             if (tr == null) {
-                System.err.printf("No trunk for %s%n", term);
+                System.err.printf("No trunk for %s:%s%n", subnet, subterm);
                 return false;
             }
             if (add)
@@ -370,10 +396,18 @@ public final class Commander {
                 return false;
             }
             usage = arg + " <network-id>:<terminal-name> <delay>";
-            String termName = iter.next();
+            String termText = iter.next();
             double delay = Double.parseDouble(iter.next());
-            Terminal term = findTerminal(termName);
-            Trunk trunk = aggregator.findTrunk(term);
+
+            Matcher tm = terminalPattern.matcher(termText);
+            if (!tm.matches()) {
+                System.err.printf("Illegal terminal: %s%n", termText);
+                return false;
+            }
+            String subnet = tm.group(1);
+            String subterm = tm.group(2);
+
+            Trunk trunk = aggregator.findTrunk(subnet, subterm);
             trunk.setDelay(delay);
             return true;
         }
@@ -386,11 +420,26 @@ public final class Commander {
             }
             usage = arg + " <network-id>:<terminal-name>"
                 + " <network-id>:<terminal-name>";
-            String fromName = iter.next();
-            String toName = iter.next();
-            Terminal from = findTerminal(fromName);
-            Terminal to = findTerminal(toName);
-            aggregator.addTrunk(from, to);
+            String fromText = iter.next();
+            String toText = iter.next();
+
+            Matcher mFrom = terminalPattern.matcher(fromText);
+            if (!mFrom.matches()) {
+                System.err.printf("Illegal terminal: %s%n", fromText);
+                return false;
+            }
+            String subnetFrom = mFrom.group(1);
+            String subtermFrom = mFrom.group(2);
+
+            Matcher mTo = terminalPattern.matcher(toText);
+            if (!mTo.matches()) {
+                System.err.printf("Illegal terminal: %s%n", toText);
+                return false;
+            }
+            String subnetTo = mTo.group(1);
+            String subtermTo = mTo.group(2);
+
+            aggregator.addTrunk(subnetFrom, subtermFrom, subnetTo, subtermTo);
             return true;
         }
 
@@ -401,9 +450,17 @@ public final class Commander {
                 return false;
             }
             usage = arg + " <network-id>:<terminal-name>";
-            String fromName = iter.next();
-            Terminal from = findTerminal(fromName);
-            aggregator.removeTrunk(from);
+            String fromText = iter.next();
+
+            Matcher mFrom = terminalPattern.matcher(fromText);
+            if (!mFrom.matches()) {
+                System.err.printf("Illegal terminal: %s%n", fromText);
+                return false;
+            }
+            String subnetFrom = mFrom.group(1);
+            String subtermFrom = mFrom.group(2);
+
+            aggregator.removeTrunk(subnetFrom, subtermFrom);
             return true;
         }
 

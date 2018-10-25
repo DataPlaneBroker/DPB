@@ -84,7 +84,7 @@ public interface Aggregator extends Network {
      * 
      * @constructor
      */
-    Trunk addTrunk(Terminal t1, Terminal t2)
+    Trunk addTrunk(String n1, String t1, String n2, String t2)
         throws NetworkManagementException;
 
     /**
@@ -93,13 +93,14 @@ public interface Aggregator extends Network {
      * 
      * @param terminal either of the trunk's terminals
      * 
-     * @param NoSuchTrunkException if the terminal did not identify a
+     * @param UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
      * 
      * @throws NetworkManagementException if the terminal could not be
      * removed
      */
-    void removeTrunk(Terminal terminal) throws NetworkManagementException;
+    void removeTrunk(String network, String terminal)
+        throws NetworkManagementException;
 
     /**
      * Find an existing trunk connected to a terminal. If found,
@@ -110,7 +111,7 @@ public interface Aggregator extends Network {
      * @return the requested trunk, with the terminal as its start, or
      * {@code null} if none exist with that terminal
      */
-    Trunk findTrunk(Terminal t);
+    Trunk findTrunk(String network, String terminal);
 
     /**
      * Get an existing trunk connected to a terminal. If found,
@@ -120,7 +121,7 @@ public interface Aggregator extends Network {
      * 
      * @return the requested trunk
      * 
-     * @param NoSuchTrunkException if the terminal did not identify a
+     * @param UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
      * 
      * @throws NetworkManagementException if there was an error in
@@ -131,9 +132,11 @@ public interface Aggregator extends Network {
      * the result is {@code null}, a {@link TerminalManagementException}
      * is thrown.
      */
-    default Trunk getTrunk(Terminal t) throws NetworkManagementException {
-        Trunk result = findTrunk(t);
-        if (result == null) throw new NoSuchTrunkException(this, t);
+    default Trunk getTrunk(String network, String terminal)
+        throws NetworkManagementException {
+        Trunk result = findTrunk(network, terminal);
+        if (result == null)
+            throw new UnknownTrunkException(this, network, terminal);
         return result;
     }
 

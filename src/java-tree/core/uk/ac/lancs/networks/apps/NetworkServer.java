@@ -282,7 +282,8 @@ public final class NetworkServer {
                             .add("error", "no-aggregator").build());
                     String name = req.getString("terminal-name");
                     Terminal term = network.getTerminal(name);
-                    Trunk trunk = aggregator.getTrunk(term);
+                    Trunk trunk = null;
+                    // aggregator.getTrunk(term);
                     boolean add = cmd.charAt(0) != 'd';
                     if (add)
                         trunk.recommission();
@@ -298,7 +299,8 @@ public final class NetworkServer {
 
                     String name = req.getString("terminal-name");
                     Terminal term = network.getTerminal(name);
-                    Trunk trunk = aggregator.getTrunk(term);
+                    Trunk trunk = null;
+                    // aggregator.getTrunk(term);
 
                     double delay = req.getJsonNumber("delay").doubleValue();
                     trunk.setDelay(delay);
@@ -342,7 +344,7 @@ public final class NetworkServer {
                             .add("terminal-name", name).build());
                     }
 
-                    aggregator.addTrunk(fromTerm, toTerm);
+                    // aggregator.addTrunk(fromTerm, toTerm);
                     return empty();
                 }
 
@@ -354,7 +356,7 @@ public final class NetworkServer {
                     String name = req.getString("terminal-name");
                     Terminal term = network.getTerminal(name);
 
-                    aggregator.removeTrunk(term);
+                    // aggregator.removeTrunk(term);
                     return empty();
                 }
 
@@ -389,7 +391,8 @@ public final class NetworkServer {
 
                     String name = req.getString("terminal-name");
                     Terminal term = network.getTerminal(name);
-                    Trunk trunk = aggregator.findTrunk(term);
+                    Trunk trunk = null;
+                    // aggregator.findTrunk(term);
 
                     int start = req.getJsonNumber("low").intValue();
                     JsonNumber highNum = req.getJsonNumber("high");
@@ -414,7 +417,8 @@ public final class NetworkServer {
 
                     String name = req.getString("terminal-name");
                     Terminal term = network.getTerminal(name);
-                    Trunk trunk = aggregator.findTrunk(term);
+                    Trunk trunk = null;
+                    // aggregator.findTrunk(term);
 
                     boolean add = cmd.charAt(0) == 'p';
                     JsonNumber rate = req.getJsonNumber("rate");

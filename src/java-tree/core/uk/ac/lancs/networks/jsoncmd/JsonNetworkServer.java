@@ -374,10 +374,11 @@ public class JsonNetworkServer {
             builder.add("error", "trunk-mgmt").add("msg", e.getMessage())
                 .add("network-name", e.getNetwork().getControl().name());
             Trunk trunk = e.getTrunk();
-            Terminal first = trunk.getTerminal(0);
-            Terminal second = trunk.getTerminal(1);
-            builder.add("start-terminal-name", first.name());
-            builder.add("end-terminal-name", second.name());
+            builder.add("start-network-name", trunk.getStartSubnetworkName());
+            builder.add("end-network-name", trunk.getEndSubnetworkName());
+            builder.add("start-terminal-name",
+                        trunk.getStartSubterminalName());
+            builder.add("end-terminal-name", trunk.getEndSubterminalName());
         } catch (TerminalManagementException e) {
             builder.add("error", "terminal-mgmt").add("msg", e.getMessage())
                 .add("terminal-name", e.getTerminal().name())

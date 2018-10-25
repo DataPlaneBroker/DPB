@@ -41,10 +41,12 @@ import java.util.concurrent.Executor;
 import javax.json.Json;
 import javax.json.JsonObject;
 
+import uk.ac.lancs.networks.NetworkControlException;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 
 /**
  * Accesses a remote aggregator through a supply of JSON channels.
@@ -70,23 +72,6 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
     }
 
     @Override
-    public Trunk addTrunk(Terminal t1, Terminal t2)
-        throws NetworkManagementException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
-    public void removeTrunk(Terminal terminal)
-        throws NetworkManagementException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
-    public Trunk findTrunk(Terminal t) {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
-
-    @Override
     public Terminal addTerminal(String name, String subnet, String subterm)
         throws NetworkManagementException {
         JsonObject req = Json.createObjectBuilder().add("type", "add-trunk")
@@ -101,5 +86,38 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             throw new UndeclaredThrowableException(e);
         }
         return getKnownTerminal(name);
+    }
+
+    @Override
+    protected void checkErrors(JsonObject rsp)
+        throws NetworkManagementException,
+            NetworkControlException {
+        String type = rsp.getString("error");
+        if (type == null) return;
+        switch (type) {
+        case "trunk-mgmt":
+            Trunk trunk = getTrunk(rsp.getString("start-network-name"),
+                                   rsp.getString("start-terminal-name"));
+            throw new TrunkManagementException(this, trunk,
+                                               rsp.getString("msg"));
+        }
+        super.checkErrors(rsp);
+    }
+
+    @Override
+    public Trunk addTrunk(String n1, String t1, String n2, String t2)
+        throws NetworkManagementException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public void removeTrunk(String network, String terminal)
+        throws NetworkManagementException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public Trunk findTrunk(String network, String terminal) {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }

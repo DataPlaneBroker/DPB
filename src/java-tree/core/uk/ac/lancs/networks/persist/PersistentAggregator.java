@@ -75,10 +75,12 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.NoSuchTerminalException;
-import uk.ac.lancs.networks.mgmt.NoSuchTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
+import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
+import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.networks.util.ReferenceWatcher;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
@@ -1327,8 +1329,7 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        @Override
-        public int position(Terminal term) {
+        int position(Terminal term) {
             return getTerminals().indexOf(term);
         }
 
@@ -1380,8 +1381,7 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        @Override
-        public Terminal getTerminal(int pos) {
+        Terminal getTerminal(int pos) {
             switch (pos) {
             case 0:
                 return start;
@@ -1391,6 +1391,26 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalArgumentException("position meaningless: "
                     + pos);
             }
+        }
+
+        @Override
+        public String getStartSubnetworkName() {
+            return start.getNetwork().name();
+        }
+
+        @Override
+        public String getStartSubterminalName() {
+            return start.name();
+        }
+
+        @Override
+        public String getEndSubnetworkName() {
+            return end.getNetwork().name();
+        }
+
+        @Override
+        public String getEndSubterminalName() {
+            return end.name();
         }
     }
 
@@ -1599,8 +1619,12 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk addTrunk(Terminal p1, Terminal p2)
+    public Trunk addTrunk(String n1, String t1, String n2, String t2)
         throws NetworkManagementException {
+        NetworkControl nc1 = inferiors.apply(n1);
+        Terminal p1 = nc1.getTerminal(t1);
+        NetworkControl nc2 = inferiors.apply(n2);
+        Terminal p2 = nc2.getTerminal(t2);
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         try (Connection conn = newDatabaseContext(false);
@@ -1635,11 +1659,18 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public void removeTrunk(Terminal p) throws NetworkManagementException {
+    public void removeTrunk(String subnet, String subterm)
+        throws NetworkManagementException {
+        NetworkControl nc = inferiors.apply(subnet);
+        if (nc == null) throw new UnknownSubnetworkException(this, subnet);
+        Terminal p = nc.getTerminal(subterm);
+        if (p == null)
+            throw new UnknownSubterminalException(this, subnet, subterm);
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0)
-                throw new NoSuchTrunkException(PersistentAggregator.this, p);
+                throw new UnknownTrunkException(PersistentAggregator.this,
+                                                subnet, subterm);
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + trunkTable + " WHERE trunk_id = ?;")) {
                 stmt.setInt(1, id);
@@ -1655,12 +1686,17 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk findTrunk(Terminal p) {
+    public Trunk findTrunk(String subnet, String subterm) {
+        NetworkControl nc = inferiors.apply(subnet);
+        if (nc == null) return null;
+        Terminal p = nc.getTerminal(subterm);
+        if (p == null) return null;
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0) return null;
             Trunk result = trunkWatcher.get(id);
-            if (result.position(p) == 1) return result.reverse();
+            MyTrunk base = trunkWatcher.getBase(id);
+            if (base.position(p) == 1) return result.reverse();
             return result;
         } catch (SQLException e) {
             throw new NetworkResourceException(PersistentAggregator.this,

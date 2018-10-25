@@ -35,8 +35,6 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
  * A trunk connects two terminals together, has a configured delay (used
  * as a metric for path finding), an upstream bandwidth capacity (from
@@ -123,6 +121,36 @@ public interface Trunk {
     void provideBandwidth(double upstream, double downstream);
 
     /**
+     * Get the name of the subnetwork owning the start of this trunk.
+     * 
+     * @return the subnetwork name
+     */
+    String getStartSubnetworkName();
+
+    /**
+     * Get the name of the terminal in the subnetwork owning the start
+     * of this trunk.
+     * 
+     * @return the name of the terminal in the subnetwork
+     */
+    String getStartSubterminalName();
+
+    /**
+     * Get the name of the subnetwork owning the end of this trunk.
+     * 
+     * @return the subnetwork name
+     */
+    String getEndSubnetworkName();
+
+    /**
+     * Get the name of the terminal in the subnetwork owning the end of
+     * this trunk.
+     * 
+     * @return the name of the terminal in the subnetwork
+     */
+    String getEndSubterminalName();
+
+    /**
      * Identify which end of the trunk its terminal belongs.
      * 
      * @param term the terminal sought
@@ -130,7 +158,7 @@ public interface Trunk {
      * @return 0 if the terminal is considered at start; 1 if at the
      * end; -1 if the terminal does not define the trunk
      */
-    int position(Terminal term);
+    // int position(Terminal term);
 
     /**
      * Get the terminal at one end of this trunk.
@@ -141,7 +169,7 @@ public interface Trunk {
      * 
      * @throws IllegalArgumentException if the position is not 0 or 1
      */
-    Terminal getTerminal(int pos);
+    // Terminal getTerminal(int pos);
 
     /**
      * Provide bandwidth to this trunk.
@@ -279,11 +307,6 @@ public interface Trunk {
             }
 
             @Override
-            public Terminal getTerminal(int pos) {
-                return orig.getTerminal(1 - pos);
-            }
-
-            @Override
             public void revokeStartLabelRange(int startBase, int amount)
                 throws NetworkManagementException {
                 orig.revokeEndLabelRange(startBase, amount);
@@ -303,19 +326,6 @@ public interface Trunk {
             @Override
             public void provideBandwidth(double upstream, double downstream) {
                 orig.provideBandwidth(downstream, upstream);
-            }
-
-            @Override
-            public int position(Terminal term) {
-                int r = orig.position(term);
-                switch (r) {
-                case 0:
-                    return 1;
-                case 1:
-                    return 0;
-                default:
-                    return r;
-                }
             }
 
             @Override
@@ -343,6 +353,26 @@ public interface Trunk {
             @Override
             public boolean isCommissioned() {
                 return orig.isCommissioned();
+            }
+
+            @Override
+            public String getStartSubnetworkName() {
+                return orig.getEndSubnetworkName();
+            }
+
+            @Override
+            public String getStartSubterminalName() {
+                return orig.getEndSubterminalName();
+            }
+
+            @Override
+            public String getEndSubnetworkName() {
+                return orig.getStartSubnetworkName();
+            }
+
+            @Override
+            public String getEndSubterminalName() {
+                return orig.getStartSubterminalName();
             }
         };
     }

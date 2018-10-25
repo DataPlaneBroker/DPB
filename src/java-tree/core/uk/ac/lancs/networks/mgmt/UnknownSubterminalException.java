@@ -35,16 +35,33 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
- * Indicates that a trunk could not be found connecting a specified
- * terminal.
+ * Indicates that a terminal in an inferior network could not be found.
  * 
  * @author simpsons
  */
-public class NoSuchTrunkException extends TerminalManagementException {
+public class UnknownSubterminalException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
+
+    private final String network, terminal;
+
+    /**
+     * Get the name of the inferior network.
+     * 
+     * @return the inferior network's name
+     */
+    public String getSubnetworkName() {
+        return network;
+    }
+
+    /**
+     * Get the unrecognized terminal name.
+     * 
+     * @return the terminal name
+     */
+    public String getSubterminalName() {
+        return terminal;
+    }
 
     /**
      * Create an exception.
@@ -53,9 +70,11 @@ public class NoSuchTrunkException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public NoSuchTrunkException(Network network, Terminal terminal) {
-        super(network, terminal,
-              "no trunk identified by terminal: " + terminal);
+    public UnknownSubterminalException(Network network, String subnet,
+                                       String subterm) {
+        super(network, "no trunk identified: " + subterm + " in " + subnet);
+        this.network = subnet;
+        this.terminal = subterm;
     }
 
     /**
@@ -67,9 +86,11 @@ public class NoSuchTrunkException extends TerminalManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public NoSuchTrunkException(Network network, Terminal terminal,
-                                Throwable cause) {
-        super(network, terminal,
-              "no trunk identified by terminal: " + terminal, cause);
+    public UnknownSubterminalException(Network network, String subnet,
+                                       String subterm, Throwable cause) {
+        super(network, "no trunk identified: " + subterm + " in " + subnet,
+              cause);
+        this.network = subnet;
+        this.terminal = subterm;
     }
 }
