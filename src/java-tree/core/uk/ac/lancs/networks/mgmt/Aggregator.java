@@ -155,4 +155,6 @@ public interface Aggregator extends Network {
      */
     Terminal addTerminal(String name, Terminal inner)
         throws NetworkManagementException;
+    /* TODO: Take two strings (subnetwork name and terminal) in place of
+     * ADT. It makes it hard to do a remote call otherwise. */
 }

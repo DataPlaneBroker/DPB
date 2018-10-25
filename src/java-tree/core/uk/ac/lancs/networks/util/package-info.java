@@ -35,8 +35,7 @@
  */
 
 /**
- * @resume Applications and utilities for manipulating networks and
- * switches
+ * Miscellaneous utilities
  * 
  * @author simpsons
  */

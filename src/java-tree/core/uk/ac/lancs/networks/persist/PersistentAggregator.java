@@ -79,6 +79,7 @@ import uk.ac.lancs.networks.mgmt.NoSuchTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
+import uk.ac.lancs.networks.util.ReferenceWatcher;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.FIBSpanGuide;
@@ -1376,6 +1377,19 @@ public class PersistentAggregator implements Aggregator {
                                                        + dbid
                                                        + " commissioned status",
                                                    e);
+            }
+        }
+
+        @Override
+        public Terminal getTerminal(int pos) {
+            switch (pos) {
+            case 0:
+                return start;
+            case 1:
+                return end;
+            default:
+                throw new IllegalArgumentException("position meaningless: "
+                    + pos);
             }
         }
     }

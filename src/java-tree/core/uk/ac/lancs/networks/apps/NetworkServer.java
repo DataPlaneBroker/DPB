@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util;
+package uk.ac.lancs.networks.apps;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -439,18 +439,17 @@ public final class NetworkServer {
                         .add("error", "no-control").build());
                     service = control.newService();
                     return one(Json.createObjectBuilder()
-                        .add("service-name", "" + service.id()).build());
+                        .add("service-name", service.id()).build());
                 }
 
                 case "service": {
                     if (control == null) return one(Json.createObjectBuilder()
                         .add("error", "no-control").build());
-                    String name = req.getString("service-name");
-                    int number = Integer.parseInt(name);
+                    int number = req.getJsonNumber("service-name").intValue();
                     service = control.getService(number);
                     if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").add("service-name", name)
-                        .build());
+                        .add("error", "no-service")
+                        .add("service-name", number).build());
                     return empty();
                 }
 

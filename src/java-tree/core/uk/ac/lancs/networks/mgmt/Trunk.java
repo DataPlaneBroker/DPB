@@ -133,6 +133,17 @@ public interface Trunk {
     int position(Terminal term);
 
     /**
+     * Get the terminal at one end of this trunk.
+     * 
+     * @param pos 0 for the start of the trunk; 1 for the end
+     * 
+     * @return the terminal at the specified end of the trunk
+     * 
+     * @throws IllegalArgumentException if the position is not 0 or 1
+     */
+    Terminal getTerminal(int pos);
+
+    /**
      * Provide bandwidth to this trunk.
      * 
      * @param amount the amount to add to the available bandwidth in
@@ -182,8 +193,7 @@ public interface Trunk {
      * @param amount the number of labels from the base to make
      * available
      * 
-     * @throws TrunkManagementException if any of the labels are in
-     * use
+     * @throws TrunkManagementException if any of the labels are in use
      * 
      * @throws NetworkManagementException if the change cannot be made
      * for other reasons
@@ -201,8 +211,8 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws TrunkManagementException if elements of the range
-     * cannot be revoked
+     * @throws TrunkManagementException if elements of the range cannot
+     * be revoked
      * 
      * @throws NetworkManagementException if the change cannot be made
      * for other reasons
@@ -218,8 +228,8 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws TrunkManagementException if elements of the range
-     * cannot be revoked
+     * @throws TrunkManagementException if elements of the range cannot
+     * be revoked
      * 
      * @throws NetworkManagementException if the change cannot be made
      * for other reasons
@@ -266,6 +276,11 @@ public interface Trunk {
             @Override
             public void setDelay(double delay) {
                 orig.setDelay(delay);
+            }
+
+            @Override
+            public Terminal getTerminal(int pos) {
+                return orig.getTerminal(1 - pos);
             }
 
             @Override

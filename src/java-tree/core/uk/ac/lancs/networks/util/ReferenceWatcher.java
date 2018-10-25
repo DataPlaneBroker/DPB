@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.persist;
+package uk.ac.lancs.networks.util;
 
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;

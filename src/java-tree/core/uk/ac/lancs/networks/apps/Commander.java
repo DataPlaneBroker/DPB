@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.util;
+package uk.ac.lancs.networks.apps;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -69,6 +69,7 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.util.IdleExecutor;
 
 /**
  * Instantiates networks according to configuration, and allows

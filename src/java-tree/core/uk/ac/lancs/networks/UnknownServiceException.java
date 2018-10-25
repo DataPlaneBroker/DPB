@@ -33,38 +33,53 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.networks;
 
 /**
- * A network is a set of terminals across which connectivity services
- * can be established with QoS guarantees. A switch is a network whose
- * terminals are physical interfaces, aggregate interfaces, or labelled
- * divisions (such as VLANs) within those interfaces. An aggregator is a
- * network that delegates to other (<dfn>inferior</dfn>) networks
- * connected by trunks, and is responsible for finding spanning trees
- * across the graph of trunks and inferior switches.
  * 
- * <p>
- * A network in general is managed through a
- * {@link uk.ac.lancs.networks.mgmt.Network} object, permitting basic
- * operations of removal of terminals and acquisition of the control
- * interface {@link uk.ac.lancs.networks.NetworkControl}. An aggregator
- * is managed through a specialization of that,
- * {@link uk.ac.lancs.networks.mgmt.Aggregator}, supporting mapping of
- * the aggregator's terminals to those of its inferior networks, and
- * trunk management. A switch is managed through
- * {@link uk.ac.lancs.networks.mgmt.Switch}, supporting mapping of
- * terminals to interfaces.
- * 
- * <p>
- * The {@link uk.ac.lancs.networks.apps.Commander} application
- * implements a framework for instantiating networks. Network
- * implementations can be provided through
- * {@link uk.ac.lancs.agent.AgentFactory}s, which are supplied with
- * textual configuration and run-time resources to build networks.
- * 
- * @resume Interfaces for managing networks, switches, aggregators and
- * trunks
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.mgmt;
+public class UnknownServiceException extends NetworkControlException {
+    private static final long serialVersionUID = 1L;
+
+    private final int serviceId;
+
+    /**
+     * Get the id of the service that was unknown.
+     * 
+     * @return the service id
+     */
+    public int getServiceId() {
+        return serviceId;
+    }
+
+    /**
+     * Create an exception.
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
+     * 
+     * @param serviceId the service id
+     */
+    public UnknownServiceException(NetworkControl control, int serviceId) {
+        super(control, "unknown service id: " + serviceId);
+        this.serviceId = serviceId;
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
+     * 
+     * @param serviceId the service id
+     */
+    public UnknownServiceException(NetworkControl control, int serviceId,
+                                   Throwable cause) {
+        super(control, "unknown service id: " + serviceId, cause);
+        this.serviceId = serviceId;
+    }
+}

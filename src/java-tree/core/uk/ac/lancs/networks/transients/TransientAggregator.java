@@ -945,6 +945,19 @@ public class TransientAggregator implements Aggregator {
                 return commissioned;
             }
         }
+
+        @Override
+        public Terminal getTerminal(int pos) {
+            switch (pos) {
+            case 0:
+                return start;
+            case 1:
+                return end;
+            default:
+                throw new IllegalArgumentException("position meaningless: "
+                    + pos);
+            }
+        }
     }
 
     /**

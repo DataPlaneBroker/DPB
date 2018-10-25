@@ -26,13 +26,15 @@ roots_core += uk.ac.lancs.networks.mgmt.TrunkManagementException
 roots_core += uk.ac.lancs.networks.mgmt.OwnTerminalException
 roots_core += uk.ac.lancs.networks.mgmt.LabelsInUseException
 roots_core += uk.ac.lancs.networks.mgmt.NoSuchTrunkException
+roots_core += uk.ac.lancs.networks.jsoncmd.JsonSwitchServer
+roots_core += uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer
 roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorAgentFactory
 roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
-roots_core += uk.ac.lancs.networks.util.Commander
-roots_core += uk.ac.lancs.networks.util.NetworkServer
+roots_core += uk.ac.lancs.networks.apps.Commander
+roots_core += uk.ac.lancs.networks.apps.NetworkServer
 
 SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
@@ -75,7 +77,8 @@ include jardeps.mk
 DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
-DOC_PKGS += uk.ac.lancs.networks.util
+DOC_PKGS += uk.ac.lancs.networks.apps
+DOC_PKGS += uk.ac.lancs.networks.jsoncmd
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist
@@ -113,7 +116,7 @@ testgeospan: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestGeographicSpan
 
 commander: all
-	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.util.Commander $(CONFIG) $(ARGS)
+	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.apps.Commander $(CONFIG) $(ARGS)
 
 testcorsa: all
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/initiate-dpb-util.jar:$(JARDEPS_OUTDIR)/initiate-dpb-corsa.jar:$(subst $(jardeps_space),:,$(CLASSPATH))" uk.ac.lancs.networks.corsa.rest.CorsaREST $(RESTAPI) $(CERTFILE) $(AUTHZFILE)

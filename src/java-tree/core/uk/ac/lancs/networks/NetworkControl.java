@@ -104,6 +104,22 @@ public interface NetworkControl {
     Service getService(int id);
 
     /**
+     * Get an existing service.
+     * 
+     * @param id the service identifier
+     * 
+     * @return the requested service
+     * 
+     * @throws UnknownServiceException if no service exists with the
+     * specified identifier
+     */
+    default Service requireService(int id) throws UnknownServiceException {
+        Service srv = getService(id);
+        if (srv != null) return srv;
+        throw new UnknownServiceException(this, id);
+    }
+
+    /**
      * Get ids of all open services.
      * 
      * @return a set of all open service ids, modifiable by the user

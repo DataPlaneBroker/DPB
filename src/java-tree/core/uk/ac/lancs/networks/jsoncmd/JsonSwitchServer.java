@@ -33,38 +33,66 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+package uk.ac.lancs.networks.jsoncmd;
+
+import java.util.concurrent.Executor;
+
+import javax.json.JsonObject;
+
+import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.Switch;
 
 /**
- * A network is a set of terminals across which connectivity services
- * can be established with QoS guarantees. A switch is a network whose
- * terminals are physical interfaces, aggregate interfaces, or labelled
- * divisions (such as VLANs) within those interfaces. An aggregator is a
- * network that delegates to other (<dfn>inferior</dfn>) networks
- * connected by trunks, and is responsible for finding spanning trees
- * across the graph of trunks and inferior switches.
- * 
- * <p>
- * A network in general is managed through a
- * {@link uk.ac.lancs.networks.mgmt.Network} object, permitting basic
- * operations of removal of terminals and acquisition of the control
- * interface {@link uk.ac.lancs.networks.NetworkControl}. An aggregator
- * is managed through a specialization of that,
- * {@link uk.ac.lancs.networks.mgmt.Aggregator}, supporting mapping of
- * the aggregator's terminals to those of its inferior networks, and
- * trunk management. A switch is managed through
- * {@link uk.ac.lancs.networks.mgmt.Switch}, supporting mapping of
- * terminals to interfaces.
- * 
- * <p>
- * The {@link uk.ac.lancs.networks.apps.Commander} application
- * implements a framework for instantiating networks. Network
- * implementations can be provided through
- * {@link uk.ac.lancs.agent.AgentFactory}s, which are supplied with
- * textual configuration and run-time resources to build networks.
- * 
- * @resume Interfaces for managing networks, switches, aggregators and
- * trunks
+ * Translates JSON-formatted requests into invocations on a
+ * {@link Switch}, and results of those invocations back to JSON.
  * 
  * @author simpsons
  */
-package uk.ac.lancs.networks.mgmt;
+public class JsonSwitchServer extends JsonNetworkServer {
+    private final Switch network;
+
+    /**
+     * @param network
+     * @param allowMgmt
+     */
+    public JsonSwitchServer(Switch network) {
+        super(network, true);
+        this.network = network;
+    }
+
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation recognizes the following commands:
+     * 
+     * <dl>
+     * 
+     * <dt><samp>add-terminal <var>terminal-name</var>
+     * <var>terminal-config</var></samp>
+     * 
+     * <dd>Invoke {@link Switch#addTerminal(String, String)} with the
+     * specified name.
+     * 
+     * </dl>
+     */
+    @Override
+    public Iterable<JsonObject> interact(JsonObject req, Executor onClose) {
+        Iterable<JsonObject> superResult = super.interact(req, onClose);
+        if (superResult != null) return superResult;
+        try {
+            switch (req.getString("type")) {
+            case "add-terminal": {
+                String name = req.getString("terminal-name");
+                String config = req.getString("terminal-config");
+                network.addTerminal(name, config);
+                return empty();
+            }
+
+            default:
+                return null;
+            }
+        } catch (NetworkManagementException e) {
+            return handle(e);
+        }
+    }
+}
