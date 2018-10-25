@@ -76,7 +76,7 @@ public class JsonSwitch extends JsonNetwork implements Switch {
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);
-        } catch (NetworkManagementException e) {
+        } catch (NetworkManagementException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new UndeclaredThrowableException(e);

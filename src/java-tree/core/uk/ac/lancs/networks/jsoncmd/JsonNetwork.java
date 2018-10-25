@@ -104,7 +104,7 @@ public class JsonNetwork implements Network {
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);
-        } catch (NetworkManagementException e) {
+        } catch (NetworkManagementException | RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new UndeclaredThrowableException(e);
@@ -340,6 +340,8 @@ public class JsonNetwork implements Network {
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
             } catch (Exception e) {
                 throw new UndeclaredThrowableException(e);
             }
@@ -352,6 +354,8 @@ public class JsonNetwork implements Network {
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
             } catch (Exception e) {
                 throw new UndeclaredThrowableException(e);
             }
@@ -376,6 +380,8 @@ public class JsonNetwork implements Network {
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
             } catch (Exception e) {
                 throw new UndeclaredThrowableException(e);
             }
