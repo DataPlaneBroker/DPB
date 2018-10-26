@@ -54,11 +54,12 @@ import uk.ac.lancs.networks.Terminal;
  * 
  * <p>
  * A trunk connects the terminals of two different inferior networks
- * together by calling {@link #addTrunk(Terminal, Terminal)}. To
- * implement a service, the aggregator uses its knowledge of trunk
- * topology to plot spanning trees over its trunks, and delegates
- * service requests to the inferior networks owning the terminals at the
- * ends of the trunks that contribute to the spanning tree.
+ * together by calling
+ * {@link #addTrunk(String, String, String, String)}. To implement a
+ * service, the aggregator uses its knowledge of trunk topology to plot
+ * spanning trees over its trunks, and delegates service requests to the
+ * inferior networks owning the terminals at the ends of the trunks that
+ * contribute to the spanning tree.
  * 
  * @resume A network that is an aggregate of inferior networks
  * 
@@ -68,9 +69,13 @@ public interface Aggregator extends Network {
     /**
      * Create a trunk between two internal terminals within the network.
      * 
-     * @param t1 one of the terminals
+     * @param n1 the name of the network owning the first terminal
      * 
-     * @param t2 the other terminal
+     * @param t1 the local name of the first terminal
+     * 
+     * @param n2 the name of the network owning the second terminal
+     * 
+     * @param t2 the local name of the second terminal
      * 
      * @return the newly created trunk
      * 
@@ -91,7 +96,10 @@ public interface Aggregator extends Network {
      * Remove and delete a trunk between two internal terminals with the
      * network.
      * 
-     * @param terminal either of the trunk's terminals
+     * @param network the name of the network owning the specified
+     * terminal
+     * 
+     * @param terminal the local name of either of the trunk's terminals
      * 
      * @param UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
@@ -103,10 +111,12 @@ public interface Aggregator extends Network {
         throws NetworkManagementException;
 
     /**
-     * Find an existing trunk connected to a terminal. If found,
-     * <code>result.{@linkplain Trunk#position(Terminal) position}(t) == 0</code>.
+     * Find an existing trunk connected to a terminal.
      * 
-     * @param t one of the terminals of the trunk
+     * @param network the name of the network owning the specified
+     * terminal
+     * 
+     * @param terminal the local name of either of the trunk's terminals
      * 
      * @return the requested trunk, with the terminal as its start, or
      * {@code null} if none exist with that terminal
@@ -114,10 +124,12 @@ public interface Aggregator extends Network {
     Trunk findTrunk(String network, String terminal);
 
     /**
-     * Get an existing trunk connected to a terminal. If found,
-     * <code>result.{@linkplain Trunk#position(Terminal) position}(t) == 0</code>.
+     * Get an existing trunk connected to a terminal.
      * 
-     * @param t one of the terminals of the trunk
+     * @param network the name of the network owning the specified
+     * terminal
+     * 
+     * @param terminal the local name of either of the trunk's terminals
      * 
      * @return the requested trunk
      * 
@@ -128,9 +140,9 @@ public interface Aggregator extends Network {
      * getting the trunk
      * 
      * @default This implementation invokes
-     * {@link #findTrunk(Terminal)}, and returns the result. However, if
-     * the result is {@code null}, a {@link TerminalManagementException}
-     * is thrown.
+     * {@link #findTrunk(String, String)}, and returns the result.
+     * However, if the result is {@code null}, a
+     * {@link TerminalManagementException} is thrown.
      */
     default Trunk getTrunk(String network, String terminal)
         throws NetworkManagementException {
@@ -141,12 +153,15 @@ public interface Aggregator extends Network {
     }
 
     /**
-     * Add a new external terminal exposing an inferior switch's
+     * Add a new external terminal exposing an inferior network's
      * terminal.
      * 
      * @param name the local name of the terminal
      * 
-     * @param inner the terminal of an inferior switch
+     * @param subnet the name of the inferior network
+     * 
+     * @param subterm the local name of the terminal in the inferior
+     * network
      * 
      * @return the newly created terminal
      * 
@@ -158,6 +173,4 @@ public interface Aggregator extends Network {
      */
     Terminal addTerminal(String name, String subnet, String subterm)
         throws NetworkManagementException;
-    /* TODO: Take two strings (subnetwork name and terminal) in place of
-     * ADT. It makes it hard to do a remote call otherwise. */
 }

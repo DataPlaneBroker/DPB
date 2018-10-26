@@ -52,8 +52,9 @@ public class JsonSwitchServer extends JsonNetworkServer {
     private final Switch network;
 
     /**
-     * @param network
-     * @param allowMgmt
+     * Create a JSON adaptor around a network.
+     * 
+     * @param network the network to be invoked
      */
     public JsonSwitchServer(Switch network) {
         super(network, true);

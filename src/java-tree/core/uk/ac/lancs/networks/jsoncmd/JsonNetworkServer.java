@@ -136,7 +136,7 @@ public class JsonNetworkServer {
      * 
      * <dt><samp>get-terminals</samp>
      * 
-     * <dd>Invoke {@link NetworkControl#getTerminals}, and return an
+     * <dd>Invoke {@link NetworkControl#getTerminals()}, and return an
      * object with a single field <samp>terminal-names</samp> containing
      * an array of the result.
      * 
