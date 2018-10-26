@@ -120,35 +120,9 @@ public interface Trunk {
      */
     void provideBandwidth(double upstream, double downstream);
 
-    /**
-     * Get the name of the subnetwork owning the start of this trunk.
-     * 
-     * @return the subnetwork name
-     */
-    String getStartSubnetworkName();
+    TerminalId getStartTerminal();
 
-    /**
-     * Get the name of the terminal in the subnetwork owning the start
-     * of this trunk.
-     * 
-     * @return the name of the terminal in the subnetwork
-     */
-    String getStartSubterminalName();
-
-    /**
-     * Get the name of the subnetwork owning the end of this trunk.
-     * 
-     * @return the subnetwork name
-     */
-    String getEndSubnetworkName();
-
-    /**
-     * Get the name of the terminal in the subnetwork owning the end of
-     * this trunk.
-     * 
-     * @return the name of the terminal in the subnetwork
-     */
-    String getEndSubterminalName();
+    TerminalId getEndTerminal();
 
     /**
      * Identify which end of the trunk its terminal belongs.
@@ -356,23 +330,13 @@ public interface Trunk {
             }
 
             @Override
-            public String getStartSubnetworkName() {
-                return orig.getEndSubnetworkName();
+            public TerminalId getStartTerminal() {
+                return orig.getEndTerminal();
             }
 
             @Override
-            public String getStartSubterminalName() {
-                return orig.getEndSubterminalName();
-            }
-
-            @Override
-            public String getEndSubnetworkName() {
-                return orig.getStartSubnetworkName();
-            }
-
-            @Override
-            public String getEndSubterminalName() {
-                return orig.getStartSubterminalName();
+            public TerminalId getEndTerminal() {
+                return orig.getStartTerminal();
             }
         };
     }

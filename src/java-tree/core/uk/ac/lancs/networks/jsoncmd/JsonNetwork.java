@@ -64,7 +64,9 @@ import uk.ac.lancs.networks.mgmt.LabelManagementException;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.TerminalBusyException;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.networks.util.ReferenceWatcher;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -98,13 +100,15 @@ public class JsonNetwork implements Network {
 
     @Override
     public void removeTerminal(String name)
-        throws NetworkManagementException {
+        throws UnknownTerminalException,
+            TerminalBusyException {
         JsonObject req =
             Json.createObjectBuilder().add("terminal-name", name).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);
-        } catch (NetworkManagementException | RuntimeException e) {
+        } catch (UnknownTerminalException | TerminalBusyException
+            | RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new UndeclaredThrowableException(e);

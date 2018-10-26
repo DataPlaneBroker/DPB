@@ -219,7 +219,6 @@ public class JsonNetworkServer {
                 }
                 return one(Json.createObjectBuilder()
                     .add("output", result.toString()).build());
-
             }
 
             case "check-terminal": {
@@ -374,11 +373,12 @@ public class JsonNetworkServer {
             builder.add("error", "trunk-mgmt").add("msg", e.getMessage())
                 .add("network-name", e.getNetwork().getControl().name());
             Trunk trunk = e.getTrunk();
-            builder.add("start-network-name", trunk.getStartSubnetworkName());
-            builder.add("end-network-name", trunk.getEndSubnetworkName());
+            builder.add("start-network-name",
+                        trunk.getStartTerminal().network);
+            builder.add("end-network-name", trunk.getEndTerminal().network);
             builder.add("start-terminal-name",
-                        trunk.getStartSubterminalName());
-            builder.add("end-terminal-name", trunk.getEndSubterminalName());
+                        trunk.getStartTerminal().terminal);
+            builder.add("end-terminal-name", trunk.getEndTerminal().terminal);
         } catch (TerminalManagementException e) {
             builder.add("error", "terminal-mgmt").add("msg", e.getMessage())
                 .add("terminal-name", e.getTerminal().name())

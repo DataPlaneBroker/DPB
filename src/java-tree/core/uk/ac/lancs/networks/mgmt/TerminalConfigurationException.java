@@ -35,15 +35,53 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
- * Indicates a terminal is already in use for a different purpose.
+ * Indicates that a switch's terminal could not be configured because of
+ * an error in the proposed configuration.
  * 
  * @author simpsons
  */
-public class TerminalInUseException extends TerminalManagementException {
+public class TerminalConfigurationException
+    extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
+
+    private final String config;
+
+    /**
+     * Get the errant proposed configuration.
+     * 
+     * @return the proposed configuration
+     */
+    public String getConfiguration() {
+        return config;
+    }
+
+    /**
+     * Create an exception.
+     * 
+     * @param network the network originating this exception
+     * 
+     * @param config the proposed configuration
+     */
+    public TerminalConfigurationException(Network network, String config) {
+        super(network);
+        this.config = config;
+    }
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param network the network originating this exception
+     * 
+     * @param message the detail message
+     * 
+     * @param config the proposed configuration
+     */
+    public TerminalConfigurationException(Network network, String config,
+                                             String message) {
+        super(network, message);
+        this.config = config;
+    }
 
     /**
      * Create an exception with a cause.
@@ -52,21 +90,30 @@ public class TerminalInUseException extends TerminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param config the proposed configuration
      */
-    public TerminalInUseException(Network network, Terminal terminal,
-                                  Throwable cause) {
-        super(network, terminal, "terminal in use: " + terminal, cause);
+    public TerminalConfigurationException(Network network, String config,
+                                             Throwable cause) {
+        super(network, cause);
+        this.config = config;
     }
 
     /**
-     * Create an exception.
+     * Create an exception with a detail message and a cause.
      * 
      * @param network the network originating this exception
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param message the detail message
+     * 
+     * @param cause the cause
+     * 
+     * @param config the proposed configuration
      */
-    public TerminalInUseException(Network network, Terminal terminal) {
-        super(network, terminal, "terminal in use: " + terminal);
+    public TerminalConfigurationException(Network network, String config,
+                                             String message,
+                                             Throwable cause) {
+        super(network, message, cause);
+        this.config = config;
     }
+
 }

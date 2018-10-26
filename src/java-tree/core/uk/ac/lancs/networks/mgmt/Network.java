@@ -54,12 +54,14 @@ public interface Network {
      * 
      * @param name the name of the terminal
      * 
-     * @throws IllegalStateException if the named terminal is in use
+     * @throws TerminalBusyException if the named terminal is in use
      * 
-     * @throws NetworkManagementException if the terminal could not be
-     * removed
+     * @throws UnknownTerminalException if no terminal was identified
+     * with the given name
      */
-    void removeTerminal(String name) throws NetworkManagementException;
+    void removeTerminal(String name)
+        throws UnknownTerminalException,
+            TerminalBusyException;
 
     /**
      * Get a terminal on this network.
@@ -68,11 +70,8 @@ public interface Network {
      * 
      * @return the identified terminal
      * 
-     * @throws UnknownTerminalException if no terminal was found with the
-     * given name
-     * 
-     * @throws NetworkManagementException the terminal could not be
-     * obtained for other reasons
+     * @throws UnknownTerminalException if no terminal was found with
+     * the given name
      * 
      * @default This implementation gets the control interface with
      * {@link #getControl()}, and invokes
@@ -81,7 +80,7 @@ public interface Network {
      * thrown.
      */
     default Terminal getTerminal(String name)
-        throws NetworkManagementException {
+        throws UnknownTerminalException {
         Terminal result = getControl().getTerminal(name);
         if (result == null) throw new UnknownTerminalException(this, name);
         return result;

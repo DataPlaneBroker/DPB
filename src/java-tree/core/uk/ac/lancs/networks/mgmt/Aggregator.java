@@ -54,12 +54,11 @@ import uk.ac.lancs.networks.Terminal;
  * 
  * <p>
  * A trunk connects the terminals of two different inferior networks
- * together by calling
- * {@link #addTrunk(String, String, String, String)}. To implement a
- * service, the aggregator uses its knowledge of trunk topology to plot
- * spanning trees over its trunks, and delegates service requests to the
- * inferior networks owning the terminals at the ends of the trunks that
- * contribute to the spanning tree.
+ * together by calling {@link #addTrunk(TerminalId, TerminalId)}. To
+ * implement a service, the aggregator uses its knowledge of trunk
+ * topology to plot spanning trees over its trunks, and delegates
+ * service requests to the inferior networks owning the terminals at the
+ * ends of the trunks that contribute to the spanning tree.
  * 
  * @resume A network that is an aggregate of inferior networks
  * 
@@ -69,86 +68,95 @@ public interface Aggregator extends Network {
     /**
      * Create a trunk between two internal terminals within the network.
      * 
-     * @param n1 the name of the network owning the first terminal
+     * @param t1 the start terminal
      * 
-     * @param t1 the local name of the first terminal
-     * 
-     * @param n2 the name of the network owning the second terminal
-     * 
-     * @param t2 the local name of the second terminal
+     * @param t2 the end terminal
      * 
      * @return the newly created trunk
      * 
      * @throws NullPointerException if either terminal is null
      * 
-     * @throws OwnTerminalException if either of the terminals belongs
-     * to this aggregator
+     * @throws UnknownSubterminalException if an inferior terminal could
+     * not be found
      * 
-     * @throws NetworkManagementException if a trunk could not be
-     * created between the two terminals for other reasons
+     * @throws UnknownSubnetworkException if an inferior network could
+     * not be found
+     * 
+     * @throws SubterminalBusyException if an inferior terminal is
+     * already in use for another purpose
      * 
      * @constructor
      */
-    Trunk addTrunk(String n1, String t1, String n2, String t2)
-        throws NetworkManagementException;
+    Trunk addTrunk(TerminalId t1, TerminalId t2)
+        throws SubterminalBusyException,
+            UnknownSubterminalException,
+            UnknownSubnetworkException;
 
     /**
      * Remove and delete a trunk between two internal terminals with the
      * network.
      * 
-     * @param network the name of the network owning the specified
-     * terminal
+     * @param subterm identifier for either of the trunk's terminals
      * 
-     * @param terminal the local name of either of the trunk's terminals
-     * 
-     * @param UnknownTrunkException if the terminal did not identify a
+     * @throws UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
      * 
-     * @throws NetworkManagementException if the terminal could not be
-     * removed
+     * @throws UnknownSubterminalException if the inferior terminal
+     * could not be found
+     * 
+     * @throws UnknownSubnetworkException if the inferior network could
+     * not be found
      */
-    void removeTrunk(String network, String terminal)
-        throws NetworkManagementException;
+    void removeTrunk(TerminalId subterm)
+        throws UnknownTrunkException,
+            UnknownSubterminalException,
+            UnknownSubnetworkException;
 
     /**
      * Find an existing trunk connected to a terminal.
      * 
-     * @param network the name of the network owning the specified
-     * terminal
-     * 
-     * @param terminal the local name of either of the trunk's terminals
+     * @param subterm identifier for either of the trunk's terminals
      * 
      * @return the requested trunk, with the terminal as its start, or
      * {@code null} if none exist with that terminal
+     * 
+     * @throws UnknownSubnetworkException if there was an error in
+     * identifying the inferior network
+     * 
+     * @throws UnknownSubterminalException if there was an error in
+     * identifying the terminal within the inferior network
      */
-    Trunk findTrunk(String network, String terminal);
+    Trunk findTrunk(TerminalId subterm)
+        throws UnknownSubnetworkException,
+            UnknownSubterminalException;
 
     /**
      * Get an existing trunk connected to a terminal.
      * 
-     * @param network the name of the network owning the specified
-     * terminal
-     * 
-     * @param terminal the local name of either of the trunk's terminals
+     * @param subterm identifier for either of the trunk's terminals
      * 
      * @return the requested trunk
      * 
      * @param UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
      * 
-     * @throws NetworkManagementException if there was an error in
-     * getting the trunk
+     * @throws UnknownSubnetworkException if there was an error in
+     * identifying the inferior network
+     * 
+     * @throws UnknownSubterminalException if there was an error in
+     * identifying the terminal within the inferior network
      * 
      * @default This implementation invokes
-     * {@link #findTrunk(String, String)}, and returns the result.
-     * However, if the result is {@code null}, a
+     * {@link #findTrunk(TerminalId)}, and returns the result. However,
+     * if the result is {@code null}, a
      * {@link TerminalManagementException} is thrown.
      */
-    default Trunk getTrunk(String network, String terminal)
-        throws NetworkManagementException {
-        Trunk result = findTrunk(network, terminal);
-        if (result == null)
-            throw new UnknownTrunkException(this, network, terminal);
+    default Trunk getTrunk(TerminalId subterm)
+        throws UnknownTrunkException,
+            UnknownSubterminalException,
+            UnknownSubnetworkException {
+        Trunk result = findTrunk(subterm);
+        if (result == null) throw new UnknownTrunkException(this, subterm);
         return result;
     }
 
@@ -158,19 +166,27 @@ public interface Aggregator extends Network {
      * 
      * @param name the local name of the terminal
      * 
-     * @param subnet the name of the inferior network
-     * 
-     * @param subterm the local name of the terminal in the inferior
-     * network
+     * @param subterm identifies the inferior network's terminal
      * 
      * @return the newly created terminal
+     * 
+     * @throws SubterminalBusyException if the inferior terminal is
+     * already in use for another purpose
      * 
      * @throws TerminalExistsException if the proposed name is already
      * in use as a terminal identifier
      * 
-     * @throws NetworkManagementException if the terminal could not be
-     * added for other reasons
+     * @throws TerminalNameException if the proposed name is invalid
+     * 
+     * @throws UnknownSubnetworkException if there was an error in
+     * identifying the inferior network
+     * 
+     * @throws UnknownSubterminalException if there was an error in
+     * identifying the terminal within the inferior network
      */
-    Terminal addTerminal(String name, String subnet, String subterm)
-        throws NetworkManagementException;
+    Terminal addTerminal(String name, TerminalId subterm)
+        throws TerminalNameException,
+            SubterminalBusyException,
+            UnknownSubterminalException,
+            UnknownSubnetworkException;
 }

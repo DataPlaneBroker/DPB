@@ -42,8 +42,9 @@ import javax.json.Json;
 import javax.json.JsonObject;
 
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.mgmt.TerminalConfigurationException;
+import uk.ac.lancs.networks.mgmt.TerminalNameException;
 
 /**
  * Accesses a remote switch through a supply of JSON channels.
@@ -69,14 +70,16 @@ public class JsonSwitch extends JsonNetwork implements Switch {
 
     @Override
     public Terminal addTerminal(String terminalName, String interfaceName)
-        throws NetworkManagementException {
+        throws TerminalNameException,
+            TerminalConfigurationException {
         JsonObject req = Json.createObjectBuilder()
             .add("type", "add-terminal").add("terminal-name", terminalName)
             .add("terminal-config", interfaceName).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);
-        } catch (NetworkManagementException | RuntimeException e) {
+        } catch (TerminalNameException | TerminalConfigurationException
+            | RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new UndeclaredThrowableException(e);

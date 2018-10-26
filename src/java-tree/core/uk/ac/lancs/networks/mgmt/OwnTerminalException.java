@@ -41,7 +41,7 @@ import uk.ac.lancs.networks.Terminal;
  * Indicates that a terminal reference supplied to a network should not
  * refer to a terminal belonging to that network.
  * 
- * @see Aggregator#addTrunk(String, String, String, String)
+ * @see Aggregator#addTrunk(TerminalId, TerminalId)
  * 
  * @author simpsons
  */

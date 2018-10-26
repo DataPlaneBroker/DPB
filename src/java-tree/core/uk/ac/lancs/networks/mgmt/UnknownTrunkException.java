@@ -41,28 +41,8 @@ package uk.ac.lancs.networks.mgmt;
  * 
  * @author simpsons
  */
-public class UnknownTrunkException extends NetworkManagementException {
+public class UnknownTrunkException extends SubterminalManagementException {
     private static final long serialVersionUID = 1L;
-
-    private final String network, terminal;
-
-    /**
-     * Get the name of the inferior network.
-     * 
-     * @return the inferior network's name
-     */
-    public String getSubnetworkName() {
-        return network;
-    }
-
-    /**
-     * Get the unrecognized terminal name.
-     * 
-     * @return the terminal name
-     */
-    public String getSubterminalName() {
-        return terminal;
-    }
 
     /**
      * Create an exception.
@@ -71,11 +51,8 @@ public class UnknownTrunkException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public UnknownTrunkException(Network network, String subnet,
-                                 String subterm) {
-        super(network, "no trunk identified: " + subterm + " in " + subnet);
-        this.network = subnet;
-        this.terminal = subterm;
+    public UnknownTrunkException(Network network, TerminalId subterm) {
+        super(network, subterm, "no trunk identified: " + subterm);
     }
 
     /**
@@ -87,11 +64,8 @@ public class UnknownTrunkException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public UnknownTrunkException(Network network, String subnet,
-                                 String subterm, Throwable cause) {
-        super(network, "no trunk identified: " + subterm + " in " + subnet,
-              cause);
-        this.network = subnet;
-        this.terminal = subterm;
+    public UnknownTrunkException(Network network, TerminalId subterm,
+                                 Throwable cause) {
+        super(network, subterm, "no trunk identified: " + subterm, cause);
     }
 }

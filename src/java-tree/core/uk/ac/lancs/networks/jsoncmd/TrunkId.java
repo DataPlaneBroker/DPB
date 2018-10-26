@@ -33,39 +33,46 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
+package uk.ac.lancs.networks.jsoncmd;
 
-/**
- * Indicates that a terminal in an inferior network could not be found.
- * 
- * @author simpsons
- */
-public class UnknownSubterminalException
-    extends SubterminalManagementException {
-    private static final long serialVersionUID = 1L;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 
-    /**
-     * Create an exception.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param subterm the terminal to which this exception pertains
-     */
-    public UnknownSubterminalException(Network network, TerminalId subterm) {
-        super(network, subterm, "no trunk identified: " + subterm);
+class TrunkId {
+    public final TerminalId start, end;
+
+    public TrunkId(TerminalId start, TerminalId end) {
+        if (start == null) throw new NullPointerException("start");
+        if (end == null) throw new NullPointerException("end");
+        this.start = start;
+        this.end = end;
     }
 
-    /**
-     * Create an exception with a cause.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param cause the cause
-     * 
-     * @param subterm the terminal to which this exception pertains
-     */
-    public UnknownSubterminalException(Network network, TerminalId subterm,
-                                       Throwable cause) {
-        super(network, subterm, "no trunk identified: " + subterm, cause);
+    public TrunkId inverse() {
+        return new TrunkId(end, start);
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + ((start == null) ? 0 : start.hashCode());
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (obj == null) return false;
+        if (getClass() != obj.getClass()) return false;
+        TrunkId other = (TrunkId) obj;
+        if (start == null) {
+            if (other.start != null) return false;
+        } else if (!start.equals(other.start)) return false;
+        return true;
+    }
+
+    @Override
+    public String toString() {
+        return "[" + start + ", " + end + "]";
     }
 }

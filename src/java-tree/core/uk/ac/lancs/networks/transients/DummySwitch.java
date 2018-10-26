@@ -53,7 +53,6 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.routing.span.Edge;
@@ -262,7 +261,7 @@ public class DummySwitch implements Switch {
     @Override
     public synchronized Terminal addTerminal(String terminalName,
                                              String interfaceName)
-        throws NetworkManagementException {
+        throws TerminalExistsException {
         if (terminals.containsKey(name))
             throw new TerminalExistsException(this, name);
         MyTerminal terminal = new MyTerminal(name);

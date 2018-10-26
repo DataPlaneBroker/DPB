@@ -11,6 +11,7 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.transients.DummySwitch;
 import uk.ac.lancs.networks.transients.TransientAggregator;
@@ -58,14 +59,17 @@ import uk.ac.lancs.networks.util.IdleExecutor;
  * @author simpsons
  */
 public class TestDummyInitiateTopology {
+    private static TerminalId identify(Terminal t) {
+        return TerminalId.of(t.getNetwork().name(), t.name());
+    }
+
     private static Trunk link(Aggregator aggregator, Network zwitch1,
                               String port1, Network zwitch2, String port2,
                               double bandwidth, int baseTag, int tagCount)
         throws NetworkManagementException {
         Terminal p1 = zwitch1.getControl().getTerminal(port1);
         Terminal p2 = zwitch2.getControl().getTerminal(port2);
-        Trunk result = aggregator.addTrunk(p1.getNetwork().name(), p1.name(),
-                                           p2.getNetwork().name(), p2.name());
+        Trunk result = aggregator.addTrunk(identify(p1), identify(p2));
         result.provideBandwidth(bandwidth);
         result.defineLabelRange(baseTag, tagCount);
         result.setDelay(1.0);
@@ -120,11 +124,12 @@ public class TestDummyInitiateTopology {
                                     inferiors::get);
 
         /* Expose inferior switches' unlinked ports. */
-        aggregator.addTerminal("lancs.vms", "lancs", "vms");
-        aggregator.addTerminal("bristol.vms", "bristol", "vms");
-        aggregator.addTerminal("kcl.vms", "kcl", "vms");
-        aggregator.addTerminal("edin.vms", "edin", "vms");
-        aggregator.addTerminal("slough.vms", "slough", "vms");
+        aggregator.addTerminal("lancs.vms", TerminalId.of("lancs", "vms"));
+        aggregator.addTerminal("bristol.vms",
+                               TerminalId.of("bristol", "vms"));
+        aggregator.addTerminal("kcl.vms", TerminalId.of("kcl", "vms"));
+        aggregator.addTerminal("edin.vms", TerminalId.of("edin", "vms"));
+        aggregator.addTerminal("slough.vms", TerminalId.of("slough", "vms"));
 
         /* Link up the inferior switches within the superior. */
         link(aggregator, slough, "lancs", lancs, "slough", 1024.0, 1000, 40);

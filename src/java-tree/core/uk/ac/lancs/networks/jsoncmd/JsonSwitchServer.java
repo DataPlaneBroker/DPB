@@ -52,9 +52,9 @@ public class JsonSwitchServer extends JsonNetworkServer {
     private final Switch network;
 
     /**
-     * Create a JSON adaptor around a network.
+     * Create a JSON adaptor around a switch.
      * 
-     * @param network the network to be invoked
+     * @param network the switch network to be invoked
      */
     public JsonSwitchServer(Switch network) {
         super(network, true);

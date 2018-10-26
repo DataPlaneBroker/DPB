@@ -35,58 +35,13 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
- * Indicates an error in managing an existing terminal.
+ * Indicates a terminal is already in use for a different purpose.
  * 
  * @author simpsons
  */
-public class TerminalManagementException extends NetworkManagementException {
+public class SubterminalBusyException extends SubterminalManagementException {
     private static final long serialVersionUID = 1L;
-
-    private final Terminal terminal;
-
-    /**
-     * Get the terminal to which this exception pertains.
-     * 
-     * @return the relevant terminal
-     */
-    public Terminal getTerminal() {
-        return terminal;
-    }
-
-    /**
-     * Create an exception with a detail message and a cause.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
-     * 
-     * @param terminal the terminal to which this exception pertains
-     */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       String message, Throwable cause) {
-        super(network, message, cause);
-        this.terminal = terminal;
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     * 
-     * @param terminal the terminal to which this exception pertains
-     */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       String message) {
-        super(network, message);
-        this.terminal = terminal;
-    }
 
     /**
      * Create an exception with a cause.
@@ -97,10 +52,9 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       Throwable cause) {
-        super(network, cause);
-        this.terminal = terminal;
+    public SubterminalBusyException(Network network, TerminalId terminal,
+                                  Throwable cause) {
+        super(network, terminal, "terminal in use: " + terminal, cause);
     }
 
     /**
@@ -110,8 +64,7 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal) {
-        super(network);
-        this.terminal = terminal;
+    public SubterminalBusyException(Network network, TerminalId terminal) {
+        super(network, terminal, "terminal in use: " + terminal);
     }
 }

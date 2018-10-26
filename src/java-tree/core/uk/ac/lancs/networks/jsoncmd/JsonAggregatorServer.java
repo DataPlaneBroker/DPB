@@ -37,10 +37,12 @@ package uk.ac.lancs.networks.jsoncmd;
 
 import java.util.concurrent.Executor;
 
+import javax.json.Json;
 import javax.json.JsonObject;
 
 import uk.ac.lancs.networks.mgmt.Aggregator;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
+import uk.ac.lancs.networks.mgmt.Trunk;
 
 /**
  * Translates JSON-formatted requests into invocations on a
@@ -51,6 +53,11 @@ import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 public class JsonAggregatorServer extends JsonNetworkServer {
     private final Aggregator network;
 
+    /**
+     * Create a JSON adaptor around an aggregator
+     * 
+     * @param network the aggregator network to be invoked
+     */
     public JsonAggregatorServer(Aggregator network) {
         super(network, true);
         this.network = network;
@@ -66,16 +73,43 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                 String name = req.getString("terminal-name");
                 String subNetName = req.getString("subnetwork-name");
                 String subTermName = req.getString("subterminal-name");
-                network.addTerminal(name, subNetName, subTermName);
+                TerminalId subterm = TerminalId.of(subNetName, subTermName);
+                network.addTerminal(name, subterm);
                 return empty();
             }
 
-            /* TODO: Add trunks, etc. */
+            case "remove-trunk": {
+                String subNetName = req.getString("subnetwork-name");
+                String subTermName = req.getString("subterminal-name");
+                TerminalId subterm = TerminalId.of(subNetName, subTermName);
+                network.removeTrunk(subterm);
+                return empty();
+            }
+
+            case "check-trunk": {
+                String subNetName = req.getString("subnetwork-name");
+                String subTermName = req.getString("subterminal-name");
+                TerminalId subterm = TerminalId.of(subNetName, subTermName);
+                Trunk trunk = network.findTrunk(subterm);
+                return one(Json.createObjectBuilder()
+                    .add("exists", trunk != null).build());
+            }
+
+            case "add-trunk": {
+                String n1 = req.getString("start-network-name");
+                String t1 = req.getString("start-terminal-name");
+                TerminalId i1 = TerminalId.of(n1, t1);
+                String n2 = req.getString("end-network-name");
+                String t2 = req.getString("end-terminal-name");
+                TerminalId i2 = TerminalId.of(n2, t2);
+                network.addTrunk(i1, i2);
+                return empty();
+            }
 
             default:
                 return null;
             }
-        } catch (NetworkManagementException e) {
+        } catch (Throwable e) {
             return handle(e);
         }
     }

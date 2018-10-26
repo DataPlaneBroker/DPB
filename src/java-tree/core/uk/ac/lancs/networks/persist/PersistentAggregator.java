@@ -76,6 +76,7 @@ import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
@@ -1394,23 +1395,13 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public String getStartSubnetworkName() {
-            return start.getNetwork().name();
+        public TerminalId getStartTerminal() {
+            return TerminalId.of(start.getNetwork().name(), start.name());
         }
 
         @Override
-        public String getStartSubterminalName() {
-            return start.name();
-        }
-
-        @Override
-        public String getEndSubnetworkName() {
-            return end.getNetwork().name();
-        }
-
-        @Override
-        public String getEndSubterminalName() {
-            return end.name();
+        public TerminalId getEndTerminal() {
+            return TerminalId.of(end.getNetwork().name(), end.name());
         }
     }
 
@@ -1618,13 +1609,23 @@ public class PersistentAggregator implements Aggregator {
         }
     }
 
+    private Terminal getSubterminal(TerminalId id)
+        throws UnknownSubnetworkException,
+            UnknownSubterminalException {
+        NetworkControl nc = inferiors.apply(id.network);
+        if (nc == null)
+            throw new UnknownSubnetworkException(this, id.network);
+        Terminal result = nc.getTerminal(id.terminal);
+        if (result == null) throw new UnknownSubterminalException(this, id);
+        return result;
+    }
+
     @Override
-    public Trunk addTrunk(String n1, String t1, String n2, String t2)
-        throws NetworkManagementException {
-        NetworkControl nc1 = inferiors.apply(n1);
-        Terminal p1 = nc1.getTerminal(t1);
-        NetworkControl nc2 = inferiors.apply(n2);
-        Terminal p2 = nc2.getTerminal(t2);
+    public Trunk addTrunk(TerminalId t1, TerminalId t2)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException {
+        Terminal p1 = getSubterminal(t1);
+        Terminal p2 = getSubterminal(t2);
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         try (Connection conn = newDatabaseContext(false);
@@ -1659,18 +1660,17 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public void removeTrunk(String subnet, String subterm)
-        throws NetworkManagementException {
-        NetworkControl nc = inferiors.apply(subnet);
-        if (nc == null) throw new UnknownSubnetworkException(this, subnet);
-        Terminal p = nc.getTerminal(subterm);
-        if (p == null)
-            throw new UnknownSubterminalException(this, subnet, subterm);
+    public void removeTrunk(TerminalId subterm)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException,
+            UnknownTrunkException {
+        Terminal p = getSubterminal(subterm);
+        if (p == null) throw new UnknownSubterminalException(this, subterm);
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0)
                 throw new UnknownTrunkException(PersistentAggregator.this,
-                                                subnet, subterm);
+                                                subterm);
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + trunkTable + " WHERE trunk_id = ?;")) {
                 stmt.setInt(1, id);
@@ -1686,10 +1686,10 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public Trunk findTrunk(String subnet, String subterm) {
-        NetworkControl nc = inferiors.apply(subnet);
-        if (nc == null) return null;
-        Terminal p = nc.getTerminal(subterm);
+    public Trunk findTrunk(TerminalId subterm)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException {
+        Terminal p = getSubterminal(subterm);
         if (p == null) return null;
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
@@ -1705,16 +1705,11 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
-    public Terminal addTerminal(String name, String subnet, String subterm)
-        throws NetworkManagementException {
-        NetworkControl subnetRef = inferiors.apply(subnet);
-        if (subnetRef == null)
-            throw new NetworkManagementException(this, "unknown network: "
-                + subnet);
-        Terminal inner = subnetRef.getTerminal(subterm);
-        if (inner == null)
-            throw new NetworkManagementException(this, "unknown terminal in "
-                + subnet + ": " + subterm);
+    public Terminal addTerminal(String name, TerminalId subterm)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException,
+            TerminalExistsException {
+        Terminal inner = getSubterminal(subterm);
         try (Connection conn = openDatabase();
             PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + terminalTable
@@ -1750,8 +1745,7 @@ public class PersistentAggregator implements Aggregator {
      * @param name the terminal's local name
      */
     @Override
-    public void removeTerminal(String name)
-        throws NetworkManagementException {
+    public void removeTerminal(String name) throws UnknownTerminalException {
         try (Connection conn = openDatabase();
             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + terminalTable + " WHERE name = ?;")) {
@@ -1759,7 +1753,7 @@ public class PersistentAggregator implements Aggregator {
             int done = stmt.executeUpdate();
             if (done == 0)
                 throw new UnknownTerminalException(PersistentAggregator.this,
-                                                  name);
+                                                   name);
         } catch (SQLException ex) {
             throw new NetworkResourceException(PersistentAggregator.this,
                                                "could not remove terminal "

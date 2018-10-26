@@ -68,6 +68,7 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.util.IdleExecutor;
 
@@ -244,7 +245,7 @@ public final class Commander {
             int start = Integer.parseInt(m.group(1));
             int amount = Integer.parseInt(m.group(2)) - start + 1;
 
-            Trunk tr = aggregator.findTrunk(subnet, subterm);
+            Trunk tr = aggregator.findTrunk(TerminalId.of(subnet, subterm));
             tr.revokeStartLabelRange(start, amount);
             return true;
         }
@@ -272,7 +273,7 @@ public final class Commander {
             int other =
                 m.group(3) == null ? start : Integer.parseInt(m.group(3));
 
-            Trunk tr = aggregator.findTrunk(subnet, subterm);
+            Trunk tr = aggregator.findTrunk(TerminalId.of(subnet, subterm));
             tr.defineLabelRange(start, amount, other);
             return true;
         }
@@ -290,7 +291,7 @@ public final class Commander {
             String subnet = tm.group(1);
             String subterm = tm.group(2);
 
-            Trunk tr = aggregator.findTrunk(subnet, subterm);
+            Trunk tr = aggregator.findTrunk(TerminalId.of(subnet, subterm));
             if (tr == null) {
                 System.err.printf("No trunk for %s:%s%n", subnet, subterm);
                 return false;
@@ -323,7 +324,7 @@ public final class Commander {
             double uprate = Double.parseDouble(m.group(1));
             double downrate =
                 m.group(2) == null ? uprate : Double.parseDouble(m.group(2));
-            Trunk tr = aggregator.findTrunk(subnet, subterm);
+            Trunk tr = aggregator.findTrunk(TerminalId.of(subnet, subterm));
             if (tr == null) {
                 System.err.printf("No trunk for %s:%s%n", subnet, subterm);
                 return false;
@@ -407,7 +408,8 @@ public final class Commander {
             String subnet = tm.group(1);
             String subterm = tm.group(2);
 
-            Trunk trunk = aggregator.findTrunk(subnet, subterm);
+            Trunk trunk =
+                aggregator.findTrunk(TerminalId.of(subnet, subterm));
             trunk.setDelay(delay);
             return true;
         }
@@ -439,7 +441,8 @@ public final class Commander {
             String subnetTo = mTo.group(1);
             String subtermTo = mTo.group(2);
 
-            aggregator.addTrunk(subnetFrom, subtermFrom, subnetTo, subtermTo);
+            aggregator.addTrunk(TerminalId.of(subnetFrom, subtermFrom),
+                                TerminalId.of(subnetTo, subtermTo));
             return true;
         }
 
@@ -460,7 +463,7 @@ public final class Commander {
             String subnetFrom = mFrom.group(1);
             String subtermFrom = mFrom.group(2);
 
-            aggregator.removeTrunk(subnetFrom, subtermFrom);
+            aggregator.removeTrunk(TerminalId.of(subnetFrom, subtermFrom));
             return true;
         }
 
@@ -485,8 +488,8 @@ public final class Commander {
             String desc = iter.next();
             if (aggregator != null) {
                 Terminal inner = findTerminal(desc);
-                aggregator.addTerminal(name, inner.getNetwork().name(),
-                                       inner.name());
+                aggregator.addTerminal(name, TerminalId
+                    .of(inner.getNetwork().name(), inner.name()));
             } else if (zwitch != null) {
                 zwitch.addTerminal(name, desc);
             } else {

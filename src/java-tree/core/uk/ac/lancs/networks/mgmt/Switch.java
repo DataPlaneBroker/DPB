@@ -54,9 +54,16 @@ public interface Switch extends Network {
      * 
      * @return the new terminal
      * 
-     * @throws NetworkManagementException if the terminal could not be
-     * added
+     * @throws TerminalExistsException if a terminal with the proposed
+     * name already exists
+     * 
+     * @throws TerminalConfigurationException if the configuration is
+     * invalid
+     * 
+     * @throws TerminalNameException if the proposed terminal name is
+     * invalid in some other way
      */
     Terminal addTerminal(String terminalName, String interfaceName)
-        throws NetworkManagementException;
+        throws TerminalNameException, TerminalExistsException,
+            TerminalConfigurationException;
 }

@@ -63,8 +63,9 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.TerminalBusyException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -176,19 +177,6 @@ class SSHNetwork implements Network {
     private final synchronized void saveChannel(Channel channel) {
         channel.inUse = false;
         channels.add(channel);
-    }
-
-    @Override
-    public void removeTerminal(String name)
-        throws NetworkManagementException {
-        try (Channel ch = getChannel()) {
-            JsonObject req =
-                Json.createObjectBuilder().add("type", "remove-terminal")
-                    .add("terminal-name", name).build();
-            ch.write(req);
-            @SuppressWarnings("unused")
-            JsonObject rsp = ch.read();
-        }
     }
 
     @Override
@@ -382,4 +370,11 @@ class SSHNetwork implements Network {
         Json.createReaderFactory(Collections.emptyMap());
     private static final JsonWriterFactory writerFactory =
         Json.createWriterFactory(Collections.emptyMap());
+
+    @Override
+    public void removeTerminal(String name)
+        throws UnknownTerminalException,
+            TerminalBusyException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
 }

@@ -67,11 +67,13 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
-import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
-import uk.ac.lancs.networks.mgmt.TerminalInUseException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
+import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
+import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
 import uk.ac.lancs.routing.span.Edge;
 import uk.ac.lancs.routing.span.FIBSpanGuide;
@@ -959,23 +961,13 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public String getStartSubnetworkName() {
-            return start.getNetwork().name();
+        public TerminalId getStartTerminal() {
+            return TerminalId.of(start.getNetwork().name(), start.name());
         }
 
         @Override
-        public String getStartSubterminalName() {
-            return start.name();
-        }
-
-        @Override
-        public String getEndSubnetworkName() {
-            return end.getNetwork().name();
-        }
-
-        @Override
-        public String getEndSubterminalName() {
-            return end.name();
+        public TerminalId getEndTerminal() {
+            return TerminalId.of(end.getNetwork().name(), end.name());
         }
     }
 
@@ -1025,20 +1017,30 @@ public class TransientAggregator implements Aggregator {
         this.subnets = subnets;
     }
 
+    private Terminal getSubterminal(TerminalId id)
+        throws UnknownSubnetworkException,
+            UnknownSubterminalException {
+        NetworkControl nc = subnets.apply(id.network);
+        if (nc == null)
+            throw new UnknownSubnetworkException(this, id.network);
+        Terminal result = nc.getTerminal(id.terminal);
+        if (result == null) throw new UnknownSubterminalException(this, id);
+        return result;
+    }
+
     @Override
-    public synchronized Trunk addTrunk(String n1, String t1, String n2,
-                                       String t2)
-        throws NetworkManagementException {
-        NetworkControl nc1 = subnets.apply(n1);
-        Terminal p1 = nc1.getTerminal(t1);
-        NetworkControl nc2 = subnets.apply(n2);
-        Terminal p2 = nc2.getTerminal(t2);
+    public synchronized Trunk addTrunk(TerminalId t1, TerminalId t2)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException,
+            SubterminalBusyException {
+        Terminal p1 = getSubterminal(t1);
+        Terminal p2 = getSubterminal(t2);
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         if (trunks.containsKey(p1))
-            throw new TerminalInUseException(this, p1);
+            throw new SubterminalBusyException(this, t1);
         if (trunks.containsKey(p2))
-            throw new TerminalInUseException(this, p2);
+            throw new SubterminalBusyException(this, t2);
         MyTrunk trunk = new MyTrunk(p1, p2);
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
@@ -1046,19 +1048,21 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized void removeTrunk(String subnet, String subterm)
-        throws NetworkManagementException {
-        NetworkControl nc = subnets.apply(subnet);
-        Terminal p = nc.getTerminal(subterm);
+    public synchronized void removeTrunk(TerminalId subterm)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException,
+            UnknownTrunkException {
+        Terminal p = getSubterminal(subterm);
         MyTrunk t = trunks.get(p);
-        if (t == null) throw new UnknownTrunkException(this, subnet, subterm);
+        if (t == null) throw new UnknownTrunkException(this, subterm);
         trunks.keySet().removeAll(t.getTerminals());
     }
 
     @Override
-    public synchronized Trunk findTrunk(String subnet, String subterm) {
-        NetworkControl nc = subnets.apply(subnet);
-        Terminal p = nc.getTerminal(subterm);
+    public synchronized Trunk findTrunk(TerminalId subterm)
+        throws UnknownSubnetworkException,
+            UnknownSubterminalException {
+        Terminal p = getSubterminal(subterm);
         MyTrunk result = trunks.get(p);
         if (result == null) return null;
         if (result.position(p) == 1) return result.reverse();
@@ -1066,19 +1070,13 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
-    public synchronized Terminal addTerminal(String name, String subnet,
-                                             String subterm)
-        throws NetworkManagementException {
+    public synchronized Terminal addTerminal(String name, TerminalId subterm)
+        throws TerminalExistsException,
+            UnknownSubterminalException,
+            UnknownSubnetworkException {
         if (terminals.containsKey(name))
             throw new TerminalExistsException(this, name);
-        NetworkControl subnetRef = subnets.apply(subnet);
-        if (subnetRef == null)
-            throw new NetworkManagementException(this, "unknown network: "
-                + subnet);
-        Terminal inner = subnetRef.getTerminal(subterm);
-        if (inner == null)
-            throw new NetworkManagementException(this, "unknown terminal in "
-                + subnet + ": " + subterm);
+        Terminal inner = getSubterminal(subterm);
         MyTerminal result = new MyTerminal(name, inner);
         terminals.put(name, result);
         return result;

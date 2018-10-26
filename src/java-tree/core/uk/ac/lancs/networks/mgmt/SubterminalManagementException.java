@@ -35,24 +35,24 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
- * Indicates an error in managing an existing terminal.
+ * Indicates an error in managing an aggregator with reference to a
+ * terminal of an inferior network.
  * 
  * @author simpsons
  */
-public class TerminalManagementException extends NetworkManagementException {
+public class SubterminalManagementException
+    extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final Terminal terminal;
+    private final TerminalId terminal;
 
     /**
      * Get the terminal to which this exception pertains.
      * 
      * @return the relevant terminal
      */
-    public Terminal getTerminal() {
+    public TerminalId getTerminal() {
         return terminal;
     }
 
@@ -67,8 +67,9 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       String message, Throwable cause) {
+    public SubterminalManagementException(Network network,
+                                          TerminalId terminal, String message,
+                                          Throwable cause) {
         super(network, message, cause);
         this.terminal = terminal;
     }
@@ -82,8 +83,9 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       String message) {
+    public SubterminalManagementException(Network network,
+                                          TerminalId terminal,
+                                          String message) {
         super(network, message);
         this.terminal = terminal;
     }
@@ -97,8 +99,9 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
-                                       Throwable cause) {
+    public SubterminalManagementException(Network network,
+                                          TerminalId terminal,
+                                          Throwable cause) {
         super(network, cause);
         this.terminal = terminal;
     }
@@ -110,7 +113,8 @@ public class TerminalManagementException extends NetworkManagementException {
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal) {
+    public SubterminalManagementException(Network network,
+                                          TerminalId terminal) {
         super(network);
         this.terminal = terminal;
     }
