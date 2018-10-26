@@ -74,7 +74,7 @@ import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
-import uk.ac.lancs.networks.mgmt.NoSuchTerminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
@@ -1758,7 +1758,7 @@ public class PersistentAggregator implements Aggregator {
             stmt.setString(1, name);
             int done = stmt.executeUpdate();
             if (done == 0)
-                throw new NoSuchTerminalException(PersistentAggregator.this,
+                throw new UnknownTerminalException(PersistentAggregator.this,
                                                   name);
         } catch (SQLException ex) {
             throw new NetworkResourceException(PersistentAggregator.this,

@@ -40,7 +40,7 @@ package uk.ac.lancs.networks.mgmt;
  * 
  * @author simpsons
  */
-public class NoSuchTerminalException extends TerminalNameException {
+public class UnknownTerminalException extends TerminalNameException {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -50,7 +50,7 @@ public class NoSuchTerminalException extends TerminalNameException {
      * 
      * @param name the requested terminal name
      */
-    public NoSuchTerminalException(Network network, String name) {
+    public UnknownTerminalException(Network network, String name) {
         super(network, name, "no such terminal: " + name);
     }
 
@@ -63,8 +63,8 @@ public class NoSuchTerminalException extends TerminalNameException {
      * 
      * @param name the requested terminal name
      */
-    public NoSuchTerminalException(Network network, String name,
-                                   Throwable cause) {
+    public UnknownTerminalException(Network network, String name,
+                                    Throwable cause) {
         super(network, name, "no such terminal: " + name, cause);
     }
 }

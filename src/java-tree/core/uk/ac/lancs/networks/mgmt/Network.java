@@ -68,7 +68,7 @@ public interface Network {
      * 
      * @return the identified terminal
      * 
-     * @throws NoSuchTerminalException if no terminal was found with the
+     * @throws UnknownTerminalException if no terminal was found with the
      * given name
      * 
      * @throws NetworkManagementException the terminal could not be
@@ -83,7 +83,7 @@ public interface Network {
     default Terminal getTerminal(String name)
         throws NetworkManagementException {
         Terminal result = getControl().getTerminal(name);
-        if (result == null) throw new NoSuchTerminalException(this, name);
+        if (result == null) throw new UnknownTerminalException(this, name);
         return result;
     }
 
