@@ -35,47 +35,37 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import java.util.BitSet;
-
 /**
- * Indicates that one or more labels are in use, so can't be released or
- * used for another purpose.
+ * Indicates that an attempt was made to withdraw bandwidth that did not
+ * remain available.
  * 
  * @author simpsons
  */
-public class LabelsInUseException extends LabelManagementException {
+public class BandwidthUnavailableException extends TrunkManagementException {
     private static final long serialVersionUID = 1L;
 
+    private final boolean upstream;
+
+    private final double available;
+
     /**
-     * Create an exception with a cause.
+     * Determine whether an attempt failed to withdraw upstream
+     * bandwidth.
      * 
-     * @param network the network originating this exception
-     * 
-     * @param cause the cause
-     * 
-     * @param trunk the trunk to which this exception pertains
-     * 
-     * @param labels the labels to which this exception pertains
+     * @return {@code true} if upstream bandwidth was unavailable
      */
-    public LabelsInUseException(Network network, Trunk trunk, BitSet labels,
-                                Throwable cause) {
-        super(network, trunk, labels, "labels in use: " + labels, cause);
+    public boolean isUpstream() {
+        return upstream;
     }
 
     /**
-     * Create an exception with a cause.
+     * Get the actual amount of bandwidth available in the affected
+     * direction.
      * 
-     * @param network the network originating this exception
-     * 
-     * @param cause the cause
-     * 
-     * @param trunk the trunk to which this exception pertains
-     * 
-     * @param label the label to which this exception pertains
+     * @return the available bandwidth
      */
-    public LabelsInUseException(Network network, Trunk trunk, int label,
-                                Throwable cause) {
-        super(network, trunk, label, "label in use: " + label, cause);
+    public double getAvailable() {
+        return available;
     }
 
     /**
@@ -83,24 +73,39 @@ public class LabelsInUseException extends LabelManagementException {
      * 
      * @param network the network originating this exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param trunk the trunk originating this exception
      * 
-     * @param labels the labels to which this exception pertains
+     * @param upstream if upstream bandwidth was available
+     * 
+     * @param available the amount of available bandwidth
      */
-    public LabelsInUseException(Network network, Trunk trunk, BitSet labels) {
-        super(network, trunk, labels, "labels in use: " + labels);
+    public BandwidthUnavailableException(Network network, Trunk trunk,
+                                         boolean upstream, double available) {
+        super(network, trunk, "bandwidth unavailable: " + available
+            + (upstream ? "up" : "down") + "stream");
+        this.upstream = upstream;
+        this.available = available;
     }
 
     /**
-     * Create an exception.
+     * Create an exception with a cause.
      * 
      * @param network the network originating this exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param cause the cause
      * 
-     * @param label the label to which this exception pertains
+     * @param trunk the trunk originating this exception
+     * 
+     * @param upstream if upstream bandwidth was available
+     * 
+     * @param available the amount of available bandwidth
      */
-    public LabelsInUseException(Network network, Trunk trunk, int label) {
-        super(network, trunk, label, "label in use: " + label);
+    public BandwidthUnavailableException(Network network, Trunk trunk,
+                                         boolean upstream, double available,
+                                         Throwable cause) {
+        super(network, trunk, "bandwidth unavailable: " + available
+            + (upstream ? "up" : "down") + "stream", cause);
+        this.upstream = upstream;
+        this.available = available;
     }
 }

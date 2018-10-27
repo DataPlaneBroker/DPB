@@ -87,12 +87,16 @@ public class JsonAggregatorServer extends JsonNetworkServer {
             }
 
             case "check-trunk": {
-                String subNetName = req.getString("subnetwork-name");
-                String subTermName = req.getString("subterminal-name");
+                String subNetName = req.getString("start-subnetwork-name");
+                String subTermName = req.getString("start-subterminal-name");
                 TerminalId subterm = TerminalId.of(subNetName, subTermName);
                 Trunk trunk = network.findTrunk(subterm);
                 return one(Json.createObjectBuilder()
-                    .add("exists", trunk != null).build());
+                    .add("end-subnetwork-name",
+                         trunk.getEndTerminal().network)
+                    .add("end-subterminal-name",
+                         trunk.getEndTerminal().terminal)
+                    .build());
             }
 
             case "add-trunk": {
@@ -104,6 +108,85 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                 TerminalId i2 = TerminalId.of(n2, t2);
                 network.addTrunk(i1, i2);
                 return empty();
+            }
+
+            case "get-trunk-delay": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                return one(Json.createObjectBuilder()
+                    .add("delay", trunk == null ? -1.0 : trunk.getDelay())
+                    .build());
+            }
+
+            case "set-trunk-delay": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.setDelay(req.getJsonNumber("delay").doubleValue());
+                return empty();
+            }
+
+            case "define-trunk-label-range": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.defineLabelRange(req.getInt("start-label"),
+                                       req.getInt("label-count"),
+                                       req.getInt("end-label"));
+                return empty();
+            }
+
+            case "revoke-trunk-start-label-range": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.revokeStartLabelRange(req.getInt("start-label"),
+                                            req.getInt("label-count"));
+                return empty();
+            }
+
+            case "revoke-trunk-end-label-range": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.revokeEndLabelRange(req.getInt("end-label"),
+                                          req.getInt("label-count"));
+                return empty();
+            }
+
+            case "decommission-trunk": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.decommission();
+                return empty();
+            }
+
+            case "recommission-trunk": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                trunk.recommission();
+                return empty();
+            }
+
+            case "is-trunk-commissioned": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                return one(Json.createObjectBuilder()
+                    .add("commissioned",
+                         trunk == null ? false : trunk.isCommissioned())
+                    .build());
             }
 
             default:

@@ -38,7 +38,6 @@ package uk.ac.lancs.networks.jsoncmd;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.concurrent.Executor;
 
-import javax.json.Json;
 import javax.json.JsonObject;
 
 import uk.ac.lancs.networks.Terminal;
@@ -72,9 +71,9 @@ public class JsonSwitch extends JsonNetwork implements Switch {
     public Terminal addTerminal(String terminalName, String interfaceName)
         throws TerminalNameException,
             TerminalConfigurationException {
-        JsonObject req = Json.createObjectBuilder()
-            .add("type", "add-terminal").add("terminal-name", terminalName)
-            .add("terminal-config", interfaceName).build();
+        JsonObject req =
+            startRequest("add-terminal").add("terminal-name", terminalName)
+                .add("terminal-config", interfaceName).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);

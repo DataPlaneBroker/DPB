@@ -75,14 +75,11 @@ public interface Trunk {
      * 
      * @throws IllegalArgumentException if either amount is negative
      * 
-     * @throws TrunkManagementException if either amount exceeds the
-     * corresponding available level
-     * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws BandwidthUnavailableException if either amount exceeds
+     * the corresponding available level
      */
     void withdrawBandwidth(double upstream, double downstream)
-        throws NetworkManagementException;
+        throws BandwidthUnavailableException;
 
     /**
      * Withdraw bandwidth from this trunk.
@@ -92,18 +89,15 @@ public interface Trunk {
      * 
      * @throws IllegalArgumentException if the amount is negative
      * 
-     * @throws TrunkManagementException if the amount exceeds either
-     * available level
-     * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws BandwidthUnavailableException if either amount exceeds
+     * the corresponding available level
      * 
      * @default This implementation calls
      * {@link #withdrawBandwidth(double, double)}, using passing the
      * argument twice
      */
     default void withdrawBandwidth(double amount)
-        throws NetworkManagementException {
+        throws BandwidthUnavailableException {
         withdrawBandwidth(amount, amount);
     }
 
@@ -120,8 +114,18 @@ public interface Trunk {
      */
     void provideBandwidth(double upstream, double downstream);
 
+    /**
+     * Identify the start terminal.
+     * 
+     * @return the network name and terminal name of the start terminal
+     */
     TerminalId getStartTerminal();
 
+    /**
+     * Identify the end terminal.
+     * 
+     * @return the network name and terminal name of the end terminal
+     */
     TerminalId getEndTerminal();
 
     /**
@@ -173,13 +177,15 @@ public interface Trunk {
      * @param endBase the first available label at the end side of the
      * link
      * 
-     * @throws TrunkManagementException if any of the labels are in use
+     * @throws LabelsInUseException if any of the labels are already
+     * mapped in a conflicting way
      * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws LabelsUnavailableException if any of the labels are
+     * invalid for this trunk's configuration
      */
     void defineLabelRange(int startBase, int amount, int endBase)
-        throws NetworkManagementException;
+        throws LabelsUnavailableException,
+            LabelsInUseException;
 
     /**
      * Make a range of labels available.
@@ -195,13 +201,15 @@ public interface Trunk {
      * @param amount the number of labels from the base to make
      * available
      * 
-     * @throws TrunkManagementException if any of the labels are in use
+     * @throws LabelsInUseException if any of the labels are already
+     * mapped in a conflicting way
      * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws LabelsUnavailableException if any of the labels are
+     * invalid for this trunk's configuration
      */
     default void defineLabelRange(int startBase, int amount)
-        throws NetworkManagementException {
+        throws LabelsUnavailableException,
+            LabelsInUseException {
         defineLabelRange(startBase, amount, startBase);
     }
 
@@ -213,14 +221,10 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws TrunkManagementException if elements of the range cannot
-     * be revoked
-     * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws LabelsInUseException if any of the labels are in use
      */
     void revokeStartLabelRange(int startBase, int amount)
-        throws NetworkManagementException;
+        throws LabelsInUseException;
 
     /**
      * Revoke availability of a range of labels.
@@ -230,14 +234,10 @@ public interface Trunk {
      * 
      * @param amount the number of labels to remove
      * 
-     * @throws TrunkManagementException if elements of the range cannot
-     * be revoked
-     * 
-     * @throws NetworkManagementException if the change cannot be made
-     * for other reasons
+     * @throws LabelsInUseException if any of the labels are in use
      */
     void revokeEndLabelRange(int endBase, int amount)
-        throws NetworkManagementException;
+        throws LabelsInUseException;
 
     /**
      * Decommission this trunk. No more tunnels will be created over it,
@@ -271,8 +271,16 @@ public interface Trunk {
         return new Trunk() {
             @Override
             public void withdrawBandwidth(double upstream, double downstream)
-                throws NetworkManagementException {
-                orig.withdrawBandwidth(downstream, upstream);
+                throws BandwidthUnavailableException {
+                try {
+                    orig.withdrawBandwidth(downstream, upstream);
+                } catch (BandwidthUnavailableException ex) {
+                    throw new BandwidthUnavailableException(ex.getNetwork(),
+                                                            this,
+                                                            !ex.isUpstream(),
+                                                            ex.getAvailable(),
+                                                            ex.getCause());
+                }
             }
 
             @Override
@@ -282,13 +290,13 @@ public interface Trunk {
 
             @Override
             public void revokeStartLabelRange(int startBase, int amount)
-                throws NetworkManagementException {
+                throws LabelsInUseException {
                 orig.revokeEndLabelRange(startBase, amount);
             }
 
             @Override
             public void revokeEndLabelRange(int endBase, int amount)
-                throws NetworkManagementException {
+                throws LabelsInUseException {
                 orig.revokeStartLabelRange(endBase, amount);
             }
 
@@ -310,7 +318,8 @@ public interface Trunk {
             @Override
             public void defineLabelRange(int startBase, int amount,
                                          int endBase)
-                throws NetworkManagementException {
+                throws LabelsUnavailableException,
+                    LabelsInUseException {
                 orig.defineLabelRange(endBase, amount, startBase);
             }
 

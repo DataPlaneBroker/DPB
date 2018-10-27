@@ -539,10 +539,7 @@ public final class NetworkServer {
                 for (OfInt iter = ex.getLabels().stream().iterator(); iter
                     .hasNext();)
                     arr.add(iter.nextInt());
-                return one(Json.createObjectBuilder()
-                    .add("error", "terminal-mgmt").add("labels", arr.build())
-                    .add("terminal", ex.getTerminal().name())
-                    .add("msg", ex.getMessage()).build());
+                return empty();
             } catch (TerminalManagementException ex) {
                 return one(Json.createObjectBuilder()
                     .add("error", "terminal-mgmt")

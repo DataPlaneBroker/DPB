@@ -72,15 +72,14 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
+import uk.ac.lancs.networks.mgmt.LabelsInUseException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
-import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
 import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.networks.util.ReferenceWatcher;
 import uk.ac.lancs.routing.span.DistanceVectorComputer;
@@ -1213,7 +1212,7 @@ public class PersistentAggregator implements Aggregator {
 
         private void revokeInternalRange(String key, int base, int amount)
             throws SQLException,
-                NetworkManagementException {
+                LabelsInUseException {
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
                 /* Detect labels that are in use. Fail completely if any
@@ -1231,10 +1230,8 @@ public class PersistentAggregator implements Aggregator {
                             inUse.set(rs.getInt(1));
                     }
                     if (!inUse.isEmpty())
-                        throw new TrunkManagementException(PersistentAggregator.this,
-                                                           this,
-                                                           key + " in use: "
-                                                               + inUse);
+                        throw new LabelsInUseException(PersistentAggregator.this,
+                                                       this, inUse);
                 }
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + labelTable
@@ -1251,7 +1248,7 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public void revokeStartLabelRange(int startBase, int amount)
-            throws NetworkManagementException {
+            throws LabelsInUseException {
             try {
                 revokeInternalRange("start_label", startBase, amount);
             } catch (SQLException e) {
@@ -1263,7 +1260,7 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public void revokeEndLabelRange(int endBase, int amount)
-            throws NetworkManagementException {
+            throws LabelsInUseException {
             try {
                 revokeInternalRange("end_label", endBase, amount);
             } catch (SQLException e) {
@@ -1275,7 +1272,8 @@ public class PersistentAggregator implements Aggregator {
 
         @Override
         public void defineLabelRange(int startBase, int amount, int endBase)
-            throws NetworkManagementException {
+            throws LabelsInUseException {
+            /* TODO: WTF is this? If amount is negative...? */
             if (startBase + amount < startBase)
                 throw new IllegalArgumentException("illegal start range "
                     + startBase + " plus " + amount);
@@ -1303,10 +1301,8 @@ public class PersistentAggregator implements Aggregator {
                             startInUse.set(rs.getInt(1));
                     }
                     if (!startInUse.isEmpty())
-                        throw new TrunkManagementException(PersistentAggregator.this,
-                                                           this,
-                                                           "range in use: "
-                                                               + startInUse);
+                        throw new LabelsInUseException(PersistentAggregator.this,
+                                                       this, startInUse);
                 }
 
                 /* Add all the labels. */

@@ -37,7 +37,6 @@ package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.PrintWriter;
 import java.lang.reflect.UndeclaredThrowableException;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,8 +48,8 @@ import java.util.stream.Collectors;
 import javax.json.Json;
 import javax.json.JsonNumber;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonString;
-import javax.json.JsonValue;
 
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
@@ -60,7 +59,6 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.mgmt.LabelManagementException;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
@@ -102,8 +100,8 @@ public class JsonNetwork implements Network {
     public void removeTerminal(String name)
         throws UnknownTerminalException,
             TerminalBusyException {
-        JsonObject req =
-            Json.createObjectBuilder().add("terminal-name", name).build();
+        JsonObject req = startRequest("remove-terminal")
+            .add("terminal-name", name).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);
@@ -143,14 +141,6 @@ public class JsonNetwork implements Network {
         case "terminal-mgmt":
             throw new TerminalManagementException(this, getKnownTerminal(rsp
                 .getString("terminal-name")), rsp.getString("msg"));
-        case "label-mgmt":
-            BitSet labels = new BitSet();
-            for (JsonValue val : rsp.getJsonArray("labels")) {
-                JsonNumber label = (JsonNumber) val;
-                labels.set(label.intValue());
-            }
-            throw new LabelManagementException(this, getKnownTerminal(rsp
-                .getString("terminal-name")), labels);
         default:
             throw new NetworkManagementException(this, rsp.getString("msg"));
         }
@@ -158,8 +148,7 @@ public class JsonNetwork implements Network {
 
     @Override
     public void dumpStatus(PrintWriter out) {
-        JsonObject req =
-            Json.createObjectBuilder().add("type", "dump-status").build();
+        JsonObject req = startRequest("dump-status").build();
         JsonObject rsp = interact(req);
         out.print(rsp.getString("output"));
     }
@@ -172,8 +161,7 @@ public class JsonNetwork implements Network {
     private final NetworkControl control = new NetworkControl() {
         @Override
         public Service newService() {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "new-servic" + "e").build();
+            JsonObject req = startRequest("new-service").build();
             JsonObject rsp = interact(req);
             int id = Integer.parseInt(rsp.getString("service-id"));
             return serviceWatcher.get(id);
@@ -186,8 +174,7 @@ public class JsonNetwork implements Network {
 
         @Override
         public Collection<String> getTerminals() {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "get-terminals").build();
+            JsonObject req = startRequest("get-terminals").build();
             JsonObject rsp = interact(req);
             return rsp.getJsonArray("terminal-names")
                 .getValuesAs(JsonString.class).stream()
@@ -196,8 +183,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public Terminal getTerminal(String id) {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "get-terminal").add("terminal-name", id).build();
+            JsonObject req =
+                startRequest("get-terminal").add("terminal-name", id).build();
             JsonObject rsp = interact(req);
             if (rsp.getBoolean("exists")) return getKnownTerminal(id);
             return null;
@@ -205,8 +192,7 @@ public class JsonNetwork implements Network {
 
         @Override
         public Collection<Integer> getServiceIds() {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "get-services").build();
+            JsonObject req = startRequest("get-services").build();
             JsonObject rsp = interact(req);
             return rsp.getJsonArray("service-ids")
                 .getValuesAs(JsonNumber.class).stream()
@@ -215,8 +201,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public Service getService(int id) {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "check-service").add("service-id", id).build();
+            JsonObject req =
+                startRequest("check-service").add("service-id", id).build();
             JsonObject rsp = interact(req);
             if (rsp.getBoolean("exists")) return serviceWatcher.get(id);
             return null;
@@ -224,9 +210,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
-            JsonObject req =
-                Json.createObjectBuilder().add("type", "get-model")
-                    .add("min-bw", minimumBandwidth).build();
+            JsonObject req = startRequest("get-model")
+                .add("min-bw", minimumBandwidth).build();
             JsonObject rsp = interact(req);
             Map<Edge<Terminal>, Double> model = new HashMap<>();
             for (JsonObject elem : rsp.getJsonArray("edges")
@@ -321,8 +306,8 @@ public class JsonNetwork implements Network {
 
             /* Start watching. */
             channel = channels.getChannel();
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "watch-service").add("service-id", id).build();
+            JsonObject req =
+                startRequest("watch-service").add("service-id", id).build();
             channel.write(req);
             notify();
         }
@@ -339,8 +324,7 @@ public class JsonNetwork implements Network {
 
         @Override
         public void activate() {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "activate-service").build();
+            JsonObject req = startRequest("activate-service").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -353,8 +337,7 @@ public class JsonNetwork implements Network {
 
         @Override
         public void deactivate() {
-            JsonObject req = Json.createObjectBuilder()
-                .add("type", "deactivate-service").build();
+            JsonObject req = startRequest("deactivate-service").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -455,5 +438,9 @@ public class JsonNetwork implements Network {
 
     protected Terminal getKnownTerminal(String id) {
         return new RemoteTerminal(id);
+    }
+
+    protected JsonObjectBuilder startRequest(String type) {
+        return Json.createObjectBuilder().add("type", type);
     }
 }

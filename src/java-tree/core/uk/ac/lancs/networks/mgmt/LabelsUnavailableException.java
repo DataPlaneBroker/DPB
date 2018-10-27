@@ -38,12 +38,11 @@ package uk.ac.lancs.networks.mgmt;
 import java.util.BitSet;
 
 /**
- * Indicates that one or more labels are in use, so can't be released or
- * used for another purpose.
+ * Indicates that one or more labels can never be made available.
  * 
  * @author simpsons
  */
-public class LabelsInUseException extends LabelManagementException {
+public class LabelsUnavailableException extends LabelManagementException {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -57,9 +56,9 @@ public class LabelsInUseException extends LabelManagementException {
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelsInUseException(Network network, Trunk trunk, BitSet labels,
-                                Throwable cause) {
-        super(network, trunk, labels, "labels in use: " + labels, cause);
+    public LabelsUnavailableException(Network network, Trunk trunk,
+                                      BitSet labels, Throwable cause) {
+        super(network, trunk, labels, "labels unavailable: " + labels, cause);
     }
 
     /**
@@ -73,9 +72,9 @@ public class LabelsInUseException extends LabelManagementException {
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelsInUseException(Network network, Trunk trunk, int label,
-                                Throwable cause) {
-        super(network, trunk, label, "label in use: " + label, cause);
+    public LabelsUnavailableException(Network network, Trunk trunk, int label,
+                                      Throwable cause) {
+        super(network, trunk, label, "label unavailable: " + label, cause);
     }
 
     /**
@@ -87,8 +86,9 @@ public class LabelsInUseException extends LabelManagementException {
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelsInUseException(Network network, Trunk trunk, BitSet labels) {
-        super(network, trunk, labels, "labels in use: " + labels);
+    public LabelsUnavailableException(Network network, Trunk trunk,
+                                      BitSet labels) {
+        super(network, trunk, labels, "labels unavailable: " + labels);
     }
 
     /**
@@ -100,7 +100,8 @@ public class LabelsInUseException extends LabelManagementException {
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelsInUseException(Network network, Trunk trunk, int label) {
-        super(network, trunk, label, "label in use: " + label);
+    public LabelsUnavailableException(Network network, Trunk trunk,
+                                      int label) {
+        super(network, trunk, label, "label unavailable: " + label);
     }
 }

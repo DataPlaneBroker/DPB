@@ -37,14 +37,12 @@ package uk.ac.lancs.networks.mgmt;
 
 import java.util.BitSet;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
  * Indicates an error in the management of a specific label range.
  * 
  * @author simpsons
  */
-public class LabelManagementException extends TerminalManagementException {
+public class LabelManagementException extends TrunkManagementException {
     private static final long serialVersionUID = 1L;
 
     private final BitSet labels;
@@ -67,14 +65,14 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     BitSet labels, String message,
                                     Throwable cause) {
-        super(network, terminal, message, cause);
+        super(network, trunk, message, cause);
         this.labels = (BitSet) labels.clone();
     }
 
@@ -93,14 +91,14 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     int label, String message,
                                     Throwable cause) {
-        this(network, terminal, ofOne(label), message, cause);
+        this(network, trunk, ofOne(label), message, cause);
     }
 
     /**
@@ -110,13 +108,13 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param message the detail message
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     BitSet labels, String message) {
-        super(network, terminal, message);
+        super(network, trunk, message);
         this.labels = (BitSet) labels.clone();
     }
 
@@ -127,13 +125,13 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param message the detail message
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     int label, String message) {
-        this(network, terminal, ofOne(label), message);
+        this(network, trunk, ofOne(label), message);
     }
 
     /**
@@ -143,13 +141,13 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     BitSet labels, Throwable cause) {
-        super(network, terminal, cause);
+        super(network, trunk, cause);
         this.labels = (BitSet) labels.clone();
     }
 
@@ -160,13 +158,13 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     int label, Throwable cause) {
-        this(network, terminal, ofOne(label), cause);
+        this(network, trunk, ofOne(label), cause);
     }
 
     /**
@@ -174,13 +172,13 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param network the network originating this exception
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     BitSet labels) {
-        super(network, terminal);
+        super(network, trunk);
         this.labels = (BitSet) labels.clone();
     }
 
@@ -189,12 +187,12 @@ public class LabelManagementException extends TerminalManagementException {
      * 
      * @param network the network originating this exception
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param trunk the trunk to which this exception pertains
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Terminal terminal,
+    public LabelManagementException(Network network, Trunk trunk,
                                     int label) {
-        this(network, terminal, ofOne(label));
+        this(network, trunk, ofOne(label));
     }
 }

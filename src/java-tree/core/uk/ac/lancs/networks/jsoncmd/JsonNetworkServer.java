@@ -66,6 +66,7 @@ import uk.ac.lancs.networks.mgmt.LabelManagementException;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
@@ -365,20 +366,26 @@ public class JsonNetworkServer {
             for (OfInt iter = e.getLabels().stream().iterator(); iter
                 .hasNext();)
                 arr.add(iter.nextInt());
-            builder.add("error", "label-mgmt").add("msg", e.getMessage())
-                .add("labels", arr.build())
-                .add("terminal-name", e.getTerminal().name())
-                .add("network-name", e.getNetwork().getControl().name());
-        } catch (TrunkManagementException e) {
-            builder.add("error", "trunk-mgmt").add("msg", e.getMessage())
-                .add("network-name", e.getNetwork().getControl().name());
             Trunk trunk = e.getTrunk();
-            builder.add("start-network-name",
-                        trunk.getStartTerminal().network);
-            builder.add("end-network-name", trunk.getEndTerminal().network);
-            builder.add("start-terminal-name",
-                        trunk.getStartTerminal().terminal);
-            builder.add("end-terminal-name", trunk.getEndTerminal().terminal);
+            TerminalId start = trunk.getStartTerminal();
+            TerminalId end = trunk.getEndTerminal();
+            builder.add("error", "label-mgmt").add("msg", e.getMessage())
+                .add("network-name", e.getNetwork().getControl().name())
+                .add("labels", arr.build())
+                .add("start-terminal-name", start.network)
+                .add("start-network-name", start.terminal)
+                .add("start-terminal-name", end.network)
+                .add("start-network-name", end.terminal);
+        } catch (TrunkManagementException e) {
+            Trunk trunk = e.getTrunk();
+            TerminalId start = trunk.getStartTerminal();
+            TerminalId end = trunk.getEndTerminal();
+            builder.add("error", "trunk-mgmt").add("msg", e.getMessage())
+                .add("network-name", e.getNetwork().getControl().name())
+                .add("start-terminal-name", start.network)
+                .add("start-network-name", start.terminal)
+                .add("start-terminal-name", end.network)
+                .add("start-network-name", end.terminal);
         } catch (TerminalManagementException e) {
             builder.add("error", "terminal-mgmt").add("msg", e.getMessage())
                 .add("terminal-name", e.getTerminal().name())

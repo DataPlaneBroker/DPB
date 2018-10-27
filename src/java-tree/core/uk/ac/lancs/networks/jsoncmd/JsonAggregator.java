@@ -36,14 +36,21 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.BitSet;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
+import javax.json.JsonNumber;
 import javax.json.JsonObject;
+import javax.json.JsonValue;
 
 import uk.ac.lancs.networks.NetworkControlException;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.BandwidthUnavailableException;
+import uk.ac.lancs.networks.mgmt.LabelManagementException;
+import uk.ac.lancs.networks.mgmt.LabelsInUseException;
+import uk.ac.lancs.networks.mgmt.LabelsUnavailableException;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
@@ -96,6 +103,17 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             Trunk trunk = getKnownTrunk(start, end);
             throw new TrunkManagementException(this, trunk,
                                                rsp.getString("msg"));
+        case "label-mgmt":
+            BitSet labels = new BitSet();
+            for (JsonValue val : rsp.getJsonArray("labels")) {
+                JsonNumber label = (JsonNumber) val;
+                labels.set(label.intValue());
+            }
+            throw new LabelManagementException(this, getKnownTrunk(TerminalId
+                .of(rsp.getString("start-network-name"), rsp
+                    .getString("start-terminal-name")), TerminalId
+                        .of(rsp.getString("end-network-name"),
+                            rsp.getString("end-terminal-name"))), labels);
         }
         super.checkErrors(rsp);
     }
@@ -106,8 +124,8 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             SubterminalBusyException,
             UnknownSubterminalException,
             UnknownSubnetworkException {
-        JsonObject req = Json.createObjectBuilder().add("type", "add-trunk")
-            .add("terminal-name", name)
+        JsonObject req = Json.createObjectBuilder()
+            .add("type", "map-terminal").add("terminal-name", name)
             .add("subnetwork-name", subterm.network)
             .add("subterminal-name", subterm.terminal).build();
         JsonObject rsp = interact(req);
@@ -150,14 +168,41 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         throws UnknownTrunkException,
             UnknownSubterminalException,
             UnknownSubnetworkException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        JsonObject req =
+            Json.createObjectBuilder().add("type", "remove-trunk")
+                .add("subnetwork-name", subterm.network)
+                .add("subterminal-name", subterm.terminal).build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (UnknownSubterminalException | UnknownSubnetworkException
+            | UnknownTrunkException | RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
     }
 
     @Override
     public Trunk findTrunk(TerminalId subterm)
         throws UnknownSubnetworkException,
             UnknownSubterminalException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+        JsonObject req = Json.createObjectBuilder().add("type", "check-trunk")
+            .add("start-subnetwork-name", subterm.network)
+            .add("start-subterminal-name", subterm.terminal).build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (UnknownSubnetworkException | UnknownSubterminalException
+            | RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        TerminalId endTerm =
+            TerminalId.of(rsp.getString("end-subnetwork-name"),
+                          rsp.getString("end-subterminal-name"));
+        return getKnownTrunk(subterm, endTerm);
     }
 
     private final ReferenceWatcher<Trunk, RemoteTrunk, TrunkId> trunkWatcher =
@@ -180,17 +225,40 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public double getDelay() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("get-trunk-delay")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
+            return rsp.getJsonNumber("delay").doubleValue();
         }
 
         @Override
         public void setDelay(double delay) {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("set-trunk-delay")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("delay", delay).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
+            return;
         }
 
         @Override
         public void withdrawBandwidth(double upstream, double downstream)
-            throws NetworkManagementException {
+            throws BandwidthUnavailableException {
             throw new UnsupportedOperationException("unimplemented"); // TODO
         }
 
@@ -201,19 +269,20 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public void defineLabelRange(int startBase, int amount, int endBase)
-            throws NetworkManagementException {
+            throws LabelsInUseException,
+                LabelsUnavailableException {
             throw new UnsupportedOperationException("unimplemented"); // TODO
         }
 
         @Override
         public void revokeStartLabelRange(int startBase, int amount)
-            throws NetworkManagementException {
+            throws LabelsInUseException {
             throw new UnsupportedOperationException("unimplemented"); // TODO
         }
 
         @Override
         public void revokeEndLabelRange(int endBase, int amount)
-            throws NetworkManagementException {
+            throws LabelsInUseException {
             throw new UnsupportedOperationException("unimplemented"); // TODO
         }
 
