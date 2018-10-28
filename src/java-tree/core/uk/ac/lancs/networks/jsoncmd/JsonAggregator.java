@@ -44,6 +44,7 @@ import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonValue;
 
+import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControlException;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
@@ -89,7 +90,8 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
     @Override
     protected void checkErrors(JsonObject rsp)
         throws NetworkManagementException,
-            NetworkControlException {
+            NetworkControlException,
+            InvalidServiceException {
         String type = rsp.getString("error");
         if (type == null) return;
         switch (type) {
@@ -202,6 +204,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         TerminalId endTerm =
             TerminalId.of(rsp.getString("end-subnetwork-name"),
                           rsp.getString("end-subterminal-name"));
+        if (endTerm == null) return null;
         return getKnownTrunk(subterm, endTerm);
     }
 
@@ -253,52 +256,142 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             } catch (Exception e) {
                 throw new UndeclaredThrowableException(e);
             }
-            return;
         }
 
         @Override
         public void withdrawBandwidth(double upstream, double downstream)
             throws BandwidthUnavailableException {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("decrease-bw")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("upstream-bw", upstream).add("downstream-bw", downstream)
+                .build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (BandwidthUnavailableException | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void provideBandwidth(double upstream, double downstream) {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("increase-trunk-bw")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("upstream-bw", upstream).add("downstream-bw", downstream)
+                .build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void defineLabelRange(int startBase, int amount, int endBase)
             throws LabelsInUseException,
                 LabelsUnavailableException {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("define-trunk-label-range")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("start-label", startBase).add("label-count", amount)
+                .add("end-label", endBase).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (LabelsInUseException | LabelsUnavailableException
+                | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void revokeStartLabelRange(int startBase, int amount)
             throws LabelsInUseException {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("revoke-trunk-start-label-range")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("start-label", startBase).add("label-count", amount)
+                .build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (LabelsInUseException | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void revokeEndLabelRange(int endBase, int amount)
             throws LabelsInUseException {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("revoke-trunk-end-label-range")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal)
+                .add("end-label", endBase).add("label-count", amount).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (LabelsInUseException | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void decommission() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("decommission-trunk")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public void recommission() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("recommission-trunk")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
         }
 
         @Override
         public boolean isCommissioned() {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObject req = startRequest("is-trunk-commissioned")
+                .add("subnetwork-name", id.start.network)
+                .add("subterminal-name", id.start.terminal).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
+            return rsp.getBoolean("commissioned");
         }
 
         @Override

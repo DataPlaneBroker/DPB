@@ -46,11 +46,13 @@ import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
 import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonString;
 
+import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.NetworkControlException;
@@ -59,6 +61,7 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
+import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
@@ -128,10 +131,13 @@ public class JsonNetwork implements Network {
      */
     protected void checkErrors(JsonObject rsp)
         throws NetworkManagementException,
-            NetworkControlException {
+            NetworkControlException,
+            InvalidServiceException {
         String type = rsp.getString("error");
         if (type == null) return;
         switch (type) {
+        case "invalid-segment":
+            throw new InvalidServiceException(rsp.getString("msg"));
         case "bad-argument":
             throw new IllegalArgumentException(rsp.getString("msg"));
         case "network-rsrc":
@@ -265,7 +271,33 @@ public class JsonNetwork implements Network {
 
         @Override
         public void define(Segment request) throws InvalidServiceException {
-            throw new UnsupportedOperationException("unimplemented"); // TODO
+            JsonObjectBuilder req = startRequest("define-service");
+            JsonArrayBuilder segmentDesc = Json.createArrayBuilder();
+            for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
+                .circuitFlows().entrySet()) {
+                Circuit c = entry.getKey();
+                Terminal t = c.getTerminal();
+                if (own(t) == null)
+                    throw new InvalidServiceException("not my terminal");
+                int label = c.getLabel();
+                TrafficFlow f = entry.getValue();
+                segmentDesc.add(Json.createObjectBuilder()
+                    .add("terminal-name", t.name()).add("label", label)
+                    .add("ingress-bw", f.ingress).add("egress-bw", f.egress));
+            }
+            req.add("segment", segmentDesc);
+            JsonObject rsp = interact(req.build());
+            try {
+                checkErrors(rsp);
+            } catch (InvalidServiceException | RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
+
+            synchronized (this) {
+                this.request = request;
+            }
         }
 
         private Collection<ServiceListener> listeners = new HashSet<>();
@@ -383,6 +415,8 @@ public class JsonNetwork implements Network {
     private class RemoteTerminal implements Terminal {
         private final String name;
 
+        final JsonNetwork owner = JsonNetwork.this;
+
         public RemoteTerminal(String name) {
             this.name = name;
         }
@@ -427,6 +461,15 @@ public class JsonNetwork implements Network {
         public String toString() {
             return JsonNetwork.this.name + ":" + this.name;
         }
+    }
+
+    private RemoteTerminal own(Terminal t) {
+        if (t instanceof RemoteTerminal) {
+            RemoteTerminal result = (RemoteTerminal) t;
+            if (result.owner != this) return null;
+            return result;
+        }
+        return null;
     }
 
     protected JsonObject interact(JsonObject req) {

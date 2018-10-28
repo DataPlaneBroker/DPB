@@ -287,9 +287,9 @@ public class JsonNetworkServer {
                     int label = endPoint.getInt("label");
                     Circuit circuit = term.circuit(label);
                     double ingress =
-                        endPoint.getJsonNumber("ingress").doubleValue();
+                        endPoint.getJsonNumber("ingress-bw").doubleValue();
                     double egress =
-                        endPoint.getJsonNumber("egress").doubleValue();
+                        endPoint.getJsonNumber("egress-bw").doubleValue();
                     TrafficFlow flow = TrafficFlow.of(ingress, egress);
                     parts.put(circuit, flow);
                 }

@@ -91,6 +91,7 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                 String subTermName = req.getString("start-subterminal-name");
                 TerminalId subterm = TerminalId.of(subNetName, subTermName);
                 Trunk trunk = network.findTrunk(subterm);
+                if (trunk == null) return empty();
                 return one(Json.createObjectBuilder()
                     .add("end-subnetwork-name",
                          trunk.getEndTerminal().network)
@@ -187,6 +188,32 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                     .add("commissioned",
                          trunk == null ? false : trunk.isCommissioned())
                     .build());
+            }
+
+            case "increase-trunk-bw": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                double upstream =
+                    req.getJsonNumber("upstream-bw").doubleValue();
+                double downstream =
+                    req.getJsonNumber("downstream-bw").doubleValue();
+                trunk.provideBandwidth(upstream, downstream);
+                return empty();
+            }
+
+            case "decrease-trunk-bw": {
+                TerminalId subterm =
+                    TerminalId.of(req.getString("subnetwork-name"),
+                                  req.getString("subterminal-name"));
+                Trunk trunk = network.findTrunk(subterm);
+                double upstream =
+                    req.getJsonNumber("upstream-bw").doubleValue();
+                double downstream =
+                    req.getJsonNumber("downstream-bw").doubleValue();
+                trunk.withdrawBandwidth(upstream, downstream);
+                return empty();
             }
 
             default:

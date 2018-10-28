@@ -64,9 +64,11 @@ public final class TerminalId {
      * 
      * @param terminal the local name of the terminal within its network
      * 
-     * @return an identifier for the terminal
+     * @return an identifier for the terminal, or {@code null} if either
+     * name component is {@code null}
      */
     public static TerminalId of(String network, String terminal) {
+        if (network == null || terminal == null) return null;
         return new TerminalId(network, terminal);
     }
 
