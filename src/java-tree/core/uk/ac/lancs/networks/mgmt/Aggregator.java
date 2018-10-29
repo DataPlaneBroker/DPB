@@ -137,7 +137,7 @@ public interface Aggregator extends Network {
      * 
      * @return the requested trunk
      * 
-     * @param UnknownTrunkException if the terminal did not identify a
+     * @throws UnknownTrunkException if the terminal did not identify a
      * trunk managed by this aggregator
      * 
      * @throws UnknownSubnetworkException if there was an error in

@@ -43,5 +43,14 @@ package uk.ac.lancs.networks.jsoncmd;
  * @author simpsons
  */
 public interface JsonChannelManager {
+    /**
+     * Get a channel to the remote entity. While this might not be a
+     * fresh channel, it is known to be idle. The caller should normally
+     * exploit try-with-resources on the object to clean up any
+     * resources used by the channel. This also gives the manager the
+     * opportunity to pool unused channels as idle.
+     * 
+     * @return an idle channel to the remote entity
+     */
     JsonChannel getChannel();
 }

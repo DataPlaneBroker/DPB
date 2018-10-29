@@ -41,6 +41,7 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,16 +49,11 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.PrimitiveIterator.OfInt;
-import java.util.Queue;
 import java.util.ServiceLoader;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import javax.json.Json;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
@@ -71,24 +67,14 @@ import uk.ac.lancs.agent.AgentFactory;
 import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
-import uk.ac.lancs.networks.Circuit;
-import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.Segment;
-import uk.ac.lancs.networks.Service;
-import uk.ac.lancs.networks.ServiceListener;
-import uk.ac.lancs.networks.ServiceStatus;
-import uk.ac.lancs.networks.Terminal;
-import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer;
+import uk.ac.lancs.networks.jsoncmd.JsonNetworkServer;
+import uk.ac.lancs.networks.jsoncmd.JsonSwitchServer;
 import uk.ac.lancs.networks.mgmt.Aggregator;
-import uk.ac.lancs.networks.mgmt.LabelManagementException;
 import uk.ac.lancs.networks.mgmt.Network;
-import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
-import uk.ac.lancs.networks.mgmt.TerminalManagementException;
-import uk.ac.lancs.networks.mgmt.Trunk;
-import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 import uk.ac.lancs.scc.usmux.Session;
 import uk.ac.lancs.scc.usmux.SessionException;
 import uk.ac.lancs.scc.usmux.SessionServer;
@@ -178,13 +164,7 @@ public final class NetworkServer {
         private Collection<String> controllables = new HashSet<>();
         private boolean privileged;
 
-        NetworkControl control = null;
-        Network network = null;
-        Switch zwitch = null;
-        Aggregator aggregator = null;
-        TrafficFlow nextFlow = TrafficFlow.of(0.0, 0.0);
-        Map<Circuit, TrafficFlow> circuits = new HashMap<>();
-        Service service = null;
+        JsonNetworkServer server = null;
 
         public Interaction(Session sess) {
             this.sess = sess;
@@ -192,17 +172,22 @@ public final class NetworkServer {
 
         @Override
         public void run() {
+            List<Runnable> actions = new ArrayList<>();
             try (InputStream in = sess.getInputStream();
                 OutputStream out = sess.getOutputStream()) {
                 JsonObject req = readJson(in);
-                for (JsonObject rsp : process(req))
+                for (JsonObject rsp : process(req, actions::add))
                     writeJson(out, rsp, req.getString("txn"));
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
+            for (Runnable action : actions)
+                action.run();
         }
 
-        private Iterable<JsonObject> process(JsonObject req) {
+        private Iterable<JsonObject> process(JsonObject req,
+                                             Executor onClose) {
+            if (server != null) return server.interact(req, onClose);
             try {
                 String cmd = req.getString("type");
                 switch (cmd) {
@@ -248,285 +233,35 @@ public final class NetworkServer {
                     }
                 }
 
-                case "network": {
+                case "select-network": {
                     String name = req.getString("network-name");
                     if (!controllables.contains(name)) return one(Json
                         .createObjectBuilder().add("error", "unauthorized")
                         .add("network", name).build());
-                    network = networks.get(name);
+                    Network network = networks.get(name);
                     if (network == null) { return one(Json
                         .createObjectBuilder().add("error", "no-network")
                         .add("network-name", name).build()); }
-                    control = network.getControl();
-                    if (managables.contains(name)) {
-                        if (network instanceof Aggregator)
-                            aggregator = (Aggregator) network;
-                        if (network instanceof Switch)
-                            zwitch = (Switch) network;
-                    } else {
-                        network = null;
-                    }
                     JsonObjectBuilder builder =
                         Json.createObjectBuilder().add("network-name", name);
-                    if (aggregator != null) builder.add("aggregator", true);
-                    if (zwitch != null) builder.add("switch", true);
-                    if (network != null) builder.add("network", true);
-                    return one(builder.build());
-                }
-
-                case "decommission":
-                case "recommission":
-                case "commission": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-                    String name = req.getString("terminal-name");
-                    Terminal term = network.getTerminal(name);
-                    Trunk trunk = null;
-                    // aggregator.getTrunk(term);
-                    boolean add = cmd.charAt(0) != 'd';
-                    if (add)
-                        trunk.recommission();
-                    else
-                        trunk.decommission();
-                    return empty();
-                }
-
-                case "set-delay": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-
-                    String name = req.getString("terminal-name");
-                    Terminal term = network.getTerminal(name);
-                    Trunk trunk = null;
-                    // aggregator.getTrunk(term);
-
-                    double delay = req.getJsonNumber("delay").doubleValue();
-                    trunk.setDelay(delay);
-                    return empty();
-                }
-
-                case "add-trunk": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-
-                    Terminal fromTerm;
-                    {
-                        JsonObject obj = req.getJsonObject("from");
-                        String netName = req.getString("network-name");
-                        Network subnet = networks.get(netName);
-                        if (subnet == null) return one(Json
-                            .createObjectBuilder().add("error", "no-network")
-                            .add("network-name", netName).build());
-                        String name = obj.getString("terminal-name");
-                        fromTerm = subnet.getControl().getTerminal(name);
-                        if (fromTerm == null) return one(Json
-                            .createObjectBuilder().add("error", "no-terminal")
-                            .add("network-name", netName)
-                            .add("terminal-name", name).build());
-                    }
-
-                    Terminal toTerm;
-                    {
-                        JsonObject obj = req.getJsonObject("from");
-                        String netName = req.getString("network-name");
-                        Network subnet = networks.get(netName);
-                        if (subnet == null) return one(Json
-                            .createObjectBuilder().add("error", "no-network")
-                            .add("network-name", netName).build());
-                        String name = obj.getString("terminal-name");
-                        toTerm = subnet.getControl().getTerminal(name);
-                        if (toTerm == null) return one(Json
-                            .createObjectBuilder().add("error", "no-terminal")
-                            .add("network-name", netName)
-                            .add("terminal-name", name).build());
-                    }
-
-                    // aggregator.addTrunk(fromTerm, toTerm);
-                    return empty();
-                }
-
-                case "remove-trunk": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-
-                    String name = req.getString("terminal-name");
-                    Terminal term = network.getTerminal(name);
-
-                    // aggregator.removeTrunk(term);
-                    return empty();
-                }
-
-                case "watch": {
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").build());
-                    Queue<JsonObject> results = new ConcurrentLinkedQueue<>();
-                    service.addListener(new ServiceListener() {
-                        @Override
-                        public void newStatus(ServiceStatus newStatus) {
-                            results.add(Json.createObjectBuilder()
-                                .add("status", newStatus.toString()).build());
+                    if (managables.contains(name)) {
+                        if (network instanceof Aggregator) {
+                            builder.add("aggregator", true);
+                            this.server =
+                                new JsonAggregatorServer((Aggregator) network);
+                        } else if (network instanceof Switch) {
+                            builder.add("switch", true);
+                            this.server =
+                                new JsonSwitchServer((Switch) network);
+                        } else {
+                            builder.add("network", true);
+                            this.server =
+                                new JsonNetworkServer(network, true);
                         }
-                    });
-                    return results;
-                }
-                case "remove-terminal": {
-                    if (network == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-network").build());
-
-                    String name = req.getString("terminal-name");
-
-                    network.removeTerminal(name);
-                    return empty();
-                }
-
-                case "open-labels":
-                case "close-labels": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-
-                    String name = req.getString("terminal-name");
-                    Terminal term = network.getTerminal(name);
-                    Trunk trunk = null;
-                    // aggregator.findTrunk(term);
-
-                    int start = req.getJsonNumber("low").intValue();
-                    JsonNumber highNum = req.getJsonNumber("high");
-                    int amount = highNum == null ? 1
-                        : (highNum.intValue() + 1 - start);
-                    JsonNumber mapNum = req.getJsonNumber("map");
-                    int map = mapNum == null ? start : mapNum.intValue();
-                    boolean add = cmd.charAt(0) == 'o';
-                    if (add) {
-                        trunk.defineLabelRange(start, amount, map);
                     } else {
-                        trunk.revokeStartLabelRange(start, amount);
+                        this.server = new JsonNetworkServer(network, false);
                     }
-                    return empty();
-                }
-
-                case "provide":
-                case "withdraw": {
-                    if (aggregator == null)
-                        return one(Json.createObjectBuilder()
-                            .add("error", "no-aggregator").build());
-
-                    String name = req.getString("terminal-name");
-                    Terminal term = network.getTerminal(name);
-                    Trunk trunk = null;
-                    // aggregator.findTrunk(term);
-
-                    boolean add = cmd.charAt(0) == 'p';
-                    JsonNumber rate = req.getJsonNumber("rate");
-                    JsonNumber uprate = req.getJsonNumber("up");
-                    JsonNumber downrate = req.getJsonNumber("down");
-                    double up = uprate == null
-                        ? rate == null ? 0.0 : rate.doubleValue()
-                        : uprate.doubleValue();
-                    double down = downrate == null
-                        ? rate == null ? 0.0 : rate.doubleValue()
-                        : downrate.doubleValue();
-                    if (add) {
-                        trunk.provideBandwidth(up, down);
-                    } else {
-                        trunk.withdrawBandwidth(up, down);
-                    }
-                    return empty();
-                }
-
-                case "new-service": {
-                    if (control == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-control").build());
-                    service = control.newService();
-                    return one(Json.createObjectBuilder()
-                        .add("service-name", service.id()).build());
-                }
-
-                case "service": {
-                    if (control == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-control").build());
-                    int number = req.getJsonNumber("service-name").intValue();
-                    service = control.getService(number);
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service")
-                        .add("service-name", number).build());
-                    return empty();
-                }
-
-                case "release": {
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").build());
-                    service.release();
-                    return empty();
-                }
-
-                case "activate": {
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").build());
-                    service.activate();
-                    return empty();
-                }
-
-                case "deactivate": {
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").build());
-                    service.deactivate();
-                    return empty();
-                }
-
-                case "clear-circuits": {
-                    circuits.clear();
-                    return empty();
-                }
-
-                case "set-flow": {
-                    JsonNumber inFlow = req.getJsonNumber("in");
-                    JsonNumber outFlow = req.getJsonNumber("out");
-                    if (inFlow != null)
-                        nextFlow = nextFlow.withIngress(inFlow.doubleValue());
-                    if (outFlow != null)
-                        nextFlow = nextFlow.withEgress(outFlow.doubleValue());
-                    return empty();
-                }
-
-                case "add-circuit": {
-                    if (control == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-control").build());
-
-                    String name = req.getString("terminal-name");
-                    Terminal terminal = control.getTerminal(name);
-                    if (terminal == null) return one(Json
-                        .createObjectBuilder().add("error", "no-terminal")
-                        .add("network-name", network.getControl().name())
-                        .add("terminal-name", name).build());
-
-                    int id = req.getJsonNumber("label").intValue();
-                    Circuit c = terminal.circuit(id);
-                    if (c == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-circuit").add("terminal-name", name)
-                        .add("label", id).build());
-
-                    circuits.put(c, nextFlow);
-                    return empty();
-                }
-
-                case "initiate": {
-                    if (service == null) return one(Json.createObjectBuilder()
-                        .add("error", "no-service").build());
-                    try {
-                        service.define(Segment.create(circuits));
-                        circuits.clear();
-                        nextFlow = TrafficFlow.of(0.0, 0.0);
-                        return empty();
-                    } catch (InvalidServiceException e) {
-                        return one(Json.createObjectBuilder()
-                            .add("error", "invalid-segment")
-                            .add("msg", e.getMessage()).build());
-                    }
+                    return one(builder.build());
                 }
 
                 default:
@@ -534,31 +269,10 @@ public final class NetworkServer {
                         .add("error", "unknown-command")
                         .add("type", req.getString("type")).build());
                 }
-            } catch (LabelManagementException ex) {
-                JsonArrayBuilder arr = Json.createArrayBuilder();
-                for (OfInt iter = ex.getLabels().stream().iterator(); iter
-                    .hasNext();)
-                    arr.add(iter.nextInt());
-                return empty();
-            } catch (TerminalManagementException ex) {
-                return one(Json.createObjectBuilder()
-                    .add("error", "terminal-mgmt")
-                    .add("terminal", ex.getTerminal().name())
-                    .add("msg", ex.getMessage()).build());
-            } catch (TrunkManagementException ex) {
-                return one(Json.createObjectBuilder()
-                    .add("error", "trunk-mgmt").add("error", "network-mgmt")
-                    .add("terminal-from", "TODO").add("msg", ex.getMessage())
-                    .build());
-            } catch (NetworkManagementException ex) {
-                return one(Json.createObjectBuilder()
-                    .add("error", "network-mgmt")
-                    .add("network-name", network.getControl().name())
-                    .add("msg", ex.getMessage()).build());
             } catch (NetworkResourceException ex) {
                 return one(Json.createObjectBuilder()
                     .add("error", "network-resource")
-                    .add("network-name", network.getControl().name())
+                    .add("network-name", ex.getNetwork().getControl().name())
                     .add("msg", ex.getMessage()).build());
             } catch (IllegalArgumentException ex) {
                 return one(Json.createObjectBuilder()

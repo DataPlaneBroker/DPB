@@ -51,7 +51,6 @@ import uk.ac.lancs.networks.mgmt.TerminalNameException;
  * @author simpsons
  */
 public class JsonSwitch extends JsonNetwork implements Switch {
-
     /**
      * Access a remote switch through a supply of remote JSON channels.
      * 

@@ -212,6 +212,23 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         ReferenceWatcher.on(Trunk.class, getClass().getClassLoader(),
                             RemoteTrunk::new, RemoteTrunk::cleanUp);
 
+    /**
+     * Get a trunk that has just been implied to exist by the result of
+     * a call. For example, a call to create a new trunk necessarily
+     * includes specification of both ends of the trunk, so (if
+     * successful) that trunk can be fully identified locally on return
+     * from the call. For another example, if a trunk is sought by
+     * specifying the start terminal, the remote call's response (if
+     * successful) includes the end terminal, so a local representation
+     * of the trunk can still be built.
+     * 
+     * @param start the inferior terminal defining the start of the
+     * trunk
+     * 
+     * @param end the inferior terminal defining the end of the trunk
+     * 
+     * @return the requested trunk
+     */
     protected Trunk getKnownTrunk(TerminalId start, TerminalId end) {
         TrunkId id = new TrunkId(start, end);
         return trunkWatcher.get(id);

@@ -128,6 +128,8 @@ public class JsonNetwork implements Network {
      * 
      * @throws NetworkControlException if a network control exception
      * occurred
+     * 
+     * @throws InvalidServiceException if a service was badly specified
      */
     protected void checkErrors(JsonObject rsp)
         throws NetworkManagementException,
@@ -472,17 +474,44 @@ public class JsonNetwork implements Network {
         return null;
     }
 
-    protected JsonObject interact(JsonObject req) {
+    /**
+     * Issue a JSON request down a fresh channel, await a single JSON
+     * response, and then close the channel.
+     * 
+     * @param req the request to issue
+     * 
+     * @return the single JSON response
+     */
+    protected final JsonObject interact(JsonObject req) {
         try (JsonChannel channel = channels.getChannel()) {
             channel.write(req);
             return channel.read();
         }
     }
 
+    /**
+     * Get a terminal that has just been implied to exist the result of
+     * a call.
+     * 
+     * @param id the local terminal name
+     * 
+     * @return the requested terminal
+     */
     protected Terminal getKnownTerminal(String id) {
         return new RemoteTerminal(id);
     }
 
+    /**
+     * Start to build a request object. This is a JSON object with a
+     * single key <samp>type</samp> whose value is specified by an
+     * argument of this call. This is a convenience for code within this
+     * class and subclasses that issues JSON requests.
+     * 
+     * @param type the value of the type field in the result
+     * 
+     * @return a JSON object builder with the field <samp>type</samp>
+     * already set to the specified value
+     */
     protected JsonObjectBuilder startRequest(String type) {
         return Json.createObjectBuilder().add("type", type);
     }
