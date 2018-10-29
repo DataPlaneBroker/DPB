@@ -35,17 +35,13 @@
  */
 package uk.ac.lancs.networks;
 
-import java.util.AbstractMap;
-import java.util.AbstractSet;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -62,124 +58,6 @@ public interface Segment {
      * @return the traffic flows of each circuit of the service
      */
     Map<? extends Circuit, ? extends TrafficFlow> circuitFlows();
-
-    /**
-     * Get the set of bandwidth contributions into the service indexed
-     * by circuit.
-     * 
-     * @return a mapping from each producer to its contributing
-     * bandwidth
-     * 
-     * @deprecated This method will be removed.
-     */
-    @Deprecated
-    default Map<? extends Circuit, ? extends Number> producers() {
-        return new AbstractMap<Circuit, Number>() {
-            @Override
-            public Set<Entry<Circuit, Number>> entrySet() {
-                return new AbstractSet<Map.Entry<Circuit, Number>>() {
-                    @Override
-                    public Iterator<Entry<Circuit, Number>> iterator() {
-                        return new Iterator<Map.Entry<Circuit, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends Circuit, ? extends TrafficFlow>> iterator =
-                                circuitFlows().entrySet().iterator();
-
-                            @Override
-                            public boolean hasNext() {
-                                return iterator.hasNext();
-                            }
-
-                            @Override
-                            public Map.Entry<Circuit, Number> next() {
-                                Map.Entry<? extends Circuit, ? extends TrafficFlow> next =
-                                    iterator.next();
-                                return new Map.Entry<Circuit, Number>() {
-                                    @Override
-                                    public Circuit getKey() {
-                                        return next.getKey();
-                                    }
-
-                                    @Override
-                                    public Number getValue() {
-                                        return next.getValue().ingress;
-                                    }
-
-                                    @Override
-                                    public Number setValue(Number value) {
-                                        throw new UnsupportedOperationException("unimplemented");
-                                    }
-                                };
-                            }
-                        };
-                    }
-
-                    @Override
-                    public int size() {
-                        return circuitFlows().size();
-                    }
-                };
-            }
-        };
-    }
-
-    /**
-     * Get the set of bandwidth tolerances out of the service indexed by
-     * circuit.
-     * 
-     * @return a mapping from each consumer to its maximum accepted
-     * bandwidth
-     * 
-     * @deprecated This method will be removed.
-     */
-    @Deprecated
-    default Map<? extends Circuit, ? extends Number> consumers() {
-        return new AbstractMap<Circuit, Number>() {
-            @Override
-            public Set<Entry<Circuit, Number>> entrySet() {
-                return new AbstractSet<Map.Entry<Circuit, Number>>() {
-                    @Override
-                    public Iterator<Entry<Circuit, Number>> iterator() {
-                        return new Iterator<Map.Entry<Circuit, Number>>() {
-                            final Iterator<? extends Map.Entry<? extends Circuit, ? extends TrafficFlow>> iterator =
-                                circuitFlows().entrySet().iterator();
-
-                            @Override
-                            public boolean hasNext() {
-                                return iterator.hasNext();
-                            }
-
-                            @Override
-                            public Map.Entry<Circuit, Number> next() {
-                                Map.Entry<? extends Circuit, ? extends TrafficFlow> next =
-                                    iterator.next();
-                                return new Map.Entry<Circuit, Number>() {
-                                    @Override
-                                    public Circuit getKey() {
-                                        return next.getKey();
-                                    }
-
-                                    @Override
-                                    public Number getValue() {
-                                        return next.getValue().egress;
-                                    }
-
-                                    @Override
-                                    public Number setValue(Number value) {
-                                        throw new UnsupportedOperationException("unimplemented");
-                                    }
-                                };
-                            }
-                        };
-                    }
-
-                    @Override
-                    public int size() {
-                        return circuitFlows().size();
-                    }
-                };
-            }
-        };
-    }
 
     /**
      * Create a description from a set of producers and consumers. The
