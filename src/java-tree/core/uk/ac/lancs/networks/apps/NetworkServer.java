@@ -42,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -158,11 +159,35 @@ public final class NetworkServer {
         }
     }
 
+    /**
+     * Read an LF-terminated line from a byte stream, and interpret as a
+     * string in the platform's character encoding.
+     * 
+     * @param in the byte source
+     * 
+     * @return the line including the terminator, or {@code null} if EOF
+     * was reached without reading any bytes
+     * 
+     * @throws IOException if an I/O error occurred
+     */
+    private static String readLine(InputStream in) throws IOException {
+        byte[] buf = new byte[1024];
+        int got = 0;
+        int c;
+        while ((c = in.read()) >= 0) {
+            if (got == buf.length)
+                buf = Arrays.copyOf(buf, buf.length + buf.length / 2);
+            buf[got++] = (byte) c;
+            if (c == 10) return new String(buf);
+        }
+        if (got == 0) return null;
+        return new String(buf);
+    }
+
     private class Interaction implements Runnable {
         private final Session sess;
         private Collection<String> managables = new HashSet<>();
         private Collection<String> controllables = new HashSet<>();
-        private boolean privileged;
 
         JsonNetworkServer server = null;
 
@@ -175,63 +200,53 @@ public final class NetworkServer {
             List<Runnable> actions = new ArrayList<>();
             try (InputStream in = sess.getInputStream();
                 OutputStream out = sess.getOutputStream()) {
-                JsonObject req = readJson(in);
-                for (JsonObject rsp : process(req, actions::add))
-                    writeJson(out, rsp, req.getString("txn"));
+
+                /* Read lines from the local caller (in the local
+                 * charset), until 'drop' is given. A command 'manage
+                 * <name>' permits the network with that name to be
+                 * managed and controlled. 'control <name>' permits it
+                 * to be controlled only. */
+                String line;
+                while ((line = readLine(in)) != null
+                    && !(line = line.trim()).equals("drop")) {
+                    String[] words = line.trim().split("\\s+");
+                    if (words.length < 2) continue;
+                    switch (words[0]) {
+                    case "manage":
+                        managables.add(words[1]);
+                    case "control":
+                        controllables.add(words[1]);
+                        break;
+                    }
+                }
+
+                /* Remaining communication is from the remote caller,
+                 * and is in UTF-8. Read in JSON objects as requests,
+                 * and respond to them. */
+                JsonReader reader =
+                    readerFactory.createReader(in, StandardCharsets.UTF_8);
+                JsonWriter writer =
+                    writerFactory.createWriter(out, StandardCharsets.UTF_8);
+
+                JsonObject req;
+                while ((req = reader.readObject()) != null)
+                    for (JsonObject rsp : process(req, actions::add))
+                        writeJson(writer, rsp, req.getString("txn"));
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
+
+            /* Perform clean-up actions requested by the network
+             * delegate. */
             for (Runnable action : actions)
                 action.run();
         }
 
         private Iterable<JsonObject> process(JsonObject req,
                                              Executor onClose) {
-            if (server != null) return server.interact(req, onClose);
             try {
                 String cmd = req.getString("type");
                 switch (cmd) {
-                case "authz-control": {
-                    if (privileged) {
-                        /* Allow a named network to be controlled. */
-                        String key = req.getString("network");
-                        controllables.add(key);
-                        return empty();
-                    } else {
-                        return one(Json.createObjectBuilder()
-                            .add("error", "unprivileged").build());
-                    }
-                }
-
-                case "authz-mgmt": {
-                    if (privileged) {
-                        /* Allow a names network to be controlled and
-                         * managed. */
-                        String key = req.getString("network");
-                        controllables.add(key);
-                        managables.add(key);
-                        return empty();
-                    } else {
-                        return one(Json.createObjectBuilder()
-                            .add("error", "unprivileged").build());
-                    }
-                }
-
-                case "drop-privs": {
-                    if (privileged) {
-                        /* Prevent any more changes to privileged
-                         * resources. */
-                        managables =
-                            Collections.unmodifiableCollection(managables);
-                        controllables =
-                            Collections.unmodifiableCollection(controllables);
-                        privileged = false;
-                        return empty();
-                    } else {
-                        return one(Json.createObjectBuilder()
-                            .add("error", "unprivileged").build());
-                    }
-                }
 
                 case "select-network": {
                     String name = req.getString("network-name");
@@ -265,6 +280,7 @@ public final class NetworkServer {
                 }
 
                 default:
+                    if (server != null) return server.interact(req, onClose);
                     return one(Json.createObjectBuilder()
                         .add("error", "unknown-command")
                         .add("type", req.getString("type")).build());
@@ -287,14 +303,7 @@ public final class NetworkServer {
     private static final JsonWriterFactory writerFactory =
         Json.createWriterFactory(Collections.emptyMap());
 
-    private static JsonObject readJson(InputStream in) {
-        JsonReader reader =
-            readerFactory.createReader(in, StandardCharsets.UTF_8);
-        JsonObject cmd = reader.readObject();
-        return cmd;
-    }
-
-    private static void writeJson(OutputStream out, JsonObject res,
+    private static void writeJson(JsonWriter writer, JsonObject res,
                                   String txn) {
         if (txn != null) {
             JsonObjectBuilder builder = Json.createObjectBuilder();
@@ -303,7 +312,6 @@ public final class NetworkServer {
                 .forEach(e -> builder.add(e.getKey(), e.getValue()));
             res = builder.build();
         }
-        JsonWriter writer = writerFactory.createWriter(out);
         writer.write(res);
     }
 
@@ -390,9 +398,5 @@ public final class NetworkServer {
 
     private static <E> List<E> one(E elem) {
         return Collections.singletonList(elem);
-    }
-
-    private static List<JsonObject> empty() {
-        return one(Json.createObjectBuilder().build());
     }
 }
