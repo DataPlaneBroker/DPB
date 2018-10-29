@@ -30,6 +30,7 @@ roots_core += uk.ac.lancs.networks.jsoncmd.JsonSwitch
 roots_core += uk.ac.lancs.networks.jsoncmd.JsonAggregator
 roots_core += uk.ac.lancs.networks.jsoncmd.JsonSwitchServer
 roots_core += uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer
+roots_core += uk.ac.lancs.networks.jsoncmd.SSHNetworkAgentFactory
 roots_core += uk.ac.lancs.networks.transients.DummySwitch
 roots_core += uk.ac.lancs.networks.transients.TransientAggregator
 roots_core += uk.ac.lancs.networks.persist.PersistentAggregatorAgentFactory
@@ -37,7 +38,6 @@ roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.apps.Commander
 roots_core += uk.ac.lancs.networks.apps.NetworkServer
-roots_core += uk.ac.lancs.networks.apps.SSHNetworkAgentFactory
 
 SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa

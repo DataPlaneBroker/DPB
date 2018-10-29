@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.apps;
+package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -52,16 +52,13 @@ import javax.json.JsonWriter;
 import javax.json.JsonWriterFactory;
 
 import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.jsoncmd.JsonChannel;
-import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
 
 /**
  * Creates JSON channels to a remote entity over SSH connections.
  * 
  * @author simpsons
  */
-class SSHJsonChannelManager implements JsonChannelManager {
-    private final String internalName;
+public final class SSHJsonChannelManager implements JsonChannelManager {
     private final String hostname;
     private final String username;
     private final int port;
@@ -92,11 +89,6 @@ class SSHJsonChannelManager implements JsonChannelManager {
      * <dd>Specifies the file containing the private key identifying the
      * caller.
      * 
-     * <dt><samp>network</samp></dt>
-     * 
-     * <dd>Specifies the name of the network to select at the remote
-     * site.
-     * 
      * </dl>
      */
     public SSHJsonChannelManager(Configuration conf) {
@@ -104,7 +96,6 @@ class SSHJsonChannelManager implements JsonChannelManager {
         username = conf.get("user");
         port = Integer.parseInt(conf.get("port", "22"));
         keyPath = conf.getPath("key-file");
-        internalName = conf.get("network");
     }
 
     private final class Channel implements JsonChannel, AutoCloseable {
@@ -154,43 +145,21 @@ class SSHJsonChannelManager implements JsonChannelManager {
                                              StandardCharsets.UTF_8);
             in = readerFactory.createReader(proc.getInputStream(),
                                             StandardCharsets.UTF_8);
-
-            /* Select the remote network. */
-            JsonObject selNet =
-                Json.createObjectBuilder().add("type", "network")
-                    .add("network-name", internalName).build();
-            write(selNet);
-            JsonObject selNetRsp = read();
-            String error = selNetRsp.getString("error");
-            switch (error) {
-            case "unauthorized":
-                throw new IllegalArgumentException("unauthorized to access "
-                    + internalName);
-
-            case "no-network":
-                throw new IllegalArgumentException("no network "
-                    + internalName);
-            }
         }
 
         @Override
         public void close() {
-            saveChannel(this);
+            try {
+                proc.getOutputStream().close();
+            } catch (IOException e) {
+                /* Not much we can do about this (hopefully) rare
+                 * event. */
+            }
         }
     }
 
-    private final List<Channel> channels = new ArrayList<>();
-
-    public final synchronized Channel getChannel() {
-        if (channels.isEmpty()) return new Channel();
-        Channel result = channels.remove(0);
-        result.inUse = true;
-        return result;
-    }
-
-    private final synchronized void saveChannel(Channel channel) {
-        channel.inUse = false;
-        channels.add(channel);
+    public final JsonChannel getChannel() {
+        return new Channel();
     }
 
     private static final JsonReaderFactory readerFactory =

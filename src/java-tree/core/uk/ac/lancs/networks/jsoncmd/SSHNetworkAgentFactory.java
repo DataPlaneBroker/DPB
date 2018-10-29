@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.apps;
+package uk.ac.lancs.networks.jsoncmd;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -48,9 +48,6 @@ import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.agent.UnknownAgentException;
 import uk.ac.lancs.agent.UnknownServiceException;
 import uk.ac.lancs.config.Configuration;
-import uk.ac.lancs.networks.jsoncmd.JsonAggregator;
-import uk.ac.lancs.networks.jsoncmd.JsonNetwork;
-import uk.ac.lancs.networks.jsoncmd.JsonSwitch;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.Switch;
@@ -60,6 +57,7 @@ import uk.ac.lancs.networks.mgmt.Switch;
  * 
  * @author simpsons
  */
+@uk.ac.lancs.scc.jardeps.Service(AgentFactory.class)
 public class SSHNetworkAgentFactory implements AgentFactory {
     /**
      * @undocumented
@@ -118,9 +116,19 @@ public class SSHNetworkAgentFactory implements AgentFactory {
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
         throws AgentCreationException {
+        /* Extract configuration. */
         Configuration sshConf = conf.subview("ssh");
         String name = conf.get("name", sshConf.get("network"));
-        SSHJsonChannelManager cm = new SSHJsonChannelManager(sshConf);
+
+        /* Create channels that invoke SSH to the remote account, then
+         * make each fresh channel select a particular network, then
+         * pool open channels. */
+        JsonChannelManager sshChannels = new SSHJsonChannelManager(sshConf);
+        JsonChannelManager nwChannels =
+            new NetworkJsonChannelManager(sshChannels, name);
+        JsonChannelManager cm = new PoolingJsonChannelManager(nwChannels);
+
+        /* Create an agent according to the particular type. */
         try {
             Agent system = ctxt.getAgent("system");
             Executor executor = system.getService(Executor.class);
