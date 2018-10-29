@@ -37,6 +37,7 @@ roots_core += uk.ac.lancs.networks.persist.PersistentSwitchAgentFactory
 roots_core += uk.ac.lancs.networks.fabric.DummyFabricAgentFactory
 roots_core += uk.ac.lancs.networks.apps.Commander
 roots_core += uk.ac.lancs.networks.apps.NetworkServer
+roots_core += uk.ac.lancs.networks.apps.SSHNetworkAgentFactory
 
 SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
