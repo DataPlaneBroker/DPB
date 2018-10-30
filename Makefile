@@ -75,6 +75,15 @@ JARDEPS_SRCDIR=src/java-tree
 JARDEPS_MERGEDIR=src/java-merge
 
 include jardeps.mk
+-include jardeps-install.mk
+
+
+scripts += dpb-server
+scripts += dbp-client
+scripts += dbp-ssh-agent
+
+
+include binodeps.mk
 
 
 DOC_PKGS += uk.ac.lancs.routing.metric
@@ -98,7 +107,8 @@ DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)
 DOC_SRC=$(call jardeps_srcdirs4jars,$(SELECTED_JARS))
 DOC_CORE=dataplanebroker$(DOC_CORE_SFX)
 
-all:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+installed-jars:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+installed-jars:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%-src.zip)
 
 testdv: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestDV
@@ -127,7 +137,17 @@ testcorsa: all
 testconfig: all
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-util.jar" uk.ac.lancs.config.ConfigurationContext scratch/initiate-test-1corsa.properties slough-fabric-brperlink
 
-#blank:: clean
+blank:: clean
+	$(RM) -r out
+
+all:: installed-jars
+
+install:: install-scripts
+install:: install-jars
+
+install-jars:: $(SELECTED_JARS:%=install-jar-%)
+install-jar-%::
+	@$(call JARDEPS_INSTALL,$(PREFIX)/share/java,$*,$(version_$*))
 
 clean:: tidy
 
@@ -135,7 +155,7 @@ tidy::
 	@$(PRINTF) 'Removing detritus\n'
 	@$(FIND) . -name "*~" -delete
 
-YEARS=2017
+YEARS=2018
 
 update-licence:
 	$(FIND) . -name '.svn' -prune -or -type f -print0 | $(XARGS) -0 \
