@@ -37,6 +37,8 @@ package uk.ac.lancs.networks.apps;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,10 +83,88 @@ import uk.ac.lancs.networks.util.IdleExecutor;
  * @author simpsons
  */
 public final class Commander {
-    Map<String, Agent> agents = new LinkedHashMap<>();
-    Map<String, Network> networks = new HashMap<>();
-    ConfigurationContext configCtxt = new ConfigurationContext();
-    Configuration config = null;
+    Commander(Path confFile)
+        throws IOException,
+            AgentCreationException,
+            ServiceCreationException {
+        final ConfigurationContext configCtxt = new ConfigurationContext();
+        final Configuration config = configCtxt.get(confFile.toUri());
+
+        /* Create an agent context to allow agents to discover each
+         * other. */
+        final Map<String, Agent> agents = new LinkedHashMap<>();
+        AgentContext agentContext = agents::get;
+
+        /* Provide an executor to other agents, and a way to find
+         * networks by name. */
+        agents.put("system", new Agent() {
+            final Executor executor = IdleExecutor.INSTANCE;
+
+            @Override
+            public <T> T findService(Class<T> type, String key) {
+                if (type == NetworkControl.class) {
+                    Network nw = networks.get(key);
+                    if (nw == null) return null;
+                    return type.cast(nw.getControl());
+                }
+                if (type == Executor.class && key == null)
+                    return type.cast(executor);
+                return null;
+            }
+
+            @Override
+            public Collection<String> getKeys(Class<?> type) {
+                if (type == NetworkControl.class) return Collections
+                    .unmodifiableCollection(networks.keySet());
+                if (type == Executor.class)
+                    return Collections.singleton(null);
+                return Collections.emptySet();
+            }
+        });
+
+        /* Instantiate all agents. */
+        System.out.printf("Creating agents...%n");
+        for (Configuration agentConf : config.references("agents")) {
+            String name = agentConf.get("name");
+            if (name == null) {
+                System.err.printf("agent config [%s] has no name%n",
+                                  agentConf.prefix());
+                throw new IllegalArgumentException();
+            }
+            String type = agentConf.get("type");
+            if (type == null) {
+                System.err.printf("agent config [%s] has no type%n",
+                                  agentConf.prefix());
+                throw new IllegalArgumentException();
+            }
+            for (AgentFactory factory : ServiceLoader
+                .load(AgentFactory.class)) {
+                if (!factory.recognize(agentConf)) continue;
+                Agent agent = factory.makeAgent(agentContext, agentConf);
+                agents.put(name, agent);
+                System.out.printf("  Created agent %s as %s%n", name, type);
+            }
+        }
+
+        /* Obtain networks from agents. */
+        System.out.printf("Obtaining networks...%n");
+        for (Map.Entry<String, Agent> entry : agents.entrySet()) {
+            String agentId = entry.getKey();
+            Agent agent = entry.getValue();
+            for (String serviceKey : agent.getKeys(Network.class)) {
+                Network network =
+                    agent.findService(Network.class, serviceKey);
+                if (network == null) continue;
+                String networkName = network.getControl().name();
+                networks.put(networkName, network);
+                System.out.printf("  Created network %s from agent %s%s%n",
+                                  networkName, agentId,
+                                  serviceKey != null ? ":" + serviceKey : "");
+            }
+        }
+    }
+
+    final Map<String, Network> networks = new HashMap<>();
     Network network = null;
     Switch zwitch = null;
     Aggregator aggregator = null;
@@ -102,85 +182,6 @@ public final class Commander {
             ServiceCreationException {
         usage = null;
         final String arg = iter.next();
-        if (config == null) {
-            config = configCtxt.get(arg);
-
-            /* Create an agent context to allow agents to discover each
-             * other. */
-            AgentContext agentContext = agents::get;
-
-            /* Provide an executor to other agents, and a way to find
-             * networks by name. */
-            agents.put("system", new Agent() {
-                final Executor executor = IdleExecutor.INSTANCE;
-
-                @Override
-                public <T> T findService(Class<T> type, String key) {
-                    if (type == NetworkControl.class) {
-                        Network nw = networks.get(key);
-                        if (nw == null) return null;
-                        return type.cast(nw.getControl());
-                    }
-                    if (type == Executor.class && key == null)
-                        return type.cast(executor);
-                    return null;
-                }
-
-                @Override
-                public Collection<String> getKeys(Class<?> type) {
-                    if (type == NetworkControl.class) return Collections
-                        .unmodifiableCollection(networks.keySet());
-                    if (type == Executor.class)
-                        return Collections.singleton(null);
-                    return Collections.emptySet();
-                }
-            });
-
-            /* Instantiate all agents. */
-            System.out.printf("Creating agents...%n");
-            for (Configuration agentConf : config.references("agents")) {
-                String name = agentConf.get("name");
-                if (name == null) {
-                    System.err.printf("agent config [%s] has no name%n",
-                                      agentConf.prefix());
-                    return false;
-                }
-                String type = agentConf.get("type");
-                if (type == null) {
-                    System.err.printf("agent config [%s] has no type%n",
-                                      agentConf.prefix());
-                    return false;
-                }
-                for (AgentFactory factory : ServiceLoader
-                    .load(AgentFactory.class)) {
-                    if (!factory.recognize(agentConf)) continue;
-                    Agent agent = factory.makeAgent(agentContext, agentConf);
-                    agents.put(name, agent);
-                    System.out.printf("  Created agent %s as %s%n", name,
-                                      type);
-                }
-            }
-
-            /* Obtain networks from agents. */
-            System.out.printf("Obtaining networks...%n");
-            for (Map.Entry<String, Agent> entry : agents.entrySet()) {
-                String agentId = entry.getKey();
-                Agent agent = entry.getValue();
-                for (String serviceKey : agent.getKeys(Network.class)) {
-                    Network network =
-                        agent.findService(Network.class, serviceKey);
-                    if (network == null) continue;
-                    String networkName = network.getControl().name();
-                    networks.put(networkName, network);
-                    System.out
-                        .printf("  Created network %s from agent %s%s%n",
-                                networkName, agentId,
-                                serviceKey != null ? ":" + serviceKey : "");
-                }
-            }
-
-            return true;
-        }
 
         if ("-n".equals(arg)) {
             usage = arg + " <network>";
@@ -675,7 +676,8 @@ public final class Commander {
      * @throws Exception if something went wrong
      */
     public static void main(String[] args) throws Exception {
-        Commander me = new Commander();
+        Path dataplaneConf = Paths.get("network.config");
+        Commander me = new Commander(dataplaneConf);
         me.process(args);
         IdleExecutor.processAll();
     }

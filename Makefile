@@ -79,8 +79,8 @@ include jardeps.mk
 
 
 scripts += dpb-server
-scripts += dbp-client
-scripts += dbp-ssh-agent
+scripts += dpb-client
+scripts += dpb-ssh-agent
 
 
 include binodeps.mk

@@ -1,0 +1,44 @@
+#!/bin/bash
+
+declare -A AUTHZ
+SOCKET=/tmp/dpb.sock
+
+while [ $# -gt 0 ] ; do
+    arg="$1"
+    shift
+
+    case "$arg" in
+	-c)
+	    AUTHZ["$1"]=control
+	    shift
+	    ;;
+	-m)
+	    AUTHZ["$1"]=manage
+	    shift
+	    ;;
+	-s)
+	    SOCKET="$1"
+	    shift
+	    ;;
+	-*)
+	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+	+*)
+	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+	*)
+	    printf >&2 '%s: unknown argument %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+    esac
+done
+
+(
+    for nw in "${!AUTHZ[@]}" ; do
+	cmd="${AUTHZ["$nw"]}"
+	printf '%s %s\n' "$cmd" "$nw"
+    done
+    printf 'drop\n'
+) | nc -u "$SOCKET"

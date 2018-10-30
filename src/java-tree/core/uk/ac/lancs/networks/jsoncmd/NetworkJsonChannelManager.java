@@ -38,6 +38,8 @@ package uk.ac.lancs.networks.jsoncmd;
 import javax.json.Json;
 import javax.json.JsonObject;
 
+import uk.ac.lancs.networks.apps.NetworkServer;
+
 /**
  * Selects the network on a remote channel.
  * 
@@ -60,6 +62,11 @@ public final class NetworkJsonChannelManager implements JsonChannelManager {
         this.name = name;
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * <p>The peer of this code is in {@link NetworkServer}.
+     */
     @Override
     public JsonChannel getChannel() {
         JsonChannel result = base.getChannel();

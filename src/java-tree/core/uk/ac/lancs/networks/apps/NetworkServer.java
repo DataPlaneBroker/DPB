@@ -323,51 +323,31 @@ public final class NetworkServer {
     /**
      * Runs a server containing agents that operate switches.
      * 
-     * @param args The following arguments are recognized:
+     * <p>
+     * The following system properties are recognized:
      * 
      * <dl>
      * 
-     * <dt><kbd>-s <var>config</var></kbd>
+     * <dt><samp>program.name</samp>
+     * 
+     * <dd>Identifies the program to appear in error messages.
+     * 
+     * <dt><samp>usmux.config</samp>
      * 
      * <dd>Specifies the Usmux configuration, normally provided by the
      * Usmux daemon invoking this process.
      * 
-     * <dt><kbd>-f <var>config-file</var></kbd>
+     * <dt><samp>network.config</samp></kbd>
      * 
      * <dd>Specifies the path to the agent configuration file.
      * 
      * </dl>
+     * 
+     * @param args Arguments are ignored.
      */
     public static void main(String[] args) {
-        String usmuxConf = null;
-        Path dataplaneConf = null;
-        for (int argi = 0; argi < args.length; argi++) {
-            String arg = args[argi];
-            switch (arg) {
-            case "-s":
-                if (argi >= args.length - 1) {
-                    System.err.printf("Usage: -s <usmux-config>%n");
-                    System.exit(1);
-                    return;
-                }
-                usmuxConf = args[++argi];
-                break;
-
-            case "-f":
-                if (argi >= args.length - 1) {
-                    System.err.printf("Usage: -f <dataplane-config-file>%n");
-                    System.exit(1);
-                    return;
-                }
-                dataplaneConf = Paths.get(args[++argi]);
-                break;
-
-            default:
-                System.err.printf("Unknown argument: %s%n", arg);
-                System.exit(1);
-                return;
-            }
-        }
+        String usmuxConf = System.getProperty("usmux.config");
+        Path dataplaneConf = Paths.get("network.config");
 
         try {
             /* Create the Usmux session server. We don't start it until

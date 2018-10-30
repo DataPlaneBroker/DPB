@@ -1,0 +1,59 @@
+#!/bin/bash
+
+
+HERE="$(readlink -f "${0%/*}")"
+EXTRAS=()
+CONFIG=$HOME/.config/dpbdrc
+unset USMUX
+
+while [ $# -gt  0 ] ; do
+    arg="$1"
+    shift
+
+    case "$arg" in
+	-L)
+	    EXTRAS+=(-L"$1")
+	    shift
+	    ;;
+	-L*)
+	    EXTRAS+=("$arg")
+	    ;;
+	-l)
+	    EXTRAS+=(-l"$1")
+	    shift
+	    ;;
+	-l*)
+	    EXTRAS+=("$arg")
+	    ;;
+	-s)
+	    USMUX="$1"
+	    shift
+	    ;;
+	-f)
+	    CONFIG="$1"
+	    shift
+	    ;;
+	-*)
+	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+	+*)
+	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+	*)
+	    printf >&2 '%s: unknown argument %s\n' "$0" "$arg"
+	    exit 1
+	    ;;
+    esac
+done
+
+if [ -z "$USMUX" ] ; then
+    printf >&2 '%s: specify -s usmuxconf\n' "$0"
+    exit 1
+fi
+
+exec jrun -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
+     -linitiate-dpb-openflow -linitiate-dpb-corsa "${EXTRAS[@]}" \
+     -Dprogram.name="$0" -Dusmux.config="$USMUX" -Dnetwork.config="$CONFIG" \
+     uk.ac.lancs.networks.apps.NetworkServer

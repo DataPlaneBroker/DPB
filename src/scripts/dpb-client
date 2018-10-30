@@ -1,0 +1,39 @@
+#!/bin/bash
+
+HERE="$(readlink -f "${0%/*}")"
+EXTRAS=()
+CONFIG="$HOME/.config/dpbrc"
+
+while [ $# -gt  0 ] ; do
+    arg="$1"
+    shift
+
+    case "$arg" in
+	-L)
+	    EXTRAS+=(-L"$1")
+	    shift
+	    ;;
+	-L*)
+	    EXTRAS+=("$arg")
+	    ;;
+	-l)
+	    EXTRAS+=(-l"$1")
+	    shift
+	    ;;
+	-l*)
+	    EXTRAS+=("$arg")
+	    ;;
+	-f)
+	    CONFIG="$1"
+	    shift
+	    ;;
+	*)
+	    break
+	    ;;
+    esac
+done
+
+exec jrun -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
+     -linitiate-dpb-openflow -linitiate-dpb-corsa "${EXTRAS[@]}" \
+     -Dprogram.name="$0" -Dnetwork.config="$CONFIG" \
+     uk.ac.lancs.networks.apps.Commander "$@"
