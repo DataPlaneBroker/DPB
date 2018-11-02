@@ -36,7 +36,7 @@
 package uk.ac.lancs.agent;
 
 /**
- * Indicates absence of a necessary agent.
+ * Indicates absence of a necessary service within an agent.
  * 
  * @author simpsons
  */
