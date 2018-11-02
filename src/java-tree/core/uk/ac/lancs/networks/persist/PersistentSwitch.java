@@ -193,7 +193,7 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("DB failure", ex);
+                throw new ServiceResourceException(control, "DB failure", ex);
             }
 
             /* We are ready as soon as we have the information. */
@@ -237,7 +237,8 @@ public class PersistentSwitch implements Switch {
                 updateIntent(conn, id, intent = Intent.ACTIVE);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("failed to store intent",
+                throw new ServiceResourceException(control,
+                                                   "failed to store intent",
                                                    ex);
             }
 
@@ -270,7 +271,8 @@ public class PersistentSwitch implements Switch {
             try (Connection conn = database()) {
                 updateIntent(conn, id, intent = Intent.INACTIVE);
             } catch (SQLException ex) {
-                throw new ServiceResourceException("failed to store intent",
+                throw new ServiceResourceException(control,
+                                                   "failed to store intent",
                                                    ex);
             }
 
@@ -327,7 +329,7 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("releasing", ex);
+                throw new ServiceResourceException(control, "releasing", ex);
             }
 
             if (oldBridge != null) {
@@ -356,7 +358,8 @@ public class PersistentSwitch implements Switch {
                 try (Connection conn = database()) {
                     updateIntent(conn, id, intent = Intent.ABORT);
                 } catch (SQLException ex) {
-                    throw new ServiceResourceException("failed to store intent",
+                    throw new ServiceResourceException(control,
+                                                       "failed to store intent",
                                                        ex);
                 }
             }
@@ -781,12 +784,14 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new ServiceResourceException("id unreported"
-                        + " for new service");
+                    throw new ServiceResourceException(control,
+                                                       "id unreported"
+                                                           + " for new service");
                 id = rs.getInt(1);
             }
         } catch (SQLException ex) {
-            throw new ServiceResourceException("creating service", ex);
+            throw new ServiceResourceException(control, "creating service",
+                                               ex);
         }
         MyService srv = new MyService(id);
         services.put(id, srv);

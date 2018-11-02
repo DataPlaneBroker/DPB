@@ -42,6 +42,7 @@ import java.util.concurrent.Executor;
 import javax.json.Json;
 import javax.json.JsonNumber;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 
 import uk.ac.lancs.networks.InvalidServiceException;
@@ -69,7 +70,6 @@ import uk.ac.lancs.networks.util.ReferenceWatcher;
  * @author simpsons
  */
 public class JsonAggregator extends JsonNetwork implements Aggregator {
-
     /**
      * Create an aggregator accessible through a supply of JSON
      * channels.
@@ -245,9 +245,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public double getDelay() {
-            JsonObject req = startRequest("get-trunk-delay")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal).build();
+            JsonObject req = startRequest("get-trunk-delay").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -261,10 +259,8 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public void setDelay(double delay) {
-            JsonObject req = startRequest("set-trunk-delay")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
-                .add("delay", delay).build();
+            JsonObject req =
+                startRequest("set-trunk-delay").add("delay", delay).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -278,11 +274,9 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         @Override
         public void withdrawBandwidth(double upstream, double downstream)
             throws BandwidthUnavailableException {
-            JsonObject req = startRequest("decrease-bw")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
-                .add("upstream-bw", upstream).add("downstream-bw", downstream)
-                .build();
+            JsonObject req =
+                startRequest("decrease-bw").add("upstream-bw", upstream)
+                    .add("downstream-bw", downstream).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -295,11 +289,9 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public void provideBandwidth(double upstream, double downstream) {
-            JsonObject req = startRequest("increase-trunk-bw")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
-                .add("upstream-bw", upstream).add("downstream-bw", downstream)
-                .build();
+            JsonObject req =
+                startRequest("increase-trunk-bw").add("upstream-bw", upstream)
+                    .add("downstream-bw", downstream).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -315,8 +307,6 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             throws LabelsInUseException,
                 LabelsUnavailableException {
             JsonObject req = startRequest("define-trunk-label-range")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
                 .add("start-label", startBase).add("label-count", amount)
                 .add("end-label", endBase).build();
             JsonObject rsp = interact(req);
@@ -334,8 +324,6 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         public void revokeStartLabelRange(int startBase, int amount)
             throws LabelsInUseException {
             JsonObject req = startRequest("revoke-trunk-start-label-range")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
                 .add("start-label", startBase).add("label-count", amount)
                 .build();
             JsonObject rsp = interact(req);
@@ -352,8 +340,6 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         public void revokeEndLabelRange(int endBase, int amount)
             throws LabelsInUseException {
             JsonObject req = startRequest("revoke-trunk-end-label-range")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal)
                 .add("end-label", endBase).add("label-count", amount).build();
             JsonObject rsp = interact(req);
             try {
@@ -367,9 +353,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public void decommission() {
-            JsonObject req = startRequest("decommission-trunk")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal).build();
+            JsonObject req = startRequest("decommission-trunk").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -382,9 +366,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public void recommission() {
-            JsonObject req = startRequest("recommission-trunk")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal).build();
+            JsonObject req = startRequest("recommission-trunk").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -397,9 +379,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
 
         @Override
         public boolean isCommissioned() {
-            JsonObject req = startRequest("is-trunk-commissioned")
-                .add("subnetwork-name", id.start.network)
-                .add("subterminal-name", id.start.terminal).build();
+            JsonObject req = startRequest("is-trunk-commissioned").build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -419,6 +399,14 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         @Override
         public TerminalId getEndTerminal() {
             return id.end;
+        }
+
+        private JsonObjectBuilder startRequest(String type) {
+            return JsonAggregator.this.startRequest(type)
+                .add("start-network-name", id.start.network)
+                .add("start-terminal-name", id.start.terminal)
+                .add("end-network-name", id.end.network)
+                .add("end-terminal-name", id.end.terminal);
         }
     }
 }

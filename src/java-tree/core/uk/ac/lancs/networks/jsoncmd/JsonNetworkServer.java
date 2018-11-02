@@ -53,6 +53,7 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
 import uk.ac.lancs.networks.Circuit;
+import uk.ac.lancs.networks.ExpiredServiceException;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.NetworkControlException;
@@ -99,6 +100,14 @@ public class JsonNetworkServer {
         if (!allowMgmt)
             throw new NetworkResourceException(network,
                                                "management calls forbidden");
+    }
+
+    private Service confirmService(JsonObject req) {
+        int id = req.getInt("service-id");
+        Service srv = network.getControl().getService(id);
+        if (srv == null)
+            throw new ExpiredServiceException(network.getControl(), id);
+        return srv;
     }
 
     /**
@@ -276,8 +285,7 @@ public class JsonNetworkServer {
             }
 
             case "define-service": {
-                int id = req.getInt("service-id");
-                Service srv = network.getControl().requireService(id);
+                Service srv = confirmService(req);
                 JsonArray segmentDesc = req.getJsonArray("segment");
                 Map<Circuit, TrafficFlow> parts = new HashMap<>();
                 for (JsonObject endPoint : segmentDesc
@@ -299,29 +307,25 @@ public class JsonNetworkServer {
             }
 
             case "activate-service": {
-                int id = req.getInt("service-id");
-                Service srv = network.getControl().requireService(id);
+                Service srv = confirmService(req);
                 srv.activate();
                 return empty();
             }
 
             case "deactivate-service": {
-                int id = req.getInt("service-id");
-                Service srv = network.getControl().requireService(id);
+                Service srv = confirmService(req);
                 srv.deactivate();
                 return empty();
             }
 
             case "release-service": {
-                int id = req.getInt("service-id");
-                Service srv = network.getControl().requireService(id);
+                Service srv = confirmService(req);
                 srv.release();
                 return empty();
             }
 
             case "watch-service": {
-                int id = req.getInt("service-id");
-                Service srv = network.getControl().requireService(id);
+                Service srv = confirmService(req);
                 Queue<JsonObject> results = new ConcurrentLinkedQueue<>();
                 ServiceListener listener = new ServiceListener() {
                     @Override
@@ -343,8 +347,7 @@ public class JsonNetworkServer {
             default:
                 return null;
             }
-        } catch (NetworkManagementException | InvalidServiceException
-            | NetworkControlException e) {
+        } catch (NetworkManagementException | InvalidServiceException e) {
             return handle(e);
         }
     }
@@ -361,21 +364,6 @@ public class JsonNetworkServer {
 
         try {
             throw t;
-        } catch (LabelManagementException e) {
-            JsonArrayBuilder arr = Json.createArrayBuilder();
-            for (OfInt iter = e.getLabels().stream().iterator(); iter
-                .hasNext();)
-                arr.add(iter.nextInt());
-            Trunk trunk = e.getTrunk();
-            TerminalId start = trunk.getStartTerminal();
-            TerminalId end = trunk.getEndTerminal();
-            builder.add("error", "label-mgmt").add("msg", e.getMessage())
-                .add("network-name", e.getNetwork().getControl().name())
-                .add("labels", arr.build())
-                .add("start-terminal-name", start.network)
-                .add("start-network-name", start.terminal)
-                .add("start-terminal-name", end.network)
-                .add("start-network-name", end.terminal);
         } catch (TrunkManagementException e) {
             Trunk trunk = e.getTrunk();
             TerminalId start = trunk.getStartTerminal();
@@ -386,14 +374,29 @@ public class JsonNetworkServer {
                 .add("start-network-name", start.terminal)
                 .add("start-terminal-name", end.network)
                 .add("start-network-name", end.terminal);
+            try {
+                throw e;
+            } catch (LabelManagementException e2) {
+                JsonArrayBuilder arr = Json.createArrayBuilder();
+                for (OfInt iter = e2.getLabels().stream().iterator(); iter
+                    .hasNext();)
+                    arr.add(iter.nextInt());
+                builder.add("error", "label-mgmt").add("labels", arr.build());
+            } catch (TrunkManagementException e2) {
+                builder.add("error", "trunk-mgmt");
+            }
         } catch (TerminalManagementException e) {
             builder.add("error", "terminal-mgmt").add("msg", e.getMessage())
                 .add("terminal-name", e.getTerminal().name())
                 .add("network-name", e.getNetwork().getControl().name());
         } catch (NetworkManagementException e) {
-            builder.add("error", "network-mgmt")
-                .add("network-name", e.getNetwork().getControl().name())
+            builder.add("network-name", e.getNetwork().getControl().name())
                 .add("msg", e.getMessage());
+            try {
+                throw e;
+            } catch (NetworkManagementException e2) {
+                builder.add("error", "network-mgmt");
+            }
         } catch (NetworkControlException e) {
             builder.add("error", "network-ctrl")
                 .add("network-name", e.getControl().name())

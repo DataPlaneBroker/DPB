@@ -41,8 +41,11 @@ import javax.json.Json;
 import javax.json.JsonObject;
 
 import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.ExpiredTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.Trunk;
+import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
+import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
 
 /**
  * Translates JSON-formatted requests into invocations on a
@@ -61,6 +64,19 @@ public class JsonAggregatorServer extends JsonNetworkServer {
     public JsonAggregatorServer(Aggregator network) {
         super(network, true);
         this.network = network;
+    }
+
+    private Trunk confirmTrunk(JsonObject req)
+        throws UnknownSubterminalException,
+            UnknownSubnetworkException {
+        TerminalId i1 = TerminalId.of(req.getString("start-network-name"),
+                                      req.getString("start-terminal-name"));
+        TerminalId i2 = TerminalId.of(req.getString("end-network-name"),
+                                      req.getString("end-terminal-name"));
+        Trunk trunk = network.findTrunk(i1);
+        if (!i2.equals(trunk.getEndTerminal()))
+            throw new ExpiredTrunkException(network, i1, i2);
+        return trunk;
     }
 
     @Override
@@ -101,40 +117,31 @@ public class JsonAggregatorServer extends JsonNetworkServer {
             }
 
             case "add-trunk": {
-                String n1 = req.getString("start-network-name");
-                String t1 = req.getString("start-terminal-name");
-                TerminalId i1 = TerminalId.of(n1, t1);
-                String n2 = req.getString("end-network-name");
-                String t2 = req.getString("end-terminal-name");
-                TerminalId i2 = TerminalId.of(n2, t2);
+                TerminalId i1 =
+                    TerminalId.of(req.getString("start-network-name"),
+                                  req.getString("start-terminal-name"));
+                TerminalId i2 =
+                    TerminalId.of(req.getString("end-network-name"),
+                                  req.getString("end-terminal-name"));
                 network.addTrunk(i1, i2);
                 return empty();
             }
 
             case "get-trunk-delay": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 return one(Json.createObjectBuilder()
                     .add("delay", trunk == null ? -1.0 : trunk.getDelay())
                     .build());
             }
 
             case "set-trunk-delay": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.setDelay(req.getJsonNumber("delay").doubleValue());
                 return empty();
             }
 
             case "define-trunk-label-range": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.defineLabelRange(req.getInt("start-label"),
                                        req.getInt("label-count"),
                                        req.getInt("end-label"));
@@ -142,48 +149,33 @@ public class JsonAggregatorServer extends JsonNetworkServer {
             }
 
             case "revoke-trunk-start-label-range": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.revokeStartLabelRange(req.getInt("start-label"),
                                             req.getInt("label-count"));
                 return empty();
             }
 
             case "revoke-trunk-end-label-range": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.revokeEndLabelRange(req.getInt("end-label"),
                                           req.getInt("label-count"));
                 return empty();
             }
 
             case "decommission-trunk": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.decommission();
                 return empty();
             }
 
             case "recommission-trunk": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 trunk.recommission();
                 return empty();
             }
 
             case "is-trunk-commissioned": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 return one(Json.createObjectBuilder()
                     .add("commissioned",
                          trunk == null ? false : trunk.isCommissioned())
@@ -191,10 +183,7 @@ public class JsonAggregatorServer extends JsonNetworkServer {
             }
 
             case "increase-trunk-bw": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 double upstream =
                     req.getJsonNumber("upstream-bw").doubleValue();
                 double downstream =
@@ -204,10 +193,7 @@ public class JsonAggregatorServer extends JsonNetworkServer {
             }
 
             case "decrease-trunk-bw": {
-                TerminalId subterm =
-                    TerminalId.of(req.getString("subnetwork-name"),
-                                  req.getString("subterminal-name"));
-                Trunk trunk = network.findTrunk(subterm);
+                Trunk trunk = confirmTrunk(req);
                 double upstream =
                     req.getJsonNumber("upstream-bw").doubleValue();
                 double downstream =

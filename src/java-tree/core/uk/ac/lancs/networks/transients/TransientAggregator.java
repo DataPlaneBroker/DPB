@@ -67,9 +67,9 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
-import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
 import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
@@ -1265,7 +1265,7 @@ public class TransientAggregator implements Aggregator {
                     return reached.containsAll(e);
                 }).create().getSpanningTree(guide.first());
             if (tree == null)
-                throw new ServiceResourceException("no tree found");
+                throw new ServiceResourceException(control, "no tree found");
             // System.err.printf("Spanning tree: %s%n", tree);
 
             /* Work out how much bandwidth each trunk edge requires in

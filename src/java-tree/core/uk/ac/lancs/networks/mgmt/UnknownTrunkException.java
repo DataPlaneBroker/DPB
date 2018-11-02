@@ -49,7 +49,7 @@ public class UnknownTrunkException extends SubterminalManagementException {
      * 
      * @param network the network originating this exception
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param subterm the terminal to which this exception pertains
      */
     public UnknownTrunkException(Network network, TerminalId subterm) {
         super(network, subterm, "no trunk identified: " + subterm);
@@ -62,7 +62,7 @@ public class UnknownTrunkException extends SubterminalManagementException {
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param subterm the terminal to which this exception pertains
      */
     public UnknownTrunkException(Network network, TerminalId subterm,
                                  Throwable cause) {

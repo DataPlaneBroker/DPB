@@ -36,23 +36,22 @@
 package uk.ac.lancs.networks;
 
 /**
- * Indicates an asynchronous failure of a service.
+ * Indicates that a referenced service no longer exists.
  * 
  * @author simpsons
  */
-public class ServiceResourceException extends RuntimeException {
+public class ExpiredServiceException extends ServiceResourceException {
     private static final long serialVersionUID = 1L;
 
-    private final NetworkControl control;
+    private final int serviceId;
 
     /**
-     * Get the control interface of the network to which this exception
-     * pertains.
+     * Get the id of the expired service.
      * 
-     * @return the control interface of the network
+     * @return the service's id
      */
-    public NetworkControl getControl() {
-        return control;
+    public int getServiceId() {
+        return serviceId;
     }
 
     /**
@@ -60,38 +59,12 @@ public class ServiceResourceException extends RuntimeException {
      * 
      * @param control the control interface of the network to which the
      * exception pertains
+     * 
+     * @param id the id of the expired service
      */
-    public ServiceResourceException(NetworkControl control) {
-        this.control = control;
-    }
-
-    /**
-     * Create an exception with a detail message and a cause.
-     * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
-     * 
-     * @param control the control interface of the network to which the
-     * exception pertains
-     */
-    public ServiceResourceException(NetworkControl control, String message,
-                                    Throwable cause) {
-        super(message, cause);
-        this.control = control;
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param message the detail message
-     * 
-     * @param control the control interface of the network to which the
-     * exception pertains
-     */
-    public ServiceResourceException(NetworkControl control, String message) {
-        super(message);
-        this.control = control;
+    public ExpiredServiceException(NetworkControl control, int id) {
+        super(control, "service expired: " + id);
+        this.serviceId = id;
     }
 
     /**
@@ -101,9 +74,12 @@ public class ServiceResourceException extends RuntimeException {
      * 
      * @param control the control interface of the network to which the
      * exception pertains
+     * 
+     * @param id the id of the expired service
      */
-    public ServiceResourceException(NetworkControl control, Throwable cause) {
-        super(cause);
-        this.control = control;
+    public ExpiredServiceException(NetworkControl control, Throwable cause,
+                                   int id) {
+        super(control, "service expired: " + id, cause);
+        this.serviceId = id;
     }
 }

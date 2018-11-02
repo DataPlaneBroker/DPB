@@ -337,7 +337,7 @@ public final class NetworkServer {
      * <dd>Specifies the Usmux configuration, normally provided by the
      * Usmux daemon invoking this process.
      * 
-     * <dt><samp>network.config</samp></kbd>
+     * <dt><samp>network.config</samp>
      * 
      * <dd>Specifies the path to the agent configuration file.
      * 

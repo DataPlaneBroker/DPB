@@ -52,7 +52,6 @@ import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
@@ -288,8 +287,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                     RESTResponse<Collection<? extends BitSet>> defRsp =
                         sliceRest.definePortSets(dpid, ofPorts);
                     if (defRsp.code != 200) {
-                        ServiceResourceException t =
-                            new ServiceResourceException("failed to set slice port set");
+                        RuntimeException t =
+                            new RuntimeException("failed to set slice port set");
                         for (BridgeSlice slice : bridgesByCircuitSet
                             .values()) {
                             slice.inform(l -> l.error(t));
@@ -297,9 +296,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                         }
                     }
                 } catch (IOException ex) {
-                    ServiceResourceException t =
-                        new ServiceResourceException("failed to start slice",
-                                                     ex);
+                    RuntimeException t =
+                        new RuntimeException("failed to start slice", ex);
                     for (BridgeSlice slice : bridgesByCircuitSet.values()) {
                         slice.inform(l -> l.error(t));
                         slice.stop();
@@ -396,9 +394,8 @@ public final class PortSlicedVFCFabric implements Fabric {
             try {
                 rest.detachTunnel(bridgeId, ofport);
             } catch (IOException e) {
-                ServiceResourceException t =
-                    new ServiceResourceException("error talking"
-                        + " to switch", e);
+                RuntimeException t =
+                    new RuntimeException("error talking" + " to switch", e);
                 bridgesByCircuitSet.values()
                     .forEach(s -> s.inform(l -> l.error(t)));
                 bridgesByCircuitSet.values().forEach(BridgeSlice::stop);

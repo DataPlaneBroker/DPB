@@ -55,7 +55,6 @@ import java.util.regex.Pattern;
 
 import javax.json.JsonException;
 
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.fabric.Bridge;
 import uk.ac.lancs.networks.fabric.BridgeListener;
@@ -192,9 +191,9 @@ public final class VLANCircuitFabric implements Fabric {
                 try {
                     sliceRest.defineCircuitSet(dpid, circuits);
                 } catch (IOException | JsonException ex) {
-                    ServiceResourceException t =
-                        new ServiceResourceException("could not connect "
-                            + circuits, ex);
+                    RuntimeException t =
+                        new RuntimeException("could not connect " + circuits,
+                                             ex);
                     inform(l -> l.error(t));
                     return;
                 }

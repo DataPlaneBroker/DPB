@@ -51,7 +51,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
@@ -290,8 +289,8 @@ public class VFCPerServiceFabric implements Fabric {
                                               "Failed to "
                                                   + "created bridge (%d)%n",
                                               creationRsp.code);
-                            ServiceResourceException t =
-                                new ServiceResourceException("unable to"
+                            RuntimeException t =
+                                new RuntimeException("unable to"
                                     + " create bridge");
                             inform(l -> l.error(t));
                             return;
@@ -322,8 +321,8 @@ public class VFCPerServiceFabric implements Fabric {
                             System.err.printf("failed to "
                                 + "attach tunnel (%d)%n" + "  %s->%d%n",
                                               tunRsp.code, ep, ofPort);
-                            ServiceResourceException t =
-                                new ServiceResourceException("unable to"
+                            RuntimeException t =
+                                new RuntimeException("unable to"
                                     + " attach tunnel " + ep + " to ofport "
                                     + ofPort + "; code " + tunRsp.code);
                             inform(l -> l.error(t));
@@ -351,8 +350,8 @@ public class VFCPerServiceFabric implements Fabric {
                         if (ctrlRsp.code != 201) {
                             System.err.printf("failed to "
                                 + "attach controller (%d)%n", ctrlRsp.code);
-                            ServiceResourceException t =
-                                new ServiceResourceException("unable to"
+                            RuntimeException t =
+                                new RuntimeException("unable to"
                                     + " control bridge; code "
                                     + ctrlRsp.code);
                             inform(l -> l.error(t));
@@ -369,8 +368,8 @@ public class VFCPerServiceFabric implements Fabric {
                     if (brPatchRsp.code != 204) {
                         System.err.printf("failed to complete bridge (%d)%n",
                                           brPatchRsp.code);
-                        ServiceResourceException t =
-                            new ServiceResourceException("unable complete"
+                        RuntimeException t =
+                            new RuntimeException("unable complete"
                                 + " bridge; code " + brPatchRsp.code);
                         inform(l -> l.error(t));
                         return;
@@ -379,9 +378,9 @@ public class VFCPerServiceFabric implements Fabric {
                     destroyBridge = false;
                     started = true;
                 } catch (IOException e) {
-                    ServiceResourceException t =
-                        new ServiceResourceException("error talking"
-                            + " to switch", e);
+                    RuntimeException t =
+                        new RuntimeException("error talking" + " to switch",
+                                             e);
                     inform(l -> l.error(t));
                     return;
                 } finally {

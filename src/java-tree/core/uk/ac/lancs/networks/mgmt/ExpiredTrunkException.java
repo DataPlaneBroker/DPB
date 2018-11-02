@@ -33,77 +33,73 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks;
+package uk.ac.lancs.networks.mgmt;
 
 /**
- * Indicates an asynchronous failure of a service.
+ * Indicates that a referenced trunk no longer exists.
  * 
  * @author simpsons
  */
-public class ServiceResourceException extends RuntimeException {
+public class ExpiredTrunkException extends NetworkResourceException {
     private static final long serialVersionUID = 1L;
 
-    private final NetworkControl control;
+    private final TerminalId startTerminal, endTerminal;
 
     /**
-     * Get the control interface of the network to which this exception
-     * pertains.
+     * Get the start terminal of the former trunk.
      * 
-     * @return the control interface of the network
+     * @return the trunk's start terminal
      */
-    public NetworkControl getControl() {
-        return control;
+    public TerminalId getStartTerminal() {
+        return startTerminal;
+    }
+
+    /**
+     * Get the end terminal of the former trunk.
+     * 
+     * @return the trunk's end terminal
+     */
+    public TerminalId getEndTerminal() {
+        return endTerminal;
     }
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
+     * @param network the network originating this exception
+     * 
+     * @param startTerm the start terminal of the former trunk to which
+     * this exception pertains
+     * 
+     * @param endTerm the end terminal of the former trunk to which this
      * exception pertains
      */
-    public ServiceResourceException(NetworkControl control) {
-        this.control = control;
-    }
-
-    /**
-     * Create an exception with a detail message and a cause.
-     * 
-     * @param message the detail message
-     * 
-     * @param cause the cause
-     * 
-     * @param control the control interface of the network to which the
-     * exception pertains
-     */
-    public ServiceResourceException(NetworkControl control, String message,
-                                    Throwable cause) {
-        super(message, cause);
-        this.control = control;
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param message the detail message
-     * 
-     * @param control the control interface of the network to which the
-     * exception pertains
-     */
-    public ServiceResourceException(NetworkControl control, String message) {
-        super(message);
-        this.control = control;
+    public ExpiredTrunkException(Network network, TerminalId startTerm,
+                                 TerminalId endTerm) {
+        super(network,
+              "no trunk identified: " + startTerm + " to " + endTerm);
+        this.startTerminal = startTerm;
+        this.endTerminal = endTerm;
     }
 
     /**
      * Create an exception with a cause.
      * 
+     * @param network the network originating this exception
+     * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
+     * @param startTerm the start terminal of the former trunk to which
+     * this exception pertains
+     * 
+     * @param endTerm the end terminal of the former trunk to which this
      * exception pertains
      */
-    public ServiceResourceException(NetworkControl control, Throwable cause) {
-        super(cause);
-        this.control = control;
+    public ExpiredTrunkException(Network network, TerminalId startTerm,
+                                 TerminalId endTerm, Throwable cause) {
+        super(network, "no trunk identified: " + startTerm + " to " + endTerm,
+              cause);
+        this.startTerminal = startTerm;
+        this.endTerminal = endTerm;
     }
 }

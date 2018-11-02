@@ -523,7 +523,7 @@ public class PersistentAggregator implements Aggregator {
                 redundantServices.clear();
                 failed = false;
             } catch (SQLException e) {
-                throw new ServiceResourceException("could not plot"
+                throw new ServiceResourceException(control, "could not plot"
                     + " tree across network", e);
             } finally {
                 redundantServices.forEach(Service::release);
@@ -599,7 +599,8 @@ public class PersistentAggregator implements Aggregator {
                 initiated = testInitiated(conn, id);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("failed to store intent",
+                throw new ServiceResourceException(control,
+                                                   "failed to store intent",
                                                    ex);
             }
 
@@ -620,7 +621,8 @@ public class PersistentAggregator implements Aggregator {
                 setIntent(conn, id, Intent.INACTIVE);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException("failed to store intent",
+                throw new ServiceResourceException(control,
+                                                   "failed to store intent",
                                                    ex);
             }
             callOut(ServiceStatus.DEACTIVATING);
@@ -1098,8 +1100,9 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new ServiceResourceException("missing trunk id: "
-                            + dbid);
+                        throw new NetworkResourceException(PersistentAggregator.this,
+                                                           "missing trunk id: "
+                                                               + dbid);
                     return rs.getDouble(1);
                 }
             }
@@ -1116,7 +1119,8 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 return getDelay(conn);
             } catch (SQLException e) {
-                throw new ServiceResourceException("unexpected DB failure",
+                throw new NetworkResourceException(PersistentAggregator.this,
+                                                   "unexpected DB failure",
                                                    e);
             }
         }
@@ -1918,7 +1922,7 @@ public class PersistentAggregator implements Aggregator {
                     return reached.containsAll(e);
                 }).create().getSpanningTree(guide.first());
             if (tree == null)
-                throw new ServiceResourceException("no tree found");
+                throw new ServiceResourceException(control, "no tree found");
 
             /* Work out how much bandwidth each trunk edge requires in
              * each direction. Find trunk edges in the spanning tree
@@ -2147,7 +2151,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
                 return result;
             } catch (SQLException e) {
-                throw new ServiceResourceException("unable to"
+                throw new ServiceResourceException(control, "unable to"
                     + " recover service " + id, e);
             }
         }
@@ -2164,8 +2168,9 @@ public class PersistentAggregator implements Aggregator {
                     stmt.execute();
                     try (ResultSet rs = stmt.getGeneratedKeys()) {
                         if (!rs.next())
-                            throw new ServiceResourceException("could not"
-                                + " generate new service id");
+                            throw new ServiceResourceException(control,
+                                                               "could not"
+                                                                   + " generate new service id");
                         id = rs.getInt(1);
                     }
                 }
@@ -2173,7 +2178,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
                 return result;
             } catch (SQLException e) {
-                throw new ServiceResourceException("unable to"
+                throw new ServiceResourceException(control, "unable to"
                     + " create new service", e);
             }
         }
@@ -2223,7 +2228,7 @@ public class PersistentAggregator implements Aggregator {
             Connection conn = contextConnection.get();
             return recoverService(conn, id);
         } catch (SQLException e) {
-            throw new ServiceResourceException("database failure"
+            throw new ServiceResourceException(control, "database failure"
                 + " recovering service " + id, e);
         }
     }

@@ -129,27 +129,6 @@ public interface Trunk {
     TerminalId getEndTerminal();
 
     /**
-     * Identify which end of the trunk its terminal belongs.
-     * 
-     * @param term the terminal sought
-     * 
-     * @return 0 if the terminal is considered at start; 1 if at the
-     * end; -1 if the terminal does not define the trunk
-     */
-    // int position(Terminal term);
-
-    /**
-     * Get the terminal at one end of this trunk.
-     * 
-     * @param pos 0 for the start of the trunk; 1 for the end
-     * 
-     * @return the terminal at the specified end of the trunk
-     * 
-     * @throws IllegalArgumentException if the position is not 0 or 1
-     */
-    // Terminal getTerminal(int pos);
-
-    /**
      * Provide bandwidth to this trunk.
      * 
      * @param amount the amount to add to the available bandwidth in
@@ -271,7 +250,8 @@ public interface Trunk {
         return new Trunk() {
             @Override
             public void withdrawBandwidth(double upstream, double downstream)
-                throws BandwidthUnavailableException {
+                throws BandwidthUnavailableException,
+                    ExpiredTrunkException {
                 try {
                     orig.withdrawBandwidth(downstream, upstream);
                 } catch (BandwidthUnavailableException ex) {
@@ -311,7 +291,7 @@ public interface Trunk {
             }
 
             @Override
-            public double getDelay() {
+            public double getDelay() throws ExpiredTrunkException {
                 return orig.getDelay();
             }
 
