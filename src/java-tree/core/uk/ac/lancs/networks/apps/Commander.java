@@ -583,8 +583,15 @@ public final class Commander {
      * {@link Executor} service, and a keyed {@link NetworkControl}
      * service indexed by network name.
      * 
-     * @param args The first argument must be a configuraton file. The
-     * following switches are recognized:
+     * <dl>
+     * 
+     * <dt><samp>network.config.client</samp>
+     * 
+     * <dd>Specifies the client-side network configuration.
+     * 
+     * </dl>
+     * 
+     * @param args The following switches are recognized:
      * 
      * <dl>
      * 
@@ -676,7 +683,7 @@ public final class Commander {
      * @throws Exception if something went wrong
      */
     public static void main(String[] args) throws Exception {
-        Path dataplaneConf = Paths.get("network.config");
+        Path dataplaneConf = Paths.get("network.config.client");
         Commander me = new Commander(dataplaneConf);
         me.process(args);
         IdleExecutor.processAll();

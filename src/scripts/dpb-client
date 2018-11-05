@@ -1,39 +1,56 @@
 #!/bin/bash
 
 HERE="$(readlink -f "${0%/*}")"
+HERE="${HERE%/bin}"
 EXTRAS=()
-CONFIG="$HOME/.config/dpbrc"
+ORIG_CONFIG="$HOME/.config/dpbrc"
+CONFIG="$ORIG_CONFIG"
 
 while [ $# -gt  0 ] ; do
     arg="$1"
     shift
 
     case "$arg" in
-	-L)
+	(-L)
 	    EXTRAS+=(-L"$1")
 	    shift
 	    ;;
-	-L*)
+	(-L*)
 	    EXTRAS+=("$arg")
 	    ;;
-	-l)
+	(-l)
 	    EXTRAS+=(-l"$1")
 	    shift
 	    ;;
-	-l*)
+	(-l*)
 	    EXTRAS+=("$arg")
 	    ;;
-	-f)
+	(-f)
 	    CONFIG="$1"
 	    shift
 	    ;;
-	*)
+	(-h|--help)
+	    cat <<EOF
+Usage: $0 [options] [commands]
+       -Ldir	Append dir to jar search path.
+       -lname	Search for name.jar in jar search path, and append to
+       		classpath.
+       -f file	Specify the agent configuration file.
+       	  	Default: $ORIG_CONFIG
+For commands, see:
+<http://www.lancaster.ac.uk/~simpsons/javadoc/dataplanebroker-test/uk/ac/
+lancs/networks/apps/Commander-method-main/1java$lang$String>.
+EOF
+	    exit
+	    ;;
+	(*)
 	    break
 	    ;;
     esac
 done
 
-exec jrun -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
-     -linitiate-dpb-openflow -linitiate-dpb-corsa "${EXTRAS[@]}" \
-     -Dprogram.name="$0" -Dnetwork.config="$CONFIG" \
+exec jrun "${EXTRAS[@]}" -ljavax.json \
+     -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
+     -linitiate-dpb-openflow -linitiate-dpb-corsa \
+     -Dprogram.name="$0" -Dnetwork.config.client="$CONFIG" \
      uk.ac.lancs.networks.apps.Commander "$@"

@@ -8,27 +8,27 @@ while [ $# -gt 0 ] ; do
     shift
 
     case "$arg" in
-	-c)
+	(-c)
 	    AUTHZ["$1"]=control
 	    shift
 	    ;;
-	-m)
+	(-m)
 	    AUTHZ["$1"]=manage
 	    shift
 	    ;;
-	-s)
+	(-s)
 	    SOCKET="$1"
 	    shift
 	    ;;
-	-*)
+	(-*)
 	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
 	    exit 1
 	    ;;
-	+*)
+	(+*)
 	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
 	    exit 1
 	    ;;
-	*)
+	(*)
 	    printf >&2 '%s: unknown argument %s\n' "$0" "$arg"
 	    exit 1
 	    ;;
@@ -41,4 +41,6 @@ done
 	printf '%s %s\n' "$cmd" "$nw"
     done
     printf 'drop\n'
-) | nc -u "$SOCKET"
+    cat
+    echo >&2 Done
+) | nc -U -N "$SOCKET"

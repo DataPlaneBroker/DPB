@@ -337,7 +337,7 @@ public final class NetworkServer {
      * <dd>Specifies the Usmux configuration, normally provided by the
      * Usmux daemon invoking this process.
      * 
-     * <dt><samp>network.config</samp>
+     * <dt><samp>network.config.server</samp>
      * 
      * <dd>Specifies the path to the agent configuration file.
      * 
@@ -347,7 +347,7 @@ public final class NetworkServer {
      */
     public static void main(String[] args) {
         String usmuxConf = System.getProperty("usmux.config");
-        Path dataplaneConf = Paths.get("network.config");
+        Path dataplaneConf = Paths.get(System.getProperty("network.config.server"));
 
         try {
             /* Create the Usmux session server. We don't start it until
