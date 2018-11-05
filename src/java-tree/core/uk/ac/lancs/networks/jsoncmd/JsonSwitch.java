@@ -63,7 +63,6 @@ public class JsonSwitch extends JsonNetwork implements Switch {
     public JsonSwitch(String name, Executor executor,
                       JsonChannelManager channels) {
         super(name, executor, channels);
-        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
     @Override

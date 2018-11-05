@@ -683,7 +683,8 @@ public final class Commander {
      * @throws Exception if something went wrong
      */
     public static void main(String[] args) throws Exception {
-        Path dataplaneConf = Paths.get("network.config.client");
+        Path dataplaneConf =
+            Paths.get(System.getProperty("network.config.client"));
         Commander me = new Commander(dataplaneConf);
         me.process(args);
         IdleExecutor.processAll();

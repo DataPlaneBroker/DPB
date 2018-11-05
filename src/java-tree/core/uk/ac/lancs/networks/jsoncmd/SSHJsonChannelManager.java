@@ -36,7 +36,11 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.UncheckedIOException;
+import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -72,11 +76,11 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
      * 
      * <dl>
      * 
-     * <dt><samp>hostname</samp></dt>
+     * <dt><samp>host</samp></dt>
      * 
      * <dd>Specifies the remote host to connect to.
      * 
-     * <dt><samp>username</samp></dt>
+     * <dt><samp>user</samp></dt>
      * 
      * <dd>Specifies the remote username to access.
      * 
@@ -101,19 +105,28 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
     private final class Channel implements JsonChannel, AutoCloseable {
         private final Process proc;
         private boolean inUse = true;
-        private final JsonWriter out;
-        private final JsonReader in;
+        private final Writer out;
+        private final Reader in;
 
         public void write(JsonObject msg) {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
-            out.writeObject(msg);
+            JsonWriter writer = writerFactory.createWriter(out);
+            writer.writeObject(msg);
+            try {
+                proc.getOutputStream().flush();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                throw new UnsupportedOperationException("unimplemented", e);
+            }
         }
 
         public JsonObject read() {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
-            return in.readObject();
+            JsonReader reader = readerFactory.createReader(in);
+            return reader.readObject();
         }
 
         Channel() {
@@ -131,7 +144,10 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
                 command.add("-i");
                 command.add(keyPath.toAbsolutePath().toString());
             }
+            command.add("-o");
+            command.add("ForwardX11=no");
             command.add(SSHJsonChannelManager.this.command);
+            System.err.println(command);
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.redirectError(Redirect.INHERIT);
 
@@ -141,10 +157,10 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            out = writerFactory.createWriter(proc.getOutputStream(),
-                                             StandardCharsets.UTF_8);
-            in = readerFactory.createReader(proc.getInputStream(),
-                                            StandardCharsets.UTF_8);
+            out = new OutputStreamWriter(proc.getOutputStream(),
+                                         StandardCharsets.UTF_8);
+            in = new InputStreamReader(proc.getInputStream(),
+                                       StandardCharsets.UTF_8);
         }
 
         @Override

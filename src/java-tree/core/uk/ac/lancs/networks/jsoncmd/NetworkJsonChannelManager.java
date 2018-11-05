@@ -65,14 +65,15 @@ public final class NetworkJsonChannelManager implements JsonChannelManager {
     /**
      * {@inheritDoc}
      * 
-     * <p>The peer of this code is in {@link NetworkServer}.
+     * <p>
+     * The peer of this code is in {@link NetworkServer}.
      */
     @Override
     public JsonChannel getChannel() {
         JsonChannel result = base.getChannel();
         /* Select the remote network. */
-        JsonObject selNet = Json.createObjectBuilder().add("type", "network")
-            .add("network-name", name).build();
+        JsonObject selNet = Json.createObjectBuilder()
+            .add("type", "select-network").add("network-name", name).build();
         result.write(selNet);
         JsonObject selNetRsp = result.read();
         String error = selNetRsp.getString("error");

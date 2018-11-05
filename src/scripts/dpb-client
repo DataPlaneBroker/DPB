@@ -3,8 +3,9 @@
 HERE="$(readlink -f "${0%/*}")"
 HERE="${HERE%/bin}"
 EXTRAS=()
-ORIG_CONFIG="$HOME/.config/dpbrc"
+ORIG_CONFIG="$HOME/.config/dataplane-broker/client.properties"
 CONFIG="$ORIG_CONFIG"
+ARGS=()
 
 while [ $# -gt  0 ] ; do
     arg="$1"
@@ -44,6 +45,7 @@ EOF
 	    exit
 	    ;;
 	(*)
+	    ARGS=("$arg" "$@")
 	    break
 	    ;;
     esac
@@ -53,4 +55,4 @@ exec jrun "${EXTRAS[@]}" -ljavax.json \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
      -linitiate-dpb-openflow -linitiate-dpb-corsa \
      -Dprogram.name="$0" -Dnetwork.config.client="$CONFIG" \
-     uk.ac.lancs.networks.apps.Commander "$@"
+     uk.ac.lancs.networks.apps.Commander "${ARGS[@]}"

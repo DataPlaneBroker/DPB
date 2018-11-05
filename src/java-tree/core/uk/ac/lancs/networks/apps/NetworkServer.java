@@ -37,7 +37,11 @@ package uk.ac.lancs.networks.apps;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -61,6 +65,7 @@ import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
 import javax.json.JsonWriter;
 import javax.json.JsonWriterFactory;
+import javax.json.stream.JsonParsingException;
 
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentCreationException;
@@ -184,6 +189,22 @@ public final class NetworkServer {
         return new String(buf);
     }
 
+    private static JsonObject read(Reader in) {
+        try {
+            JsonReader reader = readerFactory.createReader(in);
+            return reader.readObject();
+        } catch (JsonParsingException ex) {
+            return null;
+        }
+    }
+
+    private static void write(Writer out, JsonObject msg, String txn)
+        throws IOException {
+        JsonWriter writer = writerFactory.createWriter(out);
+        writeJson(writer, msg, txn);
+        out.flush();
+    }
+
     private class Interaction implements Runnable {
         private final Session sess;
         private Collection<String> managables = new HashSet<>();
@@ -214,26 +235,35 @@ public final class NetworkServer {
                     switch (words[0]) {
                     case "manage":
                         managables.add(words[1]);
+                        System.err.printf("%s is managable%n", words[1]);
                     case "control":
                         controllables.add(words[1]);
+                        System.err.printf("%s is controllable%n", words[1]);
                         break;
                     }
                 }
+                System.err.printf("dropped privileges%n");
 
                 /* Remaining communication is from the remote caller,
                  * and is in UTF-8. Read in JSON objects as requests,
                  * and respond to them. */
-                JsonReader reader =
-                    readerFactory.createReader(in, StandardCharsets.UTF_8);
-                JsonWriter writer =
-                    writerFactory.createWriter(out, StandardCharsets.UTF_8);
+                Reader cin =
+                    new InputStreamReader(in, StandardCharsets.UTF_8);
+                Writer cout =
+                    new OutputStreamWriter(out, StandardCharsets.UTF_8);
 
                 JsonObject req;
-                while ((req = reader.readObject()) != null)
+                while ((req = read(cin)) != null)
                     for (JsonObject rsp : process(req, actions::add))
-                        writeJson(writer, rsp, req.getString("txn"));
+                        write(cout, rsp, req.getString("txn", null));
             } catch (IOException ex) {
                 ex.printStackTrace();
+            } finally {
+                try {
+                    sess.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
 
             /* Perform clean-up actions requested by the network
@@ -347,7 +377,8 @@ public final class NetworkServer {
      */
     public static void main(String[] args) {
         String usmuxConf = System.getProperty("usmux.config");
-        Path dataplaneConf = Paths.get(System.getProperty("network.config.server"));
+        Path dataplaneConf =
+            Paths.get(System.getProperty("network.config.server"));
 
         try {
             /* Create the Usmux session server. We don't start it until
