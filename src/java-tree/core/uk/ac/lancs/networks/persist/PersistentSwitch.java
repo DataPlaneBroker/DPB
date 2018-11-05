@@ -154,11 +154,11 @@ public class PersistentSwitch implements Switch {
             for (Circuit ep : request.circuitFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof SwitchTerminal))
-                    throw new InvalidServiceException("circuit " + ep
+                    throw new InvalidServiceException(control, "circuit " + ep
                         + " not part of " + name);
                 SwitchTerminal mp = (SwitchTerminal) p;
                 if (mp.getNetwork() != getControl())
-                    throw new InvalidServiceException("circuit " + ep
+                    throw new InvalidServiceException(control, "circuit " + ep
                         + " not part of " + name);
             }
 

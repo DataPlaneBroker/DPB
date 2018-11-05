@@ -127,7 +127,9 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
             JsonReader reader = readerFactory.createReader(in);
-            return reader.readObject();
+            JsonObject msg = reader.readObject();
+            System.err.printf("received %s%n", msg);
+            return msg;
         }
 
         Channel() {

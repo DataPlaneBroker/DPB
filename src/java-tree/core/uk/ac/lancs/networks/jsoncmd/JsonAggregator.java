@@ -50,6 +50,7 @@ import uk.ac.lancs.networks.NetworkControlException;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.BandwidthUnavailableException;
+import uk.ac.lancs.networks.mgmt.ExpiredTrunkException;
 import uk.ac.lancs.networks.mgmt.LabelManagementException;
 import uk.ac.lancs.networks.mgmt.LabelsInUseException;
 import uk.ac.lancs.networks.mgmt.LabelsUnavailableException;
@@ -95,7 +96,22 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         String type = rsp.getString("error");
         if (type == null) return;
         switch (type) {
-        case "trunk-mgmt":
+        case "trunk-expired": {
+            TerminalId start =
+                TerminalId.of(rsp.getString("start-network-name"),
+                              rsp.getString("start-terminal-name"));
+            TerminalId end =
+                TerminalId.of(rsp.getString("end-network-name"),
+                              rsp.getString("end-terminal-name"));
+            @SuppressWarnings("unused")
+            Trunk trunk = getKnownTrunk(start, end);
+            throw new ExpiredTrunkException(this, start, end);
+        }
+
+        case "bw-unavailable":
+        case "labels-in-use":
+        case "label-mgmt":
+        case "trunk-mgmt": {
             TerminalId start =
                 TerminalId.of(rsp.getString("start-network-name"),
                               rsp.getString("start-terminal-name"));
@@ -103,21 +119,41 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
                 TerminalId.of(rsp.getString("end-network-name"),
                               rsp.getString("end-terminal-name"));
             Trunk trunk = getKnownTrunk(start, end);
-            throw new TrunkManagementException(this, trunk,
-                                               rsp.getString("msg"));
-        case "label-mgmt":
-            BitSet labels = new BitSet();
-            for (JsonValue val : rsp.getJsonArray("labels")) {
-                JsonNumber label = (JsonNumber) val;
-                labels.set(label.intValue());
+
+            switch (type) {
+            case "labels-unavailable":
+            case "labels-in-use":
+            case "label-mgmt": {
+                BitSet labels = new BitSet();
+                for (JsonValue val : rsp.getJsonArray("labels")) {
+                    JsonNumber label = (JsonNumber) val;
+                    labels.set(label.intValue());
+                }
+                switch (type) {
+                case "labels-unavailable":
+                    throw new LabelsUnavailableException(this, trunk, labels);
+                case "labels-in-use":
+                    throw new LabelsInUseException(this, trunk, labels);
+                case "label-mgmt":
+                    throw new LabelManagementException(this, trunk, labels);
+                }
             }
-            throw new LabelManagementException(this, getKnownTrunk(TerminalId
-                .of(rsp.getString("start-network-name"), rsp
-                    .getString("start-terminal-name")), TerminalId
-                        .of(rsp.getString("end-network-name"),
-                            rsp.getString("end-terminal-name"))), labels);
+            case "bw-unavailable": {
+                boolean up = rsp.getString("direction").equals("upstream");
+                double amount = rsp.getJsonNumber("amount").doubleValue();
+                throw new BandwidthUnavailableException(this, trunk, up,
+                                                        amount);
+            }
+            case "trunk-mgmt":
+                throw new TrunkManagementException(this, trunk,
+                                                   rsp.getString("msg"));
+            }
         }
-        super.checkErrors(rsp);
+
+        default:
+            super.checkErrors(rsp);
+            break;
+        }
     }
 
     @Override

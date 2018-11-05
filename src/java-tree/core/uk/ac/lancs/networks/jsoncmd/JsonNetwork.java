@@ -62,12 +62,23 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.UnknownServiceException;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.OwnTerminalException;
+import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
+import uk.ac.lancs.networks.mgmt.SubterminalManagementException;
 import uk.ac.lancs.networks.mgmt.TerminalBusyException;
+import uk.ac.lancs.networks.mgmt.TerminalConfigurationException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
+import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalNameException;
+import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
+import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
 import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.networks.util.ReferenceWatcher;
 import uk.ac.lancs.routing.span.Edge;
 
@@ -133,22 +144,95 @@ public class JsonNetwork implements Network {
      */
     protected void checkErrors(JsonObject rsp)
         throws NetworkManagementException,
-            NetworkControlException,
-            InvalidServiceException {
+            NetworkControlException {
         String type = rsp.getString("error", null);
         if (type == null) return;
         switch (type) {
-        case "invalid-segment":
-            throw new InvalidServiceException(rsp.getString("msg"));
+        case "network-mgmt":
+            throw new NetworkManagementException(this, rsp.getString("msg"));
+
+        case "subnetwork-unknown":
+            throw new UnknownSubnetworkException(this, rsp
+                .getString("subnetwork-name"));
+
+        case "segment-invalid":
+            throw new InvalidServiceException(this.control,
+                                              rsp.getString("msg"));
         case "bad-argument":
             throw new IllegalArgumentException(rsp.getString("msg"));
+
         case "network-rsrc":
             throw new NetworkResourceException(this, rsp.getString("msg"));
+
+        case "service-invalid":
+            throw new InvalidServiceException(control, rsp.getString("msg"));
+
+        case "service-unknown":
+            throw new UnknownServiceException(control,
+                                              rsp.getInt("service-id"));
+
         case "network-ctrl":
             throw new NetworkControlException(control, rsp.getString("msg"));
+
+        case "terminal-config":
+            throw new TerminalConfigurationException(this,
+                                                     rsp.getString("config"),
+                                                     rsp.getString("msg"));
+
+        case "trunk-unknown": {
+            TerminalId term =
+                TerminalId.of(rsp.getString("subnetwork-name"),
+                              rsp.getString("subterminal-name"));
+            throw new UnknownTrunkException(this, term);
+        }
+
+        case "subterminal-unknown": {
+            TerminalId term =
+                TerminalId.of(rsp.getString("subnetwork-name"),
+                              rsp.getString("subterminal-name"));
+            throw new UnknownSubterminalException(this, term);
+        }
+
+        case "subterminal-busy": {
+            TerminalId term =
+                TerminalId.of(rsp.getString("subnetwork-name"),
+                              rsp.getString("subterminal-name"));
+            throw new SubterminalBusyException(this, term);
+        }
+
+        case "subterminal-mgmt": {
+            TerminalId term =
+                TerminalId.of(rsp.getString("subnetwork-name"),
+                              rsp.getString("subterminal-name"));
+            throw new SubterminalManagementException(this, term,
+                                                     rsp.getString("msg"));
+        }
+
+        case "own-terminal":
+            throw new OwnTerminalException(this, getKnownTerminal(rsp
+                .getString("terminal-name")));
+
+        case "terminal-busy":
+            throw new TerminalBusyException(this, getKnownTerminal(rsp
+                .getString("terminal-name")));
+
+        case "terminal-unknown":
+            throw new UnknownTerminalException(this, rsp
+                .getString("terminal-name"));
+
+        case "terminal-exists":
+            throw new TerminalExistsException(this,
+                                              rsp.getString("terminal-name"));
+
+        case "terminal-name":
+            throw new TerminalNameException(this,
+                                            rsp.getString("terminal-name"),
+                                            rsp.getString("msg"));
+
         case "terminal-mgmt":
             throw new TerminalManagementException(this, getKnownTerminal(rsp
                 .getString("terminal-name")), rsp.getString("msg"));
+
         default:
             throw new NetworkManagementException(this, rsp.getString("msg"));
         }
@@ -280,7 +364,8 @@ public class JsonNetwork implements Network {
                 Circuit c = entry.getKey();
                 Terminal t = c.getTerminal();
                 if (own(t) == null)
-                    throw new InvalidServiceException("not my terminal");
+                    throw new InvalidServiceException(control,
+                                                      "not my terminal");
                 int label = c.getLabel();
                 TrafficFlow f = entry.getValue();
                 segmentDesc.add(Json.createObjectBuilder()

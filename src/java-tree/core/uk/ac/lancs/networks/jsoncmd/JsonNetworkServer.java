@@ -63,14 +63,30 @@ import uk.ac.lancs.networks.ServiceListener;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
+import uk.ac.lancs.networks.UnknownServiceException;
+import uk.ac.lancs.networks.mgmt.BandwidthUnavailableException;
+import uk.ac.lancs.networks.mgmt.ExpiredTrunkException;
 import uk.ac.lancs.networks.mgmt.LabelManagementException;
+import uk.ac.lancs.networks.mgmt.LabelsInUseException;
+import uk.ac.lancs.networks.mgmt.LabelsUnavailableException;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
+import uk.ac.lancs.networks.mgmt.OwnTerminalException;
+import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
+import uk.ac.lancs.networks.mgmt.SubterminalManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalBusyException;
+import uk.ac.lancs.networks.mgmt.TerminalConfigurationException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
+import uk.ac.lancs.networks.mgmt.TerminalNameException;
 import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
+import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
+import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
+import uk.ac.lancs.networks.mgmt.UnknownTrunkException;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -361,55 +377,125 @@ public class JsonNetworkServer {
      */
     protected Iterable<JsonObject> handle(Throwable t) {
         JsonObjectBuilder builder = Json.createObjectBuilder();
+        builder.add("msg", t.getMessage());
 
         try {
             throw t;
-        } catch (TrunkManagementException e) {
-            Trunk trunk = e.getTrunk();
-            TerminalId start = trunk.getStartTerminal();
-            TerminalId end = trunk.getEndTerminal();
-            builder.add("error", "trunk-mgmt").add("msg", e.getMessage())
-                .add("network-name", e.getNetwork().getControl().name())
-                .add("start-terminal-name", start.network)
-                .add("start-network-name", start.terminal)
-                .add("start-terminal-name", end.network)
-                .add("start-network-name", end.terminal);
-            try {
-                throw e;
-            } catch (LabelManagementException e2) {
-                JsonArrayBuilder arr = Json.createArrayBuilder();
-                for (OfInt iter = e2.getLabels().stream().iterator(); iter
-                    .hasNext();)
-                    arr.add(iter.nextInt());
-                builder.add("error", "label-mgmt").add("labels", arr.build());
-            } catch (TrunkManagementException e2) {
-                builder.add("error", "trunk-mgmt");
-            }
-        } catch (TerminalManagementException e) {
-            builder.add("error", "terminal-mgmt").add("msg", e.getMessage())
-                .add("terminal-name", e.getTerminal().name())
-                .add("network-name", e.getNetwork().getControl().name());
         } catch (NetworkManagementException e) {
-            builder.add("network-name", e.getNetwork().getControl().name())
-                .add("msg", e.getMessage());
+            builder.add("network-name", e.getNetwork().getControl().name());
             try {
                 throw e;
+            } catch (TrunkManagementException e2) {
+                Trunk trunk = e2.getTrunk();
+                TerminalId start = trunk.getStartTerminal();
+                TerminalId end = trunk.getEndTerminal();
+                builder.add("start-terminal-name", start.network)
+                    .add("start-network-name", start.terminal)
+                    .add("start-terminal-name", end.network)
+                    .add("start-network-name", end.terminal);
+                try {
+                    throw e2;
+                } catch (LabelManagementException e3) {
+                    JsonArrayBuilder arr = Json.createArrayBuilder();
+                    for (OfInt iter = e3.getLabels().stream().iterator(); iter
+                        .hasNext();)
+                        arr.add(iter.nextInt());
+                    builder.add("labels", arr.build());
+                    try {
+                        throw e3;
+                    } catch (LabelsInUseException e4) {
+                        builder.add("error", "labels-in-use");
+                    } catch (LabelsUnavailableException e4) {
+                        builder.add("error", "labels-unavailable");
+                    } catch (LabelManagementException e4) {
+                        builder.add("error", "label-mgmt");
+                    }
+                } catch (BandwidthUnavailableException e3) {
+                    builder
+                        .add("direction",
+                             e3.isUpstream() ? "upstream" : "downstream")
+                        .add("amount", e3.getAvailable());
+                    builder.add("error", "bw-unavailable");
+                } catch (TrunkManagementException e3) {
+                    builder.add("error", "trunk-mgmt");
+                }
+            } catch (TerminalNameException e2) {
+                builder.add("terminal-name", e2.getName());
+                try {
+                    throw e2;
+                } catch (UnknownTerminalException e3) {
+                    builder.add("error", "terminal-unknown"); 
+                } catch (TerminalExistsException e3) {
+                    builder.add("error", "terminal-exists"); 
+                } catch (TerminalNameException e3) {
+                    builder.add("error", "terminal-name"); 
+                }
+            } catch (TerminalConfigurationException e2) {
+                builder.add("config", e2.getConfiguration());
+                builder.add("error", "terminal-config");
+            } catch (SubterminalManagementException e2) {
+                builder.add("subterminal-name", e2.getTerminal().terminal)
+                    .add("subnetwork-name", e2.getTerminal().network);
+                try {
+                    throw e2;
+                } catch (SubterminalBusyException e3) {
+                    builder.add("error", "subterminal-busy");
+                } catch (UnknownSubterminalException e3) {
+                    builder.add("error", "subterminal-unknown");
+                } catch (UnknownTrunkException e3) {
+                    builder.add("error", "trunk-unknown");
+                } catch (SubterminalManagementException e3) {
+                    builder.add("error", "subterminal-mgmt");
+                }
+            } catch (TerminalManagementException e2) {
+                builder.add("terminal-name", e2.getTerminal().name());
+                try {
+                    throw e2;
+                } catch (TerminalBusyException e3) {
+                    builder.add("error", "terminal-busy");
+                } catch (OwnTerminalException e3) {
+                    builder.add("error", "own-terminal");
+                } catch (TerminalManagementException e3) {
+                    builder.add("error", "terminal-mgmt");
+                }
+            } catch (UnknownSubnetworkException e2) {
+                builder.add("subnetwork-name", e2.getInferiorNetworkName());
+                builder.add("error", "subnetwork-unknown");
             } catch (NetworkManagementException e2) {
                 builder.add("error", "network-mgmt");
             }
         } catch (NetworkControlException e) {
-            builder.add("error", "network-ctrl")
-                .add("network-name", e.getControl().name())
-                .add("msg", e.getMessage());
+            builder.add("network-name", e.getControl().name());
+            try {
+                throw e;
+            } catch (InvalidServiceException e2) {
+                builder.add("error", "segment-invalid");
+            } catch (UnknownServiceException e2) {
+                builder.add("service-id", e2.getServiceId());
+                builder.add("error", "service-unknown");
+            } catch (NetworkControlException e2) {
+                builder.add("error", "network-ctrl");
+            }
         } catch (NetworkResourceException e) {
-            builder.add("error", "network-rsrc")
-                .add("network-name", e.getNetwork().getControl().name())
-                .add("msg", e.getMessage());
+            builder.add("network-name", e.getNetwork().getControl().name());
+            try {
+                throw e;
+            } catch (ExpiredTrunkException e2) {
+                TerminalId start = e2.getStartTerminal();
+                TerminalId end = e2.getEndTerminal();
+                builder.add("start-terminal-name", start.network)
+                    .add("start-network-name", start.terminal)
+                    .add("start-terminal-name", end.network)
+                    .add("start-network-name", end.terminal);
+                builder.add("error", "trunk-expired");
+            } catch (NetworkResourceException e2) {
+                builder.add("error", "network-rsrc");
+            }
         } catch (IllegalArgumentException ex) {
-            builder.add("error", "bad-argument").add("msg", ex.getMessage());
+            builder.add("error", "bad-argument");
         } catch (Throwable ex) {
-            builder.add("error", "unknown").add("msg", ex.getMessage())
-                .add("type", ex.getClass().getName());
+            builder.add("error", "unknown").add("type",
+                                                ex.getClass().getName());
         }
         return one(builder.build());
     }

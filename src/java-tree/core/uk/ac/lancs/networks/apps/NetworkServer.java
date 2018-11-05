@@ -224,7 +224,8 @@ public final class NetworkServer {
         @Override
         public void run() {
             List<Runnable> actions = new ArrayList<>();
-            try (InputStream in = sess.getInputStream();
+            try (Session sess = this.sess;
+                InputStream in = sess.getInputStream();
                 OutputStream out = sess.getOutputStream()) {
 
                 /* Read lines from the local caller (in the local
@@ -263,12 +264,6 @@ public final class NetworkServer {
                         write(cout, rsp, req.getString("txn", null));
             } catch (IOException ex) {
                 ex.printStackTrace();
-            } finally {
-                try {
-                    sess.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
 
             /* Perform clean-up actions requested by the network

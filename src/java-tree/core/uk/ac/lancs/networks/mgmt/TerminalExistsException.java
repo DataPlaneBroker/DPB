@@ -52,7 +52,6 @@ public class TerminalExistsException extends TerminalNameException {
      */
     public TerminalExistsException(Network network, String name) {
         super(network, name, "terminal exists: " + name);
-        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 
     /**

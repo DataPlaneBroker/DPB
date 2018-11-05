@@ -42,13 +42,18 @@ package uk.ac.lancs.networks;
  * 
  * @author simpsons
  */
-public class InvalidServiceException extends Exception {
+public class InvalidServiceException extends NetworkControlException {
     private static final long serialVersionUID = 1L;
 
     /**
      * Create an exception.
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
      */
-    public InvalidServiceException() {}
+    public InvalidServiceException(NetworkControl control) {
+        super(control);
+    }
 
     /**
      * Create an exception with a detail message and a cause.
@@ -56,26 +61,36 @@ public class InvalidServiceException extends Exception {
      * @param message the detail message
      * 
      * @param cause the cause
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
      */
-    public InvalidServiceException(String message, Throwable cause) {
-        super(message, cause);
+    public InvalidServiceException(NetworkControl control, String message,
+                                   Throwable cause) {
+        super(control, message, cause);
     }
 
     /**
      * Create an exception with a detail message.
      * 
      * @param message the detail message
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
      */
-    public InvalidServiceException(String message) {
-        super(message);
+    public InvalidServiceException(NetworkControl control, String message) {
+        super(control, message);
     }
 
     /**
      * Create an exception with a cause.
      * 
      * @param cause the cause
+     * 
+     * @param control the control interface of the network to which the
+     * exception pertains
      */
-    public InvalidServiceException(Throwable cause) {
-        super(cause);
+    public InvalidServiceException(NetworkControl control, Throwable cause) {
+        super(control, cause);
     }
 }
