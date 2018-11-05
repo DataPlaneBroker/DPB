@@ -76,14 +76,16 @@ public final class NetworkJsonChannelManager implements JsonChannelManager {
             .add("type", "select-network").add("network-name", name).build();
         result.write(req);
         JsonObject rsp = result.read();
-        String error = rsp.getString("error");
-        switch (error) {
-        case "unauthorized":
-            throw new IllegalArgumentException("unauthorized to access "
-                + name);
+        String error = rsp.getString("error", null);
+        if (error != null) {
+            switch (error) {
+            case "unauthorized":
+                throw new IllegalArgumentException("unauthorized to access "
+                    + name);
 
-        case "no-network":
-            throw new IllegalArgumentException("no network " + name);
+            case "no-network":
+                throw new IllegalArgumentException("no network " + name);
+            }
         }
         return result;
     }

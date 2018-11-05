@@ -148,7 +148,7 @@ public final class NetworkServer {
                 continue agent_instantiation;
             }
             throw new IllegalArgumentException("agent " + name
-                + " not recoginized");
+                + " not recognized");
         }
 
         /* Obtain networks from agents. */
