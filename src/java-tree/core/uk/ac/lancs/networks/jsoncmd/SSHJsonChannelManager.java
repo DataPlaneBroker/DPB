@@ -113,8 +113,9 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
                 throw new IllegalStateException("channel is out of use");
             JsonWriter writer = writerFactory.createWriter(out);
             writer.writeObject(msg);
+            System.err.printf("sent %s%n", msg);
             try {
-                proc.getOutputStream().flush();
+                out.flush();
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
