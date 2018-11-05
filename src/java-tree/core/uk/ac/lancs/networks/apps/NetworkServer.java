@@ -132,6 +132,7 @@ public final class NetworkServer {
 
         /* Instantiate all agents. */
         System.out.printf("Creating agents...%n");
+        agent_instantiation:
         for (Configuration agentConf : config.references("agents")) {
             String name = agentConf.get("name");
             if (name == null)
@@ -142,8 +143,12 @@ public final class NetworkServer {
                 if (!factory.recognize(agentConf)) continue;
                 Agent agent = factory.makeAgent(agents::get, agentConf);
                 agents.put(name, agent);
-                System.out.printf("  Created agent %s%n", name);
+                System.out.printf("  Created agent %s%n  (%s)%n", name,
+                                  factory);
+                continue agent_instantiation;
             }
+            throw new IllegalArgumentException("agent " + name
+                + " not recoginized");
         }
 
         /* Obtain networks from agents. */
