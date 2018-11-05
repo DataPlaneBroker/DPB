@@ -72,11 +72,11 @@ public final class NetworkJsonChannelManager implements JsonChannelManager {
     public JsonChannel getChannel() {
         JsonChannel result = base.getChannel();
         /* Select the remote network. */
-        JsonObject selNet = Json.createObjectBuilder()
+        JsonObject req = Json.createObjectBuilder()
             .add("type", "select-network").add("network-name", name).build();
-        result.write(selNet);
-        JsonObject selNetRsp = result.read();
-        String error = selNetRsp.getString("error");
+        result.write(req);
+        JsonObject rsp = result.read();
+        String error = rsp.getString("error");
         switch (error) {
         case "unauthorized":
             throw new IllegalArgumentException("unauthorized to access "

@@ -64,7 +64,7 @@ public final class DummyFabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String TYPE_NAME = "dummy";
+    public static final String TYPE_NAME = "dummy-fabric";
 
     /**
      * @undocumented

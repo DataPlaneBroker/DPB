@@ -42,5 +42,4 @@ done
     done
     printf 'drop\n'
     cat
-    echo >&2 Done
 ) | nc -U -N "$SOCKET"

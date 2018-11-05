@@ -483,12 +483,9 @@ public class JsonNetwork implements Network {
      * @return the single JSON response
      */
     protected final JsonObject interact(JsonObject req) {
-        System.err.printf("Request: %s%n", req);
         try (JsonChannel channel = channels.getChannel()) {
-            System.err.printf("Opened channel%n");
             channel.write(req);
             JsonObject rsp = channel.read();
-            System.err.printf("Response: %s%n", rsp);
             return rsp;
         }
     }
