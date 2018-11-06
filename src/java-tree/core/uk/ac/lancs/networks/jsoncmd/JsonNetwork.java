@@ -243,6 +243,7 @@ public class JsonNetwork implements Network {
         JsonObject req = startRequest("dump-status").build();
         JsonObject rsp = interact(req);
         out.print(rsp.getString("output"));
+        out.flush();
     }
 
     @Override
@@ -255,7 +256,7 @@ public class JsonNetwork implements Network {
         public Service newService() {
             JsonObject req = startRequest("new-service").build();
             JsonObject rsp = interact(req);
-            int id = Integer.parseInt(rsp.getString("service-id"));
+            int id = rsp.getInt("service-id");
             return serviceWatcher.get(id);
         }
 
@@ -339,8 +340,6 @@ public class JsonNetwork implements Network {
 
         RemoteService(int id) {
             this.id = id;
-
-            executor.execute(this::awaitEvents);
         }
 
         private ServiceStatus lastStatus = ServiceStatus.DORMANT;
@@ -391,7 +390,7 @@ public class JsonNetwork implements Network {
 
         private void awaitEvents() {
             try {
-                while (valid)
+                while (valid && channel != null)
                     awaitEvent();
             } catch (InterruptedException e) {
                 /* Just stop. */
@@ -400,8 +399,9 @@ public class JsonNetwork implements Network {
 
         private void awaitEvent() throws InterruptedException {
             synchronized (this) {
-                while (channel == null && valid)
+                while (channel != null && valid)
                     wait();
+                if (channel == null) return;
                 if (!valid) return;
                 JsonObject rsp = channel.read();
                 if (rsp == null) {
@@ -428,6 +428,8 @@ public class JsonNetwork implements Network {
             JsonObject req =
                 startRequest("watch-service").add("service-id", id).build();
             channel.write(req);
+
+            executor.execute(this::awaitEvents);
             notify();
         }
 
@@ -438,6 +440,7 @@ public class JsonNetwork implements Network {
 
             /* Stop talking to the remote server. */
             channel.write(null);
+            channel = null;
             notify();
         }
 
