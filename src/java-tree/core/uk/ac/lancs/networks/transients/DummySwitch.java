@@ -264,10 +264,10 @@ public class DummySwitch implements Switch {
     public synchronized Terminal addTerminal(String terminalName,
                                              String interfaceName)
         throws TerminalExistsException {
-        if (terminals.containsKey(name))
-            throw new TerminalExistsException(this, name);
-        MyTerminal terminal = new MyTerminal(name);
-        terminals.put(name, terminal);
+        if (terminals.containsKey(terminalName))
+            throw new TerminalExistsException(this, terminalName);
+        MyTerminal terminal = new MyTerminal(terminalName);
+        terminals.put(terminalName, terminal);
         return terminal;
     }
 
