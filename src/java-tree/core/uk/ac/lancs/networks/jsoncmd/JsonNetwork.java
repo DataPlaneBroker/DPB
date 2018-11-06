@@ -276,8 +276,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public Terminal getTerminal(String id) {
-            JsonObject req =
-                startRequest("get-terminal").add("terminal-name", id).build();
+            JsonObject req = startRequest("check-terminal")
+                .add("terminal-name", id).build();
             JsonObject rsp = interact(req);
             if (rsp.getBoolean("exists")) return getKnownTerminal(id);
             return null;
@@ -356,7 +356,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public void define(Segment request) throws InvalidServiceException {
-            JsonObjectBuilder req = startRequest("define-service");
+            JsonObjectBuilder req =
+                startRequest("define-service").add("service-id", id);
             JsonArrayBuilder segmentDesc = Json.createArrayBuilder();
             for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
                 .circuitFlows().entrySet()) {
@@ -446,7 +447,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public void activate() {
-            JsonObject req = startRequest("activate-service").build();
+            JsonObject req = startRequest("activate-service")
+                .add("service-id", id).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -459,7 +461,8 @@ public class JsonNetwork implements Network {
 
         @Override
         public void deactivate() {
-            JsonObject req = startRequest("deactivate-service").build();
+            JsonObject req = startRequest("deactivate-service")
+                .add("service-id", id).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
@@ -485,7 +488,7 @@ public class JsonNetwork implements Network {
         public void release() {
             if (!valid) return;
             JsonObject req = Json.createObjectBuilder()
-                .add("type", "release-service").build();
+                .add("type", "release-service").add("service-id", id).build();
             JsonObject rsp = interact(req);
             try {
                 checkErrors(rsp);
