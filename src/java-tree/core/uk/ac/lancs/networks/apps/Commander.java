@@ -572,6 +572,11 @@ public final class Commander {
             }
         } catch (NoSuchElementException ex) {
             System.err.printf("Usage: %s%n", usage);
+        } finally {
+            service = null;
+            network = null;
+            zwitch = null;
+            aggregator = null;
         }
     }
 
