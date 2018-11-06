@@ -259,9 +259,14 @@ public final class NetworkServer {
                     new OutputStreamWriter(out, StandardCharsets.UTF_8);
 
                 JsonObject req;
-                while ((req = read(cin)) != null)
-                    for (JsonObject rsp : process(req, actions::add))
+                while ((req = read(cin)) != null) {
+                    // System.err.printf("Request starts: %s%n", req);
+                    for (JsonObject rsp : process(req, actions::add)) {
+                        System.err.printf("%s -> %s%n", req, rsp);
                         write(cout, rsp, req.getString("txn", null));
+                    }
+                    System.err.printf("Request complete: %s%n", req);
+                }
             } catch (IOException ex) {
                 ex.printStackTrace();
             }

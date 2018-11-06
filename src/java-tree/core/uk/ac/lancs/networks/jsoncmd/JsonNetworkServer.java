@@ -37,13 +37,14 @@ package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.PrimitiveIterator.OfInt;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
@@ -342,22 +343,57 @@ public class JsonNetworkServer {
 
             case "watch-service": {
                 Service srv = confirmService(req);
-                Queue<JsonObject> results = new ConcurrentLinkedQueue<>();
-                ServiceListener listener = new ServiceListener() {
-                    @Override
-                    public void newStatus(ServiceStatus newStatus) {
-                        results.add(Json.createObjectBuilder()
-                            .add("status", newStatus.toString()).build());
+                class MyListener
+                    implements Iterable<JsonObject>, Iterator<JsonObject>,
+                    ServiceListener {
 
-                        if (newStatus == ServiceStatus.RELEASED)
-                            srv.removeListener(this);
+                    private final List<JsonObject> rsps = new ArrayList<>();
+                    private boolean more = true;
+
+                    synchronized void stop() {
+                        srv.removeListener(this);
+                        more = false;
+                        notify();
                     }
-                };
+
+                    @Override
+                    public synchronized void
+                        newStatus(ServiceStatus newStatus) {
+                        rsps.add(Json.createObjectBuilder()
+                            .add("status", newStatus.toString()).build());
+                        if (newStatus == ServiceStatus.RELEASED)
+                            stop();
+                        else
+                            notify();
+                    }
+
+                    @Override
+                    public Iterator<JsonObject> iterator() {
+                        return this;
+                    }
+
+                    @Override
+                    public synchronized boolean hasNext() {
+                        while (more && rsps.isEmpty())
+                            try {
+                                wait();
+                            } catch (InterruptedException e) {
+                                // Ignore?
+                            }
+                        return !rsps.isEmpty();
+                    }
+
+                    @Override
+                    public synchronized JsonObject next() {
+                        if (rsps.isEmpty())
+                            throw new NoSuchElementException();
+                        return rsps.remove(0);
+                    }
+                }
+                MyListener listener = new MyListener();
                 srv.addListener(listener);
-                onClose.execute(() -> {
-                    srv.removeListener(listener);
-                });
-                return results;
+                onClose.execute(listener::stop);
+                return listener;
             }
 
             default:
@@ -424,11 +460,11 @@ public class JsonNetworkServer {
                 try {
                     throw e2;
                 } catch (UnknownTerminalException e3) {
-                    builder.add("error", "terminal-unknown"); 
+                    builder.add("error", "terminal-unknown");
                 } catch (TerminalExistsException e3) {
-                    builder.add("error", "terminal-exists"); 
+                    builder.add("error", "terminal-exists");
                 } catch (TerminalNameException e3) {
-                    builder.add("error", "terminal-name"); 
+                    builder.add("error", "terminal-name");
                 }
             } catch (TerminalConfigurationException e2) {
                 builder.add("config", e2.getConfiguration());

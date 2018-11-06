@@ -111,11 +111,15 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
         public void write(JsonObject msg) {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
-            JsonWriter writer = writerFactory.createWriter(out);
-            writer.writeObject(msg);
-            System.err.printf("sent %s%n", msg);
             try {
-                out.flush();
+                if (msg == null) {
+                    out.close();
+                } else {
+                    JsonWriter writer = writerFactory.createWriter(out);
+                    writer.writeObject(msg);
+                    System.err.printf("sent %s%n", msg);
+                    out.flush();
+                }
             } catch (IOException e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();

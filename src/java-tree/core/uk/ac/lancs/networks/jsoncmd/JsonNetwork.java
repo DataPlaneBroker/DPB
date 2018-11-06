@@ -390,28 +390,23 @@ public class JsonNetwork implements Network {
         private Collection<ServiceListener> listeners = new HashSet<>();
 
         private void awaitEvents() {
-            try {
-                while (valid && channel != null)
-                    awaitEvent();
-            } catch (InterruptedException e) {
-                /* Just stop. */
-            }
+            while (awaitEvent())
+                ;
         }
 
-        private void awaitEvent() throws InterruptedException {
+        private boolean awaitEvent() {
             synchronized (this) {
-                while (channel != null && valid)
-                    wait();
-                if (channel == null) return;
-                if (!valid) return;
+                if (channel == null) return false;
+                if (!valid) return false;
                 JsonObject rsp = channel.read();
                 if (rsp == null) {
                     channel = null;
-                    return;
+                    return false;
                 }
                 lastStatus = Enum.valueOf(ServiceStatus.class,
                                           rsp.getString("status"));
                 listeners.forEach(l -> l.newStatus(lastStatus));
+                return true;
             }
         }
 

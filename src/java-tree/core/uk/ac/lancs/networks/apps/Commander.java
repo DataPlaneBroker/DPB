@@ -49,6 +49,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,6 +66,8 @@ import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceListener;
+import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Aggregator;
@@ -83,7 +87,7 @@ import uk.ac.lancs.networks.util.IdleExecutor;
  * @author simpsons
  */
 public final class Commander {
-    Commander(Path confFile)
+    Commander(Path confFile, Executor executor)
         throws IOException,
             AgentCreationException,
             ServiceCreationException {
@@ -98,8 +102,6 @@ public final class Commander {
         /* Provide an executor to other agents, and a way to find
          * networks by name. */
         agents.put("system", new Agent() {
-            final Executor executor = IdleExecutor.INSTANCE;
-
             @Override
             public <T> T findService(Class<T> type, String key) {
                 if (type == NetworkControl.class) {
@@ -372,6 +374,20 @@ public final class Commander {
             service.define(Segment.create(circuits));
             circuits.clear();
             nextFlow = TrafficFlow.of(0.0, 0.0);
+            return true;
+        }
+        if ("watch".equals(arg)) {
+            final Service myService = service;
+            ServiceListener me = new ServiceListener() {
+                @Override
+                public void newStatus(ServiceStatus e) {
+                    System.err.printf("srv %s: %s%n", myService.id(), e);
+                    if (e == ServiceStatus.RELEASED)
+                        myService.removeListener(this);
+                }
+            };
+            service.addListener(me);
+            System.err.printf("Listener attached...%n");
             return true;
         }
 
@@ -683,6 +699,10 @@ public final class Commander {
      * 
      * <dd>Wait for inactivity before next command or exit.
      * 
+     * <dt><samp>watch</samp>
+     * 
+     * <dd>Listen and report events for the current service.
+     * 
      * </dl>
      * 
      * @throws Exception if something went wrong
@@ -690,8 +710,9 @@ public final class Commander {
     public static void main(String[] args) throws Exception {
         Path dataplaneConf =
             Paths.get(System.getProperty("network.config.client"));
-        Commander me = new Commander(dataplaneConf);
+        ExecutorService executor = Executors.newCachedThreadPool();
+        Commander me = new Commander(dataplaneConf, executor);
         me.process(args);
-        IdleExecutor.processAll();
+        executor.shutdown();
     }
 }
