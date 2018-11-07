@@ -406,6 +406,10 @@ public class JsonNetwork implements Network {
                 lastStatus = Enum.valueOf(ServiceStatus.class,
                                           rsp.getString("status"));
                 listeners.forEach(l -> l.newStatus(lastStatus));
+                if (lastStatus == ServiceStatus.RELEASED) {
+                    channel = null;
+                    return false;
+                }
                 return true;
             }
         }
