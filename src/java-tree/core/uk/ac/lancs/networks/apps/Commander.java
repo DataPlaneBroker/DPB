@@ -381,7 +381,7 @@ public final class Commander {
             ServiceListener me = new ServiceListener() {
                 @Override
                 public void newStatus(ServiceStatus e) {
-                    System.err.printf("srv %s: %s%n", myService.id(), e);
+                    System.err.printf("srv %d: %s%n", myService.id(), e);
                     if (e == ServiceStatus.RELEASED)
                         myService.removeListener(this);
                 }
