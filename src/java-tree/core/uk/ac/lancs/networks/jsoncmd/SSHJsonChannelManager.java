@@ -121,9 +121,7 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
                     out.flush();
                 }
             } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-                throw new UnsupportedOperationException("unimplemented", e);
+                throw new UncheckedIOException(e);
             }
         }
 
