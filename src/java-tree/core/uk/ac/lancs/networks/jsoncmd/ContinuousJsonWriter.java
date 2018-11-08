@@ -105,11 +105,11 @@ public final class ContinuousJsonWriter implements JsonWriter {
 
     @Override
     public void writeArray(JsonArray array) {
-        send(w -> writeArray(array));
+        send(w -> w.writeArray(array));
     }
 
     @Override
     public void writeObject(JsonObject object) {
-        send(w -> writeObject(object));
+        send(w -> w.writeObject(object));
     }
 }

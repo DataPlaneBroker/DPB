@@ -36,24 +36,15 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
 import java.io.UncheckedIOException;
-import java.io.Writer;
 import java.lang.ProcessBuilder.Redirect;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
-import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
-import javax.json.JsonReaderFactory;
 import javax.json.JsonWriter;
-import javax.json.JsonWriterFactory;
 
 import uk.ac.lancs.config.Configuration;
 
@@ -67,10 +58,12 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
     private final String username;
     private final int port;
     private final Path keyPath;
-    private final String command = "invoke-dataplane-broker";
+    private final String networkName;
 
     /**
      * Create a new manager.
+     * 
+     * @param network the name of the network to select
      * 
      * @param conf The following parameters are recognized:
      * 
@@ -95,7 +88,8 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
      * 
      * </dl>
      */
-    public SSHJsonChannelManager(Configuration conf) {
+    public SSHJsonChannelManager(String network, Configuration conf) {
+        this.networkName = network;
         hostname = conf.get("host");
         username = conf.get("user");
         port = Integer.parseInt(conf.get("port", "22"));
@@ -105,31 +99,24 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
     private final class Channel implements JsonChannel, AutoCloseable {
         private final Process proc;
         private boolean inUse = true;
-        private final Writer out;
-        private final Reader in;
+        private final JsonWriter out;
+        private final JsonReader in;
 
         public void write(JsonObject msg) {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
-            try {
-                if (msg == null) {
-                    out.close();
-                } else {
-                    JsonWriter writer = writerFactory.createWriter(out);
-                    writer.writeObject(msg);
-                    System.err.printf("sent %s%n", msg);
-                    out.flush();
-                }
-            } catch (IOException e) {
-                throw new UncheckedIOException(e);
+            if (msg == null) {
+                out.close();
+            } else {
+                out.writeObject(msg);
+                System.err.printf("sent %s%n", msg);
             }
         }
 
         public JsonObject read() {
             if (!inUse)
                 throw new IllegalStateException("channel is out of use");
-            JsonReader reader = readerFactory.createReader(in);
-            JsonObject msg = reader.readObject();
+            JsonObject msg = in.readObject();
             System.err.printf("received %s%n", msg);
             return msg;
         }
@@ -151,7 +138,7 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             }
             command.add("-o");
             command.add("ForwardX11=no");
-            command.add(SSHJsonChannelManager.this.command);
+            command.add(networkName);
             System.err.println(command);
             ProcessBuilder builder = new ProcessBuilder(command);
             builder.redirectError(Redirect.INHERIT);
@@ -162,29 +149,34 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            out = new OutputStreamWriter(proc.getOutputStream(),
-                                         StandardCharsets.UTF_8);
-            in = new InputStreamReader(proc.getInputStream(),
-                                       StandardCharsets.UTF_8);
+            out = new ContinuousJsonWriter(proc.getOutputStream());
+            in = new ContinuousJsonReader(proc.getInputStream());
+
+            JsonObject status = in.readObject();
+            String errorType = status.getString("error", null);
+            if (errorType != null) {
+                switch (errorType) {
+                case "unauthorized":
+                    throw new IllegalArgumentException("no access: "
+                        + networkName);
+                case "no-network":
+                    throw new IllegalArgumentException("no network: "
+                        + networkName);
+                default:
+                    throw new IllegalArgumentException("unknown network error: "
+                        + errorType + " on " + networkName);
+
+                }
+            }
         }
 
         @Override
         public void close() {
-            try {
-                proc.getOutputStream().close();
-            } catch (IOException e) {
-                /* Not much we can do about this (hopefully) rare
-                 * event. */
-            }
+            out.close();
         }
     }
 
     public final JsonChannel getChannel() {
         return new Channel();
     }
-
-    private static final JsonReaderFactory readerFactory =
-        Json.createReaderFactory(Collections.emptyMap());
-    private static final JsonWriterFactory writerFactory =
-        Json.createWriterFactory(Collections.emptyMap());
 }

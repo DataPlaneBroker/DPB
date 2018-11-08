@@ -123,10 +123,9 @@ public class SSHNetworkAgentFactory implements AgentFactory {
         /* Create channels that invoke SSH to the remote account, then
          * make each fresh channel select a particular network, then
          * pool open channels. */
-        JsonChannelManager sshChannels = new SSHJsonChannelManager(sshConf);
-        JsonChannelManager nwChannels =
-            new NetworkJsonChannelManager(sshChannels, name);
-        JsonChannelManager cm = new PoolingJsonChannelManager(nwChannels);
+        JsonChannelManager sshChannels =
+            new SSHJsonChannelManager(name, sshConf);
+        JsonChannelManager cm = new PoolingJsonChannelManager(sshChannels);
 
         /* Create an agent according to the particular type. */
         try {

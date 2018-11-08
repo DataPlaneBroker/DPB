@@ -41,5 +41,6 @@ done
 	printf '%s %s\n' "$cmd" "$nw"
     done
     printf 'drop\n'
+    printf '%s\n' "$SSH_ORIGINAL_COMMAND"
     cat
 ) | nc -U -N "$SOCKET"

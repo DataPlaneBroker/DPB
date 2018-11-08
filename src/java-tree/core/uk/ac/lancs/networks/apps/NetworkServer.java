@@ -37,12 +37,6 @@ package uk.ac.lancs.networks.apps;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -62,10 +56,7 @@ import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
-import javax.json.JsonReaderFactory;
 import javax.json.JsonWriter;
-import javax.json.JsonWriterFactory;
-import javax.json.stream.JsonParsingException;
 
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentCreationException;
@@ -74,6 +65,8 @@ import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.NetworkControl;
+import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
+import uk.ac.lancs.networks.jsoncmd.ContinuousJsonWriter;
 import uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer;
 import uk.ac.lancs.networks.jsoncmd.JsonNetworkServer;
 import uk.ac.lancs.networks.jsoncmd.JsonSwitchServer;
@@ -194,22 +187,6 @@ public final class NetworkServer {
         return new String(buf);
     }
 
-    private static JsonObject read(Reader in) {
-        try {
-            JsonReader reader = readerFactory.createReader(in);
-            return reader.readObject();
-        } catch (JsonParsingException ex) {
-            return null;
-        }
-    }
-
-    private static void write(Writer out, JsonObject msg, String txn)
-        throws IOException {
-        JsonWriter writer = writerFactory.createWriter(out);
-        writeJson(writer, msg, txn);
-        out.flush();
-    }
-
     private class Interaction implements Runnable {
         private final Session sess;
         private Collection<String> managables = new HashSet<>();
@@ -224,9 +201,8 @@ public final class NetworkServer {
         @Override
         public void run() {
             List<Runnable> actions = new ArrayList<>();
-            try (Session sess = this.sess;
+            try (Session sess = this.sess) {
                 InputStream in = sess.getInputStream();
-                OutputStream out = sess.getOutputStream()) {
 
                 /* Read lines from the local caller (in the local
                  * charset), until 'drop' is given. A command 'manage
@@ -248,25 +224,81 @@ public final class NetworkServer {
                         break;
                     }
                 }
-                System.err.printf("dropped privileges%n");
+                System.err.printf("dropped privileges%ncontrol: %s%n",
+                                  controllables);
+
+                /* Read one more line, which is the name of the
+                 * network. */
+                String networkName = readLine(in);
+                networkName = networkName.trim();
 
                 /* Remaining communication is from the remote caller,
                  * and is in UTF-8. Read in JSON objects as requests,
                  * and respond to them. */
-                Reader cin =
-                    new InputStreamReader(in, StandardCharsets.UTF_8);
-                Writer cout =
-                    new OutputStreamWriter(out, StandardCharsets.UTF_8);
+                do {
+                    try (JsonReader jin = new ContinuousJsonReader(in);
+                        JsonWriter jout = new ContinuousJsonWriter(sess
+                            .getOutputStream())) {
+                        /* Fail if the selected network is not
+                         * accessible. */
+                        if (!controllables.contains(networkName)) {
+                            jout.writeObject(Json.createObjectBuilder()
+                                .add("error", "unauthorized")
+                                .add("network", networkName).build());
+                            break;
+                        }
 
-                JsonObject req;
-                while ((req = read(cin)) != null) {
-                    // System.err.printf("Request starts: %s%n", req);
-                    for (JsonObject rsp : process(req, actions::add)) {
-                        System.err.printf("%s -> %s%n", req, rsp);
-                        write(cout, rsp, req.getString("txn", null));
+                        /* Access the network, and fail if it doesn't
+                         * exist. */
+                        Network network = networks.get(networkName);
+                        if (network == null) {
+                            jout.writeObject(Json.createObjectBuilder()
+                                .add("error", "no-network")
+                                .add("network-name", networkName).build());
+                            break;
+                        }
+
+                        /* Wrap a JSON interface around the network.
+                         * Create a positive response, indicating what
+                         * functions are available. */
+                        JsonObjectBuilder builder = Json.createObjectBuilder()
+                            .add("network-name", networkName);
+                        if (controllables.contains(networkName)) {
+                            if (network instanceof Aggregator) {
+                                builder.add("aggregator", true);
+                                this.server =
+                                    new JsonAggregatorServer((Aggregator) network);
+                            } else if (network instanceof Switch) {
+                                builder.add("switch", true);
+                                this.server =
+                                    new JsonSwitchServer((Switch) network);
+                            } else {
+                                builder.add("network", true);
+                                this.server =
+                                    new JsonNetworkServer(network, true);
+                            }
+                        } else {
+                            this.server =
+                                new JsonNetworkServer(network, false);
+                        }
+                        jout.writeObject(builder.build());
+
+                        /* Await interactions. */
+                        JsonObject req;
+                        while ((req = jin.readObject()) != null) {
+                            // System.err.printf("Request starts: %s%n",
+                            // req);
+                            for (JsonObject rsp : process(req,
+                                                          actions::add)) {
+                                System.err.printf("%s -> %s%n", req, rsp);
+                                writeJson(jout, rsp,
+                                          req.getString("txn", null));
+                            }
+                            System.err.printf("Request complete: %s%n", req);
+                        }
+
                     }
-                    System.err.printf("Request complete: %s%n", req);
-                }
+                } while (false);
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -280,46 +312,10 @@ public final class NetworkServer {
         private Iterable<JsonObject> process(JsonObject req,
                                              Executor onClose) {
             try {
-                String cmd = req.getString("type");
-                switch (cmd) {
-
-                case "select-network": {
-                    String name = req.getString("network-name");
-                    if (!controllables.contains(name)) return one(Json
-                        .createObjectBuilder().add("error", "unauthorized")
-                        .add("network", name).build());
-                    Network network = networks.get(name);
-                    if (network == null) { return one(Json
-                        .createObjectBuilder().add("error", "no-network")
-                        .add("network-name", name).build()); }
-                    JsonObjectBuilder builder =
-                        Json.createObjectBuilder().add("network-name", name);
-                    if (managables.contains(name)) {
-                        if (network instanceof Aggregator) {
-                            builder.add("aggregator", true);
-                            this.server =
-                                new JsonAggregatorServer((Aggregator) network);
-                        } else if (network instanceof Switch) {
-                            builder.add("switch", true);
-                            this.server =
-                                new JsonSwitchServer((Switch) network);
-                        } else {
-                            builder.add("network", true);
-                            this.server =
-                                new JsonNetworkServer(network, true);
-                        }
-                    } else {
-                        this.server = new JsonNetworkServer(network, false);
-                    }
-                    return one(builder.build());
-                }
-
-                default:
-                    if (server != null) return server.interact(req, onClose);
-                    return one(Json.createObjectBuilder()
-                        .add("error", "unknown-command")
-                        .add("type", req.getString("type")).build());
-                }
+                if (server != null) return server.interact(req, onClose);
+                return one(Json.createObjectBuilder()
+                    .add("error", "unknown-command")
+                    .add("type", req.getString("type")).build());
             } catch (NetworkResourceException ex) {
                 return one(Json.createObjectBuilder()
                     .add("error", "network-resource")
@@ -332,11 +328,6 @@ public final class NetworkServer {
             }
         }
     }
-
-    private static final JsonReaderFactory readerFactory =
-        Json.createReaderFactory(Collections.emptyMap());
-    private static final JsonWriterFactory writerFactory =
-        Json.createWriterFactory(Collections.emptyMap());
 
     private static void writeJson(JsonWriter writer, JsonObject res,
                                   String txn) {

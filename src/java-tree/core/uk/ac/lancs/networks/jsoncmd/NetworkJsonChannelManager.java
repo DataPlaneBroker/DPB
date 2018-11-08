@@ -45,7 +45,7 @@ import uk.ac.lancs.networks.apps.NetworkServer;
  * 
  * @author simpsons
  */
-public final class NetworkJsonChannelManager implements JsonChannelManager {
+final class NetworkJsonChannelManager implements JsonChannelManager {
     private final JsonChannelManager base;
     private final String name;
 

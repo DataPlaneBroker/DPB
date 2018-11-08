@@ -38,6 +38,7 @@ package uk.ac.lancs.networks.jsoncmd;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -93,6 +94,8 @@ public class ContinuousJsonReader implements JsonReader {
                                      StandardCharsets.UTF_8)) {
                 return action.apply(reader);
             }
+        } catch (EOFException ex) {
+            return null;
         } catch (IOException ex) {
             throw new JsonException("base", ex);
         }
