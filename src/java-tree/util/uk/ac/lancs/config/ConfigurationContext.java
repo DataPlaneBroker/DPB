@@ -51,13 +51,31 @@ import java.util.Properties;
  */
 public final class ConfigurationContext {
     private final Map<URI, BaseConfiguration> cache = new HashMap<>();
+    private final Properties defaults;
 
-    private BaseConfiguration getRoot(URI location) throws IOException {
+    /**
+     * Create a configuration context with a set of default parameters.
+     * 
+     * @param defaults the default parameters as Java properties
+     */
+    public ConfigurationContext(Properties defaults) {
+        this.defaults = defaults;
+    }
+
+    /**
+     * Create a configuration context with no defaults.
+     */
+    public ConfigurationContext() {
+        this.defaults = new Properties();
+    }
+
+    private BaseConfiguration getRoot(URI location, Properties defaults)
+        throws IOException {
         assert location.getFragment() == null;
         BaseConfiguration result = cache.get(location);
         if (result != null) return result;
         result = new BaseConfiguration(this, location);
-        Properties props = BaseConfiguration.load(location);
+        Properties props = BaseConfiguration.load(location, defaults);
         cache.put(location, result);
         result.init(props);
         return result;
@@ -79,7 +97,7 @@ public final class ConfigurationContext {
         String fragment = location.getFragment();
         if (fragment != null)
             location = BaseConfiguration.defragment(location);
-        Configuration root = getRoot(location);
+        Configuration root = getRoot(location, defaults);
         if (fragment != null) root = root.subview(fragment);
         return root;
     }

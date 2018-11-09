@@ -136,11 +136,12 @@ final class BaseConfiguration implements Configuration {
     }
 
     // TODO: Move to ConfigurationContext.
-    static Properties load(URI location) throws IOException {
+    static Properties load(URI location, Properties defaults)
+        throws IOException {
         URL url = location.toURL();
         URLConnection conn = url.openConnection();
         try (InputStream in = conn.getInputStream()) {
-            Properties result = new Properties();
+            Properties result = new Properties(defaults);
             result.load(in);
             return result;
         }
