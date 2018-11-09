@@ -93,4 +93,9 @@ class PrefixConfiguration implements Configuration {
     public String prefix() {
         return prefix;
     }
+
+    @Override
+    public String expand(String value) {
+        return base.expand(value);
+    }
 }

@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -268,5 +269,68 @@ final class BaseConfiguration implements Configuration {
     @Override
     public URI resolve(String value) {
         return location.resolve(value);
+    }
+
+    private static final Pattern REFERENCE_MARK =
+        Pattern.compile("(\\$\\{)|(\\$\\$.)|(\\})");
+
+    private static String expand(String rawValue,
+                                 Function<String, String> map) {
+        if (rawValue == null) return null;
+        StringBuilder result = new StringBuilder(rawValue);
+        List<Integer> stack = new ArrayList<>();
+
+        boolean found;
+        for (Matcher m = REFERENCE_MARK.matcher(result); (found = m.find())
+            || !stack.isEmpty();) {
+            int end = result.length(), tail = end;
+            if (found) {
+                if (m.group(1) != null) {
+                    /* A new expansion is starting. Remember it. */
+                    stack.add(0, m.start());
+                    continue;
+                }
+
+                if (m.group(2) != null) {
+                    /* An escaped character is found. */
+                    result.delete(m.start(), m.start() + 2);
+                    m.region(m.start() + 1, result.length());
+                    continue;
+                }
+
+                end = m.start();
+                tail = m.end();
+            }
+
+            /* An expansion is complete. */
+            if (stack.isEmpty()) {
+                /* A stray close was found. Just delete it. */
+                result.deleteCharAt(m.start());
+                m.region(m.start(), result.length());
+                continue;
+            }
+
+            /* Identify the referenced variable, get its expanded value,
+             * and write it in place of the reference. */
+            int start = stack.remove(0);
+            String varName = result.substring(start + 2, m.start());
+            String varVal = expand(map.apply(varName), k -> {
+                if (varName.equals(k))
+                    throw new IllegalArgumentException("expansion of "
+                        + varName + " is recursive in " + rawValue);
+                return map.apply(k);
+            });
+            if (varVal == null) varVal = "";
+            result.delete(start, tail);
+            result.insert(start, varVal);
+            m.region(start + varVal.length(), result.length());
+        }
+        return result.toString();
+    }
+
+    @Override
+    public String expand(String value) {
+        if (value == null) return null;
+        return BaseConfiguration.expand(value, k -> expand(get(k)));
     }
 }

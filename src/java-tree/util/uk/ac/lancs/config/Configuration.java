@@ -44,6 +44,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Properties;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -95,12 +96,35 @@ public interface Configuration {
         }
 
         /**
+         * Get the expanded value of the parameter.
+         * 
+         * @return the parameter's expanded value
+         * 
+         * @default <code>{@linkplain #provider() provider}().{@linkplain Configuration#getExpanded(String) getExpanded}({@linkplain #key() key}())</code>
+         * is invoked.
+         */
+        default String expandedValue() {
+            return provider().getExpanded(key());
+        }
+
+        /**
          * Get the value of the parameter resolved against the provider.
          * 
          * @return the parameter's value resolved against the provider
          */
         default URI location() {
             return provider().resolve(value());
+        }
+
+        /**
+         * Get the expanded value of the parameter resolved against the
+         * provider.
+         * 
+         * @return the parameter's expanded value resolved against the
+         * provider
+         */
+        default URI expandedLocation() {
+            return provider().resolve(expandedValue());
         }
     }
 
@@ -114,16 +138,47 @@ public interface Configuration {
     URI resolve(String value);
 
     /**
+     * Expand a value by looking for <samp>$&#123;...&#125;</samp>
+     * structures which are replaced by the expanded values of the
+     * specified names.
+     * 
+     * @param value the value to be expanded
+     * 
+     * @return the expanded value, or {@code null} if the input is
+     * {@code null}
+     */
+    String expand(String value);
+
+    /**
      * Get a configuration parameter.
      * 
      * @param key the parameter key
      * 
      * @return the parameter's value, or {@code null} if not present
+     * 
+     * @default {@link #find(String)} is invoked, and
+     * {@link Reference#value()} is returned if the result is not
+     * {@code null}.
      */
     default String get(String key) {
         Reference ref = find(key);
         if (ref == null) return null;
         return ref.value();
+    }
+
+    /**
+     * Get a configuration parameter expanded using other values.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the parameter's expanded value, or {@code null} if not
+     * present
+     * 
+     * @default {@link #expand(String)} is applied to the result of
+     * {@link #get(String)}.
+     */
+    default String getExpanded(String key) {
+        return expand(get(key));
     }
 
     /**
@@ -174,7 +229,8 @@ public interface Configuration {
      * 
      * @return the keys
      * 
-     * @default <code>{@linkplain #keys(String) keys}("")</code> is invoked.
+     * @default <code>{@linkplain #keys(String) keys}("")</code> is
+     * invoked.
      */
     default Iterable<String> keys() {
         return keys("");
@@ -198,18 +254,50 @@ public interface Configuration {
     }
 
     /**
-     * Convert the properties in this configuration into a conventional
-     * Java properties object.
+     * Get a configuration parameter, or a default, expanded using other
+     * values.
      * 
-     * @return a copy of this configuration's properties
+     * @param key the parameter key
+     * 
+     * @param defaultValue the value to return if the parameter is not
+     * set
+     * 
+     * @return the parameter's expanded value, or the expansion of
+     * <samp>defaultValue</samp> if not present
+     * 
+     * @default {@link #expand(String)} is applied to the result of
+     * {@link #get(String, String)}.
+     */
+    default String getExpanded(String key, String defaultValue) {
+        return expand(get(key, defaultValue));
+    }
+
+    /**
+     * Convert the plain parameters in this configuration into a
+     * conventional Java properties object.
+     * 
+     * @return a copy of this configuration's parameters
      * 
      * @default The parameters are iterated over using {@link #keys()},
      * and values are stored using {@link #get(String)}.
      */
     default Properties toProperties() {
+        return toProperties(Configuration::get);
+    }
+
+    /**
+     * Convert the transformed parameters in this configuration into a
+     * conventional Java properties object.
+     * 
+     * @param getter Fetches and transforms each parameter.
+     * 
+     * @return a copy if this configurations parameters
+     */
+    default Properties
+        toProperties(BiFunction<? super Configuration, ? super String, ? extends String> getter) {
         Properties result = new Properties();
         for (String key : keys())
-            result.setProperty(key, get(key));
+            result.setProperty(key, getter.apply(this, key));
         return result;
     }
 
@@ -418,6 +506,21 @@ public interface Configuration {
     }
 
     /**
+     * Get the expanded value of a configuration parameter resolved
+     * against the referencing file's location.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the resolved parameter as a URI, or {@code null} if not
+     * specified
+     */
+    default URI getExpandedLocation(String key) {
+        Reference ref = find(key);
+        if (ref == null) return null;
+        return ref.expandedLocation();
+    }
+
+    /**
      * Get the value of a configuration parameter resolved against the
      * referencing file's location, as a filename.
      * 
@@ -433,6 +536,21 @@ public interface Configuration {
     }
 
     /**
+     * Get the expanded value of a configuration parameter resolved
+     * against the referencing file's location, as a filename.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the resolved parameter as a filename, or {@code null} if
+     * not specified
+     */
+    default File getExpandedFile(String key) {
+        URI location = getExpandedLocation(key);
+        if (location == null) return null;
+        return new File(location);
+    }
+
+    /**
      * Get the value of a configuration parameter resolved against the
      * referencing file's location, as a file path.
      * 
@@ -443,6 +561,21 @@ public interface Configuration {
      */
     default Path getPath(String key) {
         URI location = getLocation(key);
+        if (location == null) return null;
+        return Paths.get(location);
+    }
+
+    /**
+     * Get the expanded value of a configuration parameter resolved
+     * against the referencing file's location, as a file path.
+     * 
+     * @param key the parameter key
+     * 
+     * @return the resolved parameter as a file path, or {@code null} if
+     * not specified
+     */
+    default Path getExpandedPath(String key) {
+        URI location = getExpandedLocation(key);
         if (location == null) return null;
         return Paths.get(location);
     }
