@@ -156,7 +156,8 @@ public final class ConfigurationContext {
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
-        ConfigurationContext ctxt = new ConfigurationContext();
+        ConfigurationContext ctxt =
+            new ConfigurationContext(System.getProperties());
         Configuration base = ctxt.get(new File(args[0]));
         for (int i = 1; i < args.length; i++) {
             Configuration sub = base.subview(args[i]);
@@ -168,6 +169,12 @@ public final class ConfigurationContext {
                     System.out.printf("  (as URI) -> [%s]%n", loc);
                     File file = sub.getFile(key);
                     System.out.printf("  (as File) -> [%s]%n", file);
+                } catch (IllegalArgumentException ex) {
+                    // Ignore.
+                }
+                try {
+                    File file = sub.getExpandedFile(key);
+                    System.out.printf("  (as expanded File) -> [%s]%n", file);
                 } catch (IllegalArgumentException ex) {
                     // Ignore.
                 }
