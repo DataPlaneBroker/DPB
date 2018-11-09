@@ -384,7 +384,8 @@ public final class NetworkServer {
 
             Executor executor = Executors.newCachedThreadPool();
 
-            ConfigurationContext configCtxt = new ConfigurationContext();
+            ConfigurationContext configCtxt =
+                new ConfigurationContext(System.getProperties());
             Configuration config;
             config = configCtxt.get(dataplaneConf.toFile());
             NetworkServer us =

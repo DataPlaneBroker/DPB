@@ -91,7 +91,8 @@ public final class Commander {
         throws IOException,
             AgentCreationException,
             ServiceCreationException {
-        final ConfigurationContext configCtxt = new ConfigurationContext();
+        final ConfigurationContext configCtxt =
+            new ConfigurationContext(System.getProperties());
         final Configuration config = configCtxt.get(confFile.toUri());
 
         /* Create an agent context to allow agents to discover each
