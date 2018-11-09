@@ -37,7 +37,10 @@ package uk.ac.lancs.config;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -75,7 +78,7 @@ public final class ConfigurationContext {
         BaseConfiguration result = cache.get(location);
         if (result != null) return result;
         result = new BaseConfiguration(this, location);
-        Properties props = BaseConfiguration.load(location, defaults);
+        Properties props = ConfigurationContext.load(location, defaults);
         cache.put(location, result);
         result.init(props);
         return result;
@@ -136,6 +139,17 @@ public final class ConfigurationContext {
      */
     public Configuration get(String name) throws IOException {
         return get(new File(name));
+    }
+
+    static Properties load(URI location, Properties defaults)
+        throws IOException {
+        URL url = location.toURL();
+        URLConnection conn = url.openConnection();
+        try (InputStream in = conn.getInputStream()) {
+            Properties result = new Properties(defaults);
+            result.load(in);
+            return result;
+        }
     }
 
     /**

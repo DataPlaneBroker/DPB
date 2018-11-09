@@ -36,11 +36,8 @@
 package uk.ac.lancs.config;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -132,18 +129,6 @@ final class BaseConfiguration implements Configuration {
             } else {
                 values.put(key, value);
             }
-        }
-    }
-
-    // TODO: Move to ConfigurationContext.
-    static Properties load(URI location, Properties defaults)
-        throws IOException {
-        URL url = location.toURL();
-        URLConnection conn = url.openConnection();
-        try (InputStream in = conn.getInputStream()) {
-            Properties result = new Properties(defaults);
-            result.load(in);
-            return result;
         }
     }
 
