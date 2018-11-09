@@ -53,12 +53,13 @@ public final class IdleExecutor implements Executor {
      */
     public static final IdleExecutor INSTANCE = new IdleExecutor();
 
-    private final ThreadLocal<List<Runnable>> queue = new ThreadLocal<>() {
-        @Override
-        protected List<Runnable> initialValue() {
-            return new ArrayList<>();
-        }
-    };
+    private final ThreadLocal<List<Runnable>> queue =
+        new ThreadLocal<List<Runnable>>() {
+            @Override
+            protected List<Runnable> initialValue() {
+                return new ArrayList<>();
+            }
+        };
 
     /**
      * Schedule an action for execution.
