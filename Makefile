@@ -77,6 +77,10 @@ JARDEPS_MERGEDIR=src/java-merge
 include jardeps.mk
 -include jardeps-install.mk
 
+SHAREDIR=$(PREFIX)/share/dataplane-broker
+
+datafiles += portslicer.py
+datafiles += tupleslicer.py
 
 scripts += dpb-server
 scripts += dpb-client
@@ -142,6 +146,7 @@ blank:: clean
 
 all:: installed-jars
 
+install:: install-data
 install:: install-scripts
 install:: install-jars
 
