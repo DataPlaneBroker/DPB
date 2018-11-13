@@ -268,7 +268,7 @@ public class BridgeDesc {
      * @param root the JSON object
      */
     public BridgeDesc(JsonObject root) {
-        name = root.getString("bridge");
+        name = root.getString("bridge", null);
         if (name == null) {
             JsonObject links = root.getJsonObject("links");
             JsonObject self = links.getJsonObject("self");
@@ -277,12 +277,12 @@ public class BridgeDesc {
         String dpidText = root.getString("dpid");
         if (dpidText != null) dpid = Long.parseUnsignedLong(dpidText, 16);
         subtype = root.getString("subtype");
-        String resourcesText = root.getString("resources");
+        String resourcesText = root.getString("resources", null);
         if (resourcesText != null)
             resources = Integer.parseInt(resourcesText);
         trafficClass = getIntFromString(root.get("traffic-class"));
-        netns = root.getString("netns");
-        descr = root.getString("bridge-descr");
+        netns = root.getString("netns", null);
+        descr = root.getString("bridge-descr", null);
         JsonArray brList = root.getJsonArray("protocols");
         if (brList != null) protocols =
             new ArrayList<>(brList.getValuesAs(JsonString.class).stream()

@@ -47,11 +47,14 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
 import javax.json.JsonStructure;
 import javax.json.JsonValue;
-import javax.json.stream.JsonGenerator;
+import javax.json.JsonWriter;
+import javax.json.JsonWriterFactory;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -88,6 +91,9 @@ public class RESTClient {
     private final JsonReaderFactory readerFactory =
         Json.createReaderFactory(Collections.emptyMap());
 
+    private static final JsonWriterFactory writerFactory =
+        Json.createWriterFactory(Collections.emptyMap());
+
     /**
      * Create a REST client for a given service, using the supplied HTTP
      * clients and authorization.
@@ -114,6 +120,8 @@ public class RESTClient {
         HttpResponse rsp = client.execute(request);
         final int code = rsp.getStatusLine().getStatusCode();
         HttpEntity ent = rsp.getEntity();
+        assert ent != null;
+        assert readerFactory != null;
         JsonReader reader = readerFactory
             .createReader(ent.getContent(), StandardCharsets.UTF_8);
         JsonStructure result = reader.read();
@@ -191,58 +199,70 @@ public class RESTClient {
     }
 
     private static HttpEntity entityOf(Map<?, ?> params) throws IOException {
-        try (StringWriter out = new StringWriter();
-            JsonGenerator gen = Json.createGenerator(out)) {
-            for (Map.Entry<?, ?> entry : params.entrySet()) {
-                String key = entry.getKey().toString();
-                Object obj = entry.getValue();
-                if (obj instanceof JsonValue)
-                    gen.write(key, (JsonValue) obj);
-                else if (obj instanceof BigDecimal)
-                    gen.write(key, (BigDecimal) obj);
-                else if (obj instanceof Boolean)
-                    gen.write(key, (Boolean) obj);
-                else if (obj instanceof BigInteger)
-                    gen.write(key, (BigInteger) obj);
-                else if (obj instanceof Long || obj instanceof Integer)
-                    gen.write(key, ((Number) obj).longValue());
-                else if (obj instanceof Float || obj instanceof Double)
-                    gen.write(key, ((Number) obj).doubleValue());
-                else
-                    gen.write(key, obj.toString());
-            }
-            gen.flush();
-            String text = out.toString();
-            return EntityBuilder.create()
-                .setContentType(ContentType.APPLICATION_JSON).setText(text)
-                .build();
+        /* Convert the map into a JSON object. */
+        JsonObjectBuilder builder = Json.createObjectBuilder();
+        for (Map.Entry<?, ?> entry : params.entrySet()) {
+            String key = entry.getKey().toString();
+            Object obj = entry.getValue();
+            if (obj instanceof JsonValue)
+                builder.add(key, (JsonValue) obj);
+            else if (obj instanceof BigDecimal)
+                builder.add(key, (BigDecimal) obj);
+            else if (obj instanceof Boolean)
+                builder.add(key, (Boolean) obj);
+            else if (obj instanceof BigInteger)
+                builder.add(key, (BigInteger) obj);
+            else if (obj instanceof Long || obj instanceof Integer)
+                builder.add(key, ((Number) obj).longValue());
+            else if (obj instanceof Float || obj instanceof Double)
+                builder.add(key, ((Number) obj).doubleValue());
+            else
+                builder.add(key, obj.toString());
         }
+
+        /* Convert the JSON object into a string. */
+        StringWriter out = new StringWriter();
+        try (JsonWriter writer = writerFactory.createWriter(out)) {
+            writer.writeObject(builder.build());
+        }
+        String text = out.toString();
+
+        /* Create an HTTP entity whose content is the string. */
+        return EntityBuilder.create()
+            .setContentType(ContentType.APPLICATION_JSON).setText(text)
+            .build();
     }
 
     private static HttpEntity entityOf(List<?> params) throws IOException {
-        try (StringWriter out = new StringWriter();
-            JsonGenerator gen = Json.createGenerator(out)) {
-            for (Object obj : params) {
-                if (obj instanceof JsonValue)
-                    gen.write((JsonValue) obj);
-                else if (obj instanceof BigDecimal)
-                    gen.write((BigDecimal) obj);
-                else if (obj instanceof Boolean)
-                    gen.write((Boolean) obj);
-                else if (obj instanceof BigInteger)
-                    gen.write((BigInteger) obj);
-                else if (obj instanceof Long || obj instanceof Integer)
-                    gen.write(((Number) obj).longValue());
-                else if (obj instanceof Float || obj instanceof Double)
-                    gen.write(((Number) obj).doubleValue());
-                else
-                    gen.write(obj.toString());
-            }
-            gen.flush();
-            String text = out.toString();
-            return EntityBuilder.create()
-                .setContentType(ContentType.APPLICATION_JSON).setText(text)
-                .build();
+        /* Convert the list to a JSON array. */
+        JsonArrayBuilder builder = Json.createArrayBuilder();
+        for (Object obj : params) {
+            if (obj instanceof JsonValue)
+                builder.add((JsonValue) obj);
+            else if (obj instanceof BigDecimal)
+                builder.add((BigDecimal) obj);
+            else if (obj instanceof Boolean)
+                builder.add((Boolean) obj);
+            else if (obj instanceof BigInteger)
+                builder.add((BigInteger) obj);
+            else if (obj instanceof Long || obj instanceof Integer)
+                builder.add(((Number) obj).longValue());
+            else if (obj instanceof Float || obj instanceof Double)
+                builder.add(((Number) obj).doubleValue());
+            else
+                builder.add(obj.toString());
         }
+
+        /* Convert the JSON array to a string. */
+        StringWriter out = new StringWriter();
+        try (JsonWriter writer = writerFactory.createWriter(out)) {
+            writer.writeArray(builder.build());
+        }
+
+        /* Create an HTTP entity whose content is the string. */
+        String text = out.toString();
+        return EntityBuilder.create()
+            .setContentType(ContentType.APPLICATION_JSON).setText(text)
+            .build();
     }
 }
