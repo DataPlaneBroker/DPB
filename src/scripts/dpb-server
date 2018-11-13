@@ -6,6 +6,7 @@ EXTRAS=()
 ORIG_CONFIG="$HOME/.config/dataplane-broker/server.properties"
 CONFIG="$ORIG_CONFIG"
 unset USMUX
+unset ASSERT
 
 while [ $# -gt  0 ] ; do
     arg="$1"
@@ -26,6 +27,12 @@ while [ $# -gt  0 ] ; do
 	(-l*)
 	    EXTRAS+=("$arg")
 	    ;;
+	(-ea)
+	    ASSERT=1
+	    ;;
+	(+ea)
+	    unset ASSERT
+	    ;;
 	(-s)
 	    USMUX="$1"
 	    shift
@@ -43,6 +50,7 @@ Usage: $0 [options]
        -s addr	Specify the Usmux configuration string.
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
+       -ea      Enable Java assertions.
 EOF
 	    exit
 	    ;;
@@ -71,5 +79,5 @@ exec jrun "${EXTRAS[@]}" \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
      -linitiate-dpb-openflow -linitiate-dpb-corsa \
      -Dprogram.name="$0" -Dusmux.config="$USMUX" \
-     -Dnetwork.config.server="$CONFIG" \
+     -Dnetwork.config.server="$CONFIG" ${ASSERT:+-ea} \
      uk.ac.lancs.networks.apps.NetworkServer
