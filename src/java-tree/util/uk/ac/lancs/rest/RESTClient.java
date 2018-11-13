@@ -119,12 +119,15 @@ public class RESTClient {
         if (authz != null) request.setHeader("Authorization", authz);
         HttpResponse rsp = client.execute(request);
         final int code = rsp.getStatusLine().getStatusCode();
+        final JsonStructure result;
         HttpEntity ent = rsp.getEntity();
-        assert ent != null;
-        assert readerFactory != null;
-        JsonReader reader = readerFactory
-            .createReader(ent.getContent(), StandardCharsets.UTF_8);
-        JsonStructure result = reader.read();
+        if (ent == null) {
+            result = null;
+        } else {
+            JsonReader reader = readerFactory
+                .createReader(ent.getContent(), StandardCharsets.UTF_8);
+            result = reader.read();
+        }
         return new RESTResponse<JsonStructure>(code, result);
     }
 
