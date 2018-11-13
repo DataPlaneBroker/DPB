@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.rest;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.math.BigDecimal;
@@ -119,13 +121,19 @@ public class RESTClient {
         if (authz != null) request.setHeader("Authorization", authz);
         HttpResponse rsp = client.execute(request);
         final int code = rsp.getStatusLine().getStatusCode();
+        // System.err.printf("rc=%d%n", code);
         final JsonStructure result;
         HttpEntity ent = rsp.getEntity();
         if (ent == null) {
             result = null;
         } else {
-            JsonReader reader = readerFactory
-                .createReader(ent.getContent(), StandardCharsets.UTF_8);
+            ByteArrayOutputStream bufOut = new ByteArrayOutputStream();
+            ent.getContent().transferTo(bufOut);
+            // System.err.printf("rsp: %s%n", bufOut.toString("UTF-8"));
+            ByteArrayInputStream bufIn =
+                new ByteArrayInputStream(bufOut.toByteArray());
+            JsonReader reader =
+                readerFactory.createReader(bufIn, StandardCharsets.UTF_8);
             result = reader.read();
         }
         return new RESTResponse<JsonStructure>(code, result);
