@@ -46,6 +46,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
+import java.util.function.IntConsumer;
+import java.util.function.LongConsumer;
 import java.util.function.Supplier;
 
 import javax.json.Json;
@@ -209,27 +213,73 @@ public class RESTClient {
         return request(request);
     }
 
+    private static JsonArrayBuilder arrayOf(List<?> list) {
+        JsonArrayBuilder result = Json.createArrayBuilder();
+        for (Object obj : list)
+            add(result, obj);
+        return result;
+    }
+
+    private static JsonObjectBuilder objectOf(Map<?, ?> map) {
+        JsonObjectBuilder result = Json.createObjectBuilder();
+        for (Map.Entry<?, ?> entry : map.entrySet())
+            add(result, entry.getKey().toString(), entry.getValue());
+        return result;
+    }
+
+    private interface BooleanConsumer {
+        void accept(boolean v);
+    }
+
+    private static void
+        addJson(Object obj, Consumer<? super JsonValue> addValue,
+                Consumer<? super String> addString, IntConsumer addInt,
+                LongConsumer addLong, DoubleConsumer addDouble,
+                BooleanConsumer addBoolean,
+                Consumer<? super BigInteger> addBigInteger,
+                Consumer<? super BigDecimal> addBigDecimal,
+                Consumer<? super JsonObjectBuilder> addJsonObject,
+                Consumer<? super JsonArrayBuilder> addJsonArray) {
+        if (obj instanceof BigDecimal)
+            addBigDecimal.accept((BigDecimal) obj);
+        else if (obj instanceof Boolean)
+            addBoolean.accept((boolean) obj);
+        else if (obj instanceof BigInteger)
+            addBigInteger.accept((BigInteger) obj);
+        else if (obj instanceof Long)
+            addLong.accept((long) obj);
+        else if (obj instanceof Integer)
+            addInt.accept((int) obj);
+        else if (obj instanceof Number)
+            addDouble.accept(((Number) obj).doubleValue());
+        else if (obj instanceof List)
+            addJsonArray.accept(arrayOf((List<?>) obj));
+        else if (obj instanceof Map)
+            addJsonObject.accept(objectOf((Map<?, ?>) obj));
+        else if (obj instanceof JsonValue)
+            addValue.accept((JsonValue) obj);
+        else
+            addString.accept(obj.toString());
+    }
+
+    private static void add(JsonArrayBuilder builder, Object obj) {
+        addJson(obj, builder::add, builder::add, builder::add, builder::add,
+                builder::add, builder::add, builder::add, builder::add,
+                builder::add, builder::add);
+    }
+
+    private static void add(JsonObjectBuilder builder, String key,
+                            Object obj) {
+        addJson(obj, v -> builder.add(key, v), v -> builder.add(key, v),
+                v -> builder.add(key, v), v -> builder.add(key, v),
+                v -> builder.add(key, v), v -> builder.add(key, v),
+                v -> builder.add(key, v), v -> builder.add(key, v),
+                v -> builder.add(key, v), v -> builder.add(key, v));
+    }
+
     private static HttpEntity entityOf(Map<?, ?> params) throws IOException {
         /* Convert the map into a JSON object. */
-        JsonObjectBuilder builder = Json.createObjectBuilder();
-        for (Map.Entry<?, ?> entry : params.entrySet()) {
-            String key = entry.getKey().toString();
-            Object obj = entry.getValue();
-            if (obj instanceof JsonValue)
-                builder.add(key, (JsonValue) obj);
-            else if (obj instanceof BigDecimal)
-                builder.add(key, (BigDecimal) obj);
-            else if (obj instanceof Boolean)
-                builder.add(key, (Boolean) obj);
-            else if (obj instanceof BigInteger)
-                builder.add(key, (BigInteger) obj);
-            else if (obj instanceof Long || obj instanceof Integer)
-                builder.add(key, ((Number) obj).longValue());
-            else if (obj instanceof Float || obj instanceof Double)
-                builder.add(key, ((Number) obj).doubleValue());
-            else
-                builder.add(key, obj.toString());
-        }
+        JsonObjectBuilder builder = objectOf(params);
 
         /* Convert the JSON object into a string. */
         StringWriter out = new StringWriter();
@@ -237,6 +287,7 @@ public class RESTClient {
             writer.writeObject(builder.build());
         }
         String text = out.toString();
+        //System.err.printf("req: %s%n", text);
 
         /* Create an HTTP entity whose content is the string. */
         return EntityBuilder.create()
@@ -246,23 +297,7 @@ public class RESTClient {
 
     private static HttpEntity entityOf(List<?> params) throws IOException {
         /* Convert the list to a JSON array. */
-        JsonArrayBuilder builder = Json.createArrayBuilder();
-        for (Object obj : params) {
-            if (obj instanceof JsonValue)
-                builder.add((JsonValue) obj);
-            else if (obj instanceof BigDecimal)
-                builder.add((BigDecimal) obj);
-            else if (obj instanceof Boolean)
-                builder.add((Boolean) obj);
-            else if (obj instanceof BigInteger)
-                builder.add((BigInteger) obj);
-            else if (obj instanceof Long || obj instanceof Integer)
-                builder.add(((Number) obj).longValue());
-            else if (obj instanceof Float || obj instanceof Double)
-                builder.add(((Number) obj).doubleValue());
-            else
-                builder.add(obj.toString());
-        }
+        JsonArrayBuilder builder = arrayOf(params);
 
         /* Convert the JSON array to a string. */
         StringWriter out = new StringWriter();
