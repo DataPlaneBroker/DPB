@@ -191,6 +191,15 @@ class Slice:
                                         out_port=ofp.OFPP_ANY,
                                         out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
+            match = ofp_parser.OFPMatch()
+            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                        datapath=dp,
+                                        table_id=1,
+                                        match=match,
+                                        buffer_id=ofp.OFPCML_NO_BUFFER,
+                                        out_port=p,
+                                        out_group=ofp.OFPG_ANY)
+            dp.send_msg(msg)
 
         if len(self.sanitized) <= 2 and len(self.established) > 2:
             ## We're changing from a multi-port learning switch to
