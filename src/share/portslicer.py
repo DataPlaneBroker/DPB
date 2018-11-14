@@ -707,6 +707,8 @@ class PortSlicer(app_manager.RyuApp):
         ## Is this port allocated to a slice?
         slize = status.get_slice(port)
         if slize is None:
+            LOG.info("%016x: %17s: port %d not in slice",
+                     dp.id, mac, port)
             return
 
         ## We should only receive packets on ports belonging to
@@ -716,11 +718,18 @@ class PortSlicer(app_manager.RyuApp):
         ## aberration.  (Perhaps it came through the REST interface.)
         group = slize.get_group()
         if group < 0:
+            LOG.info("%016x: %17s: port %d not in learning switch",
+                     dp.id, mac, port)
             return
 
         ## Get the set of ports for this slice.  It should have at
         ## least 3, including our own.
         ports = slize.get_ports()
+        if port not in ports:
+            LOG.info("%016x: %17s: port %d not in this learning switch (%s)",
+                     dp.id, mac, port, ports)
+            return
+
         assert len(ports) > 2
         assert port in ports
 
