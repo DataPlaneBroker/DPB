@@ -764,7 +764,7 @@ class PortSlicer(app_manager.RyuApp):
                                           out_port=ofp.OFPP_ANY,
                                           out_group=ofp.OFPG_ANY,
                                           match=match)
-        dp.send_msg(mymsg)
+            dp.send_msg(mymsg)
 
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
