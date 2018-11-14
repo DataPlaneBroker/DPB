@@ -76,6 +76,7 @@ from ryu.ofproto import ether
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+from ryu.app.ofctl import api
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from ryu.lib import dpid as dpid_lib
 from webob import Response
@@ -712,7 +713,7 @@ class PortSlicer(app_manager.RyuApp):
         ## multiport slices, as E-Line rules would have already dealt
         ## with the packet.  Every multiport slice should have a group
         ## id allocatde to it.  If not, this learning command is an
-        ## aberration.
+        ## aberration.  (Perhaps it came through the REST interface.)
         group = slize.get_group()
         if group < 0:
             return
@@ -871,6 +872,14 @@ class SliceController(ControllerBase):
                 status.create_slice(ps)
         status.revalidate()
         LOG.info("%016x: completed changes", dpid)
+        if 'learn' in new_config:
+            dp = api.get_datapath(self.ctrl, dpid)
+            mac = new_config['learn']['mac'];
+            port = new_config['learn']['port'];
+            timeout = new_config['learn']['timeout'] \
+                      if 'timeout' in new_config['learn'] \
+                         else 600
+            self.ctrl._learn(dp, port, mac, timeout=timeout);
 
         body = json.dumps(status.get_config()) + "\n"
         return Response(content_type='application/json', body=body)
