@@ -229,7 +229,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
-    public static final String DEFAULT_SUBYTPE = "l2-vpn";
+    public static final String DEFAULT_SUBYTPE = "openflow";
 
     /**
      * @undocumented
