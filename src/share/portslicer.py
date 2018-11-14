@@ -694,7 +694,7 @@ class PortSlicer(app_manager.RyuApp):
                                     table_id=1,
                                     match=match,
                                     buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=ofp.OFPP_ANY,
+                                    out_port=in_port,
                                     out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
