@@ -2,6 +2,7 @@
 
 declare -A AUTHZ
 SOCKET=/tmp/dpb.sock
+SHUTDOWN=yes
 
 while [ $# -gt 0 ] ; do
     arg="$1"
@@ -19,6 +20,12 @@ while [ $# -gt 0 ] ; do
 	(-s)
 	    SOCKET="$1"
 	    shift
+	    ;;
+	(-N)
+	    SHUTDOWN=yes
+	    ;;
+	(+N)
+	    unset SHUTDOWN
 	    ;;
 	(-*)
 	    printf >&2 '%s: unknown switch %s\n' "$0" "$arg"
@@ -43,4 +50,4 @@ done
     printf 'drop\n'
     printf '%s\n' "$SSH_ORIGINAL_COMMAND"
     cat
-) | nc -U -N "$SOCKET"
+) | nc -U ${SHUTDOWN:+-N} "$SOCKET"
