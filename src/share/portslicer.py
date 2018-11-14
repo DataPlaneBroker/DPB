@@ -150,50 +150,50 @@ class Slice:
         LOG.info("%016x: %s -> %s", dp.id,
                  list(self.established), list(self.sanitized))
 
-        if len(self.established) <= 2:
-            ## We had zero, one or two ports.  Either we still have
-            ## two, but at least one is different, or we don't have
-            ## exactly two any more.  Delete E-Line rules or the drop
-            ## rule.
-            for p in self.established:
-                LOG.info("%016x: deleting e-line/drop for %d", dp.id, p)
-                match = ofp_parser.OFPMatch(in_port=p)
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                            datapath=dp,
-                                            table_id=0,
-                                            match=match,
-                                            buffer_id=ofp.OFPCML_NO_BUFFER,
-                                            out_port=ofp.OFPP_ANY,
-                                            out_group=ofp.OFPG_ANY)
-                dp.send_msg(msg)
+        ## Work out which ports are now invalid.
+        if len(self.established) == 2:
+            ## We're either changing from one E-Line to another (so we
+            ## have to replace the old port-exchanging pair with an
+            ## alternative), or from E-Line to one or zero ports (so
+            ## we have to delete the old port-exchanging pair
+            ## outright), or from E-Line to learning switch (so we
+            ## have to replace the port exchangers with learned rules
+            ## plus defaults to send to the controller).  In any case,
+            ## we have to delete rules for all old ports in the slice.
+            oldports = self.established
+        elif len(self.sanitized) <= 2:
+            ## We're either changing from learning switch to E-Line
+            ## (so learned and controller rules for each port have to
+            ## be replaced with a port-exchanging pair), or from a
+            ## learning switch to one or zero ports (so learned and
+            ## controller rules for each port have to be deleted), or
+            ## from one or zero ports to one or zero ports, so there
+            ## won't really be anything to delete.
+            oldports = self.established
+        else:
+            ## We've changed the set of ports on a learning switch,
+            ## while still remaining a learning switch.  Delete any
+            ## ports that have been lost.
+            oldports = self.established - self.sanitized
+        for p in oldports:
+            LOG.info("%016x: deleting rules for port %d", dp.id, p)
+            match = ofp_parser.OFPMatch(in_port=p)
+            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                        datapath=dp,
+                                        table_id=0,
+                                        match=match,
+                                        buffer_id=ofp.OFPCML_NO_BUFFER,
+                                        out_port=ofp.OFPP_ANY,
+                                        out_group=ofp.OFPG_ANY)
+            dp.send_msg(msg)
 
         if len(self.sanitized) <= 2 and len(self.established) > 2:
-            ## Remove learned rules.
-            for p in self.established:
-                match = ofp_parser.OFPMatch(in_port=p)
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                            datapath=dp,
-                                            table_id=0,
-                                            match=match,
-                                            buffer_id=ofp.OFPCML_NO_BUFFER,
-                                            out_port=ofp.OFPP_ANY,
-                                            out_group=ofp.OFPG_ANY)
-                dp.send_msg(msg)
-                match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                            datapath=dp,
-                                            table_id=1,
-                                            match=match,
-                                            buffer_id=ofp.OFPCML_NO_BUFFER,
-                                            out_port=p,
-                                            out_group=ofp.OFPG_ANY)
-                dp.send_msg(msg)
+            ## We're changing from a multi-port learning switch to
+            ## something simpler.
 
+            assert self.group >= 0
             ## We should have a group, but don't need one any more.
             ## Release it.
-            if self.group < 0:
-                ## Seems we never got round to allocating a group.
-                return
             LOG.info("%016x: releasing group %d", dp.id, self.group)
 
             ## Remove the group definition from the switch table,
@@ -207,7 +207,8 @@ class Slice:
             ## Release the group number, and forget it.
             self.switch.release_group(self.group)
             self.group = -1
-            return
+
+        return
 
     ## Ensure that this slice has the right set of static rules, based
     ## on its port set.  If the number of ports is greater than two, a
@@ -225,20 +226,9 @@ class Slice:
         ofp = dp.ofproto
         ofp_parser = dp.ofproto_parser
 
-        if len(self.sanitized) == 1:
-            ## We have exactly one port, whose traffic must be dropped.
-            pl = list(self.sanitized)
-            LOG.info("%016x: adding drop for %d", dp.id, pl[0])
-            match = ofp_parser.OFPMatch(in_port=pl[0])
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     [])]
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                        datapath=dp,
-                                        table_id=0,
-                                        priority=4,
-                                        match=match,
-                                        instructions=inst)
-            dp.send_msg(msg)
+        ## A slice with fewer than 2 ports should have no OpenFlow
+        ## manifestations.  The default drop rule should apply.
+        if len(self.sanitized) < 2:
             return
 
         if len(self.sanitized) == 2:
@@ -257,14 +247,35 @@ class Slice:
                 msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                             datapath=dp,
                                             table_id=0,
-                                            priority=4,
+                                            priority=3,
                                             match=match,
                                             instructions=inst)
                 dp.send_msg(msg)
             return
 
-        if len(self.sanitized) > 2 and len(self.established) <= 2 \
-           and self.group < 0:
+        ## In a learning switch, ensure that low-priority rules
+        ## for each port send to the controller.
+        if len(self.established) <= 2:
+            newports = self.sanitized
+        else:
+            newports = self.sanitized - self.established
+        for p in newports:
+            LOG.info("%016x: adding ctrl rule for %d", dp.id, p)
+            match = ofp_parser.OFPMatch(in_port=p)
+            actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER,
+                                                  65535)]
+            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        datapath=dp,
+                                        table_id=0,
+                                        priority=1,
+                                        match=match,
+                                        instructions=inst)
+            dp.send_msg(msg)
+
+        if len(self.established) <= 2:
+            assert self.group < 0
             ## We need a group now, but didn't before.  Allocate one.
             self.group = self.switch.claim_group()
             LOG.info("%016x: creating group %d %s", dp.id,
@@ -287,7 +298,7 @@ class Slice:
             ## broadcast to the group.  We match the slice by the
             ## pseudo-VLAN tag we added in T0, and this must be
             ## removed first.  This rule will automatically be deleted
-            ## when the group is deleted.
+            ## when the group is deleted.  TODO: Use metadata.
             match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
             actions = [ofp_parser.OFPActionPopVlan(),
                        ofp_parser.OFPActionGroup(self.group)]
@@ -300,22 +311,20 @@ class Slice:
                                         match=match,
                                         instructions=inst)
             dp.send_msg(msg)
-            return
 
-        if len(self.sanitized) > 2:
-            ## The set has changed.  Set the group to output to the
-            ## target set.
-            LOG.info("%016x: updating group %d %s", dp.id,
-                     self.group, list(self.sanitized))
-            buckets = []
-            for p in self.sanitized:
-                output = ofp_parser.OFPActionOutput(p)
-                buckets.append(ofp_parser.OFPBucket(actions=[output]))
-            msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                         command=ofp.OFPGC_MODIFY,
-                                         group_id=self.group,
-                                         buckets=buckets)
-            dp.send_msg(msg)
+        ## The set has changed.  Set the group to output to the target
+        ## set.
+        LOG.info("%016x: updating group %d %s", dp.id,
+                 self.group, list(self.sanitized))
+        buckets = []
+        for p in self.sanitized:
+            output = ofp_parser.OFPActionOutput(p)
+            buckets.append(ofp_parser.OFPBucket(actions=[output]))
+        msg = ofp_parser.OFPGroupMod(datapath=dp,
+                                     command=ofp.OFPGC_MODIFY,
+                                     group_id=self.group,
+                                     buckets=buckets)
+        dp.send_msg(msg)
         return
 
     ## Ensure that a port belongs to this slice.  If it belongs to
@@ -351,6 +360,8 @@ class SwitchStatus:
         ## port -> Slice
         self.target_index = { }
 
+        ## Keep track of which slices have been modified since last
+        ## revalidation.
         self.invalid_slices = set()
 
     def set_datapath(self, dp):
@@ -384,14 +395,19 @@ class SwitchStatus:
                 best_slize = slize
 
         if best_slize is not None:
+            ## There is a suitable slice.  Make it adopt any new ports
+            ## it needs.
             for p in ports - best_slize.get_ports():
                 best_slize.adopt(p)
+            ## Create a new slice to retain the abandoned ports.
             abandoned = best_slize.get_ports() - ports
             other_slize = Slice(self)
             for p in abandoned:
                 other_slize.adopt(p)
             return best_slize
 
+        ## There's no overlap, so create a new slice.  Steal its ports
+        ## from other slices.
         slize = Slice(self)
         for p in ports:
             slize.adopt(p)
@@ -480,6 +496,7 @@ class SwitchStatus:
     def revalidate(self):
         dp = self.datapath
         if dp is None:
+            LOG.info("no datapath!")
             return
         LOG.info("%016x: revalidating...", dp.id)
 
@@ -508,6 +525,13 @@ class SwitchStatus:
         for slize in self.invalid_slices:
             slize.match()
         self.invalid_slices.clear()
+
+        ## Clean out slices with only one port.  These should have no
+        ## remaining rules, so no OpenFlow operations are required.
+        for slize in set(self.target_index.values()):
+            ports = slize.get_ports()
+            if len(ports) <= 1:
+                del self.target_index[list(ports)[0]]
 
         LOG.info("%016x: revalidating complete", dp.id)
         return
@@ -605,12 +629,11 @@ class PortSlicer(app_manager.RyuApp):
                                       instructions=inst)
         dp.send_msg(mymsg)
 
-        ## Make sure that packets with unknown source addresses are
-        ## sent to the controller.
+        ## The default rule should just drop everything.  Earlier
+        ## rules should match specific ports, and send to the
+        ## controller, but only for multi-port slices.
         match = ofp_parser.OFPMatch()
-        actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions)]
+        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
         mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                       datapath=dp,
                                       table_id=0,
@@ -660,6 +683,7 @@ class PortSlicer(app_manager.RyuApp):
         slize.unsee(mac, in_port)
 
         ## Delete the MAC/group tuple from the destination table (1).
+        ## TODO: Use metadata.
         match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                     datapath=dp,
@@ -708,7 +732,7 @@ class PortSlicer(app_manager.RyuApp):
         ## overwriting any previous mapping.  This prevents further
         ## flooding for that destination on that slice.  Make sure the
         ## fake VLAN tag used to carry the slice's group id is popped
-        ## before transmission.
+        ## before transmission.  TODO: Use metadata.
         match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
         actions = [ofp_parser.OFPActionPopVlan(),
                    ofp_parser.OFPActionOutput(port)]
@@ -741,7 +765,7 @@ class PortSlicer(app_manager.RyuApp):
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
         ## again.  TODO: Drop setgrp, and just set
-        ## vlan_vid=0x1000|group?
+        ## vlan_vid=0x1000|group?  TODO: Use metadata.
         match = ofp_parser.OFPMatch(in_port=port, eth_src=mac)
         setgrp = ofp_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
                                                0x1000|group)
@@ -843,6 +867,7 @@ class SliceController(ControllerBase):
                 LOG.info("%016x: creating %s", dpid, list(ps))
                 status.create_slice(ps)
         status.revalidate()
+        LOG.info("%016x: completed changes", dpid)
 
         body = json.dumps(status.get_config()) + "\n"
         return Response(content_type='application/json', body=body)
