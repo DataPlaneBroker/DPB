@@ -109,7 +109,7 @@ class Slice:
 
     def unsee(self, mac, port):
         if port in self.target:
-            del self.mac_port[mac]
+            self.mac_port.pop(mac, None)
 
     def lookup(self, mac):
         return self.mac_port.get(mac)
