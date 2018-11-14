@@ -125,9 +125,11 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             /* Build the command line. */
             List<String> command = new ArrayList<>();
             command.add("ssh");
-            String loc = hostname;
-            if (username != null) loc = username + "@" + loc;
-            command.add(loc);
+            command.add(hostname);
+            if (username != null) {
+                command.add("-l");
+                command.add(username);
+            }
             if (port != 22) {
                 command.add("-p");
                 command.add(Integer.toString(port));
@@ -138,6 +140,10 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             }
             command.add("-o");
             command.add("ForwardX11=no");
+            command.add("-o");
+            command.add("BatchMode=yes");
+            command.add("-o");
+            command.add("PasswordAuthentication=no");
             command.add(networkName);
             System.err.println(command);
             ProcessBuilder builder = new ProcessBuilder(command);
