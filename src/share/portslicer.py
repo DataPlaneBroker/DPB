@@ -47,7 +47,11 @@
 
 ## T1's highest-priority rules match <in_port, eth_dst> tuples, and
 ## send to specific ports.  The next match <in_port>, and send to a
-## group assigned to the slice.
+## group assigned to the slice.  (To save rules, we could get T0 to
+## set metadata to the slice's group, then match on the metadata in
+## T1.  However, the Corsa doesn't support metadata, so we hack it by
+## getting T0 to push the group as a VLAN tag, and then popping it in
+## the actions of T1.  Is it worth it?)
 
 ## Each multiport slice gets a group, whose behaviour is to send to
 ## all ports in the slice (implicitly excepting the in_port).
@@ -298,7 +302,7 @@ class Slice:
             ## broadcast to the group.  We match the slice by the
             ## pseudo-VLAN tag we added in T0, and this must be
             ## removed first.  This rule will automatically be deleted
-            ## when the group is deleted.  TODO: Use metadata.
+            ## when the group is deleted.
             match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
             actions = [ofp_parser.OFPActionPopVlan(),
                        ofp_parser.OFPActionGroup(self.group)]
@@ -683,7 +687,6 @@ class PortSlicer(app_manager.RyuApp):
         slize.unsee(mac, in_port)
 
         ## Delete the MAC/group tuple from the destination table (1).
-        ## TODO: Use metadata.
         match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                     datapath=dp,
@@ -732,7 +735,7 @@ class PortSlicer(app_manager.RyuApp):
         ## overwriting any previous mapping.  This prevents further
         ## flooding for that destination on that slice.  Make sure the
         ## fake VLAN tag used to carry the slice's group id is popped
-        ## before transmission.  TODO: Use metadata.
+        ## before transmission.
         match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
         actions = [ofp_parser.OFPActionPopVlan(),
                    ofp_parser.OFPActionOutput(port)]
@@ -765,7 +768,7 @@ class PortSlicer(app_manager.RyuApp):
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
         ## again.  TODO: Drop setgrp, and just set
-        ## vlan_vid=0x1000|group?  TODO: Use metadata.
+        ## vlan_vid=0x1000|group?
         match = ofp_parser.OFPMatch(in_port=port, eth_src=mac)
         setgrp = ofp_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
                                                0x1000|group)
@@ -831,7 +834,7 @@ class PortSlicer(app_manager.RyuApp):
 class SliceController(ControllerBase):
     def __init__(self, req, link, data, **config):
         super(SliceController, self).__init__(req, link, data, **config)
-        self.ctrl= data[port_slicer_instance_name]
+        self.ctrl = data[port_slicer_instance_name]
 
     @route('slicer', url, methods=['GET'],
            requirements={ 'dpid': dpid_lib.DPID_PATTERN })
