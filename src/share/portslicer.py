@@ -645,16 +645,18 @@ class PortSlicer(app_manager.RyuApp):
 
         ## The default rule should just drop everything.  Earlier
         ## rules should match specific ports, and send to the
-        ## controller, but only for multi-port slices.
-        match = ofp_parser.OFPMatch()
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      datapath=dp,
-                                      table_id=0,
-                                      priority=0,
-                                      match=match,
-                                      instructions=inst)
-        dp.send_msg(mymsg)
+        ## controller, but only for multi-port slices.  (This command
+        ## has been disabled, since the default behaviour of a table
+        ## is to drop anyway, so the rule is redundant.)
+        # match = ofp_parser.OFPMatch()
+        # inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+        # mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+        #                               datapath=dp,
+        #                               table_id=0,
+        #                               priority=0,
+        #                               match=match,
+        #                               instructions=inst)
+        # dp.send_msg(mymsg)
 
         ## Mark all slices as invalid, then revalidate them.
         if dp.id not in self.switches:
