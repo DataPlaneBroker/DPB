@@ -396,22 +396,32 @@ public class TunnelDesc {
         shapedRate = -1;
         queueProfile = null;
         if (isShaped) {
-            this.shapedRate =
-                ((Number) root.get("shaped-rate")).doubleValue();
+            this.shapedRate = getDouble(root, "shaped-rate", -1);
             this.queueProfile = root.get("queue-profile").toString();
         }
 
         this.operationalState = root.getString("oper-state");
         this.descr = root.getString("ifdescr");
 
-        @SuppressWarnings("unchecked")
-        Map<String, Long> meter = (Map<String, Long>) root.get("meter");
+        JsonObject meter = root.getJsonObject("meter");
         cir = cbs = eir = ebs = -1;
         if (meter != null) {
-            this.cir = meter.getOrDefault("cir", -1l);
-            this.cbs = meter.getOrDefault("cbs", -1l);
-            this.eir = meter.getOrDefault("eir", -1l);
-            this.ebs = meter.getOrDefault("ebs", -1l);
+            this.cir = getLong(meter, "cir", -1l);
+            this.cbs = getLong(meter, "cbs", -1l);
+            this.eir = getLong(meter, "eir", -1l);
+            this.ebs = getLong(meter, "ebs", -1l);
         }
+    }
+
+    private static long getLong(JsonObject obj, String key, long def) {
+        JsonNumber num = obj.getJsonNumber(key);
+        if (num == null) return def;
+        return num.longValue();
+    }
+
+    private static double getDouble(JsonObject obj, String key, double def) {
+        JsonNumber num = obj.getJsonNumber(key);
+        if (num == null) return def;
+        return num.longValue();
     }
 }
