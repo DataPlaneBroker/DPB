@@ -74,6 +74,10 @@ import uk.ac.lancs.rest.RESTResponse;
  * can notify of new port groups. This fabric handles QoS in the tunnels
  * it attaches to the VFC, so the controller does not handle QoS.
  * 
+ * @todo Try to detect when the OF controller has lost its state, and
+ * re-issue it. Or simply give it the full set of port sets every time
+ * it is invoked.
+ * 
  * @author simpsons
  */
 public final class PortSlicedVFCFabric implements Fabric {
@@ -208,6 +212,28 @@ public final class PortSlicedVFCFabric implements Fabric {
              * strategy DOES assume that the OF state is preserved, so
              * it cannot work in the case that the controller has been
              * restarted. */
+
+            /* TODO: A way to recover this strategy is to encode the
+             * information in the ifdescr field of each attachment.
+             * Ensure that each of our bridges has a unique int id, and
+             * set that as the ifdescr for each tunnel. When restarting,
+             * group each read tunnel configuration according to its
+             * ifdescr, and reform the bridge objects out of those
+             * (preserving the id). Then go to the controller and pass
+             * it all of the recovered port sets.
+             * 
+             * The problem will be when the tunnels have not all had
+             * their ifdescrs set up; they can't all be set up
+             * atomically. It might be better to set each one to the set
+             * of ports involved, so any can be used to recover; just
+             * use a <=255-nibble hex bitmap. (No need to allocate an id
+             * too!) If one tunnel is found to have an invalid ifdescr,
+             * but is implied by another to belong together, just fix
+             * its ifdescr. Otherwise, just delete the tunnel, and let
+             * our own persistent state fully recover the slice.
+             * 
+             * Finally, make sure to re-issue the controller with all
+             * port sets. */
 
             /* Load the mapping between OF port and circuit. */
             loadMapping();
