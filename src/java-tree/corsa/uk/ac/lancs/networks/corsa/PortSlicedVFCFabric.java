@@ -199,12 +199,32 @@ public final class PortSlicedVFCFabric implements Fabric {
             this.dpid = descRsp.message.dpid;
         }
 
-        /* Load the mapping between OF port and circuit. */
-        loadMapping();
+        if (false) {
+            /* This strategy cannot be relied upon. We're trying to
+             * recover after a restart, and we can assume that the Corsa
+             * has retained its bridge and tunnel configuration, but not
+             * its OpenFlow rules, nor the internal state of its
+             * controller (since that could have restarted too). This
+             * strategy DOES assume that the OF state is preserved, so
+             * it cannot work in the case that the controller has been
+             * restarted. */
 
-        /* Get port sets from the controller, and create corresponding
-         * bridge entities. */
-        collectPortSets();
+            /* Load the mapping between OF port and circuit. */
+            loadMapping();
+
+            /* Get port sets from the controller, and create
+             * corresponding bridge entities. */
+            collectPortSets();
+        } else {
+            /* We have no reliable state to work on but that which is in
+             * our database. This only make sense if start with a clean
+             * VFC, so we must remove all existing tunnels. */
+            for (int ofport : rest.getTunnels(bridgeId).message.keySet()) {
+                System.err.printf("Detaching ofport %d of bridge %s%n",
+                                  ofport, bridgeId);
+                rest.detachTunnel(bridgeId, ofport);
+            }
+        }
     }
 
     @Override
@@ -215,10 +235,22 @@ public final class PortSlicedVFCFabric implements Fabric {
     private class BridgeSlice {
         private final Map<Channel, TrafficFlow> service;
 
+        /**
+         * Create a bridge for something not already in the physical
+         * switch.
+         * 
+         * @param details the ports of the bridge
+         */
         BridgeSlice(Map<? extends Channel, ? extends TrafficFlow> details) {
             this.service = new HashMap<>(details);
         }
 
+        /**
+         * Create a bridge representing something already existing in
+         * the physical switch.
+         * 
+         * @param circuits the existing circuits
+         */
         BridgeSlice(Collection<? extends Channel> circuits) {
             this.service = new HashMap<>();
             for (Channel circuit : circuits)
@@ -518,6 +550,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         RESTResponse<Collection<? extends BitSet>> portSets =
             this.sliceRest.getPortSets(dpid);
         for (BitSet set : portSets.message) {
+            System.err.printf("Recreating bridge for %s%n", set);
             Collection<Channel> circuits = new HashSet<>();
             for (int i : BitSetIterable.of(set))
                 circuits.add(portToCircuit.get(i));
