@@ -38,6 +38,7 @@ package uk.ac.lancs.rest;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -132,7 +133,13 @@ public class RESTClient {
             result = null;
         } else {
             ByteArrayOutputStream bufOut = new ByteArrayOutputStream();
-            ent.getContent().transferTo(bufOut);
+            try (InputStream in = ent.getContent()) {
+                int c;
+                while ((c = in.read()) >= 0)
+                    bufOut.write(c);
+            }
+            // ent.getContent().transferTo(bufOut); //Java 9 only
+
             // System.err.printf("rsp: %s%n", bufOut.toString("UTF-8"));
             ByteArrayInputStream bufIn =
                 new ByteArrayInputStream(bufOut.toByteArray());
@@ -287,7 +294,7 @@ public class RESTClient {
             writer.writeObject(builder.build());
         }
         String text = out.toString();
-        //System.err.printf("req: %s%n", text);
+        // System.err.printf("req: %s%n", text);
 
         /* Create an HTTP entity whose content is the string. */
         return EntityBuilder.create()
