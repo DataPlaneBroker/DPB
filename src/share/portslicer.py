@@ -51,7 +51,8 @@
 ## set metadata to the slice's group, then match on the metadata in
 ## T1.  However, the Corsa doesn't support metadata, so we hack it by
 ## getting T0 to push the group as a VLAN tag, and then popping it in
-## the actions of T1.  Is it worth it?)
+## the actions of T1.  Is it worth it?  A global flag enables this
+## meta-as-VLAN hack.)
 
 ## Each multiport slice gets a group, whose behaviour is to send to
 ## all ports in the slice (implicitly excepting the in_port).
@@ -85,6 +86,8 @@ LOG = logging.getLogger(__name__)
 
 port_slicer_instance_name = 'slicer_api_app'
 url = '/slicer/api/v1/config/{dpid}'
+
+use_vlans_as_meta=False
 
 class Slice:
     def __init__(self, outer):
@@ -308,23 +311,41 @@ class Slice:
                                          buckets=buckets)
             dp.send_msg(msg)
 
-            ## Make sure that unknown destinations in this slice are
-            ## broadcast to the group.  We match the slice by the
-            ## pseudo-VLAN tag we added in T0, and this must be
-            ## removed first.  This rule will automatically be deleted
-            ## when the group is deleted.
-            match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
-            actions = [ofp_parser.OFPActionPopVlan(),
-                       ofp_parser.OFPActionGroup(self.group)]
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     actions)]
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                        datapath=dp,
-                                        table_id=1,
-                                        priority=1,
-                                        match=match,
-                                        instructions=inst)
-            dp.send_msg(msg)
+            if use_vlans_as_meta:
+                ## Make sure that unknown destinations in this slice
+                ## are broadcast to the group.  We match the slice by
+                ## the pseudo-VLAN tag we added in T0, and this must
+                ## be removed first.  This rule will automatically be
+                ## deleted when the group is deleted.
+                match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
+                actions = [ofp_parser.OFPActionPopVlan(),
+                           ofp_parser.OFPActionGroup(self.group)]
+                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                         actions)]
+                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                            datapath=dp,
+                                            table_id=1,
+                                            priority=1,
+                                            match=match,
+                                            instructions=inst)
+                dp.send_msg(msg)
+
+        if not use_vlans_as_meta:
+            ## Make any packet from one of our ports but with an
+            ## unrecognized destination go out on all ports (except
+            ## in_port).
+            for p in newports:
+                match = ofp_parser.OFPMatch(in_port=p)
+                actions = [ofp_parser.OFPActionGroup(self.group)]
+                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                         actions)]
+                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                            datapath=dp,
+                                            table_id=1,
+                                            priority=1,
+                                            match=match,
+                                            instructions=inst)
+                dp.send_msg(msg)
 
         ## The set has changed.  Set the group to output to the target
         ## set.
@@ -698,8 +719,14 @@ class PortSlicer(app_manager.RyuApp):
 
         slize.unsee(mac, in_port)
 
-        ## Delete the MAC/group tuple from the destination table (1).
-        match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
+        if use_vlans_as_meta:
+            ## Delete the MAC/group tuple from the destination table
+            ## (1).
+            match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
+        else:
+            ## Delete the MAC/out-port tuple from the destination
+            ## table (1).
+            match = ofp_parser.OFPMatch(eth_dst=mac)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                     datapath=dp,
                                     table_id=1,
@@ -751,24 +778,40 @@ class PortSlicer(app_manager.RyuApp):
         ofp = dp.ofproto
         ofp_parser = dp.ofproto_parser
 
-        ## In the destination table, map the destination address and
-        ## slice id (encoded as VLAN id) to the destination's port,
-        ## overwriting any previous mapping.  This prevents further
-        ## flooding for that destination on that slice.  Make sure the
-        ## fake VLAN tag used to carry the slice's group id is popped
-        ## before transmission.
-        match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
-        actions = [ofp_parser.OFPActionPopVlan(),
-                   ofp_parser.OFPActionOutput(port)]
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions)]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      datapath=dp,
-                                      table_id=1,
-                                      priority=2,
-                                      match=match,
-                                      instructions=inst)
-        dp.send_msg(mymsg)
+        if use_vlans_as_meta:
+            ## In the destination table, map the destination address and
+            ## slice id (encoded as VLAN id) to the destination's port,
+            ## overwriting any previous mapping.  This prevents further
+            ## flooding for that destination on that slice.  Make sure the
+            ## fake VLAN tag used to carry the slice's group id is popped
+            ## before transmission.
+            match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
+            actions = [ofp_parser.OFPActionPopVlan(),
+                       ofp_parser.OFPActionOutput(port)]
+            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                          datapath=dp,
+                                          table_id=1,
+                                          priority=2,
+                                          match=match,
+                                          instructions=inst)
+            dp.send_msg(mymsg)
+        else:
+            for p in ports:
+                if p == port:
+                    continue
+                match = ofp_parser.OFPMatch(in_port=p, eth_dst=mac)
+                actions = [ofp_parser.OFPActionOutput(port)]
+                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                         actions)]
+                mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                              datapath=dp,
+                                              table_id=1,
+                                              priority=2,
+                                              match=match,
+                                              instructions=inst)
+                dp.send_msg(mymsg)
 
         ## Make sure that, if the source address is seen again on a
         ## different port in the slice, the controller will deal with
@@ -788,13 +831,20 @@ class PortSlicer(app_manager.RyuApp):
 
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
-        ## again.  TODO: Drop setgrp, and just set
-        ## vlan_vid=0x1000|group?
+        ## again.
         match = ofp_parser.OFPMatch(in_port=port, eth_src=mac)
-        setgrp = ofp_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
-                                               0x1000|group)
-        actions = [ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                   ofp_parser.OFPActionSetField(setgrp)]
+        if use_vlans_as_meta:
+            ## We record which slice the packet belongs to by pushing
+            ## a VLAN tag with its allocated group id.  The
+            ## destination table will pop it off before transmission,
+            ## so it never leaves the switch.  TODO: Drop setgrp, and
+            ## just set vlan_vid=0x1000|group?
+            setgrp = ofp_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
+                                                   0x1000|group)
+            actions = [ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                       ofp_parser.OFPActionSetField(setgrp)]
+        else:
+            actions = []
         inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                  actions),
                 ofp_parser.OFPInstructionGotoTable(1)]
