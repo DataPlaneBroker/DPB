@@ -838,18 +838,17 @@ class PortSlicer(app_manager.RyuApp):
         ## Make sure that, if the source address is seen again on a
         ## different port in the slice, the controller will deal with
         ## it.
-        for p in ports:
-            if p == port:
-                continue
-            match = ofp_parser.OFPMatch(in_port=p, eth_src=mac)
-            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                          datapath=dp,
-                                          table_id=0,
-                                          buffer_id=ofp.OFPCML_NO_BUFFER,
-                                          out_port=ofp.OFPP_ANY,
-                                          out_group=ofp.OFPG_ANY,
-                                          match=match)
-            dp.send_msg(mymsg)
+        match = ofp_parser.OFPMatch(eth_src=mac)
+        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      cookie=group,
+                                      cookie_mask=0xffffffffffffffff,
+                                      datapath=dp,
+                                      table_id=0,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY,
+                                      match=match)
+        dp.send_msg(mymsg)
 
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
@@ -871,6 +870,7 @@ class PortSlicer(app_manager.RyuApp):
                                                  actions),
                 ofp_parser.OFPInstructionGotoTable(1)]
         mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      cookie=group,
                                       datapath=dp,
                                       table_id=0,
                                       priority=2,
