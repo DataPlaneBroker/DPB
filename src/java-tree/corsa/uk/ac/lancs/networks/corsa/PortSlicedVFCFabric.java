@@ -43,6 +43,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -201,6 +202,28 @@ public final class PortSlicedVFCFabric implements Fabric {
                 throw new RuntimeException("bridge info failure: "
                     + descRsp.code);
             this.dpid = descRsp.message.dpid;
+        }
+
+        /* Attempt to contact the controller. Try a few times, as it
+         * might not have come up yet, but is on the way. */
+        long delay = 5000;
+        for (int i = 0; i < 20; i++) {
+            try {
+                System.err.printf("Attempting contact with controller...%n");
+                sliceRest.definePortSets(dpid, Collections.emptySet());
+            } catch (IOException ex) {
+                try {
+                    System.err.printf("No contact; sleeping %gs...%n",
+                                      delay / 1000.0);
+                    Thread.sleep(delay);
+                } catch (InterruptedException e) {
+                    /* Just try again. */
+                    continue;
+                }
+                delay += delay / 2;
+                continue;
+            }
+            break;
         }
 
         if (false) {
