@@ -335,6 +335,7 @@ class Slice:
             ## unrecognized destination go out on all ports (except
             ## in_port).
             for p in newports:
+                LOG.info("%016x: unknown macs from %d to controller", dp.id, p)
                 match = ofp_parser.OFPMatch(in_port=p)
                 actions = [ofp_parser.OFPActionGroup(self.group)]
                 inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
@@ -500,12 +501,15 @@ class SwitchStatus:
             slize.invalidate()
 
     def reset_port(self, port):
+        if port not in self.known_ports:
+            return
         dp = self.datapath
         ofp = dp.ofproto
         ofp_parser = dp.ofproto_parser
 
         ## Delete dynamic rules in the source table matching this
         ## in_port and passing on to the destination table.
+        LOG.info("%016x: resetting port %d in T0", dp.id, port)
         match = ofp_parser.OFPMatch(in_port=port)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                     datapath=dp,
@@ -518,6 +522,7 @@ class SwitchStatus:
 
         ## Delete dynamic rules in the destination table outputting
         ## unicast to the port.
+        LOG.info("%016x: resetting port %d in T1", dp.id, port)
         match = ofp_parser.OFPMatch()
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                     datapath=dp,
@@ -606,6 +611,7 @@ class PortSlicer(app_manager.RyuApp):
         status = self.switches[dp.id]
         status.port_removed(port.port_no)
         status.revalidate()
+        LOG.info("%016x: port %d removal complete", dp.id, port.port_no)
         return
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
@@ -931,9 +937,11 @@ class SliceController(ControllerBase):
 
         if dpid not in self.ctrl.switches:
             self.ctrl.switches[dpid] = SwitchStatus()
+        LOG.info("%016x: post %s", dpid, new_config)
         status = self.ctrl.switches[dpid]
         if 'disused' in new_config:
             for p in new_config['disused']:
+                LOG.info("%016x: dropping %d", dpid, p)
                 status.discard_port(p)
         if 'slices' in new_config:
             for ps in new_config['slices']:
