@@ -725,20 +725,18 @@ class PortSlicer(app_manager.RyuApp):
 
         slize.unsee(mac, in_port)
 
-        if use_vlans_as_meta:
-            ## Delete the MAC/group tuple from the destination table
-            ## (1).
-            match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
-        else:
-            ## Delete the MAC/out-port tuple from the destination
-            ## table (1).
-            match = ofp_parser.OFPMatch(eth_dst=mac)
+        ## Delete learned rules in the destination table matching this
+        ## destination and belonging to this group (as identified by
+        ## cookie).
+        match = ofp_parser.OFPMatch(eth_dst=mac)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    cookie=group,
+                                    cookie_mask=0xffffffffffffffff,
                                     datapath=dp,
                                     table_id=1,
                                     match=match,
                                     buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=in_port,
+                                    out_port=ofp.OFPP_ANY,
                                     out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
@@ -797,6 +795,7 @@ class PortSlicer(app_manager.RyuApp):
             inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
             mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                          cookie=group,
                                           datapath=dp,
                                           table_id=1,
                                           priority=2,
@@ -804,14 +803,25 @@ class PortSlicer(app_manager.RyuApp):
                                           instructions=inst)
             dp.send_msg(mymsg)
         else:
+            ## For each port, match the destination and send to the
+            ## port associated with the mac.  However, for traffic
+            ## matching that destination but coming from the
+            ## associated port, simply drop it.  Set the cookie to
+            ## record which group these rules belong to, so we can
+            ## delete them without deleting similar rules for the same
+            ## mac in a different group.
             for p in ports:
-                if p == port:
-                    continue
                 match = ofp_parser.OFPMatch(in_port=p, eth_dst=mac)
-                actions = [ofp_parser.OFPActionOutput(port)]
+                if p == port:
+                    LOG.info("%016x: adding %d/%17s -> drop", dp.id, p, mac)
+                    actions = []
+                else:
+                    LOG.info("%016x: adding %d/%17s -> %d", dp.id, p, mac, port)
+                    actions = [ofp_parser.OFPActionOutput(port)]
                 inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                          actions)]
                 mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                              cookie=group,
                                               datapath=dp,
                                               table_id=1,
                                               priority=2,
