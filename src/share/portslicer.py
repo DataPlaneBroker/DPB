@@ -108,7 +108,9 @@ class Slice:
         self.mac_port = { }
 
     def see(self, mac, port):
+        oldport = self.mac_port.get(mac)
         self.mac_port[mac] = port
+        return oldport
 
     def unsee(self, mac, port):
         if port in self.target:
