@@ -718,7 +718,11 @@ class PortSlicer(app_manager.RyuApp):
         ofp_parser = dp.ofproto_parser
         status = self.switches[dp.id]
         slize = status.get_slice(in_port)
+        if slize is None:
+            return
         group = slize.get_group()
+        if group < 0:
+            return
 
         LOG.info("%016x: P%03d/G%03d/%17s not heard from",
                  dp.id, in_port, group, mac)
