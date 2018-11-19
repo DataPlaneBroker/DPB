@@ -968,8 +968,8 @@ class SliceController(ControllerBase):
         LOG.info("%016x: completed changes", dpid)
         if 'learn' in new_config:
             dp = api.get_datapath(self.ctrl, dpid)
-            mac = new_config['learn']['mac'];
-            port = new_config['learn']['port'];
+            mac = new_config['learn']['mac']
+            port = new_config['learn']['port']
             timeout = new_config['learn']['timeout'] \
                       if 'timeout' in new_config['learn'] \
                          else 600
