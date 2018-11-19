@@ -140,6 +140,7 @@ from ryu.ofproto import ether
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+from ryu.app.ofctl import api
 from ryu.app.wsgi import ControllerBase, WSGIApplication, route
 from ryu.lib import dpid as dpid_lib
 from webob import Response
@@ -1162,6 +1163,15 @@ class SliceController(ControllerBase):
                 LOG.info("%016x: creating %s", dpid, tuples_text(ps))
                 status.create_slice(ps)
         status.revalidate()
+        LOG.info("%016x: completed changes", dpid)
+        if 'learn' in new_config:
+            dp = api.get_datapath(self.ctrl, dpid)
+            mac = new_config['learn']['mac']
+            tup = tuple(new_config['learn']['tuple'])
+            timeout = new_config['learn']['timeout'] \
+                      if 'timeout' in new_config['learn'] \
+                         else 600
+            self.ctrl._learn(dp, tup, mac, timeout=timeout);
 
         body = json.dumps(status.get_config()) + "\n"
         return Response(content_type='application/json', body=body)
