@@ -358,7 +358,7 @@ class Slice:
         ## We have full learning switch behaviour.  Ensure that
         ## each tuple's group points to each of the other tuples
         ## in the slice.
-        for stup in newports:
+        for stup in self.sanitized:
             ## Ensure that this tuple has a group.  Create/modify the
             ## group entry in the switch with all the tuples in the
             ## target set, except for the one represented by the
@@ -401,6 +401,7 @@ class Slice:
                                             instructions=inst)
                 dp.send_msg(msg)
 
+        for stup in newports:
             ## Packets from this tuple with unrecognized source MACs
             ## are to go to the controller.
             (match, tbl, prio) = self.switch.tuple_match(stup)
