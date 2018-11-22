@@ -404,6 +404,7 @@ class Slice:
         for stup in newports:
             ## Packets from this tuple with unrecognized source MACs
             ## are to go to the controller.
+            group = self.switch.get_group_for_tuple(stup)
             (match, tbl, prio) = self.switch.tuple_match(stup)
             actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
             inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
