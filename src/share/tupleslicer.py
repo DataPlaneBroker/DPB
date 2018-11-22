@@ -1080,7 +1080,7 @@ class TupleSlicer(app_manager.RyuApp):
                 continue
             sgroup = status.get_group_for_tuple(stup)
             (_, tbl, _) = status.tuple_match(stup, mac)
-            match = ofp_parser.OFPMatch(eth_dst=mac)
+            match = ofp_parser.OFPMatch(eth_src=mac)
             mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                           cookie=sgroup,
                                           cookie_mask=0xffffffffffffffff,
