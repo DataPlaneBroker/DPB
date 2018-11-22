@@ -1098,7 +1098,7 @@ class TupleSlicer(app_manager.RyuApp):
         ## distinguish it from rules for the same MAC in other slices.
         (match, tbl, prio) = status.tuple_match(tup, mac)
         actions = [ofp_parser.OFPActionSetField(metadata=group)]
-        if len(tup) > 1:
+        if len(tup) > 2:
             actions.append(ofp_parser.OFPActionPopVlan())
         inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                  actions),
