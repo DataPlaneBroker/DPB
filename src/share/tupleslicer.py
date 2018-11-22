@@ -1029,6 +1029,8 @@ class TupleSlicer(app_manager.RyuApp):
         return
 
     def _learn(self, dp, tup, mac, timeout=600):
+        if dp is None:
+            return
         LOG.info("%016x: %17s new on %s",
                  dp.id, mac, tuple_text(tup))
         status = self.switches[dp.id]
@@ -1044,6 +1046,8 @@ class TupleSlicer(app_manager.RyuApp):
 
         tups = slize.get_tuples()
         group = status.get_group_for_tuple(tup)
+        if group is None:
+            return
 
         ## Add rules in T2 to prevent flooding for this MAC address.
         ## Label the rule with the tuple's group, since we have no way
