@@ -997,8 +997,8 @@ class TupleSlicer(app_manager.RyuApp):
                 tup = (match['in_port'], match['metadata'])
             else:
                 tup = (match['in_port'],
-                       match['vlan_vid'] & 0xfff,
-                       match['metadata'])
+                       match['metadata'],
+                       match['vlan_vid'] & 0xfff)
         ## We've not seen a packet from this MAC on its last tuple
         ## for a while.
         self._not_heard_from(dp, tup, match['eth_src'])
