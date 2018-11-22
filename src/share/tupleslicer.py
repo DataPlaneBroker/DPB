@@ -796,6 +796,10 @@ class SwitchStatus:
             for tup in slize.get_tuples():
                 self.invalid_first_tag_rules.discard(tup[0:2])
 
+        dp = self.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+
         ## Delete rules corresponding to the remaining candidates.
         for tup in self.invalid_first_tag_rules:
             port = tup[0]
