@@ -993,7 +993,7 @@ class TupleSlicer(app_manager.RyuApp):
         if msg.table_id == 0:
             tup = (match['in_port'],)
         else:
-            if match['vlan_vid'] == 0x0000:
+            if 'vlan_vid' not in match:
                 tup = (match['in_port'], match['metadata'])
             else:
                 tup = (match['in_port'],
