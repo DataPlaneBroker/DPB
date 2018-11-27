@@ -117,7 +117,10 @@ class Slice:
             self.mac_port.pop(mac, None)
 
     def lookup(self, mac):
-        return self.mac_port.get(mac)
+        port = self.mac_port.get(mac)
+        if port is None or port not in self.established:
+            return None
+        return port
 
     def get_group(self):
         return self.group
