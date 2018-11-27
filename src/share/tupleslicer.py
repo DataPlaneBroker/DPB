@@ -277,7 +277,7 @@ class Slice:
             ## Each tuple should have a group, but doesn't need it any
             ## more.  Release it.
             for tup in oldtups:
-                group = self.switch.release_tuple(tup)
+                group = self.switch.release_group_by_tuple(tup)
                 if group is None:
                     continue
                 assert group is not None
@@ -631,7 +631,7 @@ class SwitchStatus:
 
     ## Release the group id allocated to a given tuple.  Return the
     ## formerly allocated group id.
-    def release_tuple(self, tup):
+    def release_group_by_tuple(self, tup):
         tup = tuple(tup)
         if tup not in self.tuple_to_group:
             return
@@ -710,7 +710,7 @@ class SwitchStatus:
                                     out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
-        group = self.release_tuple(tup)
+        group = self.release_group_by_tuple(tup)
         if group is not None:
             ## Delete the group associated with the tuple.  This also
             ## deletes the rule matching that group and sending to
