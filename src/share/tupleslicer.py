@@ -193,6 +193,10 @@ class Slice:
         ## of this slice
         self.established = set()
 
+        ## Record the ingress and egress rates for each tuple.
+        self.ingress_rates = { }
+        self.egress_rates = { }
+
     def get_tuples(self):
         return frozenset(self.target)
 
@@ -306,6 +310,10 @@ class Slice:
                                             out_group=ofp.OFPG_ANY)
                 dp.send_msg(msg)
 
+        ## Delete meters for tuples being discarded.
+        for tup in self.established - self.sanitized:
+            self.switch.release_meter_by_tuple(tup)
+
     ## Ensure that this slice has the right set of static rules, based
     ## on its tuple set.  If the number of tuple is greater than two,
     ## a group entry is needed per tuple, outputting to all other
@@ -314,6 +322,14 @@ class Slice:
     ## function only adds rules, and allocates groups.  Use
     ## delete_static_rules to delete rules and release groups.
     def add_static_rules(self):
+        ## Create or update meters for all tuples.
+        for tup in self.sanitized:
+            ingress = self.ingress_rates.get(tup)
+            egress = self.egress_rates.get(tup)
+            [inmtr, outmtr] = self.switch.claim_meter_for_tuple(tup,
+                                                                ingress,
+                                                                egress)
+
         if self.sanitized == self.established:
             ## Nothing has actually changed.
             return
@@ -372,6 +388,8 @@ class Slice:
             for dtup in self.sanitized:
                 if dtup == stup:
                     continue
+                ## TODO: If OF/1.5, and outmtr is not None, add a
+                ## meter action for this bucket.
                 actions = self.switch.tuple_action(dtup, stup[0])
                 buckets.append(ofp_parser.OFPBucket(actions=actions))
             msg = ofp_parser.OFPGroupMod(datapath=dp,
@@ -389,6 +407,8 @@ class Slice:
                 ## the group is deleted, because it refers to the
                 ## group in its actions.
                 match = ofp_parser.OFPMatch(metadata=group)
+                ## TODO: If outmtr is not None, add a meter action for
+                ## this output.
                 actions = [ofp_parser.OFPActionGroup(group)]
                 inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                          actions)]
@@ -406,6 +426,8 @@ class Slice:
             ## are to go to the controller.
             group = self.switch.get_group_for_tuple(stup)
             (match, tbl, prio) = self.switch.tuple_match(stup)
+            ## TODO: If inmtr is not None, add a meter action for this
+            ## input.
             actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
             inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
@@ -469,6 +491,12 @@ class SwitchStatus:
         ## Record the tuple-group mapping in both directions.
         self.group_to_tuple = { }
         self.tuple_to_group = { }
+
+        ## Record the meter pair for each tuple.  The value N means
+        ## that the tuple should user meter 2*N for ingress and 2*N+1
+        ## for egress.
+        self.free_meters = set([ 0 ])
+        self.tuple_to_meter = { }
 
         ## tuple -> Slice
         self.target_index = { }
@@ -602,6 +630,86 @@ class SwitchStatus:
             slize.adopt(tup)
         return slize
 
+    ## Ensure that a given tuple has a pair of meters assigned to it.
+    ## The meters are created or modified to match the provided
+    ## ingress and egress rates as required.  The meter numbers are
+    ## returned as a pair of integers [ingress, egress].  However, if
+    ## a rate is unspecified, the correspinding meter will not be set
+    ## up, and None will appear in the returned pair.
+    def claim_meter_for_tuple(self, tup, ingress=None, egress=None):
+        dp = self.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+
+        tup = tuple(tup)
+        pair = self.tuple_to_meter.get(tup)
+        if pair is None:
+            ## A meter pair must be allocated.
+            pair = min(self.free_meters)
+            self.free_meters.discard(pair)
+            if len(self.free_meters) == 0:
+                self.free_meters.add(pair + 1)
+            cmd = ofp.OFPMC_ADD
+        else:
+            cmd = ofp.OFPMC_MODIFY
+
+        ## Create the meters with the specified rates.
+        inid = pair * 2
+        outid = inid + 1
+        if ingress is None:
+            inid = None
+        else:
+            inbands = [ofp_parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
+                                                   len_=0,
+                                                   rate=ingress,
+                                                   burst_size=ingress / 10)]
+            msg = ofp_parser.OFPMeterMod(datapath=dp,
+                                         command=cmd,
+                                         flags=ofp.OFPMF_KBPS,
+                                         meter_id=inid,
+                                         bands=inbands)
+            dp.send_msg(msg)
+        if egress is None:
+            outid = None
+        else:
+            outbands = [ofp_parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
+                                                    len_=0,
+                                                    rate=egress,
+                                                    burst_size=egress / 10)]
+            msg = ofp_parser.OFPMeterMod(datapath=dp,
+                                         command=cmd,
+                                         flags=ofp.OFPMF_KBPS,
+                                         meter_id=outid,
+                                         bands=outbands)
+            dp.send_msg(msg)
+        return [inid, outid]
+
+    ## Delete any meters associated with the given tuple, and
+    ## de-allocate them internally.
+    def release_meter_by_tuple(self, tup):
+        tup = tuple(tup)
+        if tup not in self.tuple_to_meter:
+            return
+        pair = self.tuple_to_meter.pop(tup)
+        self.free_meters.add(pair)
+
+        dp = self.datapath
+        ofp = dp.ofproto
+        ofp_parser = dp.ofproto_parser
+        inid = pair * 2
+        outid = indi + 1
+        msg = ofp_parser.OFPMeterMod(datapath=dp,
+                                     command=ofp.OFPMC_DELETE,
+                                     flags=0,
+                                     meter_id=inid)
+        dp.send_msg(msg)
+        msg = ofp_parser.OFPMeterMod(datapath=dp,
+                                     command=ofp.OFPMC_DELETE,
+                                     flags=0,
+                                     meter_id=outid)
+        dp.send_msg(msg)
+        return
+
     ## Get the group id for a given tuple, without attempting to
     ## allocate one if not already allocated.
     def get_group_for_tuple(self, tup):
@@ -709,6 +817,8 @@ class SwitchStatus:
                                     out_port=ofp.OFPP_ANY,
                                     out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
+
+        self.release_meter_by_tuple(tup)
 
         group = self.release_group_by_tuple(tup)
         if group is not None:
@@ -910,6 +1020,13 @@ class TupleSlicer(app_manager.RyuApp):
         ## A switch has been attached.  Set up static flows.
         LOG.info("%016x: New switch", dp.id)
 
+        ## Delete all meters.
+        mymsg = ofp_parser.OFPMeterMod(datapath=dp,
+                                       command=ofp.OFPMC_DELETE,
+                                       flags=0,
+                                       meter_id=ofp.OFPM_ALL)
+        dp.send_msg(mymsg)
+
         ## Delete all flows in T0, T1, T2.
         match = ofp_parser.OFPMatch()
         for tbl in (0, 1, 2):
@@ -1060,6 +1177,8 @@ class TupleSlicer(app_manager.RyuApp):
             ## Drop if this packet would be forwarded to its input.
             actions = [] if group == dgroup \
                       else status.tuple_action(tup, dtup[0])
+            ## TODO: If inmtr is not None, add a meter action for this
+            ## input.
             inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
             mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
@@ -1101,6 +1220,8 @@ class TupleSlicer(app_manager.RyuApp):
         actions = [ofp_parser.OFPActionSetField(metadata=group)]
         if len(tup) > 2:
             actions.append(ofp_parser.OFPActionPopVlan())
+        ## TODO: If inmtr is not None, add a meter action for this
+        ## input.
         inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                  actions),
                 ofp_parser.OFPInstructionGotoTable(2)]
