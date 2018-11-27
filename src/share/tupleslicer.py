@@ -197,6 +197,24 @@ class Slice:
         self.ingress_rates = { }
         self.egress_rates = { }
 
+        ## Keep track of the tuple on which a MAC was last seen.
+        self.mac_tup = { }
+
+    def see(self, mac, tup):
+        oldtup = self.mac_tup.get(mac)
+        self.mac_tup[mac] = tup
+        return oldtup
+
+    def unsee(self, mac, tup):
+        if tup in self.target:
+            self.mac_tup.pop(mac, None)
+
+    def lookup(self, mac):
+        tup = self.mac_tup.get(mac)
+        if tup is None or tup not in self.established:
+            return None
+        return tup
+
     def get_tuples(self):
         return frozenset(self.target)
 
@@ -1132,6 +1150,8 @@ class TupleSlicer(app_manager.RyuApp):
         LOG.info("%016x: %s/G%03d/%17s not heard from",
                  dp.id, tuple_text(tup), group, mac)
 
+        slize.unsee(mac, tup)
+
         ## Delete unicast rules from the destination table (2).
         match = ofp_parser.OFPMatch(eth_dst=mac)
         msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
@@ -1166,6 +1186,8 @@ class TupleSlicer(app_manager.RyuApp):
         group = status.get_group_for_tuple(tup)
         if group is None:
             return
+
+        slize.see(mac, tup)
 
         ## Add rules in T2 to prevent flooding for this MAC address.
         ## Label the rule with the tuple's group, since we have no way
@@ -1236,6 +1258,8 @@ class TupleSlicer(app_manager.RyuApp):
                                       instructions=inst)
         dp.send_msg(mymsg)
 
+        return slize
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
         msg = ev.msg
@@ -1243,12 +1267,14 @@ class TupleSlicer(app_manager.RyuApp):
         dp = msg.datapath
         ofp = dp.ofproto
         ofp_parser = dp.ofproto_parser
+        status = self.switches[dp.id]
 
         ## We are only called if a packet has an unrecognized source
         ## address.  Extract the fields we're interested in.
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
         mac = eth.src
+        dmac = eth.dst
         in_port = msg.match['in_port']
 
         ## Form the tuple from in_port, metadata and vlan_vid.  Pop
@@ -1256,34 +1282,47 @@ class TupleSlicer(app_manager.RyuApp):
         pop_vlan = False
         if tbl == 0:
             tup = (in_port,)
-        elif (msg.match['vlan_vid'] & 0x1000) != 0:
-            tup = (in_port, msg.match['metadata'],
+        elif 'vlan_vid' in msg.match:
+            tup = (in_port,
+                   msg.match['metadata'],
                    msg.match['vlan_vid'] & 0x0fff)
             pop_vlan = True
         else:
-            tup = (in_port, msg.match['metadata'])
+            tup = (in_port,
+                   msg.match['metadata'])
 
         ## Learn that this MAC address has most recently been seen on
         ## this port.
-        self._learn(dp, tup, mac)
+        slize = self._learn(dp, tup, mac)
 
         ## Commit our changes before we submit the packet back through
         ## the tables.
-        dp.send_msg(ofp_parser.OFPBarrierRequest(dp))
-        
-        actions = []
-        if len(tup) == 3:
-            ## Push the outer VLAN tag back on.  The inner is still
-            ## there.
-            actions.append(ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021AD))
-            actions.append(ofp_parser.OFPActionSetField(vlan_vid=0x1000|tup[2]))
-        elif len(tup) == 2:
-            ## Push the sole VLAN tag back on.
-            actions.append(ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q))
-            actions.append(ofp_parser.OFPActionSetField(vlan_vid=0x1000|tup[1]))
-        ## Send back through the tables as if it came through the same
-        ## input port.
-        actions.append(ofp_parser.OFPActionOutput(ofp.OFPP_TABLE))
+        #dp.send_msg(ofp_parser.OFPBarrierRequest(dp))
+
+        ## Where is this packet going?
+        dtup = slize.lookup(dmac)
+
+        ## Build up the steps to deal with the packet.
+        if dtup is None:
+            ## If we haven't seen this destination recently, we output
+            ## to the source tuple's group action.
+            group = status.get_group_for_tuple(tup)
+            if group is None:
+                return
+            actions = [ofp_parser.OFPActionGroup(group)]
+        elif dtup == tup:
+            ## Don't loop packets back.
+            return
+        else:
+            ## Perform the defined actions for the destination tuple.
+            actions = status.tuple_action(dtup, in_port)
+
+        ## Make sure we've popped off the extra VLAN before we do
+        ## anything else.
+        if pop_vlan:
+            actions.insert(0, ofp_parser.OFPActionPopVlan())
+
+        ## Issue the packet.
         mymsg = ofp_parser.OFPPacketOut(datapath=dp,
                                         buffer_id=msg.buffer_id,
                                         in_port=in_port,
