@@ -1512,11 +1512,11 @@ public class PersistentAggregator implements Aggregator {
         this.dbConnectionAddress = dbConfig.get("service");
         this.dbConnectionConfig = dbConfig.toProperties();
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
-        this.terminalTable = dbConfig.get("terminals.table", "terminal_map");
+        this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
         this.subserviceTable = dbConfig.get("services.table", "subservices");
         this.trunkTable = dbConfig.get("trunks.table", "trunks");
-        this.labelTable = dbConfig.get("labels.table", "label_map");
+        this.labelTable = dbConfig.get("labels.table", "labels");
 
         serviceWatcher.start();
         trunkWatcher.start();
