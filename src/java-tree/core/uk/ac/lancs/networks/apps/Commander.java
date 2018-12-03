@@ -665,6 +665,12 @@ public final class Commander {
      * the trunk at the specified terminal. Map <var>low</var> to
      * <var>peer-low</var> on the peer terminal.
      * 
+     * <dt><samp>close <var>terminal</var>
+     * <var>low</var>-<var>high</var></samp>
+     * 
+     * <dd>Make labels <var>low</var> to <var>high</var> unavailable on
+     * the trunk at the specified terminal.
+     * 
      * <dt><samp>new</samp>
      * 
      * <dd>Create a new service for the current network.
