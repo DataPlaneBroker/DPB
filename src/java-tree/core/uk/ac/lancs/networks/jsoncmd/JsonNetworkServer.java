@@ -53,6 +53,7 @@ import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
+import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.ExpiredServiceException;
 import uk.ac.lancs.networks.InvalidServiceException;
@@ -286,16 +287,20 @@ public class JsonNetworkServer {
 
             case "get-model": {
                 double minBw = req.getJsonNumber("min-bw").doubleValue();
-                Map<Edge<Terminal>, Double> model =
+                Map<Edge<Terminal>, ChordMetrics> model =
                     network.getControl().getModel(minBw);
                 JsonArrayBuilder result = Json.createArrayBuilder();
-                for (Map.Entry<Edge<Terminal>, Double> entry : model
+                for (Map.Entry<Edge<Terminal>, ChordMetrics> entry : model
                     .entrySet()) {
                     Edge<Terminal> edge = entry.getKey();
-                    double value = entry.getValue();
-                    result.add(Json.createObjectBuilder()
+                    ChordMetrics metrics = entry.getValue();
+                    JsonObjectBuilder ob = Json.createObjectBuilder()
                         .add("from", edge.get(0).name())
-                        .add("to", edge.get(1).name()).add("weight", value));
+                        .add("to", edge.get(1).name());
+                    metrics.copyDelay(v -> ob.add("weight", v));
+                    metrics.copyUpstream(v -> ob.add("upstream", v));
+                    metrics.copyDownstream(v -> ob.add("downstream", v));
+                    result.add(ob);
                 }
                 return one(Json.createObjectBuilder().add("edges", result)
                     .build());

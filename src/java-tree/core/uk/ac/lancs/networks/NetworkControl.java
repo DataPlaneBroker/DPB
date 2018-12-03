@@ -137,5 +137,5 @@ public interface NetworkControl {
      * @return a mesh of weighted edges between this network's external
      * ports summarizing the internal connectivity of the network
      */
-    Map<Edge<Terminal>, Double> getModel(double minimumBandwidth);
+    Map<Edge<Terminal>, ChordMetrics> getModel(double minimumBandwidth);
 }

@@ -56,6 +56,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
@@ -1221,11 +1222,16 @@ public class TransientAggregator implements Aggregator {
         /* The edges include virtual ones constituting models of
          * inferior switches. Also make a note of connected terminals
          * within an inferior switch, in case it is a fragmented
-         * aggregate. */
-        Map<Edge<Terminal>, Double> switchEdgeWeights = switches.stream()
+         * aggregate. TODO: Use the bandwidths specified in the metrics
+         * to check the results. */
+        Map<Edge<Terminal>, ChordMetrics> switchEdgeMetrics = switches
+            .stream()
             .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
+        Map<Edge<Terminal>, Double> switchEdgeWeights =
+            switchEdgeMetrics.entrySet().stream().collect(Collectors
+                .toMap(Map.Entry::getKey, e -> e.getValue().delay()));
         fibGraph.addEdges(switchEdgeWeights);
         // System.err.printf("Switch weights: %s%n", switchEdgeWeights);
         Map<Terminal, Collection<Terminal>> terminalGroups = Graphs
@@ -1525,7 +1531,8 @@ public class TransientAggregator implements Aggregator {
          * and combine their edges with the trunks. */
         edges.putAll(switches.stream()
             .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
-            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
+            .collect(Collectors.toMap(e -> e.getKey(),
+                                      e -> e.getValue().delay())));
         // System.err.println("Edges of trunks and switches: " + edges);
 
         /* Get rid of spurs as a small optimization. */
@@ -1537,7 +1544,8 @@ public class TransientAggregator implements Aggregator {
         return Graphs.route(innerTerminals, edges);
     }
 
-    synchronized Map<Edge<Terminal>, Double> getModel(double bandwidth) {
+    synchronized Map<Edge<Terminal>, ChordMetrics>
+        getModel(double bandwidth) {
         /* Map the set of our circuits to the corresponding inner
          * terminals that our topology consists of. */
         Collection<Terminal> innerTerminalPorts = terminals.values().stream()
@@ -1554,7 +1562,7 @@ public class TransientAggregator implements Aggregator {
 
         /* For every combination of our exposed terminals, store the
          * total distance as part of the result. */
-        Map<Edge<Terminal>, Double> result = new HashMap<>();
+        Map<Edge<Terminal>, ChordMetrics> result = new HashMap<>();
         for (int i = 0; i + 1 < size; i++) {
             final MyTerminal start = termSeq.get(i);
             final Terminal innerStart = start.innerPort();
@@ -1567,7 +1575,7 @@ public class TransientAggregator implements Aggregator {
                 final Way<Terminal> way = startFib.get(innerEnd);
                 if (way == null) continue;
                 final Edge<Terminal> edge = Edge.of(start, end);
-                result.put(edge, way.distance);
+                result.put(edge, ChordMetrics.ofDelay(way.distance));
             }
         }
 
@@ -1590,7 +1598,7 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public Map<Edge<Terminal>, Double> getModel(double bandwidth) {
+        public Map<Edge<Terminal>, ChordMetrics> getModel(double bandwidth) {
             return TransientAggregator.this.getModel(bandwidth);
         }
 

@@ -44,6 +44,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
@@ -307,16 +308,17 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
+        public Map<Edge<Terminal>, ChordMetrics>
+            getModel(double minimumBandwidth) {
             synchronized (DummySwitch.this) {
                 List<Terminal> list = new ArrayList<>(terminals.values());
-                Map<Edge<Terminal>, Double> result = new HashMap<>();
+                Map<Edge<Terminal>, ChordMetrics> result = new HashMap<>();
                 int size = list.size();
                 for (int i = 0; i < size - 1; i++) {
                     for (int j = i + 1; j < size; j++) {
                         Edge<Terminal> edge =
                             Edge.of(list.get(i), list.get(j));
-                        result.put(edge, 0.001);
+                        result.put(edge, ChordMetrics.ofDelay(0.001));
                     }
                 }
                 return result;

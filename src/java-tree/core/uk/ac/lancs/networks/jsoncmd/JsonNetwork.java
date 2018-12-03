@@ -52,6 +52,7 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonString;
 
+import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
@@ -302,18 +303,26 @@ public class JsonNetwork implements Network {
         }
 
         @Override
-        public Map<Edge<Terminal>, Double> getModel(double minimumBandwidth) {
+        public Map<Edge<Terminal>, ChordMetrics>
+            getModel(double minimumBandwidth) {
             JsonObject req = startRequest("get-model")
                 .add("min-bw", minimumBandwidth).build();
             JsonObject rsp = interact(req);
-            Map<Edge<Terminal>, Double> model = new HashMap<>();
+            Map<Edge<Terminal>, ChordMetrics> model = new HashMap<>();
             for (JsonObject elem : rsp.getJsonArray("edges")
                 .getValuesAs(JsonObject.class)) {
                 Terminal from = getKnownTerminal(elem.getString("from"));
                 Terminal to = getKnownTerminal(elem.getString("to"));
-                double weight = elem.getJsonNumber("weight").doubleValue();
+                ChordMetrics.Builder cb = ChordMetrics.start();
+                if (elem.containsKey("weight"))
+                    cb.withDelay(elem.getJsonNumber("weight").doubleValue());
+                if (elem.containsKey("upstream")) cb
+                    .withDelay(elem.getJsonNumber("upstream").doubleValue());
+                if (elem.containsKey("downstream")) cb.withDelay(elem
+                    .getJsonNumber("downstream").doubleValue());
                 Edge<Terminal> edge = Edge.of(from, to);
-                model.put(edge, weight);
+                if (edge.get(0) != from) cb.reverse();
+                model.put(edge, cb.build());
             }
             return model;
         }

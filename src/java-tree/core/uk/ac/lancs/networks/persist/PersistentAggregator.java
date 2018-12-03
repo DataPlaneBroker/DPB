@@ -61,6 +61,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
@@ -1875,11 +1876,14 @@ public class PersistentAggregator implements Aggregator {
          * inferior networks. Also make a note of connected terminals
          * within an inferior network, in case it is a fragmented
          * aggregate. */
-        Map<Edge<Terminal>, Double> subnetworkEdgeWeights = subnetworks
+        Map<Edge<Terminal>, ChordMetrics> subnetworkEdgeMetrics = subnetworks
             .stream()
             .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
             .collect(Collectors.toMap(Map.Entry::getKey,
                                       Map.Entry::getValue));
+        Map<Edge<Terminal>, Double> subnetworkEdgeWeights =
+            subnetworkEdgeMetrics.entrySet().stream().collect(Collectors
+                .toMap(Map.Entry::getKey, e -> e.getValue().delay()));
         fibGraph.addEdges(subnetworkEdgeWeights);
         System.err.printf("Subnetwork count: %d%n", subnetworks.size());
         System.err.printf("Subnetwork edges: %s%n",
@@ -2055,7 +2059,8 @@ public class PersistentAggregator implements Aggregator {
          * and combine their edges with the trunks. */
         edges.putAll(subnetworks.stream()
             .flatMap(sw -> sw.getModel(bandwidth).entrySet().stream())
-            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue())));
+            .collect(Collectors.toMap(e -> e.getKey(),
+                                      e -> e.getValue().delay())));
 
         /* Get rid of spurs as a small optimization. */
         Graphs.prune(innerTerminals, edges.keySet());
@@ -2064,7 +2069,7 @@ public class PersistentAggregator implements Aggregator {
         return Graphs.route(innerTerminals, edges);
     }
 
-    Map<Edge<Terminal>, Double> getModel(double bandwidth) {
+    Map<Edge<Terminal>, ChordMetrics> getModel(double bandwidth) {
         try (Connection conn = openDatabase()) {
             conn.setAutoCommit(false);
 
@@ -2088,7 +2093,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* For every combination of our exposed terminals, store the
              * total distance as part of the result. */
-            Map<Edge<Terminal>, Double> result = new HashMap<>();
+            Map<Edge<Terminal>, ChordMetrics> result = new HashMap<>();
             for (int i = 0; i + 1 < size; i++) {
                 final SuperiorTerminal start = termSeq.get(i);
                 final Terminal innerStart = start.subterminal();
@@ -2101,7 +2106,7 @@ public class PersistentAggregator implements Aggregator {
                     final Way<Terminal> way = startFib.get(innerEnd);
                     if (way == null) continue;
                     final Edge<Terminal> edge = Edge.of(start, end);
-                    result.put(edge, way.distance);
+                    result.put(edge, ChordMetrics.ofDelay(way.distance));
                 }
             }
 
@@ -2113,7 +2118,7 @@ public class PersistentAggregator implements Aggregator {
 
     private final NetworkControl control = new NetworkControl() {
         @Override
-        public Map<Edge<Terminal>, Double> getModel(double bandwidth) {
+        public Map<Edge<Terminal>, ChordMetrics> getModel(double bandwidth) {
             return PersistentAggregator.this.getModel(bandwidth);
         }
 
