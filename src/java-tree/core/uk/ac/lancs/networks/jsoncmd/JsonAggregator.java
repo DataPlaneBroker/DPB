@@ -37,6 +37,8 @@ package uk.ac.lancs.networks.jsoncmd;
 
 import java.lang.reflect.UndeclaredThrowableException;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
@@ -154,6 +156,32 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
             super.checkErrors(rsp);
             break;
         }
+    }
+
+    @Override
+    public Map<Terminal, TerminalId> getTerminals() {
+        JsonObject req = Json.createObjectBuilder()
+            .add("type", "get-aggregator-terminals").build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        Map<Terminal, TerminalId> result = new HashMap<>();
+        JsonObject terms = rsp.getJsonObject("terminals");
+        for (String outerName : terms.keySet()) {
+            Terminal outer = getKnownTerminal(outerName);
+            JsonObject innerObj = terms.getJsonObject(outerName);
+            String innerNetworkName = innerObj.getString("subnetwork-name");
+            String innerTerminalName = innerObj.getString("subterminal-name");
+            TerminalId innerId =
+                TerminalId.of(innerNetworkName, innerTerminalName);
+            result.put(outer, innerId);
+        }
+        return result;
     }
 
     @Override

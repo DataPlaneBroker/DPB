@@ -1706,6 +1706,38 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
+    public Map<Terminal, TerminalId> getTerminals() {
+        try (Connection conn = openDatabase();
+            Statement stmt = conn.createStatement()) {
+            try (ResultSet rs = stmt.executeQuery("SELECT"
+                + " terminal_id, name, subnetwork, subname" + " FROM "
+                + terminalTable + ";")) {
+                Map<Terminal, TerminalId> result = new HashMap<>();
+                while (rs.next()) {
+                    final int id = rs.getInt(1);
+                    String outerName = rs.getString(2);
+                    String subnetworkName = rs.getString(3);
+                    String subname = rs.getString(4);
+                    NetworkControl subnetwork =
+                        inferiors.apply(subnetworkName);
+                    Terminal innerPort = subnetwork.getTerminal(subname);
+                    SuperiorTerminal outer =
+                        new SuperiorTerminal(getControl(), outerName,
+                                             innerPort, id);
+                    TerminalId inner = TerminalId.of(subnetworkName, subname);
+                    result.put(outer, inner);
+                }
+                return result;
+            }
+        } catch (SQLException ex) {
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "DB failure listing"
+                                                   + " terminals in database",
+                                               ex);
+        }
+    }
+
+    @Override
     public Terminal addTerminal(String name, TerminalId subterm)
         throws UnknownSubterminalException,
             UnknownSubnetworkException,
@@ -1725,7 +1757,6 @@ public class PersistentAggregator implements Aggregator {
                 SuperiorTerminal result =
                     new SuperiorTerminal(getControl(), name, inner, id);
                 return result;
-
             }
         } catch (SQLIntegrityConstraintViolationException ex) {
             throw new TerminalExistsException(PersistentAggregator.this, name,

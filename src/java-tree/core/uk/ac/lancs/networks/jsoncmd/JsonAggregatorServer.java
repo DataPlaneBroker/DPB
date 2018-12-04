@@ -35,11 +35,14 @@
  */
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
+import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.ExpiredTrunkException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
@@ -92,6 +95,20 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                 TerminalId subterm = TerminalId.of(subNetName, subTermName);
                 network.addTerminal(name, subterm);
                 return empty();
+            }
+
+            case "get-aggregator-terminals": {
+                JsonObjectBuilder terms = Json.createObjectBuilder();
+                for (Map.Entry<Terminal, TerminalId> entry : network
+                    .getTerminals().entrySet()) {
+                    TerminalId innerId = entry.getValue();
+                    terms.add(entry.getKey().name(),
+                              Json.createObjectBuilder()
+                                  .add("subnetwork-name", innerId.network)
+                                  .add("subterminal-name", innerId.terminal));
+                }
+                return one(Json.createObjectBuilder().add("terminals", terms)
+                    .build());
             }
 
             case "remove-trunk": {

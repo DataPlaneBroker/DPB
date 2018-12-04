@@ -1083,6 +1083,20 @@ public class TransientAggregator implements Aggregator {
         return result;
     }
 
+    @Override
+    public synchronized Map<Terminal, TerminalId> getTerminals() {
+        Map<Terminal, TerminalId> result = new HashMap<>();
+        for (MyTerminal outer : terminals.values()) {
+            Terminal inner = outer.innerPort();
+            String innerNetworkName = inner.getNetwork().name();
+            String innerTerminalName = inner.name();
+            TerminalId innerId =
+                TerminalId.of(innerNetworkName, innerTerminalName);
+            result.put(outer, innerId);
+        }
+        return result;
+    }
+
     /**
      * Remove a terminal from this switch.
      * 

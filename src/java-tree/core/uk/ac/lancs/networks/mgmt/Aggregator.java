@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.util.Map;
+
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Terminal;
 
@@ -189,4 +191,12 @@ public interface Aggregator extends Network {
             SubterminalBusyException,
             UnknownSubterminalException,
             UnknownSubnetworkException;
+
+    /**
+     * Get the mapping from this aggregator's terminals to inferior
+     * networks' terminals.
+     * 
+     * @return the terminal mapping
+     */
+    Map<Terminal, TerminalId> getTerminals();
 }
