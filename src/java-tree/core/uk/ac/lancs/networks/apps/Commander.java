@@ -522,13 +522,13 @@ public final class Commander {
             if (aggregator != null) {
                 for (Map.Entry<Terminal, TerminalId> entry : aggregator
                     .getTerminals().entrySet()) {
-                    System.out.printf("%s->%s%n", entry.getKey().name(),
+                    System.out.printf("%s -> %s%n", entry.getKey().name(),
                                       entry.getValue());
                 }
             } else if (zwitch != null) {
                 for (Map.Entry<Terminal, String> entry : zwitch.getTerminals()
                     .entrySet()) {
-                    System.out.printf("%s->%s%n", entry.getKey().name(),
+                    System.out.printf("%s -> %s%n", entry.getKey().name(),
                                       entry.getValue());
                 }
             } else {
