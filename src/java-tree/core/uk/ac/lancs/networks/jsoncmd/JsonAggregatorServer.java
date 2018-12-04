@@ -35,10 +35,12 @@
  */
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.json.Json;
+import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
@@ -108,6 +110,21 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                                   .add("subterminal-name", innerId.terminal));
                 }
                 return one(Json.createObjectBuilder().add("terminals", terms)
+                    .build());
+            }
+
+            case "get-trunks": {
+                JsonArrayBuilder trunks = Json.createArrayBuilder();
+                for (List<TerminalId> item : network.getTrunks()) {
+                    TerminalId s = item.get(0);
+                    TerminalId e = item.get(1);
+                    trunks.add(Json.createObjectBuilder()
+                        .add("start-network-name", s.network)
+                        .add("start-terminal-name", s.terminal)
+                        .add("end-network-name", e.network)
+                        .add("end-terminal-name", e.terminal).build());
+                }
+                return one(Json.createObjectBuilder().add("trunks", trunks)
                     .build());
             }
 

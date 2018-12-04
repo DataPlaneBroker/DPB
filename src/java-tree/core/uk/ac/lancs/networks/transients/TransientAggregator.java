@@ -1060,6 +1060,17 @@ public class TransientAggregator implements Aggregator {
     }
 
     @Override
+    public synchronized Collection<List<TerminalId>> getTrunks() {
+        Collection<List<TerminalId>> result = new HashSet<>();
+        for (MyTrunk tr : trunks.values()) {
+            TerminalId start = tr.getStartTerminal();
+            TerminalId end = tr.getEndTerminal();
+            result.add(Arrays.asList(start, end));
+        }
+        return result;
+    }
+
+    @Override
     public synchronized Trunk findTrunk(TerminalId subterm)
         throws UnknownSubnetworkException,
             UnknownSubterminalException {

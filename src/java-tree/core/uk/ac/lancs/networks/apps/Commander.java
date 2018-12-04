@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
@@ -409,6 +410,10 @@ public final class Commander {
         }
 
         if ("set-delay".equals(arg)) {
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
                                   networkName);
@@ -433,6 +438,10 @@ public final class Commander {
         }
 
         if ("add-trunk".equals(arg)) {
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
                                   networkName);
@@ -465,6 +474,10 @@ public final class Commander {
         }
 
         if ("remove-trunk".equals(arg)) {
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
             if (aggregator == null) {
                 System.err.printf("Network %s is not an aggregator%n",
                                   networkName);
@@ -485,6 +498,22 @@ public final class Commander {
             return true;
         }
 
+        if ("list-trunks".equals(arg)) {
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
+            if (aggregator == null) {
+                System.err.printf("Network %s is not an aggregator%n",
+                                  networkName);
+                return false;
+            }
+            for (List<TerminalId> trunkId : aggregator.getTrunks()) {
+                System.out.printf("%s + %s%n", trunkId.get(0),
+                                  trunkId.get(1));
+            }
+            return true;
+        }
         if ("list-terminals".equals(arg)) {
             if (network == null) {
                 System.err.println("Network unspecified");
@@ -662,6 +691,10 @@ public final class Commander {
      * <dt><samp>remove-terminal <var>name</var></samp>
      * 
      * <dd>Remove the named terminal.
+     * 
+     * <dt><samp>list-trunks</samp>
+     * 
+     * <dd>Get a list of all trunks' defining terminal pairs.
      * 
      * <dt><samp>list-terminals</samp>
      * 

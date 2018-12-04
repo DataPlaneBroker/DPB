@@ -36,8 +36,12 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
@@ -208,15 +212,41 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
     }
 
     @Override
+    public Collection<List<TerminalId>> getTrunks() {
+        JsonObject req =
+            Json.createObjectBuilder().add("type", "get-trunks").build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        Collection<List<TerminalId>> result = new HashSet<>();
+        for (JsonObject desc : rsp.getJsonArray("trunks")
+            .getValuesAs(JsonObject.class)) {
+            String sn = desc.getString("start-network-name");
+            String st = desc.getString("start-terminal-name");
+            String en = desc.getString("end-network-name");
+            String et = desc.getString("end-terminal-name");
+            TerminalId s = TerminalId.of(sn, st);
+            TerminalId e = TerminalId.of(en, et);
+            result.add(Arrays.asList(s, e));
+        }
+        return result;
+    }
+
+    @Override
     public Trunk addTrunk(TerminalId t1, TerminalId t2)
         throws SubterminalBusyException,
             UnknownSubterminalException,
             UnknownSubnetworkException {
-        JsonObject req =
-            Json.createObjectBuilder().add("start-network-name", t1.network)
-                .add("start-terminal-name", t1.terminal)
-                .add("end-network-name", t2.network)
-                .add("end-terminal-name", t2.terminal).build();
+        JsonObject req = Json.createObjectBuilder().add("type", "add-trunk")
+            .add("start-network-name", t1.network)
+            .add("start-terminal-name", t1.terminal)
+            .add("end-network-name", t2.network)
+            .add("end-terminal-name", t2.terminal).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);

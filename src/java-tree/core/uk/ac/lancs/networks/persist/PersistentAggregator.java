@@ -1687,6 +1687,32 @@ public class PersistentAggregator implements Aggregator {
     }
 
     @Override
+    public Collection<List<TerminalId>> getTrunks() {
+        try (Connection conn = newDatabaseContext(false);
+            Statement stmt = conn.createStatement()) {
+            Collection<List<TerminalId>> result = new HashSet<>();
+            try (ResultSet rs =
+                stmt.executeQuery("SELECT " + "start_network, start_terminal,"
+                    + " end_network, end_terminal" + " FROM " + trunkTable
+                    + ";")) {
+                while (rs.next()) {
+                    String sn = rs.getString(1);
+                    String st = rs.getString(2);
+                    String en = rs.getString(3);
+                    String et = rs.getString(4);
+                    TerminalId s = TerminalId.of(sn, st);
+                    TerminalId e = TerminalId.of(en, et);
+                    result.add(Arrays.asList(s, e));
+                }
+            }
+            return result;
+        } catch (SQLException e) {
+            throw new NetworkResourceException(PersistentAggregator.this,
+                                               "listing trunks", e);
+        }
+    }
+
+    @Override
     public Trunk findTrunk(TerminalId subterm)
         throws UnknownSubterminalException,
             UnknownSubnetworkException {

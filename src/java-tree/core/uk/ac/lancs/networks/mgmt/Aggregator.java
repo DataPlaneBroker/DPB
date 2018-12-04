@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import uk.ac.lancs.networks.NetworkControl;
@@ -161,6 +163,13 @@ public interface Aggregator extends Network {
         if (result == null) throw new UnknownTrunkException(this, subterm);
         return result;
     }
+
+    /**
+     * Get each trunk's defining pair of terminals.
+     * 
+     * @return a set of terminal-id pairs defining each trunk
+     */
+    Collection<List<TerminalId>> getTrunks();
 
     /**
      * Add a new external terminal exposing an inferior network's
