@@ -645,6 +645,15 @@ public class PersistentSwitch implements Switch {
     }
 
     @Override
+    public synchronized Map<Terminal, String> getTerminals() {
+        Map<Terminal, String> result = new HashMap<>();
+        for (SwitchTerminal t : terminals.values()) {
+            result.put(t, t.ifconfig().toString());
+        }
+        return result;
+    }
+
+    @Override
     public synchronized Terminal addTerminal(String name, String desc) {
         if (terminals.containsKey(name))
             throw new IllegalArgumentException("terminal name in use: "
@@ -722,7 +731,7 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public Collection<String> getTerminals() {
-            return PersistentSwitch.this.getTerminals();
+            return PersistentSwitch.this.getTerminalSet();
         }
 
         @Override
@@ -757,7 +766,7 @@ public class PersistentSwitch implements Switch {
         }
     };
 
-    private synchronized Collection<String> getTerminals() {
+    private synchronized Collection<String> getTerminalSet() {
         return new HashSet<>(terminals.keySet());
     }
 

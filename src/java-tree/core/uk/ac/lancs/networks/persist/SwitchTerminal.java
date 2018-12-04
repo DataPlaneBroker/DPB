@@ -72,6 +72,10 @@ final class SwitchTerminal implements Terminal {
         return network;
     }
 
+    Interface ifconfig() {
+        return fabricInterface;
+    }
+
     @Override
     public int hashCode() {
         final int prime = 31;

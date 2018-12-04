@@ -35,10 +35,14 @@
  */
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.Map;
 import java.util.concurrent.Executor;
 
+import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
+import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.NetworkManagementException;
 import uk.ac.lancs.networks.mgmt.Switch;
 
@@ -74,6 +78,10 @@ public class JsonSwitchServer extends JsonNetworkServer {
      * <dd>Invoke {@link Switch#addTerminal(String, String)} with the
      * specified name.
      * 
+     * <dt><samp>get-switch-terminals</samp>
+     * 
+     * <dd>Invoke {@link Switch#getTerminals()}.
+     * 
      * </dl>
      */
     @Override
@@ -87,6 +95,18 @@ public class JsonSwitchServer extends JsonNetworkServer {
                 String config = req.getString("terminal-config");
                 network.addTerminal(name, config);
                 return empty();
+            }
+
+            case "get-switch-terminals": {
+                Map<Terminal, String> result = network.getTerminals();
+                JsonObjectBuilder terms = Json.createObjectBuilder();
+                for (Map.Entry<Terminal, String> entry : result.entrySet()) {
+                    Terminal t = entry.getKey();
+                    String i = entry.getValue();
+                    terms.add(t.name(), i);
+                }
+                return one(Json.createObjectBuilder().add("terminals", terms)
+                    .build());
             }
 
             default:

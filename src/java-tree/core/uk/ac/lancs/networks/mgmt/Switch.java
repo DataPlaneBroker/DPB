@@ -35,6 +35,8 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
+import java.util.Map;
+
 import uk.ac.lancs.networks.Terminal;
 
 /**
@@ -64,6 +66,15 @@ public interface Switch extends Network {
      * invalid in some other way
      */
     Terminal addTerminal(String terminalName, String interfaceName)
-        throws TerminalNameException, TerminalExistsException,
+        throws TerminalNameException,
+            TerminalExistsException,
             TerminalConfigurationException;
+
+    /**
+     * Get a mapping from all terminals to their interface
+     * configurations.
+     * 
+     * @return a set of all terminals and their interface mappings
+     */
+    Map<Terminal, String> getTerminals();
 }

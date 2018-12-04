@@ -36,6 +36,8 @@
 package uk.ac.lancs.networks.jsoncmd;
 
 import java.lang.reflect.UndeclaredThrowableException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import javax.json.JsonObject;
@@ -82,5 +84,25 @@ public class JsonSwitch extends JsonNetwork implements Switch {
             throw new UndeclaredThrowableException(e);
         }
         return getKnownTerminal(terminalName);
+    }
+
+    @Override
+    public Map<Terminal, String> getTerminals() {
+        JsonObject req = startRequest("get-switch-terminals").build();
+        JsonObject rsp = interact(req);
+        try {
+            checkErrors(rsp);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new UndeclaredThrowableException(e);
+        }
+        Map<Terminal, String> result = new HashMap<>();
+        JsonObject terms = rsp.getJsonObject("terminals");
+        for (String tn : terms.keySet()) {
+            String ifc = terms.getString(tn);
+            result.put(getKnownTerminal(tn), ifc);
+        }
+        return result;
     }
 }

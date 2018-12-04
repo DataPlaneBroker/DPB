@@ -66,9 +66,15 @@ import uk.ac.lancs.routing.span.Edge;
 public class DummySwitch implements Switch {
     private class MyTerminal implements Terminal {
         private final String name;
+        private final String iface;
 
-        MyTerminal(String name) {
+        MyTerminal(String name, String ifconfig) {
             this.name = name;
+            this.iface = ifconfig;
+        }
+
+        public String ifconfig() {
+            return iface;
         }
 
         @Override
@@ -267,9 +273,17 @@ public class DummySwitch implements Switch {
         throws TerminalExistsException {
         if (terminals.containsKey(terminalName))
             throw new TerminalExistsException(this, terminalName);
-        MyTerminal terminal = new MyTerminal(terminalName);
+        MyTerminal terminal = new MyTerminal(terminalName, interfaceName);
         terminals.put(terminalName, terminal);
         return terminal;
+    }
+
+    @Override
+    public synchronized Map<Terminal, String> getTerminals() {
+        Map<Terminal, String> result = new HashMap<>();
+        for (MyTerminal t : terminals.values())
+            result.put(t, t.ifconfig());
+        return result;
     }
 
     @Override
