@@ -485,6 +485,16 @@ public final class Commander {
             return true;
         }
 
+        if ("list-terminals".equals(arg)) {
+            if (network == null) {
+                System.err.println("Network unspecified");
+                return false;
+            }
+            for (String tn : network.getControl().getTerminals())
+                System.out.printf("%s%n", tn);
+            return true;
+        }
+
         if ("remove-terminal".equals(arg)) {
             usage = arg + " <terminal-name>";
             String name = iter.next();
@@ -605,6 +615,8 @@ public final class Commander {
      * {@link Executor} service, and a keyed {@link NetworkControl}
      * service indexed by network name.
      * 
+     * <p>The following system properties are recognized:
+     * 
      * <dl>
      * 
      * <dt><samp>network.config.client</samp>
@@ -635,6 +647,10 @@ public final class Commander {
      * <dt><samp>remove-terminal <var>name</var></samp>
      * 
      * <dd>Remove the named terminal.
+     * 
+     * <dt><samp>list-terminals</samp>
+     * 
+     * <dd>Get a list of all terminals.
      * 
      * <dt><samp>add-trunk <var>network</var>:<var>terminal</var>
      * <var>network</var>:<var>terminal</var></samp>
