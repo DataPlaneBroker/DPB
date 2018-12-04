@@ -95,7 +95,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         throws NetworkManagementException,
             NetworkControlException,
             InvalidServiceException {
-        String type = rsp.getString("error");
+        String type = rsp.getString("error", null);
         if (type == null) return;
         switch (type) {
         case "trunk-expired": {
