@@ -64,17 +64,15 @@ public class SequencedExecutor implements Executor, Runnable {
         notify();
     }
 
-    private synchronized boolean act() {
+    private synchronized Runnable nextAction() {
         while (running && actions.isEmpty())
             try {
                 wait();
             } catch (InterruptedException e) {
                 /* Try again. */
             }
-        if (actions.isEmpty()) return false;
-        Runnable action = actions.remove(0);
-        action.run();
-        return true;
+        if (actions.isEmpty()) return null;
+        return actions.remove(0);
     }
 
     /**
@@ -104,7 +102,8 @@ public class SequencedExecutor implements Executor, Runnable {
      */
     @Override
     public void run() {
-        while (act())
-            ;
+        Runnable action;
+        while ((action = nextAction()) != null)
+            action.run();
     }
 }
