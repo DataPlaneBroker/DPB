@@ -71,7 +71,7 @@ public class SequencedExecutor implements Executor, Runnable {
             } catch (InterruptedException e) {
                 /* Try again. */
             }
-        if (!running) return false;
+        if (actions.isEmpty()) return false;
         Runnable action = actions.remove(0);
         action.run();
         return true;
