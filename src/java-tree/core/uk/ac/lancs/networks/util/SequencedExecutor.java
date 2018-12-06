@@ -47,7 +47,7 @@ import java.util.concurrent.Executor;
  */
 public class SequencedExecutor implements Executor, Runnable {
     private final List<Runnable> actions = new ArrayList<>();
-    private boolean running;
+    private boolean running = true;
 
     /**
      * Add an action to the queue.
