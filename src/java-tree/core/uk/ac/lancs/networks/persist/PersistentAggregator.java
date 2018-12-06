@@ -228,8 +228,7 @@ public class PersistentAggregator implements Aggregator {
                 break;
 
             default:
-                /* Nothing else makes sense. */
-                return;
+                break;
             }
 
             switch (newStatus) {
@@ -254,7 +253,6 @@ public class PersistentAggregator implements Aggregator {
                 break;
 
             default:
-                /* Nothing else makes sense. TODO: Log a problem. */
                 break;
             }
 
@@ -486,9 +484,11 @@ public class PersistentAggregator implements Aggregator {
                 }
 
                 /* Create a client for each subservice. */
+                assert clients.isEmpty();
                 clients.addAll(subcons.keySet().stream().map(Client::new)
                     .collect(Collectors.toList()));
                 clients.forEach(Client::init);
+                dormantCount += clients.size();
 
                 /* Tell each of the subconnections to initiate spanning
                  * trees with their respective circuits. */
