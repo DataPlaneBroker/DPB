@@ -51,6 +51,7 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.util.SequencedExecutor;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
@@ -115,7 +116,10 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
                     return null;
                 try {
                     Agent system = ctxt.getAgent("system");
-                    Executor executor = system.getService(Executor.class);
+                    Executor sysExecutor = system.getService(Executor.class);
+                    SequencedExecutor executor = new SequencedExecutor();
+                    sysExecutor.execute(executor);
+
                     /* Get the fabric. */
                     Agent fabricAgent = ctxt.getAgent(agent);
                     Fabric fabric =

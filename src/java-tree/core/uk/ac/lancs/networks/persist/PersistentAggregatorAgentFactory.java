@@ -52,6 +52,7 @@ import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
+import uk.ac.lancs.networks.util.SequencedExecutor;
 import uk.ac.lancs.scc.jardeps.Service;
 
 /**
@@ -110,7 +111,9 @@ public class PersistentAggregatorAgentFactory implements AgentFactory {
                     return null;
                 try {
                     Agent system = ctxt.getAgent("system");
-                    Executor executor = system.getService(Executor.class);
+                    Executor sysExecutor = system.getService(Executor.class);
+                    SequencedExecutor executor = new SequencedExecutor();
+                    sysExecutor.execute(executor);
                     Function<String, NetworkControl> inferiors = n -> {
                         try {
                             return system.findService(NetworkControl.class,
