@@ -410,8 +410,7 @@ public class PersistentSwitch implements Switch {
         }
 
         @Override
-        public synchronized NetworkControl getNetwork() {
-            if (intent == Intent.RELEASE) return null;
+        public NetworkControl getNetwork() {
             return control;
         }
 
