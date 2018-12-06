@@ -417,8 +417,7 @@ public class TransientAggregator implements Aggregator {
                 break;
 
             default:
-                /* Nothing else makes sense. */
-                return;
+                break;
             }
 
             switch (newStatus) {
