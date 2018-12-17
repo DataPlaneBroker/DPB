@@ -267,6 +267,7 @@ public class PersistentAggregator implements Aggregator {
 
                 try {
                     final Intent intent = getIntent(conn, id);
+                    if (intent == null) return;
 
                     /* If any subservice failed, ensure all subservices
                      * are deactivated, release tunnels, and inform the
@@ -2618,7 +2619,8 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @param id the service id
      * 
-     * @return the current intent of the service
+     * @return the current intent of the service, or {@code null} if
+     * there's no such service
      * 
      * @throws SQLException if there was an error accessing the database
      */
@@ -2628,8 +2630,7 @@ public class PersistentAggregator implements Aggregator {
                 + " WHERE service_id = ?" + " LIMIT 1;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
-                if (!rs.next())
-                    throw new RuntimeException("service id missing: " + id);
+                if (!rs.next()) return null;
                 return Intent.values()[rs.getInt(1)];
             }
         }
