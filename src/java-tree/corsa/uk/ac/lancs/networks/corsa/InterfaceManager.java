@@ -48,7 +48,7 @@ import uk.ac.lancs.networks.fabric.Channel;
  * <p>
  * The root of the hierarchy consists of two abstract interfaces
  * representing all physical ports (<samp>phys</samp>) and all
- * link-aggregation groups (LAGs; <samp>lag</samp>). circuits derived
+ * link-aggregation groups (LAGs; <samp>lag</samp>). Circuits derived
  * from these represent specific ports or LAGs with no encapsulation.
  * These are intended to be used when access to a connected device is
  * not possible with any kind of encapsulation, and so multiple ports or
@@ -57,7 +57,7 @@ import uk.ac.lancs.networks.fabric.Channel;
  * <p>
  * Subinterfaces of <samp>phys</samp> and <samp>lag</samp>, such as
  * <samp>phys.3</samp> or <samp>lag.4</samp> identify specific ports or
- * LAGs. circuits of these interfaces are ctagged VLANs. Interface
+ * LAGs. Circuits of these interfaces are ctagged VLANs. Interface
  * definitions such as <samp>4</samp> and <samp>phys4</samp> are aliases
  * for <samp>phys.4</samp>. Similarly, <samp>lag4</samp> is an alias for
  * <samp>lag.4</samp>.
