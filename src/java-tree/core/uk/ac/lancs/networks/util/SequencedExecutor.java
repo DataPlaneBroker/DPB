@@ -39,6 +39,8 @@ package uk.ac.lancs.networks.util;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Executes actions on a single thread in the order they were submitted.
@@ -104,6 +106,13 @@ public class SequencedExecutor implements Executor, Runnable {
     public void run() {
         Runnable action;
         while ((action = nextAction()) != null)
-            action.run();
+            try {
+                action.run();
+            } catch (Throwable t) {
+                logger.log(Level.WARNING, "Uncaught exception", t);
+            }
     }
+
+    private final Logger logger =
+        Logger.getLogger(SequencedExecutor.class.getName());
 }
