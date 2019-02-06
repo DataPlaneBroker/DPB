@@ -127,8 +127,6 @@ public class PersistentAggregator implements Aggregator {
 
             private ServiceListener protectedSelf;
 
-            @SuppressWarnings("unused")
-            ServiceStatus lastStableStatus = ServiceStatus.DORMANT;
             ServiceStatus lastStatus = ServiceStatus.DORMANT;
 
             Client(Service subservice) {
@@ -268,7 +266,6 @@ public class PersistentAggregator implements Aggregator {
             /* Record the last status and last stable status for this
              * subservice. */
             cli.lastStatus = newStatus;
-            if (newStatus.isStable()) cli.lastStableStatus = newStatus;
 
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
@@ -768,7 +765,8 @@ public class PersistentAggregator implements Aggregator {
             clients.forEach(Client::init);
 
             for (Client cli : clients) {
-                switch (cli.subservice.status()) {
+                cli.lastStatus = cli.subservice.status();
+                switch (cli.lastStatus) {
                 case DORMANT:
                     dormantCount++;
                     break;
