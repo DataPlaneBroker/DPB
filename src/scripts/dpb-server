@@ -5,6 +5,7 @@ HERE="${HERE%/bin}"
 EXTRAS=()
 ORIG_CONFIG="$HOME/.config/dataplane-broker/server.properties"
 CONFIG="$ORIG_CONFIG"
+unset LOG_CONFIG
 unset USMUX
 unset ASSERT
 
@@ -33,6 +34,9 @@ while [ $# -gt  0 ] ; do
 	(+ea)
 	    unset ASSERT
 	    ;;
+	(--log=*)
+	    LOG_CONFIG="$arg"
+	    shift
 	(-s)
 	    USMUX="$1"
 	    shift
@@ -51,6 +55,8 @@ Usage: $0 [options]
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
        -ea      Enable Java assertions.
+       --log=file
+        	Specify Java logging configuration
 EOF
 	    exit
 	    ;;
@@ -78,6 +84,7 @@ exec jrun "${EXTRAS[@]}" \
      -lusmux_session -lusmux_server -lusmux_unix -ljavax.json \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
      -linitiate-dpb-openflow -linitiate-dpb-corsa \
+     ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
      -Dprogram.name="$0" -Dusmux.config="$USMUX" \
      -Dnetwork.config.server="$CONFIG" ${ASSERT:+-ea} \
      uk.ac.lancs.networks.apps.NetworkServer

@@ -6,6 +6,7 @@ EXTRAS=()
 ORIG_CONFIG="$HOME/.config/dataplane-broker/client.properties"
 CONFIG="$ORIG_CONFIG"
 ARGS=()
+unset LOG_CONFIG
 
 while [ $# -gt  0 ] ; do
     arg="$1"
@@ -26,6 +27,9 @@ while [ $# -gt  0 ] ; do
 	(-l*)
 	    EXTRAS+=("$arg")
 	    ;;
+	(--log=*)
+	    LOG_CONFIG="$arg"
+	    shift
 	(-f)
 	    CONFIG="$1"
 	    shift
@@ -36,6 +40,8 @@ Usage: $0 [options] [commands]
        -Ldir	Append dir to jar search path.
        -lname	Search for name.jar in jar search path, and append to
        		classpath.
+       --log=file
+        	Specify Java logging configuration
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
 For commands, see:
@@ -54,5 +60,6 @@ done
 exec jrun "${EXTRAS[@]}" -ljavax.json \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
      -linitiate-dpb-openflow -linitiate-dpb-corsa \
+     ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
      -Dprogram.name="$0" -Dnetwork.config.client="$CONFIG" \
      uk.ac.lancs.networks.apps.Commander "${ARGS[@]}"

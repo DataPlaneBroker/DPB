@@ -2880,5 +2880,5 @@ public class PersistentAggregator implements Aggregator {
     }
 
     private final Logger logger =
-        Logger.getLogger("uk.ac.lancs.networks.persistent-aggregator");
+        Logger.getLogger(PersistentAggregator.class.getName());
 }
