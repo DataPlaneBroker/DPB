@@ -27,9 +27,10 @@ while [ $# -gt  0 ] ; do
 	(-l*)
 	    EXTRAS+=("$arg")
 	    ;;
-	(--log=*)
-	    LOG_CONFIG="$arg"
+	(-d)
+	    LOG_CONFIG="$1"
 	    shift
+	    ;;
 	(-f)
 	    CONFIG="$1"
 	    shift
@@ -40,8 +41,7 @@ Usage: $0 [options] [commands]
        -Ldir	Append dir to jar search path.
        -lname	Search for name.jar in jar search path, and append to
        		classpath.
-       --log=file
-        	Specify Java logging configuration
+       -d file  Specify Java logging configuration
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
 For commands, see:

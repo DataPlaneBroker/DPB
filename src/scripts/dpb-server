@@ -34,9 +34,10 @@ while [ $# -gt  0 ] ; do
 	(+ea)
 	    unset ASSERT
 	    ;;
-	(--log=*)
-	    LOG_CONFIG="$arg"
+	(-d)
+	    LOG_CONFIG="$1"
 	    shift
+	    ;;
 	(-s)
 	    USMUX="$1"
 	    shift
@@ -55,8 +56,7 @@ Usage: $0 [options]
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
        -ea      Enable Java assertions.
-       --log=file
-        	Specify Java logging configuration
+       -d file  Specify Java logging configuration
 EOF
 	    exit
 	    ;;
