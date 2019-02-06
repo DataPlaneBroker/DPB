@@ -58,6 +58,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.config.Configuration;
@@ -255,6 +257,13 @@ public class PersistentAggregator implements Aggregator {
             default:
                 break;
             }
+            logger.log(Level.INFO,
+                       String.format("I=%d%s A=%d%s F=%d%s R=%d%s",
+                                     inactiveCount,
+                                     inactiveChanged ? "!" : "", activeCount,
+                                     activeChanged ? "!" : "", failedCount,
+                                     failedChanged ? "!" : "", releasedCount,
+                                     releasedChanged ? "!" : ""));
 
             /* Record the last status and last stable status for this
              * subservice. */
@@ -2869,4 +2878,7 @@ public class PersistentAggregator implements Aggregator {
                 throw new IllegalArgumentException("no trunk " + tid);
         }
     }
+
+    private final Logger logger =
+        Logger.getLogger("uk.ac.lancs.networks.persistent-aggregator");
 }
