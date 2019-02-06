@@ -188,6 +188,22 @@ public final class ReferenceWatcher<X, I, K> {
     }
 
     /**
+     * Discard a reference for a given key.
+     * 
+     * @param key the index of the redundant object
+     */
+    public synchronized void discard(K key) {
+        TReference<X, I, K> ref = references.get(key);
+        if (ref == null) return;
+        X result = ref.get();
+        if (result != null) {
+            ref.clear();
+            terminator.accept(ref.base);
+        }
+        references.remove(key);
+    }
+
+    /**
      * Get the reference for a given key.
      * 
      * @param key the index of the required object

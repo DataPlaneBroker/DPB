@@ -107,6 +107,7 @@ public class PersistentAggregator implements Aggregator {
          */
         void cleanUp() {
             clients.forEach(Client::term);
+            logger.fine("Service object " + id + " discarded");
         }
 
         /**
@@ -399,6 +400,8 @@ public class PersistentAggregator implements Aggregator {
             /* Send our last report to all users. */
             callOut(ServiceStatus.RELEASED);
             listeners.clear();
+
+            serviceWatcher.discard(id);
         }
 
         final int id;
@@ -425,19 +428,7 @@ public class PersistentAggregator implements Aggregator {
 
         MyService(int id) {
             this.id = id;
-        }
-        
-        @SuppressWarnings("unused")
-        void reset() {
-            dormantCount = 0;
-            inactiveCount = 0;
-            activeCount = 0;
-            failedCount = 0;
-            releasedCount = 0;
-            errors.clear();
-            request = null;
-            listeners.clear();
-            clients.clear();
+            logger.fine("Service object " + id + " created");
         }
 
         @Override
@@ -2258,7 +2249,7 @@ public class PersistentAggregator implements Aggregator {
                     }
                 }
                 Service result = serviceWatcher.getFresh(id);
-                //serviceWatcher.getBase(id).reset();
+                // serviceWatcher.getBase(id).reset();
                 conn.commit();
                 return result;
             } catch (SQLException e) {
