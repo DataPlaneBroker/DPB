@@ -426,6 +426,19 @@ public class PersistentAggregator implements Aggregator {
         MyService(int id) {
             this.id = id;
         }
+        
+        @SuppressWarnings("unused")
+        void reset() {
+            dormantCount = 0;
+            inactiveCount = 0;
+            activeCount = 0;
+            failedCount = 0;
+            releasedCount = 0;
+            errors.clear();
+            request = null;
+            listeners.clear();
+            clients.clear();
+        }
 
         @Override
         public synchronized void define(Segment request)
@@ -2244,7 +2257,8 @@ public class PersistentAggregator implements Aggregator {
                         id = rs.getInt(1);
                     }
                 }
-                Service result = serviceWatcher.get(id);
+                Service result = serviceWatcher.getFresh(id);
+                //serviceWatcher.getBase(id).reset();
                 conn.commit();
                 return result;
             } catch (SQLException e) {

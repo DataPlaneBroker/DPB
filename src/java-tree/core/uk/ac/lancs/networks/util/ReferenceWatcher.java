@@ -217,6 +217,40 @@ public final class ReferenceWatcher<X, I, K> {
         return proxy;
     }
 
+    /**
+     * Get the reference for a given key, having deleted any prior
+     * object.
+     * 
+     * @param key the index of the required object
+     * 
+     * @return a proxy to the required object
+     */
+    public synchronized X getFresh(K key) {
+        /* Eliminate the cached object if present. */
+        TReference<X, I, K> ref = references.get(key);
+        if (ref != null) {
+            X result = ref.get();
+            if (result != null) {
+                ref.clear();
+                terminator.accept(ref.base);
+            }
+            references.remove(key);
+        }
+
+        /* Create and retain a new base. */
+        I base = builder.apply(key);
+        if (base == null) return null;
+
+        /* Create a proxy for the base, and retain a weak reference for
+         * it. */
+        X exposed = exposer.apply(base);
+        X proxy = proxify(exposed);
+        ref = new TReference<X, I, K>(key, proxy, base, queue);
+        references.put(key, ref);
+
+        return proxy;
+    }
+
     private void poll() {
         for (;;) {
             try {
