@@ -33,24 +33,49 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+
 package uk.ac.lancs.networks.jsoncmd;
 
 /**
- * Provides JSON channels to a remote peer. Users should exploit
- * try-with-resources on the acquired channels, allowing the manager to
- * pool idle channels.
+ * Generates JSON session channels multiplexed on a base channel.
  * 
  * @author simpsons
  */
-public interface JsonChannelManager {
+public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
+    implements JsonChannelManager {
+    int nextId = 0;
+
     /**
-     * Get a channel to the remote peer. The channel need not be fresh,
-     * just idle, i.e., having no other user. The caller should normally
-     * exploit try-with-resources on the object to clean up any
-     * resources used by the channel. This also gives the manager the
-     * opportunity to pool unused channels as idle.
+     * Prepare to create multiple sessions multiplexed on a base
+     * channel.
      * 
-     * @return an idle channel to the remote peer
+     * @param base the base channel on which to multiplex sessions
      */
-    JsonChannel getChannel();
+    public MultiplexingJsonClient(JsonChannel base) {
+        super(base);
+    }
+
+    /**
+     * Create a new session.
+     * 
+     * @return the new session channel, or {@code null} if the base
+     * channel has been closed
+     */
+    @Override
+    public synchronized JsonChannel getChannel() {
+        if (terminated) return null;
+        SessionChannel result = new SessionChannel(nextId++);
+        sessions.put(result.id, result);
+        return result;
+    }
+
+    @Override
+    SessionChannel open(int id) {
+        return null;
+    }
+
+    @Override
+    boolean shouldCloseOnEmpty() {
+        return true;
+    }
 }

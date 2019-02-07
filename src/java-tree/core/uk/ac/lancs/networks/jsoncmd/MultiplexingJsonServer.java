@@ -33,24 +33,70 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Provides JSON channels to a remote peer. Users should exploit
- * try-with-resources on the acquired channels, allowing the manager to
- * pool idle channels.
+ * Reads JSON messages from a base channel, and creates new sesson
+ * channels according to the
+ * <samp>{@value MultiplexingJsonChannelManager#DISCRIMINATOR}</samp>
+ * field.
  * 
  * @author simpsons
  */
-public interface JsonChannelManager {
+public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
+    implements JsonChannelManager {
+
     /**
-     * Get a channel to the remote peer. The channel need not be fresh,
-     * just idle, i.e., having no other user. The caller should normally
-     * exploit try-with-resources on the object to clean up any
-     * resources used by the channel. This also gives the manager the
-     * opportunity to pool unused channels as idle.
+     * Create a server to respond to session-specific messages on a base
+     * channel.
      * 
-     * @return an idle channel to the remote peer
+     * @param base the base channel on which to multiplex sessions
      */
-    JsonChannel getChannel();
+    public MultiplexingJsonServer(JsonChannel base) {
+        super(base);
+    }
+
+    private final List<SessionChannel> queue = new ArrayList<>();
+
+    /**
+     * Get the next session channel on the base channel. Unless another
+     * thread is performing the same action, the calling thread will
+     * continuously read messages and queue them to the appropriate
+     * session channel, until an unrecognized session is encountered,
+     * causing a new session channel to be created and returned.
+     */
+    @Override
+    public synchronized JsonChannel getChannel() {
+        while (queue.isEmpty() && !terminated) {
+            if (inUse) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    // Do nothing.
+                }
+                continue;
+            }
+            process(null);
+        }
+        if (!queue.isEmpty()) return queue.remove(0);
+        return null;
+    }
+
+    @Override
+    SessionChannel open(int id) {
+        SessionChannel result = new SessionChannel(id);
+        sessions.put(id, result);
+        queue.add(result);
+        notifyAll();
+        return result;
+    }
+
+    @Override
+    boolean shouldCloseOnEmpty() {
+        return false;
+    }
 }

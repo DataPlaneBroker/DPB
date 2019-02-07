@@ -38,27 +38,29 @@ package uk.ac.lancs.networks.jsoncmd;
 import javax.json.JsonObject;
 
 /**
- * Provides a means to read and write JSON objects to another entity.
+ * Provides a means to read and write JSON objects to a remote peer.
  * 
  * @author simpsons
  */
 public interface JsonChannel extends AutoCloseable {
     /**
-     * Write a message to the remote entity.
+     * Write a message to the remote peer.
      * 
-     * @param msg the JSON object to send to the remote entity
+     * @param msg the JSON object to send to the remote peer, or
+     * {@code null} to call {@link #close()}
      */
     void write(JsonObject msg);
 
     /**
-     * Read a message from the remote entity.
+     * Read a message from the remote peer.
      * 
-     * @return the next message from the remote entity
+     * @return the next message from the remote peer, or {@code null} if
+     * there will be no more messages from the peer
      */
     JsonObject read();
 
     /**
-     * Return this channel to a pool of idle channels.
+     * Indicate that the channel is no longer required.
      */
     @Override
     void close();
