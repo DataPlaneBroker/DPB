@@ -448,6 +448,7 @@ public class JsonNetwork implements Network {
             if (!listeners.remove(events) || !listeners.isEmpty()) return;
 
             /* Stop talking to the remote server. */
+            /* TODO: Shouldn't we just close the channel? */
             channel.write(null);
             channel = null;
             notify();
