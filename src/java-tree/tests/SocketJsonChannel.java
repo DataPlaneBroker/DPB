@@ -34,56 +34,51 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.networks.jsoncmd;
+import java.io.IOException;
+import java.net.Socket;
 
-/**
- * Generates JSON session channels multiplexed on a base channel.
- * 
- * @author simpsons
- */
-public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
-    implements JsonChannelManager {
-    private int nextId = 0;
+import javax.json.JsonException;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
+import javax.json.JsonWriter;
 
-    private final boolean closeOnLast;
+import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
+import uk.ac.lancs.networks.jsoncmd.ContinuousJsonWriter;
+import uk.ac.lancs.networks.jsoncmd.JsonChannel;
 
-    /**
-     * Prepare to create multiple sessions multiplexed on a base
-     * channel.
-     * 
-     * @param base the base channel on which to multiplex sessions
-     */
-    public MultiplexingJsonClient(JsonChannel base, boolean closeOnLast) {
-        super(base);
-        this.closeOnLast = closeOnLast;
-    }
+class SocketJsonChannel implements JsonChannel {
+    private final Socket socket;
+    private final JsonReader in;
+    private final JsonWriter out;
 
-    /**
-     * Create a new session.
-     * 
-     * @return the new session channel, or {@code null} if the base
-     * channel has been closed
-     */
-    @Override
-    public synchronized JsonChannel getChannel() {
-        if (terminated) return null;
-        SessionChannel result = new SessionChannel(nextId++);
-        sessions.put(result.id, result);
-        return result;
+    public SocketJsonChannel(Socket socket) throws IOException {
+        this.socket = socket;
+        this.in = new ContinuousJsonReader(this.socket.getInputStream());
+        this.out = new ContinuousJsonWriter(this.socket.getOutputStream());
+        System.err.printf("new channel on %s%n",
+                          socket.getRemoteSocketAddress());
     }
 
     @Override
-    SessionChannel open(int id) {
-        return null;
+    public void write(JsonObject msg) {
+        if (msg == null) {
+            close();
+            return;
+        }
+        out.writeObject(msg);
     }
 
     @Override
-    boolean shouldCloseOnEmpty() {
-        return closeOnLast;
+    public JsonObject read() {
+        return in.readObject();
     }
 
     @Override
-    boolean shouldRespondToClose() {
-        return false;
+    public void close() {
+        try {
+            socket.close();
+        } catch (IOException e) {
+            throw new JsonException("closing", e);
+        }
     }
 }

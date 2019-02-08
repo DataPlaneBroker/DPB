@@ -73,19 +73,25 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
      * more because the base channel has been closed
      */
     @Override
-    public synchronized JsonChannel getChannel() {
-        while (queue.isEmpty() && !terminated) {
-            if (inUse) {
+    public JsonChannel getChannel() {
+        synchronized (this) {
+            while (queue.isEmpty() && !terminated && inUse) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
                     // Do nothing.
                 }
-                continue;
             }
-            process(null);
+            if (!queue.isEmpty()) return queue.remove(0);
+            if (terminated) return null;
+            inUse = true;
         }
-        if (!queue.isEmpty()) return queue.remove(0);
+        process(null);
+        synchronized (this) {
+            assert !inUse;
+            if (!queue.isEmpty()) return queue.remove(0);
+            if (terminated) return null;
+        }
         return null;
     }
 
@@ -95,19 +101,27 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
          * to. */
         SessionChannel result = new SessionChannel(id);
 
-        /* Store the session under its id, so that messages received
-         * with this id can be queued with this session channel. */
-        sessions.put(id, result);
+        synchronized (this) {
+            /* Store the session under its id, so that messages received
+             * with this id can be queued with this session channel. */
+            sessions.put(id, result);
 
-        /* Make the channel available in the queue, so that getChannel
-         * can read from it. */
-        queue.add(result);
-        notifyAll();
+            /* Make the channel available in the queue, so that
+             * getChannel can read from it. */
+            queue.add(result);
+            notifyAll();
+        }
+
         return result;
     }
 
     @Override
     boolean shouldCloseOnEmpty() {
         return false;
+    }
+
+    @Override
+    boolean shouldRespondToClose() {
+        return true;
     }
 }

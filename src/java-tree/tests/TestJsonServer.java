@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
@@ -34,56 +35,56 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.networks.jsoncmd;
+import java.net.ServerSocket;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
+import javax.json.JsonObject;
+
+import uk.ac.lancs.networks.jsoncmd.JsonChannel;
+import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
+import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonServer;
 
 /**
- * Generates JSON session channels multiplexed on a base channel.
+ * 
  * 
  * @author simpsons
  */
-public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
-    implements JsonChannelManager {
-    private int nextId = 0;
+public class TestJsonServer {
+    static final Executor executor = Executors.newCachedThreadPool();
 
-    private final boolean closeOnLast;
+    static class ChannelDisplay implements Runnable {
+        private final JsonChannel channel;
 
-    /**
-     * Prepare to create multiple sessions multiplexed on a base
-     * channel.
-     * 
-     * @param base the base channel on which to multiplex sessions
-     */
-    public MultiplexingJsonClient(JsonChannel base, boolean closeOnLast) {
-        super(base);
-        this.closeOnLast = closeOnLast;
+        public ChannelDisplay(JsonChannel channel) {
+            System.err.printf("New session%n");
+            this.channel = channel;
+        }
+
+        @Override
+        public void run() {
+            System.err.printf("Waiting...%n");
+            JsonObject msg;
+            while ((msg = channel.read()) != null) {
+                System.out.printf("Message: %s%n", msg);
+            }
+            System.out.printf("Terminated%n");
+        }
     }
 
-    /**
-     * Create a new session.
-     * 
-     * @return the new session channel, or {@code null} if the base
-     * channel has been closed
-     */
-    @Override
-    public synchronized JsonChannel getChannel() {
-        if (terminated) return null;
-        SessionChannel result = new SessionChannel(nextId++);
-        sessions.put(result.id, result);
-        return result;
+    static void processChannels(JsonChannelManager mgr) {
+        System.err.printf("New connection%n");
+        for (JsonChannel ch = null; (ch = mgr.getChannel()) != null;)
+            executor.execute(new ChannelDisplay(ch));
     }
 
-    @Override
-    SessionChannel open(int id) {
-        return null;
-    }
+    public static void main(String[] args) throws Exception {
+        ServerSocketJsonChannelManager server =
+            new ServerSocketJsonChannelManager(new ServerSocket(6666));
 
-    @Override
-    boolean shouldCloseOnEmpty() {
-        return closeOnLast;
-    }
-
-    @Override
-    boolean shouldRespondToClose() {
-        return false;
+        for (JsonChannel ch = null; (ch = server.getChannel()) != null;) {
+            JsonChannelManager connMgr = new MultiplexingJsonServer(ch);
+            executor.execute(() -> processChannels(connMgr));
+        }
     }
 }

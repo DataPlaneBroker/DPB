@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2017, Regents of the University of Lancaster
  * All rights reserved.
@@ -34,56 +35,35 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.networks.jsoncmd;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
+
+import javax.json.JsonException;
+
+import uk.ac.lancs.networks.jsoncmd.JsonChannel;
+import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
 
 /**
- * Generates JSON session channels multiplexed on a base channel.
+ * 
  * 
  * @author simpsons
  */
-public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
-    implements JsonChannelManager {
-    private int nextId = 0;
+public class SocketJsonChannelManager implements JsonChannelManager {
+    private final InetSocketAddress remoteAddr;
 
-    private final boolean closeOnLast;
-
-    /**
-     * Prepare to create multiple sessions multiplexed on a base
-     * channel.
-     * 
-     * @param base the base channel on which to multiplex sessions
-     */
-    public MultiplexingJsonClient(JsonChannel base, boolean closeOnLast) {
-        super(base);
-        this.closeOnLast = closeOnLast;
-    }
-
-    /**
-     * Create a new session.
-     * 
-     * @return the new session channel, or {@code null} if the base
-     * channel has been closed
-     */
-    @Override
-    public synchronized JsonChannel getChannel() {
-        if (terminated) return null;
-        SessionChannel result = new SessionChannel(nextId++);
-        sessions.put(result.id, result);
-        return result;
+    public SocketJsonChannelManager(InetSocketAddress remoteAddr) {
+        this.remoteAddr = remoteAddr;
     }
 
     @Override
-    SessionChannel open(int id) {
-        return null;
-    }
-
-    @Override
-    boolean shouldCloseOnEmpty() {
-        return closeOnLast;
-    }
-
-    @Override
-    boolean shouldRespondToClose() {
-        return false;
+    public JsonChannel getChannel() throws JsonException {
+        try {
+            Socket socket =
+                new Socket(remoteAddr.getAddress(), remoteAddr.getPort());
+            return new SocketJsonChannel(socket);
+        } catch (IOException e) {
+            throw new JsonException("connecting to " + remoteAddr, e);
+        }
     }
 }

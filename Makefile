@@ -70,6 +70,8 @@ roots_tests += TestDummy
 roots_tests += TestDV
 roots_tests += TestDummyInitiateTopology
 roots_tests += TestGeographicSpan
+roots_tests += TestJsonServer
+roots_tests += TestJsonClient
 deps_tests += core
 
 JARDEPS_OUTDIR=out

@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.json.Json;
-import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 
@@ -105,16 +104,20 @@ public abstract class MultiplexingJsonChannelManager {
         }
 
         final int id;
-        final List<JsonObject> responses = new ArrayList<>();
+        final List<JsonObject> incoming = new ArrayList<>();
         boolean term;
 
         @Override
         public void write(JsonObject msg) {
+            if (msg == null) {
+                close();
+                return;
+            }
             JsonObjectBuilder builder = Json.createObjectBuilder();
-            if (msg != null) builder.add(CONTENT, msg);
+            builder.add(CONTENT, msg);
             builder.add(DISCRIMINATOR, id);
             msg = builder.build();
-            synchronized (MultiplexingJsonChannelManager.this) {
+            synchronized (base) {
                 base.write(msg);
             }
         }
@@ -122,34 +125,41 @@ public abstract class MultiplexingJsonChannelManager {
         @Override
         public JsonObject read() {
             synchronized (MultiplexingJsonChannelManager.this) {
-                while (responses.isEmpty() && inUse && !terminated && !term) {
+                while (incoming.isEmpty() && inUse && !terminated && !term) {
                     try {
-                        wait();
+                        MultiplexingJsonChannelManager.this.wait();
                     } catch (InterruptedException e) {
-                        throw new JsonException("interrupted", e);
+                        // Do nothing.
                     }
                 }
 
                 /* If a response was queued by another thread, return
                  * that. */
-                if (!responses.isEmpty()) {
-                    JsonObject rsp = responses.remove(0);
-                    if (rsp.isEmpty()) return null;
-                    return rsp;
-                }
+                if (!incoming.isEmpty()) return incoming.remove(0);
 
                 if (terminated || term) return null;
 
                 /* We have to get a response ourselves. */
-                return process(this);
+                inUse = true;
             }
+            return process(this);
         }
 
         @Override
         public void close() {
+            JsonObjectBuilder builder = Json.createObjectBuilder();
+            builder.add(DISCRIMINATOR, id);
+            JsonObject msg = builder.build();
+            synchronized (base) {
+                base.write(msg);
+            }
             synchronized (MultiplexingJsonChannelManager.this) {
                 sessions.remove(id);
-                if (sessions.isEmpty() && shouldCloseOnEmpty()) base.close();
+                if (sessions.isEmpty() && shouldCloseOnEmpty()) {
+                    base.close();
+                    terminated = true;
+                    MultiplexingJsonChannelManager.this.notifyAll();
+                }
             }
         }
     }
@@ -165,7 +175,7 @@ public abstract class MultiplexingJsonChannelManager {
      * no channel was specified
      */
     JsonObject process(SessionChannel ch) {
-        inUse = true;
+        assert inUse;
         try {
             do {
                 /* Get the next message. */
@@ -175,8 +185,10 @@ public abstract class MultiplexingJsonChannelManager {
                  * session that we're multiplexing on, so all sessions'
                  * threads have to be notified. */
                 if (rsp == null) {
-                    terminated = true;
-                    notifyAll();
+                    synchronized (this) {
+                        terminated = true;
+                        notifyAll();
+                    }
                     return null;
                 }
 
@@ -189,9 +201,13 @@ public abstract class MultiplexingJsonChannelManager {
                 /* Yield this message if it's for us. */
                 if (ch != null && caller == ch.id) {
                     if (!rsp.containsKey(CONTENT)) {
-                        ch.term = true;
+                        synchronized (this) {
+                            ch.term = true;
+                            /* (We don't have to notify ourselves.) */
+                        }
                         return null;
                     }
+                    assert ch.incoming.isEmpty();
                     return rsp.getJsonObject(CONTENT);
                 }
 
@@ -211,31 +227,37 @@ public abstract class MultiplexingJsonChannelManager {
                 /* Deliver the message to the other session. */
                 if (!rsp.containsKey(CONTENT)) {
                     /* The other session to ours is closing. */
-                    other.term = true;
-                    notifyAll();
+                    synchronized (this) {
+                        other.term = true;
+                        notifyAll();
+                    }
                 } else if (!other.term) {
-                    /* The other session receives a message, so queue
-                     * its content. */
-                    other.responses.add(rsp.getJsonObject(CONTENT));
+                    synchronized (this) {
+                        /* The other session receives a message, so
+                         * queue its content. */
+                        other.incoming.add(rsp.getJsonObject(CONTENT));
 
-                    /* If this session has just started, that is the
-                     * first message, and no-one will be listening to
-                     * the session, but our caller might be the thread
-                     * that is waiting to receive the session channel.
-                     * Just return back to that caller, who will then
-                     * detect that the queue of channels is no longer
-                     * empty. */
-                    if (created && ch == null) return null;
+                        /* If this session has just started, that is the
+                         * first message, and no-one will be listening
+                         * to the session, but our caller might be the
+                         * thread that is waiting to receive the session
+                         * channel. Just return back to that caller, who
+                         * will then detect that the queue of channels
+                         * is no longer empty. */
+                        if (created && ch == null) return null;
 
-                    /* Otherwise, we'll have to notify threads that a
-                     * message has arrived, and possibly that new
-                     * session has started. */
-                    notifyAll();
+                        /* Otherwise, we'll have to notify threads that
+                         * a message has arrived, and possibly that new
+                         * session has started. */
+                        notifyAll();
+                    }
                 }
             } while (true);
         } finally {
-            inUse = false;
-            notifyAll();
+            synchronized (this) {
+                inUse = false;
+                notifyAll();
+            }
         }
     }
 
@@ -258,4 +280,6 @@ public abstract class MultiplexingJsonChannelManager {
      * channel is not appropriate
      */
     abstract SessionChannel open(int id);
+
+    abstract boolean shouldRespondToClose();
 }
