@@ -79,9 +79,24 @@ public abstract class MultiplexingJsonChannelManager {
         this.base = base;
     }
 
+    /**
+     * Indexes session channels by session ids. Entries are only removed
+     * when the local peer closes the session.
+     */
     final Map<Integer, SessionChannel> sessions = new HashMap<>();
 
+    /**
+     * If {@code true}, a thread is reading the base channel of behalf
+     * of some session, and will act on behalf of other sessions until
+     * it gets a message pertaining it its session.
+     */
     boolean inUse;
+
+    /**
+     * If {@code true}, the base channel has returned {@code null},
+     * indicating that it has closed, and so no more sessions can be
+     * started, and no more messages can be read or written.
+     */
     boolean terminated;
 
     class SessionChannel implements JsonChannel {
@@ -149,7 +164,7 @@ public abstract class MultiplexingJsonChannelManager {
      * @return the message for the specific channel, or {@code null} if
      * no channel was specified
      */
-    protected JsonObject process(SessionChannel ch) {
+    JsonObject process(SessionChannel ch) {
         inUse = true;
         try {
             do {
@@ -157,18 +172,18 @@ public abstract class MultiplexingJsonChannelManager {
                 JsonObject rsp = base.read();
 
                 /* If it is null, the peer has terminated the base
-                 * session that we're multiplexing on, so all callers
-                 * have to be notified. */
+                 * session that we're multiplexing on, so all sessions'
+                 * threads have to be notified. */
                 if (rsp == null) {
                     terminated = true;
                     notifyAll();
                     return null;
                 }
 
-                /* Discard messages that don't identify the caller. */
+                /* Discard messages that don't identify the session. */
                 if (!rsp.containsKey(DISCRIMINATOR)) continue;
 
-                /* Extract and remove the caller id. */
+                /* Extract the session id. */
                 int caller = rsp.getInt(DISCRIMINATOR);
 
                 /* Yield this message if it's for us. */
@@ -177,38 +192,60 @@ public abstract class MultiplexingJsonChannelManager {
                         ch.term = true;
                         return null;
                     }
-                    return rsp;
+                    return rsp.getJsonObject(CONTENT);
                 }
 
-                /* Otherwise, queue it with the appropriate caller,
-                 * notify everyone, and read the next message. */
+                /* It doesn't belong to our session. Find out which one
+                 * it does belong to. */
                 SessionChannel other = sessions.get(caller);
                 boolean created = false;
                 if (other == null) {
+                    /* This is an unknown session. As a client, we
+                     * should ignore it, but as a server, we should
+                     * create a new session channel for it. */
                     other = open(caller);
+                    if (other == null) continue;
                     created = true;
                 }
-                if (other == null) continue;
+
+                /* Deliver the message to the other session. */
                 if (!rsp.containsKey(CONTENT)) {
+                    /* The other session to ours is closing. */
                     other.term = true;
                     notifyAll();
                 } else if (!other.term) {
-                    other.responses.add(rsp);
+                    /* The other session receives a message, so queue
+                     * its content. */
+                    other.responses.add(rsp.getJsonObject(CONTENT));
+
+                    /* If this session has just started, that is the
+                     * first message, and no-one will be listening to
+                     * the session, but our caller might be the thread
+                     * that is waiting to receive the session channel.
+                     * Just return back to that caller, who will then
+                     * detect that the queue of channels is no longer
+                     * empty. */
                     if (created && ch == null) return null;
+
+                    /* Otherwise, we'll have to notify threads that a
+                     * message has arrived, and possibly that new
+                     * session has started. */
                     notifyAll();
                 }
             } while (true);
         } finally {
             inUse = false;
+            notifyAll();
         }
     }
 
     /**
-     * Determine whether a new absence of callers should result in a
-     * closing of the base.
+     * Determine whether a new absence of sessions should result in a
+     * closing of the base. Clients should usually say yes, while
+     * servers should usually say no.
      * 
      * @return {@code true} if the base should be closed after all
-     * callers have gone
+     * sessions have terminated
      */
     abstract boolean shouldCloseOnEmpty();
 

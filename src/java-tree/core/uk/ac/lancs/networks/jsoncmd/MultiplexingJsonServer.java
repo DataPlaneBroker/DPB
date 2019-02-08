@@ -68,6 +68,9 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
      * continuously read messages and queue them to the appropriate
      * session channel, until an unrecognized session is encountered,
      * causing a new session channel to be created and returned.
+     * 
+     * @return the next session channel, or {@code null} if there are no
+     * more because the base channel has been closed
      */
     @Override
     public synchronized JsonChannel getChannel() {
@@ -88,8 +91,16 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
 
     @Override
     SessionChannel open(int id) {
+        /* As a server, we create sessions when the client tells us
+         * to. */
         SessionChannel result = new SessionChannel(id);
+
+        /* Store the session under its id, so that messages received
+         * with this id can be queued with this session channel. */
         sessions.put(id, result);
+
+        /* Make the channel available in the queue, so that getChannel
+         * can read from it. */
         queue.add(result);
         notifyAll();
         return result;
