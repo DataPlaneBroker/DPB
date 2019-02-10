@@ -39,8 +39,6 @@ import java.net.ServerSocket;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
-import javax.json.JsonObject;
-
 import uk.ac.lancs.networks.jsoncmd.JsonChannel;
 import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
 import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonServer;
@@ -53,29 +51,11 @@ import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonServer;
 public class TestJsonServer {
     static final Executor executor = Executors.newCachedThreadPool();
 
-    static class ChannelDisplay implements Runnable {
-        private final JsonChannel channel;
-
-        public ChannelDisplay(JsonChannel channel) {
-            System.err.printf("New session%n");
-            this.channel = channel;
-        }
-
-        @Override
-        public void run() {
-            System.err.printf("Waiting...%n");
-            JsonObject msg;
-            while ((msg = channel.read()) != null) {
-                System.out.printf("Message: %s%n", msg);
-            }
-            System.out.printf("Terminated%n");
-        }
-    }
-
     static void processChannels(JsonChannelManager mgr) {
         System.err.printf("New connection%n");
         for (JsonChannel ch = null; (ch = mgr.getChannel()) != null;)
-            executor.execute(new ChannelDisplay(ch));
+            executor.execute(new ChannelDisplay(ch, "Server"));
+        System.err.printf("Connection closed%n");
     }
 
     public static void main(String[] args) throws Exception {

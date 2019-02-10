@@ -41,55 +41,60 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.net.Socket;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
-import javax.swing.JButton;
+import javax.json.Json;
+import javax.json.JsonObject;
 import javax.swing.JFrame;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import uk.ac.lancs.networks.jsoncmd.JsonChannel;
-import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
-import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonClient;
 
-/**
- * 
- * 
- * @author simpsons
- */
-public class TestJsonClient {
-    static final Executor executor = Executors.newCachedThreadPool();
+class ChannelDisplay implements Runnable {
+    private final JsonChannel channel;
+    private JFrame frame;
+    private JTextArea output;
 
-    /**
-     * @param args
-     */
-    public static void main(String[] args) throws Exception {
-        Socket socket = new Socket(args[0], 6666);
-        JsonChannel base = new SocketJsonChannel(socket);
-        JsonChannelManager mplex = new MultiplexingJsonClient(base, true);
-
+    public ChannelDisplay(JsonChannel channel, String title) {
+        System.err.printf("New session%n");
+        this.channel = channel;
         SwingUtilities.invokeLater(() -> {
-            JFrame frame = new JFrame("Manager");
+            frame = new JFrame(title);
             GridBagLayout layout = new GridBagLayout();
             GridBagConstraints constr = new GridBagConstraints();
             frame.setLayout(layout);
-            JButton newSession = new JButton("New");
-            newSession.addActionListener(new ActionListener() {
+            output = new JTextArea(10, 30);
+            output.setEditable(false);
+            constr.fill = GridBagConstraints.BOTH;
+            constr.weightx = constr.weighty = 1.0;
+            constr.gridx = 0;
+            constr.gridy = 0;
+            layout.setConstraints(output, constr);
+            frame.getContentPane().add(output);
+            JTextField input = new JTextField();
+            input.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    JsonChannel channel = mplex.getChannel();
-                    executor.execute(new ChannelDisplay(channel, "Client"));
+                    String text = input.getText();
+                    input.setText("");
+                    SwingUtilities.invokeLater(() -> {
+                        JsonObject msg = Json.createObjectBuilder()
+                            .add("msg", text).build();
+                        channel.write(msg);
+                    });
                 }
             });
-            constr.fill = GridBagConstraints.BOTH;
-            layout.setConstraints(newSession, constr);
-            frame.getContentPane().add(newSession);
+            constr.weightx = 1.0;
+            constr.weighty = 0.0;
+            constr.gridy = 1;
+            layout.setConstraints(input, constr);
+            frame.getContentPane().add(input);
 
             frame.addWindowListener(new WindowAdapter() {
                 @Override
                 public void windowClosing(WindowEvent e) {
-                    SwingUtilities.invokeLater(() -> System.exit(0));
+                    SwingUtilities.invokeLater(() -> channel.close());
                 }
             });
 
@@ -97,5 +102,21 @@ public class TestJsonClient {
             frame.setSize(frame.getPreferredSize());
             frame.setVisible(true);
         });
+    }
+
+    @Override
+    public void run() {
+        System.err.printf("Waiting...%n");
+        JsonObject msg;
+        while ((msg = channel.read()) != null) {
+            final JsonObject msgf = msg;
+            SwingUtilities.invokeLater(() -> {
+                output.append(msgf.getString("msg"));
+                output.append("\n");
+            });
+            // System.out.printf("Message: %s%n", msg.getString("msg"));
+        }
+        System.out.printf("Terminated%n");
+        frame.dispose();
     }
 }
