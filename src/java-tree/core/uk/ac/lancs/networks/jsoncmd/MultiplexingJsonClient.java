@@ -36,14 +36,23 @@
 
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.Collection;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 /**
- * Generates JSON session channels multiplexed on a base channel.
+ * Generates JSON session channels multiplexed on a base channel. This
+ * class also statically remembers the last session id it applied to a
+ * base channel, and continues from the next if a new client is based on
+ * it.
  * 
  * @author simpsons
  */
 public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
     implements JsonChannelManager {
-    private int nextId = 0;
+
+    private static final Map<JsonChannel, Integer> nextIds =
+        new WeakHashMap<>();
 
     private final boolean closeOnLast;
 
@@ -58,6 +67,15 @@ public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
         this.closeOnLast = closeOnLast;
     }
 
+    private static synchronized int
+        claimId(JsonChannel base, Collection<? extends Integer> keys) {
+        int id = nextIds.getOrDefault(base, 0);
+        while (keys.contains(id))
+            id++;
+        nextIds.put(base, id + 1);
+        return id;
+    }
+
     /**
      * Create a new session.
      * 
@@ -67,7 +85,8 @@ public class MultiplexingJsonClient extends MultiplexingJsonChannelManager
     @Override
     public synchronized JsonChannel getChannel() {
         if (terminated) return null;
-        SessionChannel result = new SessionChannel(nextId++);
+        SessionChannel result =
+            new SessionChannel(claimId(base, sessions.keySet()));
         sessions.put(result.id, result);
         return result;
     }
