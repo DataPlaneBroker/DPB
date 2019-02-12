@@ -100,6 +100,8 @@ public class VFCPerServiceFabric implements Fabric {
 
     private final CorsaREST rest;
 
+    private final boolean withMetering;
+
     /**
      * Create a switching fabric for a Corsa. The switch is scanned for
      * bridges. Each bridge described as partially configured is
@@ -139,6 +141,9 @@ public class VFCPerServiceFabric implements Fabric {
      * 
      * @param authz an authorization token obtained from the Corsa
      * 
+     * @param withMetering enables metering applied to tunnel
+     * attachments
+     * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
@@ -154,7 +159,7 @@ public class VFCPerServiceFabric implements Fabric {
                                String fullDescSuffix, String subtype,
                                String netns, InetSocketAddress controller,
                                URI service, X509Certificate cert,
-                               String authz)
+                               String authz, boolean withMetering)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -162,6 +167,7 @@ public class VFCPerServiceFabric implements Fabric {
         this.maxBridges = maxBridges;
         this.partialDesc = descPrefix + partialDescSuffix;
         this.fullDesc = descPrefix + fullDescSuffix;
+        this.withMetering = withMetering;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
@@ -329,12 +335,14 @@ public class VFCPerServiceFabric implements Fabric {
                             return;
                         }
 
-                        /* Apply the ingress rate as metering. */
-                        @SuppressWarnings("unused")
-                        RESTResponse<Void> tunPatchRsp =
-                            rest.patchTunnel(this.bridgeName, ofPort,
+                        if (withMetering) {
+                            /* Apply the ingress rate as metering. */
+                            @SuppressWarnings("unused")
+                            RESTResponse<Void> tunPatchRsp = rest
+                                .patchTunnel(this.bridgeName, ofPort,
                                              Meter.cir(flow.ingress * 1024.0),
                                              Meter.cbs(10));
+                        }
                     }
 
                     /* Attach the controller. */

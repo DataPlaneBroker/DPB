@@ -341,6 +341,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
             }
         }
 
+        final boolean withMetering =
+            conf.get("metering", "true").equals("true");
+
         final URI ctrlService = conf.getLocation("ctrl.rest.location");
         final X509Certificate ctrlCert;
         final String ctrlAuthz;
@@ -395,7 +398,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     partialDescSuffix,
                                                     fullDescSuffix, subtype,
                                                     netns, controller,
-                                                    service, cert, authz);
+                                                    service, cert, authz,
+                                                    withMetering);
                         return type.cast(result);
                     }
                     if (SHAREDVFC_TYPE_NAME.equals(implType)) {
@@ -408,7 +412,7 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     netns, controller,
                                                     service, cert, authz,
                                                     ctrlService, ctrlCert,
-                                                    ctrlAuthz);
+                                                    ctrlAuthz, withMetering);
                         return type.cast(result);
                     }
                     return null;

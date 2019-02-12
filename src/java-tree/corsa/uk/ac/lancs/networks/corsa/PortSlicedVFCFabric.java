@@ -96,6 +96,8 @@ public final class PortSlicedVFCFabric implements Fabric {
     private final String fullDesc;
     private final String descPrefix;
 
+    private final boolean withMetering;
+
     /**
      * Maps the circuit description of each tunnel attachment to the OF
      * port of our VFC. The circuit is in canonical form.
@@ -158,6 +160,9 @@ public final class PortSlicedVFCFabric implements Fabric {
      * @param ctrlAuthz an authorization token to use with the
      * controller REST API, or {@code null} if not required
      * 
+     * @param withMetering enables metering applied to tunnel
+     * attachments
+     * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
@@ -173,7 +178,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                                String netns, InetSocketAddress controller,
                                URI service, X509Certificate cert,
                                String authz, URI ctrlService,
-                               X509Certificate ctrlCert, String ctrlAuthz)
+                               X509Certificate ctrlCert, String ctrlAuthz,
+                               boolean withMetering)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -181,6 +187,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.descPrefix = descPrefix;
         this.partialDesc = descPrefix + partialDescSuffix;
         this.fullDesc = descPrefix + fullDescSuffix;
+        this.withMetering = withMetering;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
@@ -358,10 +365,12 @@ public final class PortSlicedVFCFabric implements Fabric {
                             .shapedRate(flow.egress).ofport(ofport);
                         rest.attachTunnel(bridgeId, desc);
 
-                        /* Set the incoming QoS of the tunnel. */
-                        rest.patchTunnel(bridgeId, ofport,
-                                         Meter.cir(flow.ingress * 1024.0),
-                                         Meter.cbs(10));
+                        if (withMetering) {
+                            /* Set the incoming QoS of the tunnel. */
+                            rest.patchTunnel(bridgeId, ofport,
+                                             Meter.cir(flow.ingress * 1024.0),
+                                             Meter.cbs(10));
+                        }
                     }
 
                     /* Tell the controller of the new OF port set. */
