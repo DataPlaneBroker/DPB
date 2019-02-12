@@ -53,6 +53,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import javax.json.Json;
+import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
@@ -68,8 +69,11 @@ import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonWriter;
 import uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer;
+import uk.ac.lancs.networks.jsoncmd.JsonChannel;
+import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
 import uk.ac.lancs.networks.jsoncmd.JsonNetworkServer;
 import uk.ac.lancs.networks.jsoncmd.JsonSwitchServer;
+import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonServer;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
@@ -283,20 +287,49 @@ public final class NetworkServer {
                         }
                         jout.writeObject(builder.build());
 
-                        /* Await interactions. */
-                        JsonObject req;
-                        while ((req = jin.readObject()) != null) {
-                            // System.err.printf("Request starts: %s%n",
-                            // req);
-                            for (JsonObject rsp : process(req,
-                                                          actions::add)) {
-                                System.err.printf("%s -> %s%n", req, rsp);
-                                writeJson(jout, rsp,
-                                          req.getString("txn", null));
+                        JsonChannel base = new JsonChannel() {
+                            @Override
+                            public void write(JsonObject msg) {
+                                jout.writeObject(msg);
                             }
-                            System.err.printf("Request complete: %s%n", req);
-                        }
 
+                            @Override
+                            public JsonObject read() {
+                                return jin.readObject();
+                            }
+
+                            @Override
+                            public void close() {
+                                try {
+                                    sess.close();
+                                } catch (IOException e) {
+                                    throw new JsonException("closing", e);
+                                }
+                            }
+                        };
+                        JsonChannelManager mgr =
+                            new MultiplexingJsonServer(base);
+                        do {
+                            JsonChannel session = mgr.getChannel();
+                            if (session == null) {
+                                System.err.printf("Base closed%n");
+                                break;
+                            }
+                            executor.execute(() -> {
+                                JsonObject req;
+                                while ((req = session.read()) != null) {
+                                    for (JsonObject rsp : process(req,
+                                                                  actions::add)) {
+                                        System.err.printf("%s -> %s%n", req,
+                                                          rsp);
+                                        session.write(rsp);
+                                    }
+                                    System.err
+                                        .printf("Request complete: %s%n",
+                                                req);
+                                }
+                            });
+                        } while (true);
                     }
                 } while (false);
             } catch (IOException ex) {
@@ -327,18 +360,6 @@ public final class NetworkServer {
                     .build());
             }
         }
-    }
-
-    private static void writeJson(JsonWriter writer, JsonObject res,
-                                  String txn) {
-        if (txn != null) {
-            JsonObjectBuilder builder = Json.createObjectBuilder();
-            builder.add("txn", txn);
-            res.entrySet()
-                .forEach(e -> builder.add(e.getKey(), e.getValue()));
-            res = builder.build();
-        }
-        writer.write(res);
     }
 
     void interact(Session sess) {
