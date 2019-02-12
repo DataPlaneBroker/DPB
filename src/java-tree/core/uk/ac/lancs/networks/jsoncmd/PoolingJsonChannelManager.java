@@ -35,9 +35,12 @@
  */
 package uk.ac.lancs.networks.jsoncmd;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import javax.json.JsonObject;
 
@@ -56,6 +59,19 @@ public final class PoolingJsonChannelManager implements JsonChannelManager {
      */
     public PoolingJsonChannelManager(JsonChannelManager base) {
         this.base = base;
+        flusher.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                flush();
+            }
+        }, 30000, 30000);
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                flush();
+                flush();
+            }
+        });
     }
 
     private class PooledChannel implements JsonChannel {
@@ -87,14 +103,36 @@ public final class PoolingJsonChannelManager implements JsonChannelManager {
     }
 
     private final Collection<PooledChannel> channels = new LinkedHashSet<>();
+    private final Collection<PooledChannel> oldChannels =
+        new LinkedHashSet<>();
+
+    private final Timer flusher =
+        new Timer("JSON channel pool flusher", true);
+
+    private void flush() {
+        Collection<PooledChannel> toDelete;
+        synchronized (this) {
+            toDelete = new ArrayList<>(oldChannels);
+            oldChannels.clear();
+            oldChannels.addAll(channels);
+            channels.clear();
+        }
+        for (PooledChannel ch : toDelete) {
+            try {
+                ch.base.close();
+            } catch (Throwable t) {
+                /* Ignore. We can't do anything about it. */
+            }
+        }
+    }
 
     @Override
     public final JsonChannel getChannel() {
         final PooledChannel result;
         synchronized (this) {
-            if (channels.isEmpty())
-                return new PooledChannel(base.getChannel());
             Iterator<PooledChannel> iter = channels.iterator();
+            if (!iter.hasNext()) iter = oldChannels.iterator();
+            if (!iter.hasNext()) return new PooledChannel(base.getChannel());
             result = iter.next();
             iter.remove();
         }
