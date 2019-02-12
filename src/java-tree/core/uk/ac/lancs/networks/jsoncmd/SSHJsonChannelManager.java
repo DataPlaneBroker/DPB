@@ -178,7 +178,16 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
 
         @Override
         public void close() {
-            out.close();
+            try {
+                out.close();
+            } finally {
+                try {
+                    in.close();
+                } finally {
+                    proc.destroy();
+                    System.err.printf("Closing SSH to %s%n", networkName);
+                }
+            }
         }
     }
 
