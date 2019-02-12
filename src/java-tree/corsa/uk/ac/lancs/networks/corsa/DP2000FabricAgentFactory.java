@@ -139,6 +139,11 @@ import uk.ac.lancs.scc.jardeps.Service;
  * 
  * <dd>Specifies the type of VFC to create.
  * 
+ * <dt><samp>metering</samp> (default <samp>true</samp>)
+ * 
+ * <dd>Specifies whether tunnel attachments should have metering applied
+ * to them.
+ * 
  * <dt><samp>ctrl.netns</samp> (default
  * <samp>{@value #DEFAULT_NETWORK_NAMESPACE}</samp>!)
  * 
