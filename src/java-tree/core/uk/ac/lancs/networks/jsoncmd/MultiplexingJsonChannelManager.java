@@ -75,6 +75,7 @@ public abstract class MultiplexingJsonChannelManager {
     final JsonChannel base;
 
     MultiplexingJsonChannelManager(JsonChannel base) {
+        if (base == null) throw new NullPointerException("base");
         this.base = base;
     }
 
