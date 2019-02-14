@@ -368,8 +368,10 @@ public final class PortSlicedVFCFabric implements Fabric {
                             (CorsaInterface) circuit.getInterface();
                         iface.configureTunnel(desc, circuit.getLabel())
                             .ofport(ofport);
-                        if (withShaping)
+                        if (withShaping) {
+                            /* Set the outgoing rate of the tunnel. */
                             desc.shapedRate(flow.egress);
+                        }
                         rest.attachTunnel(bridgeId, desc);
 
                         if (withMetering) {

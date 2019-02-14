@@ -325,7 +325,10 @@ public class VFCPerServiceFabric implements Fabric {
                          * the tunnel. */
                         final int ofPort = nextOfPort++;
                         TunnelDesc tun = new TunnelDesc().ofport(ofPort);
-                        if (withShaping) tun = tun.shapedRate(flow.egress);
+                        if (withShaping) {
+                            /* Set the outgoing rate of the tunnel. */
+                            tun = tun.shapedRate(flow.egress);
+                        }
                         iface.configureTunnel(tun, ep.getLabel());
                         RESTResponse<Void> tunRsp =
                             rest.attachTunnel(this.bridgeName, tun);
