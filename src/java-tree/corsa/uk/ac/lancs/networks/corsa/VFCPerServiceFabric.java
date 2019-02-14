@@ -102,6 +102,8 @@ public class VFCPerServiceFabric implements Fabric {
 
     private final boolean withMetering;
 
+    private final boolean withShaping;
+
     /**
      * Create a switching fabric for a Corsa. The switch is scanned for
      * bridges. Each bridge described as partially configured is
@@ -144,6 +146,8 @@ public class VFCPerServiceFabric implements Fabric {
      * @param withMetering enables metering applied to tunnel
      * attachments
      * 
+     * @param withShaping enables shaping applied to tunnel attachments
+     * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
@@ -159,7 +163,8 @@ public class VFCPerServiceFabric implements Fabric {
                                String fullDescSuffix, String subtype,
                                String netns, InetSocketAddress controller,
                                URI service, X509Certificate cert,
-                               String authz, boolean withMetering)
+                               String authz, boolean withMetering,
+                               boolean withShaping)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -168,6 +173,7 @@ public class VFCPerServiceFabric implements Fabric {
         this.partialDesc = descPrefix + partialDescSuffix;
         this.fullDesc = descPrefix + fullDescSuffix;
         this.withMetering = withMetering;
+        this.withShaping = withShaping;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
@@ -318,8 +324,8 @@ public class VFCPerServiceFabric implements Fabric {
                          * rate. Shaping can only be set when creating
                          * the tunnel. */
                         final int ofPort = nextOfPort++;
-                        TunnelDesc tun = new TunnelDesc().ofport(ofPort)
-                            .shapedRate(flow.egress);
+                        TunnelDesc tun = new TunnelDesc().ofport(ofPort);
+                        if (withShaping) tun = tun.shapedRate(flow.egress);
                         iface.configureTunnel(tun, ep.getLabel());
                         RESTResponse<Void> tunRsp =
                             rest.attachTunnel(this.bridgeName, tun);

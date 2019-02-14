@@ -98,6 +98,8 @@ public final class PortSlicedVFCFabric implements Fabric {
 
     private final boolean withMetering;
 
+    private final boolean withShaping;
+
     /**
      * Maps the circuit description of each tunnel attachment to the OF
      * port of our VFC. The circuit is in canonical form.
@@ -163,6 +165,8 @@ public final class PortSlicedVFCFabric implements Fabric {
      * @param withMetering enables metering applied to tunnel
      * attachments
      * 
+     * @param withShaping enables shaping applied to tunnel attachments
+     * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
@@ -179,7 +183,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                                URI service, X509Certificate cert,
                                String authz, URI ctrlService,
                                X509Certificate ctrlCert, String ctrlAuthz,
-                               boolean withMetering)
+                               boolean withMetering, boolean withShaping)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -188,6 +192,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.partialDesc = descPrefix + partialDescSuffix;
         this.fullDesc = descPrefix + fullDescSuffix;
         this.withMetering = withMetering;
+        this.withShaping = withShaping;
         this.subtype = subtype;
         this.netns = netns;
         this.controller = controller;
@@ -361,8 +366,9 @@ public final class PortSlicedVFCFabric implements Fabric {
                         TunnelDesc desc = new TunnelDesc();
                         CorsaInterface iface =
                             (CorsaInterface) circuit.getInterface();
-                        iface.configureTunnel(desc, circuit.getLabel())
-                            .shapedRate(flow.egress).ofport(ofport);
+                        iface.configureTunnel(desc, circuit.getLabel());
+                        if (withShaping)
+                            desc.shapedRate(flow.egress).ofport(ofport);
                         rest.attachTunnel(bridgeId, desc);
 
                         if (withMetering) {

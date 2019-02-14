@@ -144,6 +144,11 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <dd>Specifies whether tunnel attachments should have metering applied
  * to them.
  * 
+ * <dt><samp>shaping</samp> (default <samp>true</samp>)
+ * 
+ * <dd>Specifies whether tunnel attachments should have shaping applied
+ * to them.
+ * 
  * <dt><samp>ctrl.netns</samp> (default
  * <samp>{@value #DEFAULT_NETWORK_NAMESPACE}</samp>!)
  * 
@@ -349,6 +354,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
         final boolean withMetering =
             conf.get("metering", "true").equals("true");
 
+        final boolean withShaping =
+            conf.get("shaping", "true").equals("true");
+
         final URI ctrlService = conf.getLocation("ctrl.rest.location");
         final X509Certificate ctrlCert;
         final String ctrlAuthz;
@@ -404,7 +412,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     fullDescSuffix, subtype,
                                                     netns, controller,
                                                     service, cert, authz,
-                                                    withMetering);
+                                                    withMetering,
+                                                    withShaping);
                         return type.cast(result);
                     }
                     if (SHAREDVFC_TYPE_NAME.equals(implType)) {
@@ -417,7 +426,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     netns, controller,
                                                     service, cert, authz,
                                                     ctrlService, ctrlCert,
-                                                    ctrlAuthz, withMetering);
+                                                    ctrlAuthz, withMetering,
+                                                    withShaping);
                         return type.cast(result);
                     }
                     return null;
