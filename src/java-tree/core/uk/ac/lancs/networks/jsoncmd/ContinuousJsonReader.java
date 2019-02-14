@@ -52,6 +52,7 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
 import javax.json.JsonStructure;
+import javax.json.stream.JsonParsingException;
 
 /**
  * Reads multiple JSON entities from a stream. A fresh reader is created
@@ -75,6 +76,9 @@ public class ContinuousJsonReader implements JsonReader {
         this.base = new DataInputStream(base);
     }
 
+    /**
+     * Close the base input stream.
+     */
     @Override
     public void close() {
         try {
@@ -101,16 +105,40 @@ public class ContinuousJsonReader implements JsonReader {
         }
     }
 
+    /**
+     * Read an arbitrary JSON structure from the base stream.
+     * 
+     * @return the next structure on the base stream, or {@code null} if
+     * there are no more.
+     */
     @Override
     public JsonStructure read() {
         return receive(JsonReader::read);
     }
 
+    /**
+     * Read a JSON array from the base stream.
+     * 
+     * @return the next structure on the base stream if it is an array,
+     * or {@code null} if there are no more
+     * 
+     * @throws {@link JsonParsingException} if the next structure is not
+     * an array
+     */
     @Override
     public JsonArray readArray() {
         return receive(JsonReader::readArray);
     }
 
+    /**
+     * Read a JSON object from the base stream.
+     * 
+     * @return the next structure on the base stream if it is an object,
+     * or {@code null} if there are no more
+     * 
+     * @throws {@link JsonParsingException} if the next structure is not
+     * an object
+     */
     @Override
     public JsonObject readObject() {
         return receive(JsonReader::readObject);

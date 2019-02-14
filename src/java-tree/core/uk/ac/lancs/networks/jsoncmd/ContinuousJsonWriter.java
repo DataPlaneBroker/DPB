@@ -73,6 +73,9 @@ public final class ContinuousJsonWriter implements JsonWriter {
         this.base = new DataOutputStream(base);
     }
 
+    /**
+     * Close the base stream.
+     */
     @Override
     public void close() {
         try {
@@ -98,16 +101,31 @@ public final class ContinuousJsonWriter implements JsonWriter {
         }
     }
 
+    /**
+     * Write an arbitrary JSON structure to the base stream.
+     * 
+     * @param value the structure to be written
+     */
     @Override
     public void write(JsonStructure value) {
         send(w -> w.write(value));
     }
 
+    /**
+     * Write a JSON array to the base stream.
+     * 
+     * @param array the array to be written
+     */
     @Override
     public void writeArray(JsonArray array) {
         send(w -> w.writeArray(array));
     }
 
+    /**
+     * Write a JSON object to the base stream.
+     * 
+     * @param object the object to be written
+     */
     @Override
     public void writeObject(JsonObject object) {
         send(w -> w.writeObject(object));
