@@ -52,6 +52,8 @@ public final class ChordMetrics {
      * @param delay the chord's delay
      * 
      * @return chord metrics expressing the specified characteristics
+     * 
+     * @constructor
      */
     public static final ChordMetrics ofDelay(double delay) {
         return new ChordMetrics(delay, null, null);
@@ -66,6 +68,8 @@ public final class ChordMetrics {
      * @param downstream the downstream bandwidth capacity
      * 
      * @return chord metrics expressing the specified characteristics
+     * 
+     * @constructor
      */
     public static final ChordMetrics ofBandwidth(double upstream,
                                                  double downstream) {
@@ -78,6 +82,8 @@ public final class ChordMetrics {
      * @param rate the bandwidth capacity in both directions
      * 
      * @return chord metrics expressing the specified characteristics
+     * 
+     * @constructor
      */
     public static final ChordMetrics ofBandwidth(double rate) {
         return ofBandwidth(rate, rate);
@@ -94,6 +100,8 @@ public final class ChordMetrics {
      * @param downstream the downstream bandwidth capacity
      * 
      * @return chord metrics expressing the specified characteristics
+     * 
+     * @constructor
      */
     public static final ChordMetrics of(double delay, double upstream,
                                         double downstream) {
@@ -101,13 +109,16 @@ public final class ChordMetrics {
     }
 
     /**
-     * 
+     * Express a chord's delay and bandwidth capacity in both
+     * directions.
      * 
      * @param delay the chord's delay
      * 
      * @param rate the bandwidth capacity in both directions
      * 
      * @return chord metrics expressing the specified characteristics
+     * 
+     * @constructor
      */
     public static final ChordMetrics of(double delay, double rate) {
         return of(delay, rate, rate);
@@ -260,6 +271,11 @@ public final class ChordMetrics {
         if (downstream != null) dest.accept(downstream);
     }
 
+    /**
+     * Prepares creation of a chord metric.
+     * 
+     * @author simpsons
+     */
     public static class Builder {
         private Double delay, upstream, downstream;
 
@@ -327,6 +343,8 @@ public final class ChordMetrics {
      * Start to build metrics.
      * 
      * @return an object to build the metrics gradually
+     * 
+     * @constructor
      */
     public static Builder start() {
         return new Builder();
@@ -337,6 +355,8 @@ public final class ChordMetrics {
      * Upstream and downstream bandwidths are swapped.
      * 
      * @return the requested metrics
+     * 
+     * @constructor
      */
     public ChordMetrics reverse() {
         return new ChordMetrics(delay, downstream, upstream);
