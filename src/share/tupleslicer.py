@@ -1364,8 +1364,11 @@ class SliceController(ControllerBase):
         if 'slices' in new_config:
             for lps in new_config['slices']:
                 ps = set()
-                for tup in lps:
-                    ps.add(tuple(tup))
+                for mp in lps:
+                    tup = tuple(mp['circuit'])
+                    ## TODO: Extract and use 'ingress-bw' and
+                    ## 'egress-bw' fields too.
+                    ps.add(tup)
                 LOG.info("%016x: creating %s", dpid, tuples_text(ps))
                 status.create_slice(ps)
         status.revalidate()

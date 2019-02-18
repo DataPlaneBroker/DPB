@@ -189,9 +189,7 @@ public final class VLANCircuitFabric implements Fabric {
             assert Thread.holdsLock(VLANCircuitFabric.this);
             if (!started) {
                 try {
-                    /* TODO: Pass the whole 'circuits' map, not just the
-                     * keys. */
-                    sliceRest.defineCircuitSet(dpid, circuits.keySet());
+                    sliceRest.defineCircuitSet(dpid, circuits);
                 } catch (IOException | JsonException ex) {
                     RuntimeException t =
                         new RuntimeException("could not connect " + circuits,

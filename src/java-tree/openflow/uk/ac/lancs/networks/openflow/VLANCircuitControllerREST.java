@@ -53,6 +53,7 @@ import javax.json.JsonArray;
 import javax.json.JsonNumber;
 import javax.json.JsonStructure;
 
+import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.rest.RESTClient;
 import uk.ac.lancs.rest.RESTResponse;
 import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
@@ -132,7 +133,8 @@ public final class VLANCircuitControllerREST extends RESTClient {
      * 
      * @param dpid the datapath id of the switch being controlled
      * 
-     * @param set the additional set of circuit ids to apply
+     * @param set the additional set of circuit ids to apply, with their
+     * bandwidth mappings
      * 
      * @return the REST response, including a set of sets of circuit ids
      * 
@@ -141,7 +143,8 @@ public final class VLANCircuitControllerREST extends RESTClient {
      */
     public final
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
-        defineCircuitSet(long dpid, Collection<? extends VLANCircuitId> set)
+        defineCircuitSet(long dpid,
+                         Map<? extends VLANCircuitId, ? extends TrafficFlow> set)
             throws IOException {
         return defineCircuitSets(dpid, Arrays.asList(set));
     }
@@ -153,7 +156,8 @@ public final class VLANCircuitControllerREST extends RESTClient {
      * 
      * @param dpid the datapath id of the switch being controlled
      * 
-     * @param sets the additional sets of circuit ids to apply
+     * @param sets the additional sets of circuit ids to apply, with
+     * their bandwidth mappings
      * 
      * @return the REST response, including a set of sets of circuit ids
      * 
@@ -163,16 +167,20 @@ public final class VLANCircuitControllerREST extends RESTClient {
     public final
         RESTResponse<Collection<? extends Collection<? extends VLANCircuitId>>>
         defineCircuitSets(long dpid,
-                          Collection<? extends Collection<? extends VLANCircuitId>> sets)
+                          Collection<? extends Map<? extends VLANCircuitId, ? extends TrafficFlow>> sets)
             throws IOException {
-        Map<String, List<List<List<Integer>>>> params = new HashMap<>();
-        List<List<List<Integer>>> lists = new ArrayList<>();
+        Map<String, List<Map<String, Object>>> params = new HashMap<>();
+        List<Map<String, Object>> lists = new ArrayList<>();
         params.put("slices", lists);
-        for (Collection<? extends VLANCircuitId> set : sets) {
-            List<List<Integer>> list = new ArrayList<>();
-            for (VLANCircuitId id : set)
-                list.add(id.asList());
-            lists.add(list);
+        for (Map<? extends VLANCircuitId, ? extends TrafficFlow> slice : sets) {
+            Map<String, Object> oof = new HashMap<>();
+            for (Map.Entry<? extends VLANCircuitId, ? extends TrafficFlow> entry : slice
+                .entrySet()) {
+                oof.put("ingress-bw", entry.getValue().ingress);
+                oof.put("egress-bw", entry.getValue().egress);
+                oof.put("circuit", entry.getKey().asList());
+            }
+            lists.add(oof);
         }
         return post(String.format("config/%016x", dpid), params)
             .adapt(VLANCircuitControllerREST::decodeCircuitSets);
