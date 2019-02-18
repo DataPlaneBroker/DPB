@@ -177,10 +177,10 @@ public final class VLANCircuitFabric implements Fabric {
     }
 
     private class Slice {
-        private final Collection<VLANCircuitId> circuits;
+        private final Map<VLANCircuitId, TrafficFlow> circuits;
 
-        Slice(Collection<? extends VLANCircuitId> circuits) {
-            this.circuits = new HashSet<>(circuits);
+        Slice(Map<? extends VLANCircuitId, ? extends TrafficFlow> circuits) {
+            this.circuits = new HashMap<>(circuits);
         }
 
         boolean started = false;
@@ -189,7 +189,9 @@ public final class VLANCircuitFabric implements Fabric {
             assert Thread.holdsLock(VLANCircuitFabric.this);
             if (!started) {
                 try {
-                    sliceRest.defineCircuitSet(dpid, circuits);
+                    /* TODO: Pass the whole 'circuits' map, not just the
+                     * keys. */
+                    sliceRest.defineCircuitSet(dpid, circuits.keySet());
                 } catch (IOException | JsonException ex) {
                     RuntimeException t =
                         new RuntimeException("could not connect " + circuits,
@@ -206,7 +208,7 @@ public final class VLANCircuitFabric implements Fabric {
             assert Thread.holdsLock(VLANCircuitFabric.this);
 
             try {
-                sliceRest.discardCircuits(dpid, circuits);
+                sliceRest.discardCircuits(dpid, circuits.keySet());
             } catch (IOException | JsonException e) {
                 /* Don't care at this point. */
             }
@@ -276,6 +278,21 @@ public final class VLANCircuitFabric implements Fabric {
         return 1000;
     }
 
+    private Map<VLANCircuitId, TrafficFlow>
+        map2(Map<? extends Channel, ? extends TrafficFlow> channels) {
+        Map<VLANCircuitId, TrafficFlow> result = new HashMap<>();
+        for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : channels
+            .entrySet()) {
+            Channel c = entry.getKey();
+            if (!(c.getInterface() instanceof VLANCircuitInterface)) continue;
+            VLANCircuitInterface iface =
+                (VLANCircuitInterface) c.getInterface();
+            result.put(iface.getId(c.getLabel()), entry.getValue());
+        }
+        return result;
+    }
+
+    @SuppressWarnings("unused")
     private Collection<VLANCircuitId>
         map(Collection<? extends Channel> channels) {
         Collection<VLANCircuitId> result = new HashSet<>();
@@ -293,8 +310,8 @@ public final class VLANCircuitFabric implements Fabric {
         bridge(BridgeListener listener,
                Map<? extends Channel, ? extends TrafficFlow> details) {
         Collection<Channel> key = new HashSet<>(details.keySet());
-        Slice slice =
-            slicesByChannelSet.computeIfAbsent(key, k -> new Slice(map(k)));
+        Slice slice = slicesByChannelSet
+            .computeIfAbsent(key, k -> new Slice(map2(details)));
         slice.addListener(listener);
         return new BridgeRef(slice);
     }
