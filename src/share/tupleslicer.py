@@ -58,50 +58,134 @@
 ## group, and the packet will have no VLAN tags that the switch is
 ## interested in.
 
-## For every group id, a low-priority rule is established in T2
-## matching (metadata=id) => (group: id).  These implement the
-## flooding rules for each multi-tuple slice.  A slice with n tuples will
-## have n groups allocated to it, and n static rules outputting to
-## these groups.
+## For every pair of group ids (ig: input group; og: output group), a
+## low-priority rule is established in T2 matching (metadata=ig) =>
+## (group: og).  These implement the flooding rules for each
+## multi-tuple slice.  A slice with n tuples will have n groups
+## allocated to it, and n static rules outputting to these groups.
 
 ## T2's high-priority rules are established dynamically when a MAC
 ## address m is seen as source on a given tuple t which has an
 ## allocated group id, and is therefore part of a multi-tuple slice.
-## For a slice of n tuples, (n-1) rules must be established for each
-## new address.  Each one matches (metadata=ig, eth_dst=m), where ig
-## is the group id assigned to each of the slice's tuples that isn't
-## t.  The actions are almost identical in each rule; each pushes
+## For a slice of n tuples, n rules must be established for each new
+## address.  Each one matches (metadata=ig, eth_dst=m), where ig is
+## the group id assigned to each of the slice's tuples that isn't t.
+## The actions are almost identical in each rule; each pushes
 ## CTAG(inner), STAG(outer) and outputting on p if the tuple is (p,
 ## outer, inner), pushing CTAG(tag) and outputting on p if the tuple
 ## is (p, tag), or simply outputting on p; each matches eth_dst=m.  As
 ## before, outputting to p is replaced by outputting to IN_PORT if p
 ## is the same port as for the tuple corresponding to group ig.
-## Finally, the cookies of the (n-1) rules are set to
+## Exceptionally, one of these rules identifies that the destination
+## tuple is the same as the source tuple, and explicitly drops the
+## packet.  Finally, the cookies of the n rules are set to
 ## (0x1000000000000000 | og), where og is the group corresponding to
 ## tuple t.  This is used to flush out stagnant dynamic rules
 ## outputting to t, as it is impossible to distinguish them via match
 ## conditions.
 
-## T0's highest-priority rules implement E-Line/Drop behaviour for
-## (port) tuples of 1-tuple and 2-tuple slices.  The next rules match
-## <port, vlan> for tuples of the form (port, vlan) and (port, vlan,
-## *), pop the VLAN tag, set the metadata to vlan, and forward to T1.
-## The next match <in_port, no-vlan, eth_src> for MAC addresses
-## learned on (port) tuples, and set the metadata to the group id for
-## the tuple (port), and redirect to T2, using an idle timeout.  A
-## low-priority rule sends all non-VLAN traffic to the controller, and
-## the rest is dropped.
+## For each learned MAC m on tuple it:
+##
+## * ig=group(it)
+## 
+## * For each ot in tuples(slice_of(t)):
+##
+## ** og=group(ot)
+##
+## ** P2 (metadata=ig, eth_dst=m) => out_actions(ot, it.port)
+##
+## For each group ig:
+##
+## * P1 (metadata=ig) => goto_group(ig)
 
-## T1's default rule sends to the controller.  The highest-priority
-## rules implement E-Line and Drop for 1-tuple and 2-tuple slices.
-## All other rules for multi-tuple slices are learned from each MAC
-## address m seen as source on (p, tag) or (p, outer, inner) tuples.
-## For (p, tag), the rule is (in_port=p, no-vlan, metadata=tag,
-## eth_src=m) => (meta=id, T2), where id is the tuple's allocated
-## group id.  For (p, outer, inner), the rule is (in_port=p,
-## vlan=inner, metadata=outer, eth_src=m) => (PopVLAN, meta=id, T2).
-## Note that the metadata on entry to T1 is always the VLAN id of a
-## popped tag.
+## T0's highest-priority rule drops untagged LLDP.  The next rules
+## serve (port) tuples of multi-tuple slices by matching the port and
+## known source MAC addresses, setting the metadata to the tuple's
+## group id, and submitting to T2.  The next rules with the same
+## priority serve three different cases: (1) For (port) tuples of
+## 2-tuple slices, match the port, and deliver to the corresponding
+## tuple (which may entail pushing one or two tags, and sending to the
+## output or input port).  (2) For (port) tuples of multi-tuple
+## slices, match the port, and send to the controller.  (3) For (port,
+## vlan) and (port, vlan, inner) tuples of multi-tuple slices, match
+## port and vlan, then pop vlan, set it as metadata, and submit to T1.
+
+## P6 (no-vlan, LLDP) => drop
+##
+## For each learned MAC m on tuple it(port):
+##
+## * P5 (in_port=port, eth_src=m) => metadata=group(it), T2
+##
+## For each slice s:
+##
+## * If count(tuples(s)) > 2:
+##
+## ** For each it(port, vlan) or (port, vlan, inner) of tuples(s):
+##
+## *** P4 (in_port=port, vlan=vlan) => pop-vlan, metadata=vlan, T1
+##
+## ** For each it(port) of tuples(s):
+##
+## *** P4 (in_port=port) => controller
+##
+## * If count(tuples(s)) == 2:
+##
+## ** For each it(port) of tuples(s):
+##
+## *** ot=other tuple of s
+##
+## *** P4 (in_port=port) => out_actions(ot, port)
+
+## On entry to T1, the metadata holds the value of a popped tag, so T1
+## only serves tuples of the forms (port, vlan) and (port, vlan,
+## inner).  Its highest-priority rules serve multi-tuple slices, and
+## match known source MACs, as well as the metadata against vlan for
+## (port, vlan) and (port, vlan, inner) tuples, and vlan against inner
+## for the latter, set the metadata to the tuple's group id, pop the
+## vlan tag in the latter case, and submit to T2.  The remaining rules
+## match metadata against vlan for (port, vlan) and (port, vlan,
+## inner) tuples, and vlan against inner for the latter, set the
+## metadata to the tuple's group id, pop the vlan tag in the latter
+## case, then then either re-tag and deliver to a port for 2-tuple
+## slices, or set the metadata to the tuple's group id, and deliver to
+## the controller.
+
+## For each learned MAC m on tuple it(port, vlan)
+##
+## * P5 (in_port=port, metadata=vlan, eth_src=m) => metadata=group(it), T2
+##
+## For each learned MAC m on tuple it(port, vlan, inner)
+##
+## * P5 (in_port=port, metadata=vlan, vlan=inner, eth_src=m) =>
+## * pop-vlan, metadata=group(it), T2
+##
+## For each slice s:
+##
+## * If count(tuples(s)) > 2:
+##
+## ** For each it(port, vlan) or of tuples(s):
+##
+## *** P4 (in_port=port, metadata=vlan) => metadata=vlan, controller
+##
+## ** For each it(port, vlan, inner) of tuples(s):
+##
+## *** P4 (in_port=port, metadata=vlan, vlan=inner) => pop-vlan,
+## *** metadata=vlan, controller
+##
+## * If count(tuples(s)) == 2:
+##
+## ** For each it(port, vlan) of tuples(s):
+##
+## *** ot=other tuple of s
+##
+## *** P4 (in_port=port, metadata=vlan) => out_actions(ot, port)
+##
+## ** For each it(port, vlan, inner) of tuples(s):
+##
+## *** ot=other tuple of s
+##
+## *** P4 (in_port=port, metadata=vlan, vlan=inner) => pop-vlan,
+## *** out_actions(ot, port)
 
 ## The controller implements a REST interface allowing any number of
 ## tuple sets to be specified.  The controller retains all tuple set
@@ -193,10 +277,6 @@ class Slice:
         ## of this slice
         self.established = set()
 
-        ## Record the ingress and egress rates for each tuple.
-        self.ingress_rates = { }
-        self.egress_rates = { }
-
         ## Keep track of the tuple on which a MAC was last seen.
         self.mac_tup = { }
 
@@ -238,10 +318,10 @@ class Slice:
         ## now.
         self.established.clear()
         self.switch.invalid_slices.add(self)
-        
+
     ## Ensure that this slice has the right set of static rules, based
     ## on its tuple set.  If the number of tuples is greater than two,
-    ## each tuples needs a group entry, outputting to all other tuples
+    ## each tuple needs a group entry, outputting to all other tuples
     ## in the set.  If there are exactly two tuples, two E-Line rules
     ## must exist, exchanging traffic between them.  If there is one
     ## tuple, a single rule is required to explicitly drop the
@@ -255,7 +335,7 @@ class Slice:
 
         dp = self.switch.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         LOG.info("%016x: %s -> %s", dp.id,
                  tuples_text(self.established), tuples_text(self.sanitized))
 
@@ -283,15 +363,15 @@ class Slice:
                 cookie = group
                 cookie_mask = 0xffffffffffffffff
                 out_port = ofp.OFPP_CONTROLLER
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        cookie=cookie,
-                                        cookie_mask=cookie_mask,
-                                        datapath=dp,
-                                        table_id=tbl,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=out_port,
-                                        out_group=ofp.OFPG_ANY)
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    cookie=cookie,
+                                    cookie_mask=cookie_mask,
+                                    datapath=dp,
+                                    table_id=tbl,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=out_port,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
 
 
@@ -310,27 +390,23 @@ class Slice:
                 ## Remove the group definition from the switch table,
                 ## automatically deleting the destination rule that
                 ## directs to it.
-                msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                             command=ofp.OFPGC_DELETE,
-                                             group_id=group)
+                msg = parser.OFPGroupMod(datapath=dp,
+                                         command=ofp.OFPGC_DELETE,
+                                         group_id=group)
                 dp.send_msg(msg)
 
                 ## Remove the T2 rules that match the group and a
                 ## destination MAC address.
-                match = ofp_parser.OFPMatch(metadata=group)
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                            cookie=0xffffffffffffffff,
-                                            datapath=dp,
-                                            table_id=2,
-                                            match=match,
-                                            buffer_id=ofp.OFPCML_NO_BUFFER,
-                                            out_port=ofp.OFPP_ANY,
-                                            out_group=ofp.OFPG_ANY)
+                match = parser.OFPMatch(metadata=group)
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                        cookie=0xffffffffffffffff,
+                                        datapath=dp,
+                                        table_id=2,
+                                        match=match,
+                                        buffer_id=ofp.OFPCML_NO_BUFFER,
+                                        out_port=ofp.OFPP_ANY,
+                                        out_group=ofp.OFPG_ANY)
                 dp.send_msg(msg)
-
-        ## Delete meters for tuples being discarded.
-        for tup in self.established - self.sanitized:
-            self.switch.release_meter_by_tuple(tup)
 
     ## Ensure that this slice has the right set of static rules, based
     ## on its tuple set.  If the number of tuple is greater than two,
@@ -340,13 +416,11 @@ class Slice:
     ## function only adds rules, and allocates groups.  Use
     ## delete_static_rules to delete rules and release groups.
     def add_static_rules(self):
-        ## Create or update meters for all tuples.
+        ## Get meters for all tuples.
+        outmtrs = {}
+        inmtrs = {}
         for tup in self.sanitized:
-            ingress = self.ingress_rates.get(tup)
-            egress = self.egress_rates.get(tup)
-            [inmtr, outmtr] = self.switch.claim_meter_for_tuple(tup,
-                                                                ingress,
-                                                                egress)
+            self.switch.get_meters(tup, inmtrs, outmtrs)
 
         if self.sanitized == self.established:
             ## Nothing has actually changed.
@@ -354,7 +428,7 @@ class Slice:
 
         dp = self.switch.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## A slice with fewer than 2 tuples should have no OpenFlow
         ## manifestations.  The default drop rule should apply.
@@ -373,17 +447,24 @@ class Slice:
                          tuple_text(tups[i]), tuple_text(tups[1-i]))
                 (match, tbl, prio) = self.switch.tuple_match(tups[i])
                 actions = self.switch.tuple_action(tups[1-i], tups[i][0])
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                            datapath=dp,
-                                            table_id=tbl,
-                                            priority=prio,
-                                            match=match,
-                                            instructions=inst)
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                ## Apply ingress (i) and egress meters (1-i).
+                if tups[1-i] in outmtrs:
+                    inst.insert(0,
+                                parser.OFPInstructionMeter(outmtrs[tups[1-i]]))
+                if tups[i] in inmtrs:
+                    inst.insert(0, parser.OFPInstructionMeter(inmtrs[tups[i]]))
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        datapath=dp,
+                                        table_id=tbl,
+                                        priority=prio,
+                                        match=match,
+                                        instructions=inst)
                 dp.send_msg(msg)
             return
 
+        ## Identify the set of new tuples.
         if len(self.established) <= 2:
             newports = self.sanitized
         else:
@@ -406,15 +487,18 @@ class Slice:
             for dtup in self.sanitized:
                 if dtup == stup:
                     continue
-                ## TODO: If OF/1.5, and outmtr is not None, add a
-                ## meter action for this bucket.
                 actions = self.switch.tuple_action(dtup, stup[0])
-                buckets.append(ofp_parser.OFPBucket(actions=actions))
-            msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                         command=cmd,
-                                         type_=ofp.OFPGT_ALL,
-                                         group_id=group,
-                                         buckets=buckets)
+                ## Apply egress meter to this bucket.  TODO: Make this
+                ## conditional on OpenFlow1.5, as earlier versions do
+                ## not support meter actions, only meter instructions.
+                if dtup in outmtrs:
+                    actions.insert(0, parser.OFPActionMeter(outmtrs[dtup]))
+                buckets.append(parser.OFPBucket(actions=actions))
+            msg = parser.OFPGroupMod(datapath=dp,
+                                     command=cmd,
+                                     type_=ofp.OFPGT_ALL,
+                                     group_id=group,
+                                     buckets=buckets)
             dp.send_msg(msg)
 
             if added:
@@ -424,19 +508,26 @@ class Slice:
                 ## T2.  This rule will automatically be deleted when
                 ## the group is deleted, because it refers to the
                 ## group in its actions.
-                match = ofp_parser.OFPMatch(metadata=group)
-                ## TODO: If outmtr is not None, add a meter action for
-                ## this output.
-                actions = [ofp_parser.OFPActionGroup(group)]
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                            cookie=0xffffffffffffffff,
-                                            datapath=dp,
-                                            table_id=2,
-                                            priority=1,
-                                            match=match,
-                                            instructions=inst)
+                match = parser.OFPMatch(metadata=group)
+                actions = [parser.OFPActionGroup(group)]
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                ## Apply all egress meters, except for the source
+                ## tuple.  TODO: Make this conditional on
+                ## 1.3<=OpenFlow<1.5.
+                for ctup in self.sanitized:
+                    if ctup not in outmtrs:
+                        continue
+                    if ctup == stup:
+                        continue
+                    inst.insert(0, parser.OFPInstructionMeter(outmtrs[ctup]))
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        cookie=0xffffffffffffffff,
+                                        datapath=dp,
+                                        table_id=2,
+                                        priority=1,
+                                        match=match,
+                                        instructions=inst)
                 dp.send_msg(msg)
 
         for stup in newports:
@@ -444,18 +535,19 @@ class Slice:
             ## are to go to the controller.
             group = self.switch.get_group_for_tuple(stup)
             (match, tbl, prio) = self.switch.tuple_match(stup)
-            ## TODO: If inmtr is not None, add a meter action for this
-            ## input.
-            actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     actions)]
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                        cookie=group,
-                                        datapath=dp,
-                                        table_id=tbl,
-                                        priority=prio,
-                                        match=match,
-                                        instructions=inst)
+            actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                 actions)]
+            ## Apply an ingress meter.
+            if stup in inmtrs:
+                inst.insert(0, parser.OFPInstructionMeter(inmtrs[stup]))
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                    cookie=group,
+                                    datapath=dp,
+                                    table_id=tbl,
+                                    priority=prio,
+                                    match=match,
+                                    instructions=inst)
             dp.send_msg(msg)
             self.switch.ensure_first_tag_rule(stup)
 
@@ -514,7 +606,8 @@ class SwitchStatus:
         ## that the tuple should user meter 2*N for ingress and 2*N+1
         ## for egress.
         self.free_meters = set([ 0 ])
-        self.tuple_to_meter = { }
+        self.inmeters = { }
+        self.outmeters = { }
 
         ## tuple -> Slice
         self.target_index = { }
@@ -535,29 +628,29 @@ class SwitchStatus:
     ## and what priority to use.
     def tuple_match(self, tup, mac=None):
         dp = self.datapath
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         if len(tup) == 1:
             if mac is None:
-                return (ofp_parser.OFPMatch(in_port=tup[0]), 0, 4)
+                return (parser.OFPMatch(in_port=tup[0]), 0, 4)
             else:
-                return (ofp_parser.OFPMatch(in_port=tup[0], eth_src=mac), 0, 4)
+                return (parser.OFPMatch(in_port=tup[0], eth_src=mac), 0, 5)
         if len(tup) == 2:
             if mac is None:
-                return (ofp_parser.OFPMatch(in_port=tup[0],
-                                            metadata=tup[1]), 1, 4)
+                return (parser.OFPMatch(in_port=tup[0],
+                                        metadata=tup[1]), 1, 4)
             else:
-                return (ofp_parser.OFPMatch(in_port=tup[0],
-                                            eth_src=mac,
-                                            metadata=tup[1]), 1, 4)
-        if mac is None:
-            return (ofp_parser.OFPMatch(in_port=tup[0],
-                                        metadata=tup[1],
-                                        vlan_vid=0x1000|tup[2]), 1, 4)
-        else:
-            return (ofp_parser.OFPMatch(in_port=tup[0],
+                return (parser.OFPMatch(in_port=tup[0],
                                         eth_src=mac,
-                                        metadata=tup[1],
-                                        vlan_vid=0x1000|tup[2]), 1, 4)
+                                        metadata=tup[1]), 1, 5)
+        if mac is None:
+            return (parser.OFPMatch(in_port=tup[0],
+                                    metadata=tup[1],
+                                    vlan_vid=0x1000|tup[2]), 1, 4)
+        else:
+            return (parser.OFPMatch(in_port=tup[0],
+                                    eth_src=mac,
+                                    metadata=tup[1],
+                                    vlan_vid=0x1000|tup[2]), 1, 5)
 
     ## Create an action list for output to a particular tuple.  If the
     ## port of the tuple is the same as a given input port, explicitly
@@ -567,19 +660,19 @@ class SwitchStatus:
     def tuple_action(self, tup, in_port):
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         out_port = ofp.OFPP_IN_PORT if tup[0] == in_port else tup[0]
         if len(tup) == 1:
-            return [ofp_parser.OFPActionOutput(out_port)]
+            return [parser.OFPActionOutput(out_port)]
         if len(tup) == 2:
-            return [ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q), \
-                    ofp_parser.OFPActionSetField(vlan_vid=0x1000|tup[1]), \
-                    ofp_parser.OFPActionOutput(out_port)]
-        return [ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q), \
-                ofp_parser.OFPActionSetField(vlan_vid=0x1000|tup[2]), \
-                ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021AD), \
-                ofp_parser.OFPActionSetField(vlan_vid=0x1000|tup[1]), \
-                ofp_parser.OFPActionOutput(out_port)]
+            return [parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q), \
+                    parser.OFPActionSetField(vlan_vid=0x1000|tup[1]), \
+                    parser.OFPActionOutput(out_port)]
+        return [parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q), \
+                parser.OFPActionSetField(vlan_vid=0x1000|tup[2]), \
+                parser.OFPActionPushVlan(ether.ETH_TYPE_8021AD), \
+                parser.OFPActionSetField(vlan_vid=0x1000|tup[1]), \
+                parser.OFPActionOutput(out_port)]
 
     def get_config(self):
         result = []
@@ -591,7 +684,14 @@ class SwitchStatus:
     def get_slice(self, tup):
         return self.target_index.get(tup)
 
-    def create_slice(self, tups):
+    def update_rates(self, tups, inrates, outrates):
+        ## Ensure we have up-to-date meters for the given tuples.
+        for tup in tups:
+            self.set_inmeter(tup, inrates.get(tup))
+            self.set_outmeter(tup, outrates.get(tup))
+        return
+
+    def create_slice(self, tups, inrates={}, outrates={}):
         tups = frozenset(tups)
         if len(tups) == 0:
             return None
@@ -618,6 +718,9 @@ class SwitchStatus:
                     continue
                 if tuples_conflict(tup, otup):
                     return None
+
+        ## Ensure meters exist for all tuples that have specified rates.
+        self.update_rates(tups, inrates, outrates)
 
         ## Find a slice with the maximum overlap.
         best_slize = None
@@ -648,85 +751,99 @@ class SwitchStatus:
             slize.adopt(tup)
         return slize
 
-    ## Ensure that a given tuple has a pair of meters assigned to it.
-    ## The meters are created or modified to match the provided
-    ## ingress and egress rates as required.  The meter numbers are
-    ## returned as a pair of integers [ingress, egress].  However, if
-    ## a rate is unspecified, the correspinding meter will not be set
-    ## up, and None will appear in the returned pair.
-    def claim_meter_for_tuple(self, tup, ingress=None, egress=None):
+    def get_meters(self, tup, inmtrs, outmtrs):
+        if inmtrs is not None:
+            inmtr = get_inmeter(tup)
+            if inmtr is not None:
+                inmtres[tup] = inmtr
+        if outmtrs is not None:
+            outmtr = get_outmeter(tup)
+            if outmtr is not None:
+                outmtres[tup] = outmtr
+        return
+
+    def get_inmeter(self, tup):
+        tup = tuple(tup)
+        return self.inmeters.get(tup)
+
+    def get_outmeter(self, tup):
+        tup = tuple(tup)
+        return self.outmeters.get(tup)
+
+    def set_inmeter(self, tup, rate):
+        return set_meter(self, self.inmeters, tup, rate)
+
+    def set_outmeter(self, tup, rate):
+        return set_meter(self, self.outmeters, tup, rate)
+
+    def drop_inmeter(self, tup):
+        self.drop_meter(self.inmeters, tup)
+
+    def drop_outmeter(self, tup):
+        self.drop_meter(self.outmeters, tup)
+
+    def drop_meter(self, mp, tup):
+        tup = tuple(tup)
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
+        mtr = mp.pop(tup)
+        if mtr is None:
+            return
+        msg = parser.OFPMeterMod(datapath=dp,
+                                 command=ofp.OFPMC_DELETE,
+                                 flags=0,
+                                 meter_id=mtr)
+        dp.send_msg(msg)
+        self.free_meters.add(mtr)
+        return None
+
+    def set_meter(self, mp, tup, rate):
+        ## TODO: Detect lack of implementation of meters.
+        if True:
+            return None
         tup = tuple(tup)
-        pair = self.tuple_to_meter.get(tup)
-        if pair is None:
-            ## A meter pair must be allocated.
-            pair = min(self.free_meters)
-            self.free_meters.discard(pair)
+        dp = self.datapath
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        mtr = mp.get(tup)
+        if mtr is None:
+            ## A meter must be allocated.
+            mtr = min(self.free_meters)
+            self.free_meters.discard(mtr)
             if len(self.free_meters) == 0:
-                self.free_meters.add(pair + 1)
+                self.free_meters.add(mtr + 1)
             cmd = ofp.OFPMC_ADD
+            mp[tup] = mtr
         else:
             cmd = ofp.OFPMC_MODIFY
-
-        ## Create the meters with the specified rates.
-        inid = pair * 2
-        outid = inid + 1
-        if ingress is None:
-            inid = None
+        if rate is None:
+            ## Set a practically unlimited rate.  TODO: Experiment
+            ## with an empty list.
+            bands = [parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
+                                             len_=0,
+                                             rate=0x7fffffffffffffff,
+                                             burst_size=0x7fffffffffffffff)]
+            msg = parser.OFPMeterMod(datapath=dp,
+                                     command=cmd,
+                                     flags=ofp.OFPMF_PKTPS,
+                                     meter_id=mtr,
+                                     bands=bands)
         else:
-            inbands = [ofp_parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
-                                                   len_=0,
-                                                   rate=ingress,
-                                                   burst_size=ingress / 10)]
-            msg = ofp_parser.OFPMeterMod(datapath=dp,
-                                         command=cmd,
-                                         flags=ofp.OFPMF_KBPS,
-                                         meter_id=inid,
-                                         bands=inbands)
-            dp.send_msg(msg)
-        if egress is None:
-            outid = None
-        else:
-            outbands = [ofp_parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
-                                                    len_=0,
-                                                    rate=egress,
-                                                    burst_size=egress / 10)]
-            msg = ofp_parser.OFPMeterMod(datapath=dp,
-                                         command=cmd,
-                                         flags=ofp.OFPMF_KBPS,
-                                         meter_id=outid,
-                                         bands=outbands)
-            dp.send_msg(msg)
-        return [inid, outid]
-
-    ## Delete any meters associated with the given tuple, and
-    ## de-allocate them internally.
-    def release_meter_by_tuple(self, tup):
-        tup = tuple(tup)
-        if tup not in self.tuple_to_meter:
-            return
-        pair = self.tuple_to_meter.pop(tup)
-        self.free_meters.add(pair)
-
-        dp = self.datapath
-        ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
-        inid = pair * 2
-        outid = indi + 1
-        msg = ofp_parser.OFPMeterMod(datapath=dp,
-                                     command=ofp.OFPMC_DELETE,
-                                     flags=0,
-                                     meter_id=inid)
+            ## TODO: Work out proper values for burst_size.
+            bands = [parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
+                                             len_=0,
+                                             rate=rate,
+                                             burst_size=rate / 10)]
+            msg = parser.OFPMeterMod(datapath=dp,
+                                     command=cmd,
+                                     flags=ofp.OFPMF_KBPS,
+                                     meter_id=mtr,
+                                     bands=bands)
         dp.send_msg(msg)
-        msg = ofp_parser.OFPMeterMod(datapath=dp,
-                                     command=ofp.OFPMC_DELETE,
-                                     flags=0,
-                                     meter_id=outid)
-        dp.send_msg(msg)
-        return
+        return mtr
 
     ## Get the group id for a given tuple, without attempting to
     ## allocate one if not already allocated.
@@ -821,57 +938,55 @@ class SwitchStatus:
     def delete_dynamic_rules(self, tup):
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## Delete dynamic rules in T0/T1 matching this tuple and
         ## passing on to T1/T2.
         self.invalidate_first_tag_rule(tup)
         (match, tbl, prio) = self.tuple_match(tup)
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                    datapath=dp,
-                                    table_id=tbl,
-                                    match=match,
-                                    buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=ofp.OFPP_ANY,
-                                    out_group=ofp.OFPG_ANY)
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                datapath=dp,
+                                table_id=tbl,
+                                match=match,
+                                buffer_id=ofp.OFPCML_NO_BUFFER,
+                                out_port=ofp.OFPP_ANY,
+                                out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
-
-        self.release_meter_by_tuple(tup)
 
         group = self.release_group_by_tuple(tup)
         if group is not None:
             ## Delete the group associated with the tuple.  This also
             ## deletes the rule matching that group and sending to
             ## that group as a broadcast.
-            msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                         command=ofp.OFPGC_DELETE,
-                                         group_id=group)
+            msg = parser.OFPGroupMod(datapath=dp,
+                                     command=ofp.OFPGC_DELETE,
+                                     group_id=group)
             dp.send_msg(msg)
 
             ## Delete dynamic rules in the destination table
             ## matching packets to the tuple.
-            match = ofp_parser.OFPMatch()
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        cookie=group,
-                                        cookie_mask=0xffffffffffffffff,
-                                        datapath=dp,
-                                        table_id=2,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=ofp.OFPP_ANY,
-                                        out_group=ofp.OFPG_ANY)
+            match = parser.OFPMatch()
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    cookie=group,
+                                    cookie_mask=0xffffffffffffffff,
+                                    datapath=dp,
+                                    table_id=2,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=ofp.OFPP_ANY,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
 
             ## Delete dynamic rules in the destination table matching
             ## packets from the tuple.
-            match = ofp_parser.OFPMatch(metadata=group)
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        datapath=dp,
-                                        table_id=2,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=ofp.OFPP_ANY,
-                                        out_group=ofp.OFPG_ANY)
+            match = parser.OFPMatch(metadata=group)
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    datapath=dp,
+                                    table_id=2,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=ofp.OFPP_ANY,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
 
     def revalidate(self):
@@ -910,6 +1025,12 @@ class SwitchStatus:
         ## store it as metadata, and pass on to T1.
         self.revalidate_first_tag_rules()
 
+        ## De-allocate meters for dropped tuples.
+        for tup in self.outmeters - self.target_index:
+            self.drop_outmeter(tup)
+        for tup in self.inmeters - self.target_index:
+            self.drop_inmeter(tup)
+
         LOG.info("%016x: revalidating complete", dp.id)
         return
 
@@ -927,21 +1048,21 @@ class SwitchStatus:
 
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## Delete rules corresponding to the remaining candidates.
         for tup in self.invalid_first_tag_rules:
             port = tup[0]
             vlan = tup[1]
-            match = ofp_parser.OFPMatch(in_port=port,
-                                        vlan_vid=0x1000|vlan)
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        datapath=dp,
-                                        table_id=0,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=ofp.OFPP_ANY,
-                                        out_group=ofp.OFPG_ANY)
+            match = parser.OFPMatch(in_port=port,
+                                    vlan_vid=0x1000|vlan)
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    datapath=dp,
+                                    table_id=0,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=ofp.OFPP_ANY,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
 
         ## Mark all candidates as investigated.
@@ -967,21 +1088,21 @@ class SwitchStatus:
 
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
-        match = ofp_parser.OFPMatch(in_port=port,
-                                    vlan_vid=0x1000|vlan)
-        actions = [ofp_parser.OFPActionPopVlan(), \
-                   ofp_parser.OFPActionSetField(metadata=vlan)]
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions), \
-                ofp_parser.OFPInstructionGotoTable(1)]
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                    datapath=dp,
-                                    table_id=0,
-                                    priority=4,
-                                    match=match,
-                                    instructions=inst)
+        match = parser.OFPMatch(in_port=port,
+                                vlan_vid=0x1000|vlan)
+        actions = [parser.OFPActionPopVlan(), \
+                   parser.OFPActionSetField(metadata=vlan)]
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions), \
+                parser.OFPInstructionGotoTable(1)]
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                datapath=dp,
+                                table_id=0,
+                                priority=4,
+                                match=match,
+                                instructions=inst)
         dp.send_msg(msg)
         return
 
@@ -1001,7 +1122,7 @@ class TupleSlicer(app_manager.RyuApp):
 
     def _configure_set(self, dp, ports):
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
     @set_ev_cls(dpset.EventPortAdd, dpset.DPSET_EV_DISPATCHER)
     def port_added(self, ev):
@@ -1025,7 +1146,7 @@ class TupleSlicer(app_manager.RyuApp):
     def datapath_handler(self, ev):
         dp = ev.dp
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         if not ev.enter:
             ## A switch has been detached.
@@ -1039,68 +1160,41 @@ class TupleSlicer(app_manager.RyuApp):
         LOG.info("%016x: New switch", dp.id)
 
         ## Delete all meters.
-        mymsg = ofp_parser.OFPMeterMod(datapath=dp,
-                                       command=ofp.OFPMC_DELETE,
-                                       flags=0,
-                                       meter_id=ofp.OFPM_ALL)
+        mymsg = parser.OFPMeterMod(datapath=dp,
+                                   command=ofp.OFPMC_DELETE,
+                                   flags=0,
+                                   meter_id=ofp.OFPM_ALL)
         dp.send_msg(mymsg)
 
         ## Delete all flows in T0, T1, T2.
-        match = ofp_parser.OFPMatch()
+        match = parser.OFPMatch()
         for tbl in (0, 1, 2):
-            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                          datapath=dp,
-                                          table_id=tbl,
-                                          buffer_id=ofp.OFPCML_NO_BUFFER,
-                                          out_port=ofp.OFPP_ANY,
-                                          out_group=ofp.OFPG_ANY,
-                                          match=match)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      datapath=dp,
+                                      table_id=tbl,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY,
+                                      match=match)
             dp.send_msg(mymsg)
 
         ## Delete all groups.
-        mymsg = ofp_parser.OFPGroupMod(datapath=dp,
-                                       command=ofp.OFPGC_DELETE,
-                                       group_id=ofp.OFPG_ALL)
+        mymsg = parser.OFPGroupMod(datapath=dp,
+                                   command=ofp.OFPGC_DELETE,
+                                   group_id=ofp.OFPG_ALL)
         dp.send_msg(mymsg)
 
-        ## Drop LLDP packets.  TODO?
-        match = ofp_parser.OFPMatch(vlan_vid=0x0000,
-                                    eth_type=ether.ETH_TYPE_LLDP)
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      datapath=dp,
-                                      table_id=0,
-                                      priority=6,
-                                      match=match,
-                                      instructions=inst)
+        ## Drop LLDP packets.
+        match = parser.OFPMatch(vlan_vid=0x0000,
+                                eth_type=ether.ETH_TYPE_LLDP)
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                  datapath=dp,
+                                  table_id=0,
+                                  priority=6,
+                                  match=match,
+                                  instructions=inst)
         dp.send_msg(mymsg)
-
-        ## Make sure that packets with unknown source addresses are
-        ## sent to the controller.  TODO: Drop this.  The default
-        ## behaviour should always be to drop packets.  We don't care
-        ## about anything not matching one of our tuples.
-        # match = ofp_parser.OFPMatch(vlan_vid=0x0000)
-        # actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
-        # inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-        #                                          actions)]
-        # mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-        #                               datapath=dp,
-        #                               table_id=0,
-        #                               priority=1,
-        #                               match=match,
-        #                               instructions=inst)
-        # dp.send_msg(mymsg)
-        # match = ofp_parser.OFPMatch()
-        # actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
-        # inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-        #                                          actions)]
-        # mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-        #                               datapath=dp,
-        #                               table_id=1,
-        #                               priority=0,
-        #                               match=match,
-        #                               instructions=inst)
-        # dp.send_msg(mymsg)
 
         ## Mark all slices as invalid, then revalidate them.
         if dp.id not in self.switches:
@@ -1141,7 +1235,7 @@ class TupleSlicer(app_manager.RyuApp):
 
     def _not_heard_from(self, dp, tup, mac):
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         status = self.switches[dp.id]
         slize = status.get_slice(tup)
         tups = slize.get_tuples()
@@ -1153,16 +1247,16 @@ class TupleSlicer(app_manager.RyuApp):
         slize.unsee(mac, tup)
 
         ## Delete unicast rules from the destination table (2).
-        match = ofp_parser.OFPMatch(eth_dst=mac)
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                    cookie=group,
-                                    cookie_mask=0xffffffffffffffff,
-                                    datapath=dp,
-                                    table_id=2,
-                                    match=match,
-                                    buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=ofp.OFPP_ANY,
-                                    out_group=ofp.OFPG_ANY)
+        match = parser.OFPMatch(eth_dst=mac)
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                cookie=group,
+                                cookie_mask=0xffffffffffffffff,
+                                datapath=dp,
+                                table_id=2,
+                                match=match,
+                                buffer_id=ofp.OFPCML_NO_BUFFER,
+                                out_port=ofp.OFPP_ANY,
+                                out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
         return
 
@@ -1180,7 +1274,7 @@ class TupleSlicer(app_manager.RyuApp):
             return
 
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         tups = slize.get_tuples()
         group = status.get_group_for_tuple(tup)
@@ -1189,27 +1283,33 @@ class TupleSlicer(app_manager.RyuApp):
 
         slize.see(mac, tup)
 
+        ## Get all necessary meters.
+        outmtr = self.switch.get_inmeter(tup)
+        inmtr = self.switch.get_outmeter(tup)
+
         ## Add rules in T2 to prevent flooding for this MAC address.
-        ## Label the rule with the tuple's group, since we have no way
-        ## in general to match the actions when we want to delete
-        ## these rules.
-        for dtup in tups:
-            dgroup = status.get_group_for_tuple(dtup)
-            match = ofp_parser.OFPMatch(metadata=dgroup, eth_dst=mac)
+        ## Using the cookie, label the rule with the tuple's group,
+        ## since we have no way in general to match the actions when
+        ## we want to delete these rules.
+        for stup in tups:
+            sgroup = status.get_group_for_tuple(stup)
+            match = parser.OFPMatch(metadata=sgroup, eth_dst=mac)
             ## Drop if this packet would be forwarded to its input.
-            actions = [] if group == dgroup \
-                      else status.tuple_action(tup, dtup[0])
-            ## TODO: If inmtr is not None, add a meter action for this
-            ## input.
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+            actions = [] if group == sgroup \
+                      else status.tuple_action(tup, stup[0])
+            ## Apply an egress meter for the destination that this
+            ## packet has come from.
+            if outmtr is not None:
+                actions.insert(0, parser.OFPActionMeter(outmtr))
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
-            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                          cookie=group,
-                                          datapath=dp,
-                                          table_id=2,
-                                          priority=2,
-                                          match=match,
-                                          instructions=inst)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      cookie=group,
+                                      datapath=dp,
+                                      table_id=2,
+                                      priority=2,
+                                      match=match,
+                                      instructions=inst)
             dp.send_msg(mymsg)
 
         ## Make sure that, by deleting any existing MAC-specific rule,
@@ -1222,16 +1322,16 @@ class TupleSlicer(app_manager.RyuApp):
                 continue
             sgroup = status.get_group_for_tuple(stup)
             (_, tbl, _) = status.tuple_match(stup, mac)
-            match = ofp_parser.OFPMatch(eth_src=mac)
-            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                          cookie=sgroup,
-                                          cookie_mask=0xffffffffffffffff,
-                                          datapath=dp,
-                                          table_id=tbl,
-                                          buffer_id=ofp.OFPCML_NO_BUFFER,
-                                          out_port=ofp.OFPP_ANY,
-                                          out_group=ofp.OFPG_ANY,
-                                          match=match)
+            match = parser.OFPMatch(eth_src=mac)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      cookie=sgroup,
+                                      cookie_mask=0xffffffffffffffff,
+                                      datapath=dp,
+                                      table_id=tbl,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY,
+                                      match=match)
             dp.send_msg(mymsg)
 
         ## In the source table, prevent traffic from this source
@@ -1239,23 +1339,24 @@ class TupleSlicer(app_manager.RyuApp):
         ## again.  Label the rule with the tuple's group, so we can
         ## distinguish it from rules for the same MAC in other slices.
         (match, tbl, prio) = status.tuple_match(tup, mac)
-        actions = [ofp_parser.OFPActionSetField(metadata=group)]
+        actions = [parser.OFPActionSetField(metadata=group)]
         if len(tup) > 2:
-            actions.append(ofp_parser.OFPActionPopVlan())
-        ## TODO: If inmtr is not None, add a meter action for this
-        ## input.
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions),
-                ofp_parser.OFPInstructionGotoTable(2)]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      cookie=group,
-                                      datapath=dp,
-                                      table_id=tbl,
-                                      priority=prio + 1,
-                                      idle_timeout=timeout,
-                                      flags=ofp.OFPFF_SEND_FLOW_REM,
-                                      match=match,
-                                      instructions=inst)
+            actions.append(parser.OFPActionPopVlan())
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions),
+                parser.OFPInstructionGotoTable(2)]
+        ## Apply an ingress meter.
+        if inmtr is not None:
+            inst.insert(0, parser.OFPInstructionMeter(inmtr))
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                  cookie=group,
+                                  datapath=dp,
+                                  table_id=tbl,
+                                  priority=prio,
+                                  idle_timeout=timeout,
+                                  flags=ofp.OFPFF_SEND_FLOW_REM,
+                                  match=match,
+                                  instructions=inst)
         dp.send_msg(mymsg)
 
         return slize
@@ -1266,7 +1367,7 @@ class TupleSlicer(app_manager.RyuApp):
         tbl = msg.table_id
         dp = msg.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         status = self.switches[dp.id]
 
         ## We are only called if a packet has an unrecognized source
@@ -1297,7 +1398,7 @@ class TupleSlicer(app_manager.RyuApp):
 
         ## Commit our changes before we submit the packet back through
         ## the tables.
-        #dp.send_msg(ofp_parser.OFPBarrierRequest(dp))
+        #dp.send_msg(parser.OFPBarrierRequest(dp))
 
         ## Where is this packet going?
         dtup = slize.lookup(dmac)
@@ -1309,24 +1410,28 @@ class TupleSlicer(app_manager.RyuApp):
             group = status.get_group_for_tuple(tup)
             if group is None:
                 return
-            actions = [ofp_parser.OFPActionGroup(group)]
+            actions = [parser.OFPActionGroup(group)]
         elif dtup == tup:
             ## Don't loop packets back.
             return
         else:
             ## Perform the defined actions for the destination tuple.
             actions = status.tuple_action(dtup, in_port)
+            ## Apply an egress meter.
+            outmtr = status.get_outmeter(dtup)
+            if outmtr is not None:
+                actions.insert(0, parser.OFPActionMeter(outmtr))
 
         ## Make sure we've popped off the extra VLAN before we do
         ## anything else.
         if pop_vlan:
-            actions.insert(0, ofp_parser.OFPActionPopVlan())
+            actions.insert(0, parser.OFPActionPopVlan())
 
         ## Issue the packet.
-        mymsg = ofp_parser.OFPPacketOut(datapath=dp,
-                                        buffer_id=msg.buffer_id,
-                                        in_port=in_port,
-                                        actions=actions)
+        mymsg = parser.OFPPacketOut(datapath=dp,
+                                    buffer_id=msg.buffer_id,
+                                    in_port=in_port,
+                                    actions=actions)
         dp.send_msg(mymsg)
         
 class SliceController(ControllerBase):
@@ -1364,13 +1469,17 @@ class SliceController(ControllerBase):
         if 'slices' in new_config:
             for lps in new_config['slices']:
                 ps = set()
+                inrates = {}
+                outrates = {}
                 for mp in lps:
                     tup = tuple(mp['circuit'])
-                    ## TODO: Extract and use 'ingress-bw' and
-                    ## 'egress-bw' fields too.
                     ps.add(tup)
+                    if 'ingress-bw' in mp:
+                        inrates[tup] = mp['ingress-bw']
+                    if 'egress-bw' in mp:
+                        outrates[tup] = mp['egress-bw']
                 LOG.info("%016x: creating %s", dpid, tuples_text(ps))
-                status.create_slice(ps)
+                status.create_slice(ps, inrates, outrates)
         status.revalidate()
         LOG.info("%016x: completed changes", dpid)
         if 'learn' in new_config:
