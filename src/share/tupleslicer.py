@@ -828,8 +828,8 @@ class SwitchStatus:
             ## with an empty list.
             bands = [parser.OFPMeterBandDrop(type_=ofp.OFPMBT_DROP,
                                              len_=0,
-                                             rate=0x7fffffffffffffff,
-                                             burst_size=0x7fffffffffffffff)]
+                                             rate=0x7fffffff,
+                                             burst_size=0x7fffffff)]
             msg = parser.OFPMeterMod(datapath=dp,
                                      command=cmd,
                                      flags=ofp.OFPMF_PKTPS,
