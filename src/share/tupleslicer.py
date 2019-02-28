@@ -92,11 +92,12 @@
 ##
 ## ** og=group(ot)
 ##
-## ** P2 (metadata=ig, eth_dst=m) => out_actions(ot, it.port)
+## ** P2 C=group(it) (metadata=ig, eth_dst=m) => out_actions(ot,
+## ** it.port)
 ##
 ## For each group ig:
 ##
-## * P1 (metadata=ig) => goto_group(ig)
+## * P1 C=-1 (metadata=ig) => goto_group(ig)
 
 ## T0's highest-priority rule drops untagged LLDP.  The next rules
 ## serve (port) tuples of multi-tuple slices by matching the port and
@@ -114,7 +115,8 @@
 ##
 ## For each learned MAC m on tuple it(port):
 ##
-## * P5 (in_port=port, eth_src=m) => metadata=group(it), T2
+## * P5 C=group(it) (in_port=port, eth_src=m) => metadata=group(it),
+## * T2
 ##
 ## For each slice s:
 ##
@@ -122,11 +124,12 @@
 ##
 ## ** For each it(port, vlan) or (port, vlan, inner) of tuples(s):
 ##
-## *** P4 (in_port=port, vlan=vlan) => pop-vlan, metadata=vlan, T1
+## *** P4 C=group(it) (in_port=port, vlan=vlan) => pop-vlan,
+## *** metadata=vlan, T1
 ##
 ## ** For each it(port) of tuples(s):
 ##
-## *** P4 (in_port=port) => controller
+## *** P4 C=group(it) (in_port=port) => controller
 ##
 ## * If count(tuples(s)) == 2:
 ##
@@ -152,12 +155,13 @@
 
 ## For each learned MAC m on tuple it(port, vlan)
 ##
-## * P5 (in_port=port, metadata=vlan, eth_src=m) => metadata=group(it), T2
+## * P5 C=group(it) (in_port=port, metadata=vlan, eth_src=m) =>
+## * metadata=group(it), T2
 ##
 ## For each learned MAC m on tuple it(port, vlan, inner)
 ##
-## * P5 (in_port=port, metadata=vlan, vlan=inner, eth_src=m) =>
-## * pop-vlan, metadata=group(it), T2
+## * P5 C=group(it) (in_port=port, metadata=vlan, vlan=inner,
+## * eth_src=m) => pop-vlan, metadata=group(it), T2
 ##
 ## For each slice s:
 ##
@@ -165,12 +169,12 @@
 ##
 ## ** For each it(port, vlan) or of tuples(s):
 ##
-## *** P4 (in_port=port, metadata=vlan) => metadata=vlan, controller
+## *** P4 C=group(it) (in_port=port, metadata=vlan) => controller
 ##
 ## ** For each it(port, vlan, inner) of tuples(s):
 ##
-## *** P4 (in_port=port, metadata=vlan, vlan=inner) => pop-vlan,
-## *** metadata=vlan, controller
+## *** P4 C=group(it) (in_port=port, metadata=vlan, vlan=inner) =>
+## *** controller
 ##
 ## * If count(tuples(s)) == 2:
 ##
@@ -753,13 +757,13 @@ class SwitchStatus:
 
     def get_meters(self, tup, inmtrs, outmtrs):
         if inmtrs is not None:
-            inmtr = get_inmeter(tup)
+            inmtr = self.get_inmeter(tup)
             if inmtr is not None:
-                inmtres[tup] = inmtr
+                inmtrs[tup] = inmtr
         if outmtrs is not None:
-            outmtr = get_outmeter(tup)
+            outmtr = self.get_outmeter(tup)
             if outmtr is not None:
-                outmtres[tup] = outmtr
+                outmtrs[tup] = outmtr
         return
 
     def get_inmeter(self, tup):
@@ -771,10 +775,10 @@ class SwitchStatus:
         return self.outmeters.get(tup)
 
     def set_inmeter(self, tup, rate):
-        return set_meter(self, self.inmeters, tup, rate)
+        return self.set_meter(self.inmeters, tup, rate)
 
     def set_outmeter(self, tup, rate):
-        return set_meter(self, self.outmeters, tup, rate)
+        return self.set_meter(self.outmeters, tup, rate)
 
     def drop_inmeter(self, tup):
         self.drop_meter(self.inmeters, tup)
@@ -1026,9 +1030,9 @@ class SwitchStatus:
         self.revalidate_first_tag_rules()
 
         ## De-allocate meters for dropped tuples.
-        for tup in self.outmeters - self.target_index:
+        for tup in set(self.outmeters.keys()) - set(self.target_index.keys()):
             self.drop_outmeter(tup)
-        for tup in self.inmeters - self.target_index:
+        for tup in set(self.inmeters.keys()) - set(self.target_index.keys()):
             self.drop_inmeter(tup)
 
         LOG.info("%016x: revalidating complete", dp.id)
@@ -1284,8 +1288,8 @@ class TupleSlicer(app_manager.RyuApp):
         slize.see(mac, tup)
 
         ## Get all necessary meters.
-        outmtr = self.switch.get_inmeter(tup)
-        inmtr = self.switch.get_outmeter(tup)
+        outmtr = status.get_inmeter(tup)
+        inmtr = status.get_outmeter(tup)
 
         ## Add rules in T2 to prevent flooding for this MAC address.
         ## Using the cookie, label the rule with the tuple's group,
