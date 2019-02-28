@@ -492,10 +492,8 @@ class Slice:
                 if dtup == stup:
                     continue
                 actions = self.switch.tuple_action(dtup, stup[0])
-                ## Apply egress meter to this bucket.  TODO: Make this
-                ## conditional on OpenFlow1.5, as earlier versions do
-                ## not support meter actions, only meter instructions.
-                if dtup in outmtrs:
+                ## Apply egress meter to this bucket.
+                if hasattr(parser, 'OFPActionMeter') and dtup in outmtrs:
                     actions.insert(0, parser.OFPActionMeter(outmtrs[dtup]))
                 buckets.append(parser.OFPBucket(actions=actions))
             msg = parser.OFPGroupMod(datapath=dp,
@@ -517,14 +515,15 @@ class Slice:
                 inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
                 ## Apply all egress meters, except for the source
-                ## tuple.  TODO: Make this conditional on
-                ## 1.3<=OpenFlow<1.5.
-                for ctup in self.sanitized:
-                    if ctup not in outmtrs:
-                        continue
-                    if ctup == stup:
-                        continue
-                    inst.insert(0, parser.OFPInstructionMeter(outmtrs[ctup]))
+                ## tuple.
+                if not hasattr(parser, 'OFPActionMeter'):
+                    for ctup in self.sanitized:
+                        if ctup not in outmtrs:
+                            continue
+                        if ctup == stup:
+                            continue
+                        inst.insert(0,
+                                    parser.OFPInstructionMeter(outmtrs[ctup]))
                 msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                         cookie=0xffffffffffffffff,
                                         datapath=dp,
@@ -1301,12 +1300,12 @@ class TupleSlicer(app_manager.RyuApp):
             ## Drop if this packet would be forwarded to its input.
             actions = [] if group == sgroup \
                       else status.tuple_action(tup, stup[0])
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
             ## Apply an egress meter for the destination that this
             ## packet has come from.
             if outmtr is not None:
-                actions.insert(0, parser.OFPActionMeter(outmtr))
-            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     actions)]
+                inst.insert(0, parser.OFPInstructionMeter(outmtr))
             mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                       cookie=group,
                                       datapath=dp,
@@ -1422,9 +1421,10 @@ class TupleSlicer(app_manager.RyuApp):
             ## Perform the defined actions for the destination tuple.
             actions = status.tuple_action(dtup, in_port)
             ## Apply an egress meter.
-            outmtr = status.get_outmeter(dtup)
-            if outmtr is not None:
-                actions.insert(0, parser.OFPActionMeter(outmtr))
+            if hasattr(parser, 'OFPActionMeter'):
+                outmtr = status.get_outmeter(dtup)
+                if outmtr is not None:
+                    actions.insert(0, parser.OFPActionMeter(outmtr))
 
         ## Make sure we've popped off the extra VLAN before we do
         ## anything else.
