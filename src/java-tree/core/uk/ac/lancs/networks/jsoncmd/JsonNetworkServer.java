@@ -39,6 +39,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -52,6 +53,7 @@ import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
+import javax.json.JsonString;
 
 import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
@@ -227,6 +229,14 @@ public class JsonNetworkServer {
      * <samp>status</samp>, until <samp>RELEASED</samp> is reported, or
      * until no more request objects are submitted.
      * 
+     * <dt><samp>await-service-status <var>service-id</var>
+     * <var>acceptable</var> <var>timeout-millis</var></samp>
+     * 
+     * <dd>Invoke
+     * {@link Service#awaitStatus(java.util.Collection, long)} on the
+     * identified service with the given timeout and set of acceptable
+     * terminating statuses.
+     * 
      * </dl>
      */
     public Iterable<JsonObject> interact(JsonObject req, Executor onClose) {
@@ -254,6 +264,24 @@ public class JsonNetworkServer {
                 Terminal term = network.getControl().getTerminal(name);
                 return one(Json.createObjectBuilder()
                     .add("exists", term != null).build());
+            }
+
+            case "await-service-status": {
+                int id = req.getInt("service-id");
+                Service srv = network.getControl().getService(id);
+                EnumSet<ServiceStatus> accepted =
+                    EnumSet.noneOf(ServiceStatus.class);
+                for (JsonString txt : req.getJsonArray("acceptable")
+                    .getValuesAs(JsonString.class)) {
+                    ServiceStatus v = ServiceStatus.valueOf(txt.getString());
+                    accepted.add(v);
+                }
+                long timeoutMillis =
+                    req.getJsonNumber("timeout-millis").longValue();
+                ServiceStatus result =
+                    srv.awaitStatus(accepted, timeoutMillis);
+                return one(Json.createObjectBuilder()
+                    .add("status", result.toString()).build());
             }
 
             case "check-service": {

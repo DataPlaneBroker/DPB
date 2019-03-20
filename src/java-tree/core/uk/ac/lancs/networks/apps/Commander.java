@@ -42,6 +42,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -346,6 +347,19 @@ public final class Commander {
             return true;
         }
 
+        if ("await".equals(arg)) {
+            usage = arg + " <timeout-millis> <status>[,<status>...]";
+            long timeout = Long.parseLong(iter.next());
+            String cssts = iter.next();
+            Collection<ServiceStatus> sts =
+                EnumSet.noneOf(ServiceStatus.class);
+            for (String txt : statusSeparator.split(cssts))
+                sts.add(ServiceStatus.valueOf(txt.toUpperCase()));
+            ServiceStatus result = service.awaitStatus(sts, timeout);
+            System.out.printf("Status is now %s%n", result);
+            return true;
+        }
+
         if ("-s".equals(arg)) {
             usage = arg + " <service-id>";
             String sid = iter.next();
@@ -629,6 +643,9 @@ public final class Commander {
     private static final Pattern labelMapPattern =
         Pattern.compile("^(\\d+)-(\\d+)(?::(\\d+))?$");
 
+    private static final Pattern statusSeparator =
+        Pattern.compile("[,\\s/]+");
+
     void process(String[] args)
         throws IOException,
             InvalidServiceException,
@@ -773,6 +790,12 @@ public final class Commander {
      * <dt><samp>watch</samp>
      * 
      * <dd>Listen and report events for the current service.
+     * 
+     * <dt><samp>await <var>timeout</var> <var>statuses</var></samp>
+     * 
+     * <dd>Listen for any of the given status, or
+     * {@link ServiceStatus#RELEASED}, until the specified timeout.
+     * Statuses should be comma-separated.
      * 
      * </dl>
      * 

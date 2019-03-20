@@ -134,6 +134,70 @@ public interface Service {
     void removeListener(ServiceListener events);
 
     /**
+     * Wait until the status changes to an acceptable value, or the
+     * service is released, or a timeout occurs.
+     * 
+     * @param accept the set of acceptable values
+     * 
+     * @param timeoutMillis the maximum amount of time to wait before
+     * giving up
+     * 
+     * @return the latest status, which might not be one of the accepted
+     * ones if the status is released, or the timeout occurred
+     * 
+     * @default The default implementation creates a listener on the
+     * service object, and waits for one of the accepted statuses,
+     * {@link ServiceStatus#RELEASED} or the timeout.
+     */
+    default ServiceStatus
+        awaitStatus(Collection<? extends ServiceStatus> accept,
+                    long timeoutMillis) {
+        final long expiry = System.currentTimeMillis() + timeoutMillis;
+        class Ctxt implements ServiceListener {
+            ServiceStatus got;
+            boolean waiting = true;
+
+            @Override
+            public void newStatus(ServiceStatus newStatus) {
+                synchronized (this) {
+                    this.got = newStatus;
+                    if (acceptable(newStatus)) {
+                        this.waiting = false;
+                        notify();
+                    }
+                }
+            }
+
+            private boolean acceptable(ServiceStatus status) {
+                return status == ServiceStatus.RELEASED
+                    || accept.contains(status);
+            }
+
+            synchronized ServiceStatus await() {
+                got = status();
+                if (acceptable(got)) return got;
+                while (waiting) {
+                    long delay = expiry - System.currentTimeMillis();
+                    if (delay < 0) break;
+                    try {
+                        wait(delay);
+                    } catch (InterruptedException e) {
+                        continue;
+                    }
+                }
+                return got;
+            }
+        }
+        Ctxt me = new Ctxt();
+        this.addListener(me);
+        try {
+            return me.await();
+        } finally {
+            this.removeListener(me);
+        }
+    }
+
+    /**
      * Activate the service, allowing it to carry traffic. This method
      * has no effect if called while the service is active or
      * activating. If called before the service is ready, it is
