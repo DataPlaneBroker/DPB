@@ -455,6 +455,33 @@ public class JsonNetwork implements Network {
         }
 
         @Override
+        public ServiceStatus
+            awaitStatus(Collection<? extends ServiceStatus> accept,
+                        long timeoutMillis) {
+            /* TODO: Make this choice configurable. */
+            if (true) {
+                return Service.super.awaitStatus(accept, timeoutMillis);
+            } else {
+                JsonArrayBuilder sts = Json.createArrayBuilder();
+                for (ServiceStatus st : accept)
+                    sts.add(st.name());
+                JsonObject req =
+                    startRequest("await-service-status").add("service-id", id)
+                        .add("timeout-millis", timeoutMillis)
+                        .add("acceptable", sts).build();
+                JsonObject rsp = interact(req);
+                try {
+                    checkErrors(rsp);
+                } catch (RuntimeException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new UndeclaredThrowableException(e);
+                }
+                return ServiceStatus.valueOf(rsp.getString("status"));
+            }
+        }
+
+        @Override
         public void activate() {
             JsonObject req = startRequest("activate-service")
                 .add("service-id", id).build();
