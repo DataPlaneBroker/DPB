@@ -143,11 +143,12 @@ public interface Service {
      * giving up
      * 
      * @return the latest status, which might not be one of the accepted
-     * ones if the status is released, or the timeout occurred
+     * ones if the status is released, or the timeout or interrupt
+     * occurred
      * 
      * @default The default implementation creates a listener on the
      * service object, and waits for one of the accepted statuses,
-     * {@link ServiceStatus#RELEASED} or the timeout.
+     * {@link ServiceStatus#RELEASED} or the timeout, or an interrupt.
      */
     default ServiceStatus
         awaitStatus(Collection<? extends ServiceStatus> accept,
@@ -182,7 +183,7 @@ public interface Service {
                     try {
                         wait(delay);
                     } catch (InterruptedException e) {
-                        continue;
+                        break;
                     }
                 }
                 return got;
