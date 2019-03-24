@@ -13,23 +13,23 @@ jars += $(TEST_JARS)
 SELECTED_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 deps_core += util
-roots_core += $(found_core)
+roots_core=$(found_core)
 
 SELECTED_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
-roots_corsa += $(found_corsa)
+roots_corsa=$(found_corsa)
 
 SELECTED_JARS += initiate-dpb-openflow
 trees_initiate-dpb-openflow += openflow
 deps_openflow += util
 deps_openflow += core
-roots_openflow += $(found_openflow)
+roots_openflow=$(found_openflow)
 
 SELECTED_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
-roots_util += $(found_util)
+roots_util=$(found_util)
 
 TEST_JARS += tests
 roots_tests += TestOddSpan
