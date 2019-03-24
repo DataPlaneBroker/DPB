@@ -36,7 +36,7 @@
 package uk.ac.lancs.networks;
 
 /**
- * 
+ * Indicates that a service identifier was not recognized.
  * 
  * @author simpsons
  */
