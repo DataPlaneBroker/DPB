@@ -85,7 +85,8 @@ class QualityPreferenceType<T extends Enum<T>> {
      * 
      * @return the encoded preference
      */
-    public Value of(@SuppressWarnings("unchecked") T... pref) {
+    @SuppressWarnings("unchecked")
+    public Value of(T... pref) {
         return new Value(encode(Arrays.asList(pref)));
     }
 

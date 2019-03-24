@@ -7,6 +7,8 @@ PRINTF=printf
 
 -include dataplanebroker-env.mk
 
+PROJECT_JAVACFLAGS += -Xlint:unchecked
+
 jars += $(SELECTED_JARS)
 jars += $(TEST_JARS)
 
