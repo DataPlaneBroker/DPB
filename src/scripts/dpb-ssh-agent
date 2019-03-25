@@ -3,6 +3,8 @@
 declare -A AUTHZ
 SOCKET=/tmp/dpb.sock
 SHUTDOWN=yes
+unset AUTH_TOKEN
+unset AUTH_TOKEN_PATTERN
 
 while [ $# -gt 0 ] ; do
     arg="$1"
@@ -19,6 +21,12 @@ while [ $# -gt 0 ] ; do
 	    ;;
 	(-s)
 	    SOCKET="$1"
+	    shift
+	    ;;
+	(-a)
+	    AUTH_TOKEN="$1"
+	    shift
+	    AUTH_TOKEN_PATTERN="$1"
 	    shift
 	    ;;
 	(-N)
@@ -47,6 +55,12 @@ done
 	cmd="${AUTHZ["$nw"]}"
 	printf '%s %s\n' "$cmd" "$nw"
     done
+    if [ -n "$AUTH_TOKEN" ] ; then
+	printf 'auth :%s\n' "$AUTH_TOKEN"
+    fi
+    if [ -n "$AUTH_TOKEN_PATTERN" ] ; then
+	printf 'auth-match :%s\n' "$AUTH_TOKEN_PATTERN"
+    fi
     printf 'drop\n'
     printf '%s\n' "$SSH_ORIGINAL_COMMAND"
     cat

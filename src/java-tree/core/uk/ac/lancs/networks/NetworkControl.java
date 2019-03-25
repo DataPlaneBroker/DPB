@@ -138,4 +138,13 @@ public interface NetworkControl {
      * ports summarizing the internal connectivity of the network
      */
     Map<Edge<Terminal>, ChordMetrics> getModel(double minimumBandwidth);
+
+    /**
+     * This must be set when calling {@link #newService()} to set the
+     * token for the new service.
+     * 
+     * @summary The authorization to be set on creating new services
+     */
+    static ThreadLocal<String> SERVICE_AUTH_TOKEN =
+        new InheritableThreadLocal<>();
 }

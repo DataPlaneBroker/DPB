@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.regex.Pattern;
 
 import javax.json.Json;
 import javax.json.JsonException;
@@ -66,6 +67,7 @@ import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
 import uk.ac.lancs.networks.NetworkControl;
+import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonWriter;
 import uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer;
@@ -212,16 +214,28 @@ public final class NetworkServer {
                  * charset), until 'drop' is given. A command 'manage
                  * <name>' permits the network with that name to be
                  * managed and controlled. 'control <name>' permits it
-                 * to be controlled only. */
+                 * to be controlled only. 'auth :<token>' sets the
+                 * authorization token on new services. 'auth-match
+                 * :<regex>' sets the authorization pattern for
+                 * modifying existing services. */
                 String line;
                 while ((line = readLine(in)) != null
                     && !(line = line.trim()).equals("drop")) {
-                    String[] words = line.trim().split("\\s+");
+                    String[] words = line.trim().split("\\s+", 2);
                     if (words.length < 2) continue;
                     switch (words[0]) {
+                    case "auth":
+                        NetworkControl.SERVICE_AUTH_TOKEN
+                            .set(words[1].substring(1));
+                        break;
+                    case "auth-match":
+                        Service.AUTH_TOKEN
+                            .set(Pattern.compile(words[1].substring(1)));
+                        break;
                     case "manage":
                         managables.add(words[1]);
                         System.err.printf("%s is managable%n", words[1]);
+                        // Fall through.
                     case "control":
                         controllables.add(words[1]);
                         System.err.printf("%s is controllable%n", words[1]);

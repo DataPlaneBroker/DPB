@@ -36,6 +36,7 @@
 package uk.ac.lancs.networks;
 
 import java.util.Collection;
+import java.util.regex.Pattern;
 
 /**
  * A new service is obtained from {@link NetworkControl#newService()}.
@@ -265,4 +266,14 @@ public interface Service {
      * @throws IllegalStateException if this service has been released
      */
     int id();
+
+    /**
+     * This must be set during calls to {@link Service} if the service
+     * was created with {@link NetworkControl#SERVICE_AUTH_TOKEN} set.
+     * Its value must match the string provided during that call.
+     * 
+     * @summary The token used to check authorization for modifications
+     * to a service
+     */
+    static ThreadLocal<Pattern> AUTH_TOKEN = new InheritableThreadLocal<>();
 }
