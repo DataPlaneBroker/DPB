@@ -33,37 +33,45 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+
 package uk.ac.lancs.networks;
 
 /**
- * Indicates an error in attempting to control a network.
+ * Indicates an error in attempting to use a circuit, such as defining a
+ * service in terms of a circuit that doesn't exist, or which is already
+ * in use by another service.
  * 
  * @author simpsons
  */
-@Deprecated
-public class NetworkControlException extends Exception {
+public class CircuitLogicException extends TerminalLogicException {
     private static final long serialVersionUID = 1L;
 
-    private final NetworkControl control;
+    private final int label;
 
     /**
-     * Get the control interface of the network to which this exception
-     * pertains.
+     * Identify the label to which this error pertains.
      * 
-     * @return the control interface of the network
+     * @return the circuit label
      */
-    public NetworkControl getControl() {
-        return control;
+    public int getLabel() {
+        return label;
     }
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
+     * 
+     * @param label the label to which this error pertains
      */
-    public NetworkControlException(NetworkControl control) {
-        this.control = control;
+    public CircuitLogicException(String networkName, String terminalName,
+                                 int label) {
+        super(networkName, terminalName);
+        this.label = label;
     }
 
     /**
@@ -71,12 +79,18 @@ public class NetworkControlException extends Exception {
      * 
      * @param message the detail message
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
+     * 
+     * @param label the label to which this error pertains
      */
-    public NetworkControlException(NetworkControl control, String message) {
-        super(message);
-        this.control = control;
+    public CircuitLogicException(String networkName, String terminalName,
+                                 int label, String message) {
+        super(networkName, terminalName, message);
+        this.label = label;
     }
 
     /**
@@ -84,12 +98,18 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
+     * 
+     * @param label the label to which this error pertains
      */
-    public NetworkControlException(NetworkControl control, Throwable cause) {
-        super(cause);
-        this.control = control;
+    public CircuitLogicException(String networkName, String terminalName,
+                                 int label, Throwable cause) {
+        super(networkName, terminalName, cause);
+        this.label = label;
     }
 
     /**
@@ -99,12 +119,17 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
+     * 
+     * @param label the label to which this error pertains
      */
-    public NetworkControlException(NetworkControl control, String message,
-                                   Throwable cause) {
-        super(message, cause);
-        this.control = control;
+    public CircuitLogicException(String networkName, String terminalName,
+                                 int label, String message, Throwable cause) {
+        super(networkName, terminalName, message, cause);
+        this.label = label;
     }
 }

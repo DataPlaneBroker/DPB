@@ -33,37 +33,37 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+
 package uk.ac.lancs.networks;
 
 /**
- * Indicates an error in attempting to control a network.
+ * Indicates a network failure beyond the control of the operator.
  * 
  * @author simpsons
  */
-@Deprecated
-public class NetworkControlException extends Exception {
+public class NetworkException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    private final NetworkControl control;
+    private final String networkName;
 
     /**
-     * Get the control interface of the network to which this exception
-     * pertains.
+     * Identify the network to which this error pertains.
      * 
-     * @return the control interface of the network
+     * @return the network's name
      */
-    public NetworkControl getControl() {
-        return control;
+    public String getNetworkName() {
+        return networkName;
     }
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control) {
-        this.control = control;
+    public NetworkException(String networkName) {
+        super("network " + networkName);
+        this.networkName = networkName;
     }
 
     /**
@@ -71,12 +71,12 @@ public class NetworkControlException extends Exception {
      * 
      * @param message the detail message
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, String message) {
-        super(message);
-        this.control = control;
+    public NetworkException(String networkName, String message) {
+        super("network " + networkName + "; " + message);
+        this.networkName = networkName;
     }
 
     /**
@@ -84,12 +84,12 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, Throwable cause) {
-        super(cause);
-        this.control = control;
+    public NetworkException(String networkName, Throwable cause) {
+        super("network " + networkName, cause);
+        this.networkName = networkName;
     }
 
     /**
@@ -99,12 +99,12 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, String message,
-                                   Throwable cause) {
-        super(message, cause);
-        this.control = control;
+    public NetworkException(String networkName, String message,
+                            Throwable cause) {
+        super("network " + networkName + "; " + message, cause);
+        this.networkName = networkName;
     }
 }

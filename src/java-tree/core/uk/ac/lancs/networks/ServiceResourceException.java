@@ -40,6 +40,7 @@ package uk.ac.lancs.networks;
  * 
  * @author simpsons
  */
+@Deprecated
 public class ServiceResourceException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 

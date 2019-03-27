@@ -33,37 +33,41 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
+
 package uk.ac.lancs.networks;
 
 /**
- * Indicates an error in attempting to control a network.
+ * Indicates an error in attempting to use a terminal, such as
+ * referencing a non-existent terminal.
  * 
  * @author simpsons
  */
-@Deprecated
-public class NetworkControlException extends Exception {
+public class TerminalLogicException extends NetworkLogicException {
     private static final long serialVersionUID = 1L;
 
-    private final NetworkControl control;
+    private final String terminalName;
 
     /**
-     * Get the control interface of the network to which this exception
-     * pertains.
+     * Identify the terminal to which this error pertains.
      * 
-     * @return the control interface of the network
+     * @return the terminal's name
      */
-    public NetworkControl getControl() {
-        return control;
+    public String getTerminalName() {
+        return terminalName;
     }
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control) {
-        this.control = control;
+    public TerminalLogicException(String networkName, String terminalName) {
+        super(networkName);
+        this.terminalName = networkName;
     }
 
     /**
@@ -71,12 +75,16 @@ public class NetworkControlException extends Exception {
      * 
      * @param message the detail message
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, String message) {
-        super(message);
-        this.control = control;
+    public TerminalLogicException(String networkName, String terminalName,
+                                  String message) {
+        super(networkName, message);
+        this.terminalName = networkName;
     }
 
     /**
@@ -84,12 +92,16 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, Throwable cause) {
-        super(cause);
-        this.control = control;
+    public TerminalLogicException(String networkName, String terminalName,
+                                  Throwable cause) {
+        super(networkName, cause);
+        this.terminalName = networkName;
     }
 
     /**
@@ -99,12 +111,15 @@ public class NetworkControlException extends Exception {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public NetworkControlException(NetworkControl control, String message,
-                                   Throwable cause) {
-        super(message, cause);
-        this.control = control;
+    public TerminalLogicException(String networkName, String terminalName,
+                                  String message, Throwable cause) {
+        super(networkName, message, cause);
+        this.terminalName = networkName;
     }
 }
