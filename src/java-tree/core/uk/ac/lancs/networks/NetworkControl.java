@@ -116,7 +116,7 @@ public interface NetworkControl {
     default Service requireService(int id) throws UnknownServiceException {
         Service srv = getService(id);
         if (srv != null) return srv;
-        throw new UnknownServiceException(this, id);
+        throw new UnknownServiceException(this.name(), id);
     }
 
     /**

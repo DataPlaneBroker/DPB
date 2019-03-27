@@ -59,20 +59,25 @@ public class LabelManagementException extends TrunkManagementException {
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    BitSet labels, String message,
-                                    Throwable cause) {
-        super(network, trunk, message, cause);
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, BitSet labels,
+                                    String message, Throwable cause) {
+        super(networkName, startTerminal, endTerminal, message, cause);
         this.labels = (BitSet) labels.clone();
     }
 
@@ -85,114 +90,154 @@ public class LabelManagementException extends TrunkManagementException {
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    int label, String message,
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, int label,
+                                    String message, Throwable cause) {
+        this(networkName, startTerminal, endTerminal, ofOne(label), message,
+             cause);
+    }
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     * 
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
+     * 
+     * @param labels the labels to which this exception pertains
+     */
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, BitSet labels,
+                                    String message) {
+        super(networkName, startTerminal, endTerminal, message);
+        this.labels = (BitSet) labels.clone();
+    }
+
+    /**
+     * Create an exception with a detail message.
+     * 
+     * @param message the detail message
+     * 
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
+     * 
+     * @param label the label to which this exception pertains
+     */
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, int label,
+                                    String message) {
+        this(networkName, startTerminal, endTerminal, ofOne(label), message);
+    }
+
+    /**
+     * Create an exception with a cause.
+     * 
+     * @param cause the cause
+     * 
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
+     * 
+     * @param labels the labels to which this exception pertains
+     */
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, BitSet labels,
                                     Throwable cause) {
-        this(network, trunk, ofOne(label), message, cause);
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     * 
-     * @param trunk the trunk to which this exception pertains
-     * 
-     * @param labels the labels to which this exception pertains
-     */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    BitSet labels, String message) {
-        super(network, trunk, message);
-        this.labels = (BitSet) labels.clone();
-    }
-
-    /**
-     * Create an exception with a detail message.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param message the detail message
-     * 
-     * @param trunk the trunk to which this exception pertains
-     * 
-     * @param label the label to which this exception pertains
-     */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    int label, String message) {
-        this(network, trunk, ofOne(label), message);
-    }
-
-    /**
-     * Create an exception with a cause.
-     * 
-     * @param network the network originating this exception
-     * 
-     * @param cause the cause
-     * 
-     * @param trunk the trunk to which this exception pertains
-     * 
-     * @param labels the labels to which this exception pertains
-     */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    BitSet labels, Throwable cause) {
-        super(network, trunk, cause);
+        super(networkName, startTerminal, endTerminal, cause);
         this.labels = (BitSet) labels.clone();
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    int label, Throwable cause) {
-        this(network, trunk, ofOne(label), cause);
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, int label,
+                                    Throwable cause) {
+        this(networkName, startTerminal, endTerminal, ofOne(label), cause);
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    BitSet labels) {
-        super(network, trunk);
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, BitSet labels) {
+        super(networkName, startTerminal, endTerminal);
         this.labels = (BitSet) labels.clone();
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelManagementException(Network network, Trunk trunk,
-                                    int label) {
-        this(network, trunk, ofOne(label));
+    public LabelManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, int label) {
+        this(networkName, startTerminal, endTerminal, ofOne(label));
     }
 }

@@ -59,59 +59,63 @@ public class TerminalNameException extends NetworkManagementException {
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
      * @param name the terminal name
      */
-    public TerminalNameException(Network network, String name) {
-        super(network);
+    public TerminalNameException(String networkName, String name) {
+        super(networkName);
         this.name = name;
     }
 
     /**
      * Create an exception with a detail message.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
+     * 
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
      * @param name the terminal name
      */
-    public TerminalNameException(Network network, String name,
+    public TerminalNameException(String networkName, String name,
                                  String message) {
-        super(network, message);
+        super(networkName, message);
         this.name = name;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
+     * 
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
      * @param name the terminal name
      */
-    public TerminalNameException(Network network, String name,
+    public TerminalNameException(String networkName, String name,
                                  Throwable cause) {
-        super(network, cause);
+        super(networkName, cause);
         this.name = name;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
      * 
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
      * @param name the terminal name
      */
-    public TerminalNameException(Network network, String name, String message,
-                                 Throwable cause) {
-        super(network, message, cause);
+    public TerminalNameException(String networkName, String name,
+                                 String message, Throwable cause) {
+        super(networkName, message, cause);
         this.name = name;
     }
 }

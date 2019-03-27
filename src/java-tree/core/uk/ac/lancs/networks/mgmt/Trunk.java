@@ -255,8 +255,9 @@ public interface Trunk {
                 try {
                     orig.withdrawBandwidth(downstream, upstream);
                 } catch (BandwidthUnavailableException ex) {
-                    throw new BandwidthUnavailableException(ex.getNetwork(),
-                                                            this,
+                    throw new BandwidthUnavailableException(ex
+                        .getNetworkName(), this.getStartTerminal(),
+                                                            this.getEndTerminal(),
                                                             !ex.isUpstream(),
                                                             ex.getAvailable(),
                                                             ex.getCause());

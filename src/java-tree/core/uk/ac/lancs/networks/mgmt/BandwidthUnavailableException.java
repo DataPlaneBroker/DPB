@@ -71,18 +71,25 @@ public class BandwidthUnavailableException extends TrunkManagementException {
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk originating this exception
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param upstream if upstream bandwidth was available
      * 
      * @param available the amount of available bandwidth
      */
-    public BandwidthUnavailableException(Network network, Trunk trunk,
+    public BandwidthUnavailableException(String networkName,
+                                         TerminalId startTerminal,
+                                         TerminalId endTerminal,
                                          boolean upstream, double available) {
-        super(network, trunk, "bandwidth unavailable: " + available
-            + (upstream ? "up" : "down") + "stream");
+        super(networkName, startTerminal, endTerminal,
+              "bandwidth unavailable: " + available
+                  + (upstream ? "up" : "down") + "stream");
         this.upstream = upstream;
         this.available = available;
     }
@@ -90,21 +97,29 @@ public class BandwidthUnavailableException extends TrunkManagementException {
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param trunk the trunk originating this exception
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param upstream if upstream bandwidth was available
      * 
      * @param available the amount of available bandwidth
      */
-    public BandwidthUnavailableException(Network network, Trunk trunk,
+    public BandwidthUnavailableException(String networkName,
+                                         TerminalId startTerminal,
+                                         TerminalId endTerminal,
                                          boolean upstream, double available,
                                          Throwable cause) {
-        super(network, trunk, "bandwidth unavailable: " + available
-            + (upstream ? "up" : "down") + "stream", cause);
+        super(networkName, startTerminal, endTerminal,
+              "bandwidth unavailable: " + available
+                  + (upstream ? "up" : "down") + "stream",
+              cause);
         this.upstream = upstream;
         this.available = available;
     }

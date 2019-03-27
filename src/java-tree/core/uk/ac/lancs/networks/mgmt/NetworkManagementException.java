@@ -45,24 +45,26 @@ package uk.ac.lancs.networks.mgmt;
 public class NetworkManagementException extends Exception {
     private static final long serialVersionUID = 1L;
 
-    private final Network network;
+    private final String networkName;
 
     /**
-     * Get the network in which this exception occurred.
+     * Identify the network to which this error pertains.
      * 
-     * @return the network originating the exception
+     * @return the network's name
      */
-    public Network getNetwork() {
-        return network;
+    public String getNetworkName() {
+        return networkName;
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      */
-    public NetworkManagementException(Network network) {
-        this.network = network;
+    public NetworkManagementException(String networkName) {
+        super();
+        this.networkName = networkName;
     }
 
     /**
@@ -72,9 +74,9 @@ public class NetworkManagementException extends Exception {
      * 
      * @param message the detail message
      */
-    public NetworkManagementException(Network network, String message) {
+    public NetworkManagementException(String networkName, String message) {
         super(message);
-        this.network = network;
+        this.networkName = networkName;
     }
 
     /**
@@ -84,9 +86,9 @@ public class NetworkManagementException extends Exception {
      * 
      * @param cause the cause
      */
-    public NetworkManagementException(Network network, Throwable cause) {
+    public NetworkManagementException(String networkName, Throwable cause) {
         super(cause);
-        this.network = network;
+        this.networkName = networkName;
     }
 
     /**
@@ -98,9 +100,9 @@ public class NetworkManagementException extends Exception {
      * 
      * @param cause the cause
      */
-    public NetworkManagementException(Network network, String message,
+    public NetworkManagementException(String networkName, String message,
                                       Throwable cause) {
         super(message, cause);
-        this.network = network;
+        this.networkName = networkName;
     }
 }

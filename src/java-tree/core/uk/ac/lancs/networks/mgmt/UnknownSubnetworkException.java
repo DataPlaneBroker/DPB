@@ -43,7 +43,7 @@ package uk.ac.lancs.networks.mgmt;
 public class UnknownSubnetworkException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final String network;
+    private final String subnetwork;
 
     /**
      * Get the name of the unrecognized inferior network.
@@ -51,33 +51,37 @@ public class UnknownSubnetworkException extends NetworkManagementException {
      * @return the inferior network's name
      */
     public String getInferiorNetworkName() {
-        return network;
+        return subnetwork;
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
-     * @param subnet the name of the inferior network that was not found
+     * @param subnetwork the name of the inferior network that was not
+     * found
      */
-    public UnknownSubnetworkException(Network network, String subnet) {
-        super(network, "unknown network: " + subnet);
-        this.network = subnet;
+    public UnknownSubnetworkException(String networkName, String subnetwork) {
+        super(networkName, "unknown network");
+        this.subnetwork = subnetwork;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param subnet the name of the inferior network that was not found
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param subnetwork the name of the inferior network that was not
+     * found
      */
-    public UnknownSubnetworkException(Network network, String subnet,
-                                   Throwable cause) {
-        super(network, "unknown network: " + subnet, cause);
-        this.network = subnet;
+    public UnknownSubnetworkException(String networkName, String subnetwork,
+                                      Throwable cause) {
+        super(networkName, "unknown network", cause);
+        this.subnetwork = subnetwork;
     }
 }

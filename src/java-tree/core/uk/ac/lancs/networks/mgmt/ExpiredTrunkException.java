@@ -74,9 +74,9 @@ public class ExpiredTrunkException extends NetworkResourceException {
      * @param endTerm the end terminal of the former trunk to which this
      * exception pertains
      */
-    public ExpiredTrunkException(Network network, TerminalId startTerm,
+    public ExpiredTrunkException(String networkName, TerminalId startTerm,
                                  TerminalId endTerm) {
-        super(network,
+        super(networkName,
               "no trunk identified: " + startTerm + " to " + endTerm);
         this.startTerminal = startTerm;
         this.endTerminal = endTerm;
@@ -95,10 +95,10 @@ public class ExpiredTrunkException extends NetworkResourceException {
      * @param endTerm the end terminal of the former trunk to which this
      * exception pertains
      */
-    public ExpiredTrunkException(Network network, TerminalId startTerm,
+    public ExpiredTrunkException(String networkName, TerminalId startTerm,
                                  TerminalId endTerm, Throwable cause) {
-        super(network, "no trunk identified: " + startTerm + " to " + endTerm,
-              cause);
+        super(networkName,
+              "no trunk identified: " + startTerm + " to " + endTerm, cause);
         this.startTerminal = startTerm;
         this.endTerminal = endTerm;
     }

@@ -48,60 +48,86 @@ public class LabelsUnavailableException extends LabelManagementException {
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelsUnavailableException(Network network, Trunk trunk,
-                                      BitSet labels, Throwable cause) {
-        super(network, trunk, labels, "labels unavailable: " + labels, cause);
+    public LabelsUnavailableException(String networkName,
+                                      TerminalId startTerminal,
+                                      TerminalId endTerminal, BitSet labels,
+                                      Throwable cause) {
+        super(networkName, startTerminal, endTerminal, labels,
+              "labels unavailable", cause);
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelsUnavailableException(Network network, Trunk trunk, int label,
+    public LabelsUnavailableException(String networkName,
+                                      TerminalId startTerminal,
+                                      TerminalId endTerminal, int label,
                                       Throwable cause) {
-        super(network, trunk, label, "label unavailable: " + label, cause);
+        super(networkName, startTerminal, endTerminal, label,
+              "label unavailable", cause);
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param labels the labels to which this exception pertains
      */
-    public LabelsUnavailableException(Network network, Trunk trunk,
-                                      BitSet labels) {
-        super(network, trunk, labels, "labels unavailable: " + labels);
+    public LabelsUnavailableException(String networkName,
+                                      TerminalId startTerminal,
+                                      TerminalId endTerminal, BitSet labels) {
+        super(networkName, startTerminal, endTerminal, labels,
+              "labels unavailable");
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk to which this exception pertains
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      * 
      * @param label the label to which this exception pertains
      */
-    public LabelsUnavailableException(Network network, Trunk trunk,
-                                      int label) {
-        super(network, trunk, label, "label unavailable: " + label);
+    public LabelsUnavailableException(String networkName,
+                                      TerminalId startTerminal,
+                                      TerminalId endTerminal, int label) {
+        super(networkName, startTerminal, endTerminal, label,
+              "label unavailable");
     }
 }

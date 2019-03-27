@@ -43,74 +43,113 @@ package uk.ac.lancs.networks.mgmt;
 public class TrunkManagementException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final Trunk trunk;
+    private final TerminalId startTerminal;
 
     /**
-     * Get the trunk to which this exception pertains.
+     * Identify the start terminal of the trunk to which this exception
+     * pertains.
      * 
-     * @return the trunk originating this exception
+     * @return the trunk's start terminal id
      */
-    public Trunk getTrunk() {
-        return trunk;
+    public TerminalId getStartTerminal() {
+        return startTerminal;
+    }
+
+    private final TerminalId endTerminal;
+
+    /**
+     * Identify the end terminal of the trunk to which this exception
+     * pertains.
+     * 
+     * @return the trunk's end terminal id
+     */
+    public TerminalId getEndTerminal() {
+        return endTerminal;
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
-     * @param trunk the trunk originating this exception
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      */
-    public TrunkManagementException(Network network, Trunk trunk) {
-        super(network);
-        this.trunk = trunk;
+    public TrunkManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal) {
+        super(networkName);
+        this.startTerminal = startTerminal;
+        this.endTerminal = endTerminal;
     }
 
     /**
      * Create an exception with a detail message.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
-     * @param trunk the trunk originating this exception
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      */
-    public TrunkManagementException(Network network, Trunk trunk,
-                                    String message) {
-        super(network, message);
-        this.trunk = trunk;
+    public TrunkManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, String message) {
+        super(networkName, message);
+        this.startTerminal = startTerminal;
+        this.endTerminal = endTerminal;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param trunk the trunk originating this exception
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      */
-    public TrunkManagementException(Network network, Trunk trunk,
-                                    Throwable cause) {
-        super(network, cause);
-        this.trunk = trunk;
+    public TrunkManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, Throwable cause) {
+        super(networkName, cause);
+        this.startTerminal = startTerminal;
+        this.endTerminal = endTerminal;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
      * 
-     * @param trunk the trunk originating this exception
+     * @param networkName the name of the network originating this
+     * exception
+     * 
+     * @param startTerminal the identity of the start terminal of the
+     * trunk
+     * 
+     * @param endTerminal the identity of the end terminal of the trunk
      */
-    public TrunkManagementException(Network network, Trunk trunk,
-                                    String message, Throwable cause) {
-        super(network, message, cause);
-        this.trunk = trunk;
+    public TrunkManagementException(String networkName,
+                                    TerminalId startTerminal,
+                                    TerminalId endTerminal, String message,
+                                    Throwable cause) {
+        super(networkName, message, cause);
+        this.startTerminal = startTerminal;
+        this.endTerminal = endTerminal;
     }
 
 }

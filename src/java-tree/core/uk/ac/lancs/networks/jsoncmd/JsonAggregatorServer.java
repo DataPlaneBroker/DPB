@@ -80,7 +80,8 @@ public class JsonAggregatorServer extends JsonNetworkServer {
                                       req.getString("end-terminal-name"));
         Trunk trunk = network.findTrunk(i1);
         if (!i2.equals(trunk.getEndTerminal()))
-            throw new ExpiredTrunkException(network, i1, i2);
+            throw new ExpiredTrunkException(network.getControl().name(), i1,
+                                            i2);
         return trunk;
     }
 

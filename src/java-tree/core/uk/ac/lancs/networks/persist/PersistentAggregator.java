@@ -67,10 +67,11 @@ import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
+import uk.ac.lancs.networks.NetworkException;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceException;
 import uk.ac.lancs.networks.ServiceListener;
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
@@ -468,7 +469,7 @@ public class PersistentAggregator implements Aggregator {
                 /* Plot a spanning tree across this network, allocating
                  * tunnels. */
                 Collection<Segment> subrequests = new HashSet<>();
-                plotAsymmetricTree(conn, this, request, subrequests);
+                plotAsymmetricTree(id, conn, this, request, subrequests);
 
                 /* Create subservices for each inferior network, and a
                  * distinct reference of our own for each one. */
@@ -535,8 +536,10 @@ public class PersistentAggregator implements Aggregator {
                 redundantServices.clear();
                 failed = false;
             } catch (SQLException e) {
-                throw new ServiceResourceException(control, "could not plot"
-                    + " tree across network", e);
+                throw new ServiceException(control.name(), id,
+                                           "could not plot"
+                                               + " tree across network",
+                                           e);
             } finally {
                 redundantServices.forEach(Service::release);
                 if (failed) release();
@@ -611,9 +614,8 @@ public class PersistentAggregator implements Aggregator {
                 initiated = testInitiated(conn, id);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control,
-                                                   "failed to store intent",
-                                                   ex);
+                throw new ServiceException(control.name(), id,
+                                           "failed to store intent", ex);
             }
 
             /* Do nothing but record the user's intent, if they haven't
@@ -633,9 +635,8 @@ public class PersistentAggregator implements Aggregator {
                 setIntent(conn, id, Intent.INACTIVE);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control,
-                                                   "failed to store intent",
-                                                   ex);
+                throw new ServiceException(control.name(), id,
+                                           "failed to store intent", ex);
             }
             callOut(ServiceStatus.DEACTIVATING);
             if (inactiveCount + failedCount == clients.size()) {
@@ -1113,7 +1114,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new NetworkResourceException(PersistentAggregator.this,
+                        throw new NetworkResourceException(PersistentAggregator.this.name,
                                                            "missing trunk id: "
                                                                + dbid);
                     return rs.getDouble(1);
@@ -1132,7 +1133,7 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 return getDelay(conn);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1167,7 +1168,7 @@ public class PersistentAggregator implements Aggregator {
                     stmt.setInt(1, dbid);
                     try (ResultSet rs = stmt.executeQuery()) {
                         if (!rs.next())
-                            throw new NetworkResourceException(PersistentAggregator.this,
+                            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                                "missing"
                                                                    + " trunk id: "
                                                                    + dbid);
@@ -1187,7 +1188,7 @@ public class PersistentAggregator implements Aggregator {
                 updateTrunkCapacity(conn, this.dbid, -upstream, -downstream);
                 conn.commit();
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1205,7 +1206,7 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 updateTrunkCapacity(conn, this.dbid, +upstream, +downstream);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1221,7 +1222,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(2, dbid);
                 stmt.execute();
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1247,8 +1248,10 @@ public class PersistentAggregator implements Aggregator {
                             inUse.set(rs.getInt(1));
                     }
                     if (!inUse.isEmpty())
-                        throw new LabelsInUseException(PersistentAggregator.this,
-                                                       this, inUse);
+                        throw new LabelsInUseException(PersistentAggregator.this.name,
+                                                       this.getStartTerminal(),
+                                                       this.getEndTerminal(),
+                                                       inUse);
                 }
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + labelTable
@@ -1269,7 +1272,7 @@ public class PersistentAggregator implements Aggregator {
             try {
                 revokeInternalRange("start_label", startBase, amount);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1281,7 +1284,7 @@ public class PersistentAggregator implements Aggregator {
             try {
                 revokeInternalRange("end_label", endBase, amount);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1318,8 +1321,10 @@ public class PersistentAggregator implements Aggregator {
                             startInUse.set(rs.getInt(1));
                     }
                     if (!startInUse.isEmpty())
-                        throw new LabelsInUseException(PersistentAggregator.this,
-                                                       this, startInUse);
+                        throw new LabelsInUseException(PersistentAggregator.this.name,
+                                                       this.getStartTerminal(),
+                                                       this.getEndTerminal(),
+                                                       startInUse);
                 }
 
                 /* Add all the labels. */
@@ -1337,7 +1342,7 @@ public class PersistentAggregator implements Aggregator {
 
                 conn.commit();
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "unexpected DB failure",
                                                    e);
             }
@@ -1357,7 +1362,7 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 commissionTrunk(conn, dbid, false);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure "
                                                        + "setting trunk "
                                                        + dbid
@@ -1371,7 +1376,7 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = openDatabase()) {
                 commissionTrunk(conn, dbid, true);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure "
                                                        + "setting trunk "
                                                        + dbid
@@ -1386,7 +1391,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return getTrunkCommissioned(conn, dbid);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure "
                                                        + "fetching trunk "
                                                        + dbid
@@ -1464,7 +1469,7 @@ public class PersistentAggregator implements Aggregator {
             out.flush();
             conn.commit();
         } catch (SQLException e) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "unable to dump network "
                                                    + name,
                                                e);
@@ -1627,9 +1632,10 @@ public class PersistentAggregator implements Aggregator {
             UnknownSubterminalException {
         NetworkControl nc = inferiors.apply(id.network);
         if (nc == null)
-            throw new UnknownSubnetworkException(this, id.network);
+            throw new UnknownSubnetworkException(this.name, id.network);
         Terminal result = nc.getTerminal(id.terminal);
-        if (result == null) throw new UnknownSubterminalException(this, id);
+        if (result == null)
+            throw new UnknownSubterminalException(this.name, id);
         return result;
     }
 
@@ -1654,7 +1660,7 @@ public class PersistentAggregator implements Aggregator {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new NetworkResourceException(PersistentAggregator.this,
+                    throw new NetworkResourceException(PersistentAggregator.this.name,
                                                        "failed to generate"
                                                            + " id for new trunk "
                                                            + p1 + " to "
@@ -1664,7 +1670,7 @@ public class PersistentAggregator implements Aggregator {
                 return trunkWatcher.get(id);
             }
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "DB failure creating"
                                                    + " trunk from " + p1
                                                    + " to " + p2,
@@ -1678,11 +1684,12 @@ public class PersistentAggregator implements Aggregator {
             UnknownSubnetworkException,
             UnknownTrunkException {
         Terminal p = getSubterminal(subterm);
-        if (p == null) throw new UnknownSubterminalException(this, subterm);
+        if (p == null)
+            throw new UnknownSubterminalException(this.name, subterm);
         try (Connection conn = newDatabaseContext(false)) {
             final int id = findTrunkId(conn, p);
             if (id < 0)
-                throw new UnknownTrunkException(PersistentAggregator.this,
+                throw new UnknownTrunkException(PersistentAggregator.this.name,
                                                 subterm);
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + trunkTable + " WHERE trunk_id = ?;")) {
@@ -1693,7 +1700,7 @@ public class PersistentAggregator implements Aggregator {
             MyTrunk trunk = trunkWatcher.getBase(id);
             trunk.disable();
         } catch (SQLException e) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "removing trunk for " + p, e);
         }
     }
@@ -1719,7 +1726,7 @@ public class PersistentAggregator implements Aggregator {
             }
             return result;
         } catch (SQLException e) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "listing trunks", e);
         }
     }
@@ -1738,7 +1745,7 @@ public class PersistentAggregator implements Aggregator {
             if (base.position(p) == 1) return result.reverse();
             return result;
         } catch (SQLException e) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "finding trunk for " + p, e);
         }
     }
@@ -1768,7 +1775,7 @@ public class PersistentAggregator implements Aggregator {
                 return result;
             }
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "DB failure listing"
                                                    + " terminals in database",
                                                ex);
@@ -1797,10 +1804,10 @@ public class PersistentAggregator implements Aggregator {
                 return result;
             }
         } catch (SQLIntegrityConstraintViolationException ex) {
-            throw new TerminalExistsException(PersistentAggregator.this, name,
-                                              ex);
+            throw new TerminalExistsException(PersistentAggregator.this.name,
+                                              name, ex);
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "DB failure"
                                                    + " creating terminal "
                                                    + name + " on " + inner
@@ -1822,10 +1829,10 @@ public class PersistentAggregator implements Aggregator {
             stmt.setString(1, name);
             int done = stmt.executeUpdate();
             if (done == 0)
-                throw new UnknownTerminalException(PersistentAggregator.this,
+                throw new UnknownTerminalException(PersistentAggregator.this.name,
                                                    name);
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentAggregator.this,
+            throw new NetworkResourceException(PersistentAggregator.this.name,
                                                "could not remove terminal "
                                                    + name + " from database",
                                                ex);
@@ -1855,8 +1862,8 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    void plotAsymmetricTree(Connection conn, MyService service,
-                            Segment request,
+    void plotAsymmetricTree(final int serviceId, Connection conn,
+                            MyService service, Segment request,
                             Collection<? super Segment> subrequests)
         throws SQLException {
         /* Sanity-check the circuits, map them to internal terminals,
@@ -1995,7 +2002,8 @@ public class PersistentAggregator implements Aggregator {
                     return reached.containsAll(e);
                 }).create().getSpanningTree(guide.first());
             if (tree == null)
-                throw new ServiceResourceException(control, "no tree found");
+                throw new ServiceException(control.name(), serviceId,
+                                           "no tree found");
 
             /* Work out how much bandwidth each trunk edge requires in
              * each direction. Find trunk edges in the spanning tree
@@ -2197,7 +2205,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return PersistentAggregator.this.getTerminal(conn, id);
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure"
                                                        + " looking up terminal "
                                                        + id,
@@ -2211,7 +2219,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.setAutoCommit(false);
                 return getAllTerminals(conn).keySet();
             } catch (SQLException e) {
-                throw new NetworkResourceException(PersistentAggregator.this,
+                throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure"
                                                        + " listing terminals",
                                                    e);
@@ -2225,7 +2233,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
                 return result;
             } catch (SQLException e) {
-                throw new ServiceResourceException(control, "unable to"
+                throw new ServiceException(control.name(), id, "unable to"
                     + " recover service " + id, e);
             }
         }
@@ -2241,10 +2249,8 @@ public class PersistentAggregator implements Aggregator {
                     stmt.setInt(1, Intent.INACTIVE.ordinal());
                     stmt.execute();
                     try (ResultSet rs = stmt.getGeneratedKeys()) {
-                        if (!rs.next())
-                            throw new ServiceResourceException(control,
-                                                               "could not"
-                                                                   + " generate new service id");
+                        if (!rs.next()) throw new NetworkException(control
+                            .name(), "could not" + " generate new service id");
                         id = rs.getInt(1);
                     }
                 }
@@ -2253,7 +2259,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
                 return result;
             } catch (SQLException e) {
-                throw new ServiceResourceException(control, "unable to"
+                throw new NetworkException(control.name(), "unable to"
                     + " create new service", e);
             }
         }
@@ -2303,7 +2309,7 @@ public class PersistentAggregator implements Aggregator {
             Connection conn = contextConnection.get();
             return recoverService(conn, id);
         } catch (SQLException e) {
-            throw new ServiceResourceException(control, "database failure"
+            throw new ServiceException(control.name(), id, "database failure"
                 + " recovering service " + id, e);
         }
     }

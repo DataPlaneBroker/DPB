@@ -35,8 +35,6 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
  * Indicates an error in managing an existing terminal.
  * 
@@ -45,73 +43,81 @@ import uk.ac.lancs.networks.Terminal;
 public class TerminalManagementException extends NetworkManagementException {
     private static final long serialVersionUID = 1L;
 
-    private final Terminal terminal;
+    private final String terminalName;
 
     /**
-     * Get the terminal to which this exception pertains.
+     * Identify the terminal to which this error pertains.
      * 
-     * @return the relevant terminal
+     * @return the terminal's name
      */
-    public Terminal getTerminal() {
-        return terminal;
+    public String getTerminalName() {
+        return terminalName;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
+    public TerminalManagementException(String networkName, String terminalName,
                                        String message, Throwable cause) {
-        super(network, message, cause);
-        this.terminal = terminal;
+        super(networkName, message, cause);
+        this.terminalName = terminalName;
     }
 
     /**
      * Create an exception with a detail message.
      * 
-     * @param network the network originating this exception
-     * 
      * @param message the detail message
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
+    public TerminalManagementException(String networkName, String terminalName,
                                        String message) {
-        super(network, message);
-        this.terminal = terminal;
+        super(networkName, message);
+        this.terminalName = terminalName;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal,
+    public TerminalManagementException(String networkName, String terminalName,
                                        Throwable cause) {
-        super(network, cause);
-        this.terminal = terminal;
+        super(networkName, cause);
+        this.terminalName = terminalName;
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalManagementException(Network network, Terminal terminal) {
-        super(network);
-        this.terminal = terminal;
+    public TerminalManagementException(String networkName, String terminalName) {
+        super(networkName);
+        this.terminalName = terminalName;
     }
 }

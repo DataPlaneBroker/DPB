@@ -62,10 +62,11 @@ import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
+import uk.ac.lancs.networks.NetworkException;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceException;
 import uk.ac.lancs.networks.ServiceListener;
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
@@ -155,12 +156,16 @@ public class PersistentSwitch implements Switch {
             for (Circuit ep : request.circuitFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof SwitchTerminal))
-                    throw new InvalidServiceException(control, "circuit " + ep
-                        + " not part of " + name);
+                    throw new InvalidServiceException(control.name(), id,
+                                                      "circuit " + ep
+                                                          + " not part of "
+                                                          + name);
                 SwitchTerminal mp = (SwitchTerminal) p;
                 if (mp.getNetwork() != getControl())
-                    throw new InvalidServiceException(control, "circuit " + ep
-                        + " not part of " + name);
+                    throw new InvalidServiceException(control.name(), id,
+                                                      "circuit " + ep
+                                                          + " not part of "
+                                                          + name);
             }
 
             /* Sanitize the request such that no circuit produces less
@@ -194,7 +199,8 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control, "DB failure", ex);
+                throw new ServiceException(control.name(), id, "DB failure",
+                                           ex);
             }
 
             /* We are ready as soon as we have the information. */
@@ -238,9 +244,8 @@ public class PersistentSwitch implements Switch {
                 updateIntent(conn, id, intent = Intent.ACTIVE);
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control,
-                                                   "failed to store intent",
-                                                   ex);
+                throw new ServiceException(control.name(), id,
+                                           "failed to store intent", ex);
             }
 
             completeActivation();
@@ -272,9 +277,8 @@ public class PersistentSwitch implements Switch {
             try (Connection conn = database()) {
                 updateIntent(conn, id, intent = Intent.INACTIVE);
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control,
-                                                   "failed to store intent",
-                                                   ex);
+                throw new ServiceException(control.name(), id,
+                                           "failed to store intent", ex);
             }
 
             /* Make sure that our bridge won't be retained. */
@@ -330,7 +334,8 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceResourceException(control, "releasing", ex);
+                throw new ServiceException(control.name(), id, "releasing",
+                                           ex);
             }
 
             if (oldBridge != null) {
@@ -359,9 +364,8 @@ public class PersistentSwitch implements Switch {
                 try (Connection conn = database()) {
                     updateIntent(conn, id, intent = Intent.ABORT);
                 } catch (SQLException ex) {
-                    throw new ServiceResourceException(control,
-                                                       "failed to store intent",
-                                                       ex);
+                    throw new ServiceException(control.name(), id,
+                                               "failed to store intent", ex);
                 }
             }
             callOut(ServiceStatus.FAILED);
@@ -667,7 +671,7 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
                 if (!rs.next())
-                    throw new NetworkResourceException(PersistentSwitch.this,
+                    throw new NetworkResourceException(PersistentSwitch.this.name,
                                                        "id unreported"
                                                            + " for new terminal "
                                                            + name);
@@ -679,7 +683,7 @@ public class PersistentSwitch implements Switch {
                 return terminal;
             }
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentSwitch.this,
+            throw new NetworkResourceException(PersistentSwitch.this.name,
                                                "DB failure"
                                                    + " in creating terminal "
                                                    + name + " on " + desc
@@ -700,7 +704,7 @@ public class PersistentSwitch implements Switch {
             stmt.execute();
             terminals.remove(name);
         } catch (SQLException ex) {
-            throw new NetworkResourceException(PersistentSwitch.this,
+            throw new NetworkResourceException(PersistentSwitch.this.name,
                                                "DB failure"
                                                    + " in removing terminal "
                                                    + name,
@@ -793,15 +797,13 @@ public class PersistentSwitch implements Switch {
             stmt.setInt(1, Intent.INACTIVE.ordinal());
             stmt.execute();
             try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (!rs.next())
-                    throw new ServiceResourceException(control,
-                                                       "id unreported"
-                                                           + " for new service");
+                if (!rs.next()) throw new NetworkException(control
+                    .name(), "id unreported" + " for new service");
                 id = rs.getInt(1);
             }
         } catch (SQLException ex) {
-            throw new ServiceResourceException(control, "creating service",
-                                               ex);
+            throw new NetworkException(control.name(), "creating service",
+                                       ex);
         }
         MyService srv = new MyService(id);
         services.put(id, srv);

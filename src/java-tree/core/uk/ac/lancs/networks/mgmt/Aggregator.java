@@ -160,7 +160,9 @@ public interface Aggregator extends Network {
             UnknownSubterminalException,
             UnknownSubnetworkException {
         Trunk result = findTrunk(subterm);
-        if (result == null) throw new UnknownTrunkException(this, subterm);
+        if (result == null)
+            throw new UnknownTrunkException(this.getControl().name(),
+                                            subterm);
         return result;
     }
 

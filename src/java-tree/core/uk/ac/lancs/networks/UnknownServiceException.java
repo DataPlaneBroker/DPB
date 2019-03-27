@@ -40,31 +40,19 @@ package uk.ac.lancs.networks;
  * 
  * @author simpsons
  */
-public class UnknownServiceException extends NetworkControlException {
+public class UnknownServiceException extends ServiceLogicException {
     private static final long serialVersionUID = 1L;
-
-    private final int serviceId;
-
-    /**
-     * Get the id of the service that was unknown.
-     * 
-     * @return the service id
-     */
-    public int getServiceId() {
-        return serviceId;
-    }
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param serviceId the service id
+     * @param serviceId the service id that is unknown
      */
-    public UnknownServiceException(NetworkControl control, int serviceId) {
-        super(control, "unknown service id: " + serviceId);
-        this.serviceId = serviceId;
+    public UnknownServiceException(String networkName, int serviceId) {
+        super(networkName, serviceId, "unknown service id");
     }
 
     /**
@@ -72,14 +60,13 @@ public class UnknownServiceException extends NetworkControlException {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param serviceId the service id
+     * @param serviceId the service id that is unknown
      */
-    public UnknownServiceException(NetworkControl control, int serviceId,
+    public UnknownServiceException(String networkName, int serviceId,
                                    Throwable cause) {
-        super(control, "unknown service id: " + serviceId, cause);
-        this.serviceId = serviceId;
+        super(networkName, serviceId, "unknown service id", cause);
     }
 }

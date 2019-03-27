@@ -35,8 +35,6 @@
  */
 package uk.ac.lancs.networks.mgmt;
 
-import uk.ac.lancs.networks.Terminal;
-
 /**
  * Indicates that a terminal reference supplied to a network should not
  * refer to a terminal belonging to that network.
@@ -51,25 +49,30 @@ public class OwnTerminalException extends TerminalManagementException {
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public OwnTerminalException(Network network, Terminal terminal,
+    public OwnTerminalException(String networkName, String terminalName,
                                 Throwable cause) {
-        super(network, terminal, "terminal belongs to network", cause);
+        super(networkName, terminalName, "terminal belongs to network",
+              cause);
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public OwnTerminalException(Network network, Terminal terminal) {
-        super(network, terminal, "terminal belongs to network");
+    public OwnTerminalException(String networkName, String terminalName) {
+        super(networkName, terminalName, "terminal belongs to network");
     }
 }

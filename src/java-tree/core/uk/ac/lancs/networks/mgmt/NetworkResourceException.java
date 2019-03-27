@@ -44,62 +44,66 @@ package uk.ac.lancs.networks.mgmt;
 public class NetworkResourceException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    private final Network network;
+    private final String networkName;
 
     /**
-     * Get the network originating this exception.
+     * Identify the network to which this error pertains.
      * 
-     * @return the originating network
+     * @return the network's name
      */
-    public Network getNetwork() {
-        return network;
+    public String getNetworkName() {
+        return networkName;
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the originating network
+     * @param networkName the name of the network originating this
+     * exception
      */
-    public NetworkResourceException(Network network) {
-        this.network = network;
+    public NetworkResourceException(String networkName) {
+        this.networkName = networkName;
     }
 
     /**
      * Create an exception with a detail message.
      * 
-     * @param network the originating network
-     * 
      * @param message the detail message
+     * 
+     * @param networkName the name of the network originating this
+     * exception
      */
-    public NetworkResourceException(Network network, String message) {
+    public NetworkResourceException(String networkName, String message) {
         super(message);
-        this.network = network;
+        this.networkName = networkName;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the originating network
-     * 
      * @param cause the cause
+     * 
+     * @param networkName the name of the network originating this
+     * exception
      */
-    public NetworkResourceException(Network network, Throwable cause) {
+    public NetworkResourceException(String networkName, Throwable cause) {
         super(cause);
-        this.network = network;
+        this.networkName = networkName;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the originating network
-     * 
      * @param message the detail message
      * 
      * @param cause the cause
+     * 
+     * @param networkName the name of the network originating this
+     * exception
      */
-    public NetworkResourceException(Network network, String message,
+    public NetworkResourceException(String networkName, String message,
                                     Throwable cause) {
         super(message, cause);
-        this.network = network;
+        this.networkName = networkName;
     }
 }

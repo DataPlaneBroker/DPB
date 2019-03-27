@@ -124,14 +124,12 @@ public class DummySwitch implements Switch {
             for (Circuit ep : request.circuitFlows().keySet()) {
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
-                    throw new InvalidServiceException(control,
-                                                      "not my circuit: "
-                                                          + ep);
+                    throw new InvalidServiceException(control
+                        .name(), id, "not my circuit: " + ep);
                 MyTerminal mp = (MyTerminal) p;
                 if (mp.owner() != DummySwitch.this)
-                    throw new InvalidServiceException(control,
-                                                      "not my circuit: "
-                                                          + ep);
+                    throw new InvalidServiceException(control
+                        .name(), id, "not my circuit: " + ep);
             }
             this.request = request;
             callOut(ServiceStatus.ESTABLISHING);
@@ -272,7 +270,7 @@ public class DummySwitch implements Switch {
                                              String interfaceName)
         throws TerminalExistsException {
         if (terminals.containsKey(terminalName))
-            throw new TerminalExistsException(this, terminalName);
+            throw new TerminalExistsException(this.name, terminalName);
         MyTerminal terminal = new MyTerminal(terminalName, interfaceName);
         terminals.put(terminalName, terminal);
         return terminal;

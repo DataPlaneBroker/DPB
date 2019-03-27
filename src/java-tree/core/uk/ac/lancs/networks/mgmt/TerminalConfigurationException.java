@@ -59,49 +59,53 @@ public class TerminalConfigurationException
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param config the proposed configuration
      */
-    public TerminalConfigurationException(Network network, String config) {
-        super(network);
+    public TerminalConfigurationException(String networkName, String config) {
+        super(networkName);
         this.config = config;
     }
 
     /**
      * Create an exception with a detail message.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param message the detail message
      * 
      * @param config the proposed configuration
      */
-    public TerminalConfigurationException(Network network, String config,
+    public TerminalConfigurationException(String networkName, String config,
                                              String message) {
-        super(network, message);
+        super(networkName, message);
         this.config = config;
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param cause the cause
      * 
      * @param config the proposed configuration
      */
-    public TerminalConfigurationException(Network network, String config,
+    public TerminalConfigurationException(String networkName, String config,
                                              Throwable cause) {
-        super(network, cause);
+        super(networkName, cause);
         this.config = config;
     }
 
     /**
      * Create an exception with a detail message and a cause.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param message the detail message
      * 
@@ -109,10 +113,10 @@ public class TerminalConfigurationException
      * 
      * @param config the proposed configuration
      */
-    public TerminalConfigurationException(Network network, String config,
+    public TerminalConfigurationException(String networkName, String config,
                                              String message,
                                              Throwable cause) {
-        super(network, message, cause);
+        super(networkName, message, cause);
         this.config = config;
     }
 

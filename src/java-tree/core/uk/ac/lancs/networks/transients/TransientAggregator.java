@@ -62,8 +62,8 @@ import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceException;
 import uk.ac.lancs.networks.ServiceListener;
-import uk.ac.lancs.networks.ServiceResourceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
@@ -243,7 +243,7 @@ public class TransientAggregator implements Aggregator {
             /* Plot a spanning tree across this switch, allocating
              * tunnels. */
             Collection<Segment> subrequests = new HashSet<>();
-            plotAsymmetricTree(request, tunnels, subrequests);
+            plotAsymmetricTree(id, request, tunnels, subrequests);
 
             /* Create connections for each inferior switch, and a
              * distinct reference of our own for each one. */
@@ -1022,9 +1022,10 @@ public class TransientAggregator implements Aggregator {
             UnknownSubterminalException {
         NetworkControl nc = subnets.apply(id.network);
         if (nc == null)
-            throw new UnknownSubnetworkException(this, id.network);
+            throw new UnknownSubnetworkException(this.name, id.network);
         Terminal result = nc.getTerminal(id.terminal);
-        if (result == null) throw new UnknownSubterminalException(this, id);
+        if (result == null)
+            throw new UnknownSubterminalException(this.name, id);
         return result;
     }
 
@@ -1038,9 +1039,9 @@ public class TransientAggregator implements Aggregator {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         if (trunks.containsKey(p1))
-            throw new SubterminalBusyException(this, t1);
+            throw new SubterminalBusyException(this.name, t1);
         if (trunks.containsKey(p2))
-            throw new SubterminalBusyException(this, t2);
+            throw new SubterminalBusyException(this.name, t2);
         MyTrunk trunk = new MyTrunk(p1, p2);
         trunks.put(p1, trunk);
         trunks.put(p2, trunk);
@@ -1054,7 +1055,7 @@ public class TransientAggregator implements Aggregator {
             UnknownTrunkException {
         Terminal p = getSubterminal(subterm);
         MyTrunk t = trunks.get(p);
-        if (t == null) throw new UnknownTrunkException(this, subterm);
+        if (t == null) throw new UnknownTrunkException(this.name, subterm);
         trunks.keySet().removeAll(t.getTerminals());
     }
 
@@ -1086,7 +1087,7 @@ public class TransientAggregator implements Aggregator {
             UnknownSubterminalException,
             UnknownSubnetworkException {
         if (terminals.containsKey(name))
-            throw new TerminalExistsException(this, name);
+            throw new TerminalExistsException(this.name, name);
         Terminal inner = getSubterminal(subterm);
         MyTerminal result = new MyTerminal(name, inner);
         terminals.put(name, result);
@@ -1136,7 +1137,7 @@ public class TransientAggregator implements Aggregator {
      * submitted to each inferior switch
      */
     synchronized void
-        plotAsymmetricTree(Segment request,
+        plotAsymmetricTree(final int serviceId, Segment request,
                            Map<? super MyTrunk, ? super Circuit> tunnels,
                            Collection<? super Segment> subrequests) {
         // System.err.printf("Request producers: %s%n",
@@ -1295,7 +1296,8 @@ public class TransientAggregator implements Aggregator {
                     return reached.containsAll(e);
                 }).create().getSpanningTree(guide.first());
             if (tree == null)
-                throw new ServiceResourceException(control, "no tree found");
+                throw new ServiceException(control.name(), serviceId,
+                                           "no tree found");
             // System.err.printf("Spanning tree: %s%n", tree);
 
             /* Work out how much bandwidth each trunk edge requires in

@@ -366,7 +366,7 @@ public final class NetworkServer {
             } catch (NetworkResourceException ex) {
                 return one(Json.createObjectBuilder()
                     .add("error", "network-resource")
-                    .add("network-name", ex.getNetwork().getControl().name())
+                    .add("network-name", ex.getNetworkName())
                     .add("msg", ex.getMessage()).build());
             } catch (IllegalArgumentException ex) {
                 return one(Json.createObjectBuilder()

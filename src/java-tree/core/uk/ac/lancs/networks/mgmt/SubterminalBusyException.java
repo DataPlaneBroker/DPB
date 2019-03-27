@@ -46,25 +46,27 @@ public class SubterminalBusyException extends SubterminalManagementException {
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param cause the cause
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public SubterminalBusyException(Network network, TerminalId terminal,
-                                  Throwable cause) {
-        super(network, terminal, "terminal in use: " + terminal, cause);
+    public SubterminalBusyException(String networkName, TerminalId terminal,
+                                    Throwable cause) {
+        super(networkName, terminal, "terminal in use: " + terminal, cause);
     }
 
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network originating this
+     * exception
      * 
      * @param terminal the terminal to which this exception pertains
      */
-    public SubterminalBusyException(Network network, TerminalId terminal) {
-        super(network, terminal, "terminal in use: " + terminal);
+    public SubterminalBusyException(String networkName, TerminalId terminal) {
+        super(networkName, terminal, "terminal in use: " + terminal);
     }
 }

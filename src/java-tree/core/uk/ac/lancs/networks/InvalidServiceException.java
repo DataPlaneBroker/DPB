@@ -41,18 +41,22 @@ package uk.ac.lancs.networks;
  * {@link Service#define(Segment)}.
  * 
  * @author simpsons
+ * 
+ * @todo Rename to InvalidSegmentException?
  */
-public class InvalidServiceException extends NetworkControlException {
+public class InvalidServiceException extends ServiceLogicException {
     private static final long serialVersionUID = 1L;
 
     /**
      * Create an exception.
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
+     * 
+     * @param serviceId the service id that is unknown
      */
-    public InvalidServiceException(NetworkControl control) {
-        super(control);
+    public InvalidServiceException(String networkName, int serviceId) {
+        super(networkName, serviceId);
     }
 
     /**
@@ -62,12 +66,14 @@ public class InvalidServiceException extends NetworkControlException {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
+     * 
+     * @param serviceId the service id that is unknown
      */
-    public InvalidServiceException(NetworkControl control, String message,
-                                   Throwable cause) {
-        super(control, message, cause);
+    public InvalidServiceException(String networkName, int serviceId,
+                                   String message, Throwable cause) {
+        super(networkName, serviceId, message, cause);
     }
 
     /**
@@ -75,11 +81,14 @@ public class InvalidServiceException extends NetworkControlException {
      * 
      * @param message the detail message
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
+     * 
+     * @param serviceId the service id that is unknown
      */
-    public InvalidServiceException(NetworkControl control, String message) {
-        super(control, message);
+    public InvalidServiceException(String networkName, int serviceId,
+                                   String message) {
+        super(networkName, serviceId, message);
     }
 
     /**
@@ -87,10 +96,13 @@ public class InvalidServiceException extends NetworkControlException {
      * 
      * @param cause the cause
      * 
-     * @param control the control interface of the network to which the
-     * exception pertains
+     * @param networkName the name of the network to which the exception
+     * pertains
+     * 
+     * @param serviceId the service id that is unknown
      */
-    public InvalidServiceException(NetworkControl control, Throwable cause) {
-        super(control, cause);
+    public InvalidServiceException(String networkName, int serviceId,
+                                   Throwable cause) {
+        super(networkName, serviceId, cause);
     }
 }

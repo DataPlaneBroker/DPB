@@ -46,25 +46,27 @@ public class UnknownTerminalException extends TerminalNameException {
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
-     * @param name the requested terminal name
+     * @param name the terminal name
      */
-    public UnknownTerminalException(Network network, String name) {
-        super(network, name, "no such terminal: " + name);
+    public UnknownTerminalException(String networkName, String name) {
+        super(networkName, name, "no such terminal");
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param name the requested terminal name
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param name the terminal name
      */
-    public UnknownTerminalException(Network network, String name,
+    public UnknownTerminalException(String networkName, String name,
                                     Throwable cause) {
-        super(network, name, "no such terminal: " + name, cause);
+        super(networkName, name, "no such terminal", cause);
     }
 }

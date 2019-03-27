@@ -40,19 +40,8 @@ package uk.ac.lancs.networks;
  * 
  * @author simpsons
  */
-public class ExpiredServiceException extends ServiceResourceException {
+public class ExpiredServiceException extends ServiceException {
     private static final long serialVersionUID = 1L;
-
-    private final int serviceId;
-
-    /**
-     * Get the id of the expired service.
-     * 
-     * @return the service's id
-     */
-    public int getServiceId() {
-        return serviceId;
-    }
 
     /**
      * Create an exception.
@@ -62,9 +51,8 @@ public class ExpiredServiceException extends ServiceResourceException {
      * 
      * @param id the id of the expired service
      */
-    public ExpiredServiceException(NetworkControl control, int id) {
-        super(control, "service expired: " + id);
-        this.serviceId = id;
+    public ExpiredServiceException(String networkName, int serviceId) {
+        super(networkName, serviceId, "service expired");
     }
 
     /**
@@ -77,9 +65,8 @@ public class ExpiredServiceException extends ServiceResourceException {
      * 
      * @param id the id of the expired service
      */
-    public ExpiredServiceException(NetworkControl control, Throwable cause,
-                                   int id) {
-        super(control, "service expired: " + id, cause);
-        this.serviceId = id;
+    public ExpiredServiceException(String networkName, int serviceId,
+                                   Throwable cause) {
+        super(networkName, serviceId, "service expired", cause);
     }
 }

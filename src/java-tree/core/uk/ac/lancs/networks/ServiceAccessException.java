@@ -33,28 +33,16 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.mgmt;
+
+package uk.ac.lancs.networks;
 
 /**
- * Indicates an error in managing an aggregator with reference to a
- * terminal of an inferior network.
+ * Indicates that modification of a service was forbidden.
  * 
  * @author simpsons
  */
-public class SubterminalManagementException
-    extends NetworkManagementException {
+public class ServiceAccessException extends ServiceException {
     private static final long serialVersionUID = 1L;
-
-    private final TerminalId terminal;
-
-    /**
-     * Get the terminal to which this exception pertains.
-     * 
-     * @return the relevant terminal
-     */
-    public TerminalId getTerminal() {
-        return terminal;
-    }
 
     /**
      * Create an exception with a detail message and a cause.
@@ -63,16 +51,14 @@ public class SubterminalManagementException
      * 
      * @param cause the cause
      * 
-     * @param networkName the name of the network originating this
-     * exception
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param serviceId the service id that is unknown
      */
-    public SubterminalManagementException(String networkName,
-                                          TerminalId terminal, String message,
-                                          Throwable cause) {
-        super(networkName, message, cause);
-        this.terminal = terminal;
+    public ServiceAccessException(String networkName, int serviceId,
+                                  String message, Throwable cause) {
+        super(networkName, serviceId, message, cause);
     }
 
     /**
@@ -80,16 +66,14 @@ public class SubterminalManagementException
      * 
      * @param message the detail message
      * 
-     * @param networkName the name of the network originating this
-     * exception
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param serviceId the service id that is unknown
      */
-    public SubterminalManagementException(String networkName,
-                                          TerminalId terminal,
-                                          String message) {
-        super(networkName, message);
-        this.terminal = terminal;
+    public ServiceAccessException(String networkName, int serviceId,
+                                  String message) {
+        super(networkName, serviceId, message);
     }
 
     /**
@@ -97,29 +81,25 @@ public class SubterminalManagementException
      * 
      * @param cause the cause
      * 
-     * @param networkName the name of the network originating this
-     * exception
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param serviceId the service id that is unknown
      */
-    public SubterminalManagementException(String networkName,
-                                          TerminalId terminal,
-                                          Throwable cause) {
-        super(networkName, cause);
-        this.terminal = terminal;
+    public ServiceAccessException(String networkName, int serviceId,
+                                  Throwable cause) {
+        super(networkName, serviceId, cause);
     }
 
     /**
      * Create an exception.
      * 
-     * @param networkName the name of the network originating this
-     * exception
+     * @param networkName the name of the network to which the exception
+     * pertains
      * 
-     * @param terminal the terminal to which this exception pertains
+     * @param serviceId the service id that is unknown
      */
-    public SubterminalManagementException(String networkName,
-                                          TerminalId terminal) {
-        super(networkName);
-        this.terminal = terminal;
+    public ServiceAccessException(String networkName, int serviceId) {
+        super(networkName, serviceId);
     }
 }

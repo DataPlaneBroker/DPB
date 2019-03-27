@@ -82,7 +82,9 @@ public interface Network {
     default Terminal getTerminal(String name)
         throws UnknownTerminalException {
         Terminal result = getControl().getTerminal(name);
-        if (result == null) throw new UnknownTerminalException(this, name);
+        if (result == null)
+            throw new UnknownTerminalException(this.getControl().name(),
+                                               name);
         return result;
     }
 

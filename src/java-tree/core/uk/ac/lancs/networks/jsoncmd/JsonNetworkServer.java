@@ -57,17 +57,19 @@ import javax.json.JsonString;
 
 import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
+import uk.ac.lancs.networks.CircuitLogicException;
 import uk.ac.lancs.networks.ExpiredServiceException;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
-import uk.ac.lancs.networks.NetworkControlException;
+import uk.ac.lancs.networks.NetworkLogicException;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceListener;
+import uk.ac.lancs.networks.ServiceLogicException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
+import uk.ac.lancs.networks.TerminalLogicException;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.networks.UnknownServiceException;
 import uk.ac.lancs.networks.mgmt.BandwidthUnavailableException;
 import uk.ac.lancs.networks.mgmt.ExpiredTrunkException;
 import uk.ac.lancs.networks.mgmt.LabelManagementException;
@@ -85,7 +87,6 @@ import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.TerminalManagementException;
 import uk.ac.lancs.networks.mgmt.TerminalNameException;
-import uk.ac.lancs.networks.mgmt.Trunk;
 import uk.ac.lancs.networks.mgmt.TrunkManagementException;
 import uk.ac.lancs.networks.mgmt.UnknownSubnetworkException;
 import uk.ac.lancs.networks.mgmt.UnknownSubterminalException;
@@ -118,7 +119,7 @@ public class JsonNetworkServer {
 
     private final void checkManagement() throws NetworkResourceException {
         if (!allowMgmt)
-            throw new NetworkResourceException(network,
+            throw new NetworkResourceException(network.getControl().name(),
                                                "management calls forbidden");
     }
 
@@ -126,7 +127,8 @@ public class JsonNetworkServer {
         int id = req.getInt("service-id");
         Service srv = network.getControl().getService(id);
         if (srv == null)
-            throw new ExpiredServiceException(network.getControl(), id);
+            throw new ExpiredServiceException(network.getControl().name(),
+                                              id);
         return srv;
     }
 
@@ -451,13 +453,12 @@ public class JsonNetworkServer {
         try {
             throw t;
         } catch (NetworkManagementException e) {
-            builder.add("network-name", e.getNetwork().getControl().name());
+            builder.add("network-name", e.getNetworkName());
             try {
                 throw e;
             } catch (TrunkManagementException e2) {
-                Trunk trunk = e2.getTrunk();
-                TerminalId start = trunk.getStartTerminal();
-                TerminalId end = trunk.getEndTerminal();
+                TerminalId start = e2.getStartTerminal();
+                TerminalId end = e2.getEndTerminal();
                 builder.add("start-terminal-name", start.network)
                     .add("start-network-name", start.terminal)
                     .add("start-terminal-name", end.network)
@@ -517,7 +518,7 @@ public class JsonNetworkServer {
                     builder.add("error", "subterminal-mgmt");
                 }
             } catch (TerminalManagementException e2) {
-                builder.add("terminal-name", e2.getTerminal().name());
+                builder.add("terminal-name", e2.getTerminalName());
                 try {
                     throw e2;
                 } catch (TerminalBusyException e3) {
@@ -533,20 +534,34 @@ public class JsonNetworkServer {
             } catch (NetworkManagementException e2) {
                 builder.add("error", "network-mgmt");
             }
-        } catch (NetworkControlException e) {
-            builder.add("network-name", e.getControl().name());
+        } catch (NetworkLogicException e) {
+            builder.add("network-name", e.getNetworkName());
             try {
                 throw e;
-            } catch (InvalidServiceException e2) {
-                builder.add("error", "segment-invalid");
-            } catch (UnknownServiceException e2) {
+            } catch (ServiceLogicException e2) {
                 builder.add("service-id", e2.getServiceId());
-                builder.add("error", "service-unknown");
-            } catch (NetworkControlException e2) {
-                builder.add("error", "network-ctrl");
+                try {
+                    throw e2;
+                } catch (InvalidServiceException e3) {
+                    builder.add("error", "segment-invalid");
+                } catch (ServiceLogicException e1) {
+                    builder.add("error", "service-logic");
+                }
+            } catch (TerminalLogicException e2) {
+                builder.add("terminal-name", e2.getTerminalName());
+                try {
+                    throw e2;
+                } catch (CircuitLogicException e3) {
+                    builder.add("label", e3.getLabel()).add("error",
+                                                            "circuit-logic");
+                } catch (TerminalLogicException e1) {
+                    builder.add("error", "terminal-logic");
+                }
+            } catch (NetworkLogicException e1) {
+                builder.add("error", "network-logic");
             }
         } catch (NetworkResourceException e) {
-            builder.add("network-name", e.getNetwork().getControl().name());
+            builder.add("network-name", e.getNetworkName());
             try {
                 throw e;
             } catch (ExpiredTrunkException e2) {

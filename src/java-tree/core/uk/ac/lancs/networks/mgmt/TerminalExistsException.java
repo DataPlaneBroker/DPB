@@ -46,25 +46,29 @@ public class TerminalExistsException extends TerminalNameException {
     /**
      * Create an exception.
      * 
-     * @param network the network originating this exception
+     * @param networkName the name of the network to which this error
+     * pertains
      * 
-     * @param name the terminal name
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalExistsException(Network network, String name) {
-        super(network, name, "terminal exists: " + name);
+    public TerminalExistsException(String networkName, String terminalName) {
+        super(networkName, terminalName, "terminal exists");
     }
 
     /**
      * Create an exception with a cause.
      * 
-     * @param network the network originating this exception
-     * 
      * @param cause the cause
      * 
-     * @param name the terminal name
+     * @param networkName the name of the network to which this error
+     * pertains
+     * 
+     * @param terminalName the name of the terminal to which this error
+     * pertains
      */
-    public TerminalExistsException(Network network, String name,
+    public TerminalExistsException(String networkName, String terminalName,
                                    Throwable cause) {
-        super(network, name, "terminal exists: " + name, cause);
+        super(networkName, terminalName, "terminal exists", cause);
     }
 }

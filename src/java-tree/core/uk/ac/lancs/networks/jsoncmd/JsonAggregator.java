@@ -51,8 +51,7 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 
-import uk.ac.lancs.networks.InvalidServiceException;
-import uk.ac.lancs.networks.NetworkControlException;
+import uk.ac.lancs.networks.NetworkLogicException;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.BandwidthUnavailableException;
@@ -97,8 +96,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
     @Override
     protected void checkErrors(JsonObject rsp)
         throws NetworkManagementException,
-            NetworkControlException,
-            InvalidServiceException {
+            NetworkLogicException {
         String type = rsp.getString("error", null);
         if (type == null) return;
         switch (type) {
@@ -111,7 +109,8 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
                               rsp.getString("end-terminal-name"));
             @SuppressWarnings("unused")
             Trunk trunk = getKnownTrunk(start, end);
-            throw new ExpiredTrunkException(this, start, end);
+            throw new ExpiredTrunkException(this.getControl().name(), start,
+                                            end);
         }
 
         case "bw-unavailable":
@@ -137,21 +136,34 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
                 }
                 switch (type) {
                 case "labels-unavailable":
-                    throw new LabelsUnavailableException(this, trunk, labels);
+                    throw new LabelsUnavailableException(this.getControl()
+                        .name(), trunk.getStartTerminal(),
+                                                         trunk
+                                                             .getEndTerminal(),
+                                                         labels);
                 case "labels-in-use":
-                    throw new LabelsInUseException(this, trunk, labels);
+                    throw new LabelsInUseException(this.getControl().name(),
+                                                   trunk.getStartTerminal(),
+                                                   trunk.getEndTerminal(),
+                                                   labels);
                 case "label-mgmt":
-                    throw new LabelManagementException(this, trunk, labels);
+                    throw new LabelManagementException(this.getControl()
+                        .name(), trunk.getStartTerminal(),
+                                                       trunk.getEndTerminal(),
+                                                       labels);
                 }
             }
             case "bw-unavailable": {
                 boolean up = rsp.getString("direction").equals("upstream");
                 double amount = rsp.getJsonNumber("amount").doubleValue();
-                throw new BandwidthUnavailableException(this, trunk, up,
-                                                        amount);
+                throw new BandwidthUnavailableException(this.getControl()
+                    .name(), trunk.getStartTerminal(), trunk.getEndTerminal(),
+                                                        up, amount);
             }
             case "trunk-mgmt":
-                throw new TrunkManagementException(this, trunk,
+                throw new TrunkManagementException(this.getControl().name(),
+                                                   trunk.getStartTerminal(),
+                                                   trunk.getEndTerminal(),
                                                    rsp.getString("msg"));
             }
         }
