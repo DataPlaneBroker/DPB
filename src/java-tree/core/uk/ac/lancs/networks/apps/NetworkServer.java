@@ -247,7 +247,9 @@ public final class NetworkServer {
 
                 /* Read one more line, which is the name of the
                  * network. */
+                System.err.printf("awaiting network name%n");
                 String networkName = readLine(in);
+                System.err.printf("network name = %s%n", networkName);
                 networkName = networkName.trim();
 
                 /* Remaining communication is from the remote caller,
