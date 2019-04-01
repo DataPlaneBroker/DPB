@@ -73,9 +73,9 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
      * more because the base channel has been closed
      */
     @Override
-    public JsonChannel getChannel() {
+    public synchronized JsonChannel getChannel() {
         synchronized (this) {
-            while (queue.isEmpty() && !terminated && inUse) {
+            while (queue.isEmpty() && !terminated) {
                 try {
                     wait();
                 } catch (InterruptedException e) {
@@ -83,16 +83,8 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
                 }
             }
             if (!queue.isEmpty()) return queue.remove(0);
-            if (terminated) return null;
-            inUse = true;
+            return null;
         }
-        process(null);
-        synchronized (this) {
-            assert !inUse;
-            if (!queue.isEmpty()) return queue.remove(0);
-            if (terminated) return null;
-        }
-        return null;
     }
 
     @Override
@@ -100,17 +92,11 @@ public class MultiplexingJsonServer extends MultiplexingJsonChannelManager
         /* As a server, we create sessions when the client tells us
          * to. */
         SessionChannel result = new SessionChannel(id);
+        sessions.put(id, result);
 
-        synchronized (this) {
-            /* Store the session under its id, so that messages received
-             * with this id can be queued with this session channel. */
-            sessions.put(id, result);
-
-            /* Make the channel available in the queue, so that
-             * getChannel can read from it. */
-            queue.add(result);
-            notifyAll();
-        }
+        /* Make the channel available in the queue, so that getChannel
+         * can read from it. */
+        queue.add(result);
 
         return result;
     }

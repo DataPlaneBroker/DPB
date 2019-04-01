@@ -74,7 +74,6 @@ import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonWriter;
 import uk.ac.lancs.networks.jsoncmd.JsonAggregatorServer;
 import uk.ac.lancs.networks.jsoncmd.JsonChannel;
-import uk.ac.lancs.networks.jsoncmd.JsonChannelManager;
 import uk.ac.lancs.networks.jsoncmd.JsonNetworkServer;
 import uk.ac.lancs.networks.jsoncmd.JsonSwitchServer;
 import uk.ac.lancs.networks.jsoncmd.MultiplexingJsonServer;
@@ -325,8 +324,9 @@ public final class NetworkServer {
                                 }
                             }
                         };
-                        JsonChannelManager mgr =
+                        MultiplexingJsonServer mgr =
                             new MultiplexingJsonServer(base);
+                        mgr.initiate();
                         do {
                             JsonChannel session = mgr.getChannel();
                             if (session == null) {

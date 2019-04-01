@@ -128,7 +128,10 @@ public class SSHNetworkAgentFactory implements AgentFactory {
         JsonChannelManager pool = new PoolingJsonChannelManager(sshChannels);
         JsonChannelManager cm = new DeferredJsonChannelManager(() -> {
             System.err.printf("Getting new multiplexer...%n");
-            return new MultiplexingJsonClient(pool.getChannel(), true);
+            MultiplexingJsonClient result =
+                new MultiplexingJsonClient(pool.getChannel(), true);
+            result.initiate();
+            return result;
         });
 
         /* Create an agent according to the particular type. */

@@ -405,9 +405,12 @@ public class JsonNetwork implements Network {
 
         private boolean awaitEvent() {
             synchronized (this) {
-                if (channel == null) return false;
                 if (!valid) return false;
-                JsonObject rsp = channel.read();
+            }
+            JsonChannel ch = channel;
+            if (ch == null) return false;
+            JsonObject rsp = ch.read();
+            synchronized (this) {
                 if (rsp == null) {
                     channel = null;
                     return false;
@@ -423,7 +426,7 @@ public class JsonNetwork implements Network {
             }
         }
 
-        private JsonChannel channel;
+        private volatile JsonChannel channel;
 
         @Override
         public synchronized void addListener(ServiceListener events) {
