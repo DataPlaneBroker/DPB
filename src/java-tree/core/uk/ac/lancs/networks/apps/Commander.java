@@ -348,8 +348,8 @@ public final class Commander {
         }
 
         if ("await".equals(arg)) {
-            usage = arg + " <timeout-millis> <status>[,<status>...]";
-            long timeout = Long.parseLong(iter.next());
+            usage = arg + " <timeout-seconds> <status>[,<status>...]";
+            long timeout = (long) (Double.parseDouble(iter.next()) * 1000);
             String cssts = iter.next();
             Collection<ServiceStatus> sts =
                 EnumSet.noneOf(ServiceStatus.class);
