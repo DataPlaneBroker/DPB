@@ -66,6 +66,8 @@ import uk.ac.lancs.agent.AgentFactory;
 import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
+import uk.ac.lancs.logging.LogFormatter;
+import uk.ac.lancs.logging.Message;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
@@ -234,22 +236,22 @@ public final class NetworkServer {
                         break;
                     case "manage":
                         managables.add(words[1]);
-                        System.err.printf("%s is managable%n", words[1]);
+                        // System.err.printf("%s is managable%n",
+                        // words[1]);
                         // Fall through.
                     case "control":
                         controllables.add(words[1]);
-                        System.err.printf("%s is controllable%n", words[1]);
+                        // System.err.printf("%s is controllable%n",
+                        // words[1]);
                         break;
                     }
                 }
-                System.err.printf("dropped privileges%ncontrol: %s%n",
-                                  controllables);
+                logger.listControllables(managables);
+                logger.listControllables(controllables);
 
                 /* Read one more line, which is the name of the
                  * network. */
-                System.err.printf("awaiting network name%n");
                 String networkName = readLine(in);
-                System.err.printf("network name = %s%n", networkName);
                 networkName = networkName.trim();
 
                 /* Remaining communication is from the remote caller,
@@ -340,6 +342,7 @@ public final class NetworkServer {
                                                           rsp);
                                         session.write(rsp);
                                     }
+                                    logger.requestComplete(req);
                                     System.err
                                         .printf("Request complete: %s%n",
                                                 req);
@@ -444,4 +447,21 @@ public final class NetworkServer {
     private static <E> List<E> one(E elem) {
         return Collections.singletonList(elem);
     }
+
+    private interface PrettyLogger extends LogFormatter {
+        @Message(format = "controlled: %s", level = LogFormatter.INFO)
+        void listControllables(Collection<? extends String> names);
+
+        @Message(format = "managed: %s", level = LogFormatter.INFO)
+        void listManagables(Collection<? extends String> names);
+
+        @Message(format = "%s -> %s", level = LogFormatter.FINER)
+        void requestSummary(JsonObject req, JsonObject rsp);
+
+        @Message(format = "Request complete: %s", level = LogFormatter.FINE)
+        void requestComplete(JsonObject req);
+    }
+
+    private static PrettyLogger logger =
+        LogFormatter.get(NetworkServer.class.getName(), PrettyLogger.class);
 }
