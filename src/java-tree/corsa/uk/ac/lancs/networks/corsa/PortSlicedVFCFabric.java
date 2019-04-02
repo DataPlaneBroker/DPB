@@ -487,8 +487,10 @@ public final class PortSlicedVFCFabric implements Fabric {
             Channel circuit = iter.next();
             assert circuit != null;
             if (retainedCircuits.contains(circuit)) continue;
-            int ofport = circuitToPort.remove(circuit);
+            Integer ofportObj = circuitToPort.remove(circuit);
             iter.remove();
+            if (ofportObj == null) continue;
+            int ofport = ofportObj;
 
             try {
                 rest.detachTunnel(bridgeId, ofport);
