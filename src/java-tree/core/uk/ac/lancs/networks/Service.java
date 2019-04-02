@@ -182,6 +182,8 @@ public interface Service {
                     long delay = expiry - System.currentTimeMillis();
                     if (delay < 0) break;
                     try {
+                        System.err.printf("Waiting %gs for %s%n",
+                                          delay / 1000.0, accept);
                         wait(delay);
                     } catch (InterruptedException e) {
                         break;
