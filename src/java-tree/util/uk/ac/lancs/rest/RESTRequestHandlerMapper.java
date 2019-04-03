@@ -64,6 +64,7 @@ import org.apache.http.protocol.HttpRequestHandlerMapper;
  * For example:
  * 
  * <pre>
+ * RESTRequestHandler myHandler = ...;
  * RESTRequestHandlerMapper mapper = ...;
  * RESTRegistration.start()
  *                 .on("GET")
@@ -81,6 +82,14 @@ import org.apache.http.protocol.HttpRequestHandlerMapper;
  * <code>[^/]</code> should be used instead.
  * 
  * @author simpsons
+ * 
+ * @see RESTRequestHandler
+ * 
+ * @see RESTRegistration
+ * 
+ * @see RESTField
+ * 
+ * @see RESTContext
  */
 public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
     private static final Comparator<Pattern> SLASH_COUNTER = (a, b) -> {
@@ -148,7 +157,7 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
 
             /* Make the REST fields available. */
             final Collection<RESTField<?>> fields = entry.getValue().fields;
-            RESTFields fieldCtxt = new RESTFields() {
+            RESTContext fieldCtxt = new RESTContext() {
                 @Override
                 public <T> T get(RESTField<T> field) {
                     if (!fields.contains(field)) return null;

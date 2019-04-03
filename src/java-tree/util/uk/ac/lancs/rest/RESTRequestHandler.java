@@ -68,7 +68,7 @@ public interface RESTRequestHandler {
      * @throws IOException if an I/O error occurs
      */
     void handle(HttpRequest request, HttpResponse response,
-                HttpContext context, RESTFields pathFields)
+                HttpContext context, RESTContext pathFields)
         throws HttpException,
             IOException;
 }

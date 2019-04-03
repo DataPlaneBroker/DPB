@@ -46,9 +46,9 @@ import java.util.regex.Pattern;
  * @author simpsons
  */
 public final class RESTRegistration {
-    final Collection<String> methods = new HashSet<>();
-    Pattern pattern;
-    final Collection<RESTField<?>> fields = new HashSet<>();
+    private final Collection<String> methods = new HashSet<>();
+    private Pattern pattern;
+    private final Collection<RESTField<?>> fields = new HashSet<>();
 
     private RESTRegistration() {}
 

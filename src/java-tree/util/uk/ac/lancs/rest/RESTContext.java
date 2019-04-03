@@ -43,7 +43,7 @@ import java.util.function.Supplier;
  * 
  * @author simpsons
  */
-public interface RESTFields {
+public interface RESTContext {
     /**
      * Get the value of the given field, or generate a default.
      * 
