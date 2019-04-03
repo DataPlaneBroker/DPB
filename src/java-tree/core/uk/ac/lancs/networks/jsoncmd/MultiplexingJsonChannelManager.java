@@ -87,10 +87,13 @@ public abstract class MultiplexingJsonChannelManager {
         thread.start();
     }
 
+    /**
+     * Close the base channel, causing the thread to stop.
+     */
     public synchronized void terminate() {
         if (terminated) return;
-        base.close();
         terminated = true;
+        base.close();
         notifyAll();
     }
 
