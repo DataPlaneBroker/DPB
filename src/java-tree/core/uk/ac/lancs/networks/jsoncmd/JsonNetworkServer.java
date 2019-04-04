@@ -195,6 +195,12 @@ public class JsonNetworkServer {
      * <samp>from</samp>, the name of the second terminal
      * <samp>to</samp>, and the weight of the edge <samp>weight</samp>.
      * 
+     * <dt><samp>new-service</samp>
+     * 
+     * <dd>Invoke {@link NetworkControl#newService()}, returning an
+     * object with the single field <samp>service-id</samp> containing
+     * the new service's id.
+     * 
      * <dt><samp>define-service <var>service-id</var>
      * <var>segment</var></samp>
      * 
