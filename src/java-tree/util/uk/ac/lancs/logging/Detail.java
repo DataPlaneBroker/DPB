@@ -37,35 +37,25 @@
 package uk.ac.lancs.logging;
 
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
 /**
- * Specifies the format for a method in a formatted logger.
+ * Sets the log level as an enumeration constant. This is overridden by
+ * {@link NumericDetail}.
  * 
  * @author simpsons
  */
 @Retention(RUNTIME)
-@Target(METHOD)
-public @interface Message {
+@Target({ METHOD, TYPE })
+public @interface Detail {
     /**
-     * @resume The string used to format the log message
+     * Get the log level as a shadow value.
      * 
-     * This must be compatible with
-     * {@link String#format(String, Object...)}.
-     * 
-     * @return The format string
+     * @return the log level as a shadow value
      */
-    String format();
-
-    /**
-     * resume The logging level that enables this message
-     * 
-     * The default is specified by {@link Formatted#level()}.
-     * 
-     * @return the logging level
-     */
-    int level() default -1;
+    ShadowLevel value();
 }

@@ -79,6 +79,7 @@ DOC_PKGS += uk.ac.lancs.networks.corsa.rest
 DOC_PKGS += uk.ac.lancs.config
 DOC_PKGS += uk.ac.lancs.agent
 DOC_PKGS += uk.ac.lancs.rest
+DOC_PKGS += uk.ac.lancs.logging
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)

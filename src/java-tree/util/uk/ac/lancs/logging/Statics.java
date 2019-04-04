@@ -69,7 +69,7 @@ final class Statics {
 
     static {
         try {
-            getLoggerMethod = LogFormatter.class.getMethod("base");
+            getLoggerMethod = FormattedLogger.class.getMethod("base");
         } catch (NoSuchMethodException | SecurityException e1) {
             throw new UnsupportedOperationException("getLogger", e1);
         }

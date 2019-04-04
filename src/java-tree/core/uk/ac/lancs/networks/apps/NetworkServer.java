@@ -66,8 +66,10 @@ import uk.ac.lancs.agent.AgentFactory;
 import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
-import uk.ac.lancs.logging.LogFormatter;
-import uk.ac.lancs.logging.Message;
+import uk.ac.lancs.logging.Detail;
+import uk.ac.lancs.logging.Format;
+import uk.ac.lancs.logging.FormattedLogger;
+import uk.ac.lancs.logging.ShadowLevel;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
@@ -448,20 +450,24 @@ public final class NetworkServer {
         return Collections.singletonList(elem);
     }
 
-    private interface PrettyLogger extends LogFormatter {
-        @Message(format = "controlled: %s", level = LogFormatter.INFO)
+    private interface PrettyLogger extends FormattedLogger {
+        @Format("controlled: %s")
+        @Detail(ShadowLevel.INFO)
         void listControllables(Collection<? extends String> names);
 
-        @Message(format = "managed: %s", level = LogFormatter.INFO)
+        @Format("managed: %s")
+        @Detail(ShadowLevel.INFO)
         void listManagables(Collection<? extends String> names);
 
-        @Message(format = "%s -> %s", level = LogFormatter.FINER)
+        @Format("%s -> %s")
+        @Detail(ShadowLevel.FINER)
         void requestSummary(JsonObject req, JsonObject rsp);
 
-        @Message(format = "Request complete: %s", level = LogFormatter.FINE)
+        @Format("Request complete: %s")
+        @Detail(ShadowLevel.FINE)
         void requestComplete(JsonObject req);
     }
 
-    private static PrettyLogger logger =
-        LogFormatter.get(NetworkServer.class.getName(), PrettyLogger.class);
+    private static PrettyLogger logger = FormattedLogger
+        .get(NetworkServer.class.getName(), PrettyLogger.class);
 }

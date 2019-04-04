@@ -36,22 +36,66 @@
 
 package uk.ac.lancs.logging;
 
-import static java.lang.annotation.ElementType.TYPE;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+import java.util.logging.Level;
 
 /**
- * Marks an interface that is used to format log messages.
+ * Shadows the standard logging levels, while being suitable for
+ * annotation constants.
  * 
  * @author simpsons
  */
-@Retention(RUNTIME)
-@Target({ TYPE })
-public @interface Formatted {
+public enum ShadowLevel {
     /**
-     * @return the default logging level
+     * An annotation-compatible equivalent of {@link Level#ALL}
      */
-    int level() default LogFormatter.INFO;
+    ALL(Level.ALL),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#SEVERE}
+     */
+    SEVERE(Level.SEVERE),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#WARNING}
+     */
+    WARNING(Level.WARNING),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#INFO}
+     */
+    INFO(Level.INFO),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#CONFIG}
+     */
+    CONFIG(Level.CONFIG),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#FINE}
+     */
+    FINE(Level.FINE),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#FINER}
+     */
+    FINER(Level.FINER),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#FINEST}
+     */
+    FINEST(Level.FINEST),
+
+    /**
+     * An annotation-compatible equivalent of {@link Level#OFF}
+     */
+    OFF(Level.OFF);
+
+    ShadowLevel(Level lvl) {
+        this.level = lvl;
+    }
+
+    /**
+     * The native level that this shadow level corresponds to
+     */
+    public final Level level;
 }

@@ -50,7 +50,7 @@ import java.util.logging.Logger;
  * 
  * @author simpsons
  */
-public interface LogFormatter {
+public interface FormattedLogger {
     /**
      * Get the unformatted logger that supports this formatted logger.
      * 
@@ -58,22 +58,93 @@ public interface LogFormatter {
      */
     Logger base();
 
+    /**
+     * The numeric value of the log-level abstraction {@link Level#ALL},
+     * namely {@value}
+     */
     public static final int ALL = 0;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#CONFIG}, namely {@value}
+     */
     public static final int CONFIG = 700;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#FINE}, namely {@value}
+     */
     public static final int FINE = 500;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#FINER}, namely {@value}
+     */
     public static final int FINER = 400;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#FINEST}, namely {@value}
+     */
     public static final int FINEST = 300;
+
+    /**
+     * The numeric value of the log-level abstraction {@link Level#OFF},
+     * namely {@value}
+     */
     public static final int OFF = Integer.MAX_VALUE;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#SEVERE}, namely {@value}
+     */
     public static final int SEVERE = 1000;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#WARNING}, namely {@value}
+     */
     public static final int WARNING = 900;
+
+    /**
+     * The numeric value of the log-level abstraction
+     * {@link Level#INFO}, namely {@value}
+     */
     public static final int INFO = 800;
 
-    public static <T extends LogFormatter> T get(String name, Class<T> type) {
+    /**
+     * Get a formatted logger for a given type, basing it on the named
+     * logger. It is equivalent to:
+     * 
+     * <pre>
+     * FormattedLogger.{@linkplain #get(Logger, Class) get}({@linkplain Logger#getLogger(String) Logger.getLogger}(name), type)
+     * </pre>
+     * 
+     * @param name the logger name, to be supplied to
+     * {@link Logger#getLogger(String)}
+     * 
+     * @param type the formatted type
+     * 
+     * @return the requested formatted logger
+     */
+    public static <T extends FormattedLogger> T get(String name,
+                                                    Class<T> type) {
         return get(Logger.getLogger(name), type);
     }
 
-    public static <T extends LogFormatter> T get(Logger logger,
-                                                 Class<T> type) {
+    /**
+     * Get a formatted logger for a given type, basing it on the given
+     * logger.
+     * 
+     * @param logger the base logger that the formatted logger will
+     * delegate to
+     * 
+     * @param type the interface type annotated with the message formats
+     * 
+     * @return the requested formatted logger
+     */
+    public static <T extends FormattedLogger> T get(Logger logger,
+                                                    Class<T> type) {
         /* Bind our generic functions to this specific logger. */
         MethodHandle logHandle = Statics.logHandle.bindTo(logger);
         MethodHandle getLOggerHandle = Statics.getLoggerHandle.bindTo(logger);
@@ -97,26 +168,34 @@ public interface LogFormatter {
                     + " throws");
 
             /* Abort if the method has no format. */
-            Message m = cand.getAnnotation(Message.class);
+            Format m = cand.getAnnotation(Format.class);
             if (m == null) throw new IllegalArgumentException("method " + cand
                 + " not a log message");
-            String fmt = m.format();
+            String fmt = m.value();
             if (fmt == null) throw new IllegalArgumentException("method "
                 + cand + " has no format");
 
             /* Determine the log level for this message, using the
              * declaring interface type's setting as a default. */
-            Formatted defaults =
-                cand.getDeclaringClass().getAnnotation(Formatted.class);
+            NumericDetail numDetail = cand.getAnnotation(NumericDetail.class);
+            Detail detail = cand.getAnnotation(Detail.class);
+            NumericDetail typeNumDetail =
+                cand.getDeclaringClass().getAnnotation(NumericDetail.class);
+            Detail typeDetail =
+                cand.getDeclaringClass().getAnnotation(Detail.class);
             final Level lvl;
-            if (m.level() >= 0) {
-                lvl = new Level("MESSAGE_DEFINED", m.level()) {
+            if (numDetail != null) {
+                lvl = new Level("MESSAGE_DEFINED", numDetail.value()) {
                     private static final long serialVersionUID = 1L;
                 };
-            } else if (defaults != null) {
-                lvl = new Level("INTERFACE_DEFINED", defaults.level()) {
+            } else if (numDetail != null) {
+                lvl = detail.value().level;
+            } else if (typeNumDetail != null) {
+                lvl = new Level("INTERFACE_DEFINED", typeNumDetail.value()) {
                     private static final long serialVersionUID = 1L;
                 };
+            } else if (typeDetail != null) {
+                lvl = typeDetail.value().level;
             } else {
                 lvl = Level.INFO;
             }
