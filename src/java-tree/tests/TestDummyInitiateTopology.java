@@ -18,7 +18,7 @@ import uk.ac.lancs.networks.transients.TransientAggregator;
 import uk.ac.lancs.networks.util.IdleExecutor;
 
 /*
- * Copyright 2017, Regents of the University of Lancaster
+ * Copyright 2018,2019, Regents of the University of Lancaster
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without

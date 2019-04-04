@@ -19,7 +19,7 @@ import uk.ac.lancs.routing.span.SpanningTreeComputer;
 import uk.ac.lancs.routing.span.Way;
 
 /*
- * Copyright 2017, Regents of the University of Lancaster
+ * Copyright 2018,2019, Regents of the University of Lancaster
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
