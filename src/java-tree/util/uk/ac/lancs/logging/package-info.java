@@ -117,9 +117,9 @@
  * 
  * <p>
  * &hellip;where <code>plainLogger</code> is what you'd normally get
- * from {@link java.util.logging.Logger#getLogger}. As an optimization,
- * the message string is not constructed unless the message is to be
- * logged.
+ * from {@link java.util.logging.Logger#getLogger(String)}. As an
+ * optimization, the message string is not constructed unless the
+ * message is to be logged.
  * 
  * @author simpsons
  */
