@@ -64,13 +64,15 @@ import org.apache.http.protocol.HttpRequestHandlerMapper;
  * For example:
  * 
  * <pre>
+ * final static RESTField&lt;UUID&gt; UUID_FIELD =
+ *      RESTField.of(UUID::parse).from("uuid");
  * RESTRequestHandler myHandler = ...;
  * RESTRequestHandlerMapper mapper = ...;
  * RESTRegistration.start()
  *                 .on("GET")
  *                 .on("POST")
  *                 .at("/foo/(?&lt;uuid&gt;[0-9a-fA-F]{2}(?:-?[0-9a-fA-F]{2}){15})"),
- *                 .with(RESTField.of(UUID::parse).from("uuid"))
+ *                 .with(UUID_FIELD)
  *                 .register(mapper, myHandler);
  * </pre>
  * 

@@ -34,41 +34,9 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.rest;
-
-import java.io.IOException;
-
-import org.apache.http.HttpException;
-import org.apache.http.HttpRequest;
-import org.apache.http.HttpResponse;
-import org.apache.http.protocol.HttpContext;
-
 /**
- * Handles an HTTP request with fields extracted from the path of the
- * request URI.
+ * Contains wrappers for exposing network abstractions through REST APIs.
  * 
  * @author simpsons
  */
-public interface RESTRequestHandler {
-    /**
-     * Handle a REST interaction.
-     * 
-     * @param request the HTTP request
-     * 
-     * @param response the HTTP response to be filled in by this call
-     * 
-     * @param context the HTTP execution context
-     * 
-     * @param restCtxt the values of fields extracted from the matched
-     * request URI path
-     * 
-     * @throws HttpException if an HTTP violation or processing problem
-     * occurs
-     * 
-     * @throws IOException if an I/O error occurs
-     */
-    void handle(HttpRequest request, HttpResponse response,
-                HttpContext context, RESTContext restCtxt)
-        throws HttpException,
-            IOException;
-}
+package uk.ac.lancs.networks.rest;
