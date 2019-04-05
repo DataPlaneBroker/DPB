@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.rest;
 
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -110,6 +111,18 @@ public final class RESTField<E> {
         }
 
         /**
+         * Set the field to a fixed value, independent of the request
+         * URI path.
+         * 
+         * @param value the fixed value
+         * 
+         * @return this object
+         */
+        public Builder<E> fixed(E value) {
+            return from(m -> null).or(value);
+        }
+
+        /**
          * Select the group that supplies the unparsed value.
          * 
          * @param key the group name
@@ -155,7 +168,8 @@ public final class RESTField<E> {
     }
 
     /**
-     * Start building a plain string field.
+     * Start building a plain string field. The supplied string is
+     * yielded as-is.
      * 
      * @return a builder to which other settings can be applied
      * 
@@ -166,7 +180,10 @@ public final class RESTField<E> {
     }
 
     /**
-     * Start building an integer field.
+     * Start building an integer field. The string is parsed using
+     * {@link Integer#valueOf(String, int)} with the given radix.
+     * 
+     * @param radix the radix for parsing the string
      * 
      * @return a builder to which other settings can be applied
      * 
@@ -174,6 +191,81 @@ public final class RESTField<E> {
      */
     public static Builder<Integer> ofInt(int radix) {
         return new Builder<>((s) -> Integer.valueOf(s, radix));
+    }
+
+    /**
+     * Start building adecimal integer field. The string is parsed using
+     * {@link Integer#valueOf(String, int)} with a radix of 10.
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<Integer> ofInt() {
+        return ofInt(10);
+    }
+
+    /**
+     * Start building a hexadecimal integer field. The string is parsed
+     * using {@link Integer#valueOf(String, int)} with a radix of 16.
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<Integer> ofHexInt() {
+        return ofInt(16);
+    }
+
+    /**
+     * Start building a long integer field. The string is parsed using
+     * {@link Long#valueOf(String, int)} with the given radix.
+     * 
+     * @param radix the radix for parsing the string
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<Long> ofLong(int radix) {
+        return new Builder<>((s) -> Long.valueOf(s, radix));
+    }
+
+    /**
+     * Start building a long decimal integer field. The string is parsed
+     * using {@link Long#valueOf(String, int)} with a radix of 10.
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<Long> ofLong() {
+        return ofLong(10);
+    }
+
+    /**
+     * Start building a long hexdecimal integer field. The string is
+     * parsed using {@link Long#valueOf(String, int)} with a radix of
+     * 16.
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<Long> ofHexLong() {
+        return ofLong(16);
+    }
+
+    /**
+     * Start building a UUID field. The string is parsed using
+     * {@link UUID#fromString(String)}.
+     * 
+     * @return a builder to which other settings can be applied
+     * 
+     * @constructor
+     */
+    public static Builder<UUID> ofUUID() {
+        return new Builder<>(UUID::fromString);
     }
 
     E resolve(Matcher m) {

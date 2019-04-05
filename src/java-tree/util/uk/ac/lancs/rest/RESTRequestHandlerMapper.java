@@ -55,6 +55,11 @@ import org.apache.http.protocol.HttpContext;
 import org.apache.http.protocol.HttpRequestHandler;
 import org.apache.http.protocol.HttpRequestHandlerMapper;
 
+import uk.ac.lancs.logging.Detail;
+import uk.ac.lancs.logging.Format;
+import uk.ac.lancs.logging.FormattedLogger;
+import uk.ac.lancs.logging.ShadowLevel;
+
 /**
  * Maps requests to augmented HTTP handlers based on matching the
  * request URI path against regular expressions. Captures of an
@@ -117,7 +122,9 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
         for (String method : methods) {
             Map<Pattern, Doobrie> submap = mapping.get(method);
             if (submap == null) continue;
-            submap.remove(pattern);
+            Doobrie lost = submap.remove(pattern);
+            if (lost != null)
+                logger.deregistered(method, pattern.pattern(), lost.handler);
             if (submap.isEmpty()) mapping.remove(method);
         }
     }
@@ -125,11 +132,16 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
     void register(Collection<? extends String> methods, Pattern pattern,
                   Collection<? extends RESTField<?>> fields,
                   RESTRequestHandler handler) {
+        if (methods == null) return;
+        if (pattern == null) throw new NullPointerException("pattern");
+        if (handler == null) throw new NullPointerException("handler");
         Doobrie d = new Doobrie(handler, new HashSet<>(fields));
-        for (String method : methods)
+        for (String method : methods) {
             mapping
                 .computeIfAbsent(method, (k) -> new TreeMap<>(SLASH_COUNTER))
                 .put(pattern, d);
+            logger.registered(method, pattern.pattern(), handler);
+        }
     }
 
     private final Map<String, Map<Pattern, Doobrie>> mapping =
@@ -152,12 +164,13 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
          * starting with those with the greatest number of path
          * elements. */
         String path = requestUri.getPath();
+        String method = request.getRequestLine().getMethod();
         for (Map.Entry<Pattern, Doobrie> entry : mapping
-            .getOrDefault(request.getRequestLine().getMethod(),
-                          Collections.emptyMap())
-            .entrySet()) {
-            Matcher m = entry.getKey().matcher(path);
+            .getOrDefault(method, Collections.emptyMap()).entrySet()) {
+            Pattern pattern = entry.getKey();
+            Matcher m = pattern.matcher(path);
             if (!m.matches()) continue;
+            logger.matched(method, path, pattern.pattern());
 
             /* Make the REST fields available. */
             final Collection<RESTField<?>> fields = entry.getValue().fields;
@@ -184,4 +197,23 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
 
         return null;
     }
+
+    private interface Pretty extends FormattedLogger {
+        @Format("%s %s matched %s")
+        @Detail(ShadowLevel.FINE)
+        void matched(String method, String path, String pattern);
+
+        @Format("%s %s registered to %s")
+        @Detail(ShadowLevel.INFO)
+        void registered(String method, String pattern,
+                        RESTRequestHandler handler);
+
+        @Format("%s %s deregistered from %s")
+        @Detail(ShadowLevel.INFO)
+        void deregistered(String method, String pattern,
+                          RESTRequestHandler handler);
+    }
+
+    private static final Pretty logger = FormattedLogger
+        .get(RESTRequestHandlerMapper.class.getName(), Pretty.class);
 }

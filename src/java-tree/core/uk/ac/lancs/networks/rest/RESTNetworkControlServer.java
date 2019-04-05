@@ -82,18 +82,18 @@ import uk.ac.lancs.rest.RESTRequestHandlerMapper;
  * 
  * <dl>
  * 
- * <dt><code>GET /services</code>
+ * <dt><code>GET <var>prefix</var>/services</code>
  * 
  * <dd>Invoke {@link NetworkControl#getServiceIds()}, and yield a JSON
  * array of the service ids.
  * 
- * <dt><code>POST /create-service</code>
+ * <dt><code>POST <var>prefix</var>/create-service</code>
  * 
  * <dd>Invoke {@link NetworkControl#newService()}, returning an object
  * with the single field <samp>service-id</samp> containing the new
  * service's id.
  * 
- * <dt><code>POST /service/<var>sid</var>/define</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/define</code>
  * 
  * <dd>Invoke {@link Service#define(uk.ac.lancs.networks.Segment)}. The
  * request body must be a JSON object containing an array of objects
@@ -102,14 +102,15 @@ import uk.ac.lancs.rest.RESTRequestHandlerMapper;
  * bandwidth <samp>ingress</samp>, and the egress bandwidth
  * <samp>egress</samp>.
  * 
- * <dt><code>POST /service/<var>sid</var>/activate</code>
- * <dt><code>POST /service/<var>sid</var>/deactivate</code>
- * <dt><code>POST /service/<var>sid</var>/release</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/activate</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/deactivate</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/release</code>
  * 
  * <dd>Invoke {@link Service#activate()}, {@link Service#deactivate()}
  * or {@link Service#release()} respectively with the given service id.
+ * No content is returned on success.
  * 
- * <dt><code>POST /service/<var>sid</var>/await-status</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/await-status</code>
  * 
  * <dd>Invoke {@link Service#awaitStatus(java.util.Collection, long)}.
  * The request body must contain an array <samp>acceptable</samp>
@@ -118,12 +119,18 @@ import uk.ac.lancs.rest.RESTRequestHandlerMapper;
  * 
  * </dl>
  * 
+ * <p>
+ * The <samp><var>prefix</var></samp> is specified in the
+ * {@link #bind(RESTRequestHandlerMapper, String)} call, and should
+ * begin with a forward slash but not end in one, for example,
+ * <samp>/network/aggregator</samp>.
+ * 
  * @author simpsons
  */
 public class RESTNetworkControlServer {
     private final NetworkControl network;
     private static final RESTField<Integer> SID =
-        RESTField.ofInt(10).from("sid").done();
+        RESTField.ofInt().from("sid").done();
 
     /**
      * Create a REST adaptation of a network controller interface.

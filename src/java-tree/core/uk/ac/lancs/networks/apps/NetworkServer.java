@@ -97,7 +97,12 @@ import uk.ac.lancs.scc.usmux.SessionServerFactory;
 
 /**
  * Instantiates network agents from configuration, and serves
- * JSON-formatted requests to them via Usmux.
+ * JSON-formatted requests to them via Usmux, and via REST.
+ * 
+ * <p>
+ * REST functions defined by {@link RESTNetworkControlServer} are bound
+ * to the prefix
+ * <samp>http://0.0.0.0:4753/network/<var>network-name</var>.</samp>
  * 
  * @author simpsons
  */
