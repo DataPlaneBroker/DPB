@@ -97,7 +97,9 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
     private static final Comparator<Pattern> SLASH_COUNTER = (a, b) -> {
         long ac = a.pattern().chars().filter(c -> c == '/').count();
         long bc = b.pattern().chars().filter(c -> c == '/').count();
-        return Long.compare(bc, ac);
+        int rc = Long.compare(bc, ac);
+        if (rc != 0) return rc;
+        return a.pattern().compareTo(b.pattern());
     };
 
     private final static class Doobrie {
