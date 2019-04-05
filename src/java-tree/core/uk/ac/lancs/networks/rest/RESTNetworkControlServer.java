@@ -146,19 +146,19 @@ public class RESTNetworkControlServer {
         RESTRegistration.start().on("GET").at(prefix + "/services")
             .register(mapper, this::listServices);
         RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9+])/activate").with(SID)
+            .at(prefix + "/service/(?<sid>[0-9]+)/activate").with(SID)
             .register(mapper, this::activateService);
         RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9+])/deactivate").with(SID)
+            .at(prefix + "/service/(?<sid>[0-9]+)/deactivate").with(SID)
             .register(mapper, this::deactivateService);
         RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9+])/release").with(SID)
+            .at(prefix + "/service/(?<sid>[0-9]+)/release").with(SID)
             .register(mapper, this::releaseService);
         RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9+])/define").with(SID)
+            .at(prefix + "/service/(?<sid>[0-9]+)/define").with(SID)
             .register(mapper, this::defineService);
         RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9+])/await-status").with(SID)
+            .at(prefix + "/service/(?<sid>[0-9]+)/await-status").with(SID)
             .register(mapper, this::awaitServiceStatus);
         RESTRegistration.start().on("POST").at(prefix + "/create-service")
             .register(mapper, this::createService);
