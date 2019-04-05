@@ -60,6 +60,11 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
 import javax.json.JsonWriter;
 
+import org.apache.http.ConnectionClosedException;
+import org.apache.http.config.SocketConfig;
+import org.apache.http.impl.bootstrap.HttpServer;
+import org.apache.http.impl.bootstrap.ServerBootstrap;
+
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
@@ -83,6 +88,8 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.rest.RESTNetworkControlServer;
+import uk.ac.lancs.rest.RESTRequestHandlerMapper;
 import uk.ac.lancs.scc.usmux.Session;
 import uk.ac.lancs.scc.usmux.SessionException;
 import uk.ac.lancs.scc.usmux.SessionServer;
@@ -99,7 +106,7 @@ public final class NetworkServer {
     private final Executor executor;
 
     NetworkServer(Executor executor, SessionServer usmuxServer,
-                  Configuration config)
+                  RESTRequestHandlerMapper restMapping, Configuration config)
         throws AgentCreationException,
             ServiceCreationException {
         this.executor = executor;
@@ -168,6 +175,13 @@ public final class NetworkServer {
                                   networkName, agentId,
                                   serviceKey != null ? ":" + serviceKey : "");
             }
+        }
+
+        /* Add network controller to the REST API. */
+        for (Map.Entry<String, Network> entry : networks.entrySet()) {
+            String prefix = "/network/" + entry.getKey();
+            new RESTNetworkControlServer(entry.getValue().getControl())
+                .bind(restMapping, prefix);
         }
     }
 
@@ -430,8 +444,26 @@ public final class NetworkServer {
                 new ConfigurationContext(System.getProperties());
             Configuration config;
             config = configCtxt.get(dataplaneConf.toFile());
+            RESTRequestHandlerMapper restMapping =
+                new RESTRequestHandlerMapper();
             NetworkServer us =
-                new NetworkServer(executor, usmuxServer, config);
+                new NetworkServer(executor, usmuxServer, restMapping, config);
+
+            /* Create HTTP server. */
+            HttpServer webServer =
+                ServerBootstrap.bootstrap().setListenerPort(4753)
+                    .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
+                        .custom().setTcpNoDelay(true).build())
+                    .setExceptionLogger((ex) -> {
+                        try {
+                            throw ex;
+                        } catch (ConnectionClosedException e) {
+                            // Ignore.
+                        } catch (Throwable t) {
+                            t.printStackTrace(System.err);
+                        }
+                    }).setHandlerMapper(restMapping).create();
+            webServer.start();
 
             /* Start to accept calls. */
             usmuxServer.start();
