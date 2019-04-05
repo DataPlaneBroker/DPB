@@ -116,7 +116,7 @@ public final class RESTRegistration {
      * @return this object
      */
     public RESTRegistration at(String pattern) {
-        return at(PATTERN_PREFIX + pattern + PATTERN_SUFFIX);
+        return at(Pattern.compile(PATTERN_PREFIX + pattern + PATTERN_SUFFIX));
     }
 
     /**
