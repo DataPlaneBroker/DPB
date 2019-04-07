@@ -180,6 +180,11 @@ public class RESTRequestHandlerMapper implements HttpRequestHandlerMapper {
                     if (!fields.contains(field)) return null;
                     return field.resolve(m);
                 }
+
+                @Override
+                public Matcher matcher() {
+                    return m;
+                }
             };
 
             /* Wrap the REST handler in an HTTP handler. */

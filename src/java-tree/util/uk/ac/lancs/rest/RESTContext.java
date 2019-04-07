@@ -37,6 +37,7 @@
 package uk.ac.lancs.rest;
 
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
 
 /**
  * Provides fields parsed from the path of an HTTP request URI.
@@ -44,6 +45,14 @@ import java.util.function.Supplier;
  * @author simpsons
  */
 public interface RESTContext {
+    /**
+     * Get the matcher for the request URI path against the configured
+     * regular expression.
+     * 
+     * @return the requested matcher
+     */
+    Matcher matcher();
+
     /**
      * Get the value of the given field, or generate a default.
      * 
