@@ -477,6 +477,16 @@ public abstract class Expression {
     }
 
     /**
+     * Create an expression equivalent to this one at the end of the
+     * string.
+     * 
+     * @return an expression matching this one at the end of the string
+     */
+    public final Expression end() {
+        return then(END);
+    }
+
+    /**
      * Create an expression equivalent to a reluctant repetition of this
      * one a given range of times.
      * 
