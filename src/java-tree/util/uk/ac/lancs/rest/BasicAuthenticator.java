@@ -41,7 +41,10 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -64,6 +67,8 @@ import org.apache.http.protocol.HttpProcessor;
  * @author simpsons
  */
 public final class BasicAuthenticator<R> implements HttpProcessor {
+    private static final Map<HttpContext, BasicAuthenticator<?>> selves =
+        Collections.synchronizedMap(new WeakHashMap<>());
     private final String contextKey;
     private final String encodedRealm;
     private final Predicate<? super String> selector;
@@ -126,7 +131,7 @@ public final class BasicAuthenticator<R> implements HttpProcessor {
         if (!selector
             .test(URI.create(request.getRequestLine().getUri()).getPath()))
             return;
-        context.setAttribute(this.toString(), true);
+        selves.put(context, this);
         List<R> results = new ArrayList<>();
         for (Header header : request.getHeaders("Authorization")) {
             /* Check that the authorization is of type Basic, and
@@ -173,7 +178,7 @@ public final class BasicAuthenticator<R> implements HttpProcessor {
     public void process(HttpResponse response, HttpContext context)
         throws HttpException,
             IOException {
-        if (context.getAttribute(this.toString()) == null) return;
+        if (selves.get(context) != this) return;
         if (response.getStatusLine()
             .getStatusCode() != HttpStatus.SC_UNAUTHORIZED) return;
         if (response.getFirstHeader("WWW-Authenticate") != null) return;
