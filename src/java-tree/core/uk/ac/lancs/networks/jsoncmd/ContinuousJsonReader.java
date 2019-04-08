@@ -52,7 +52,6 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
 import javax.json.JsonStructure;
-import javax.json.stream.JsonParsingException;
 
 /**
  * Reads multiple JSON entities from a stream. A fresh reader is created

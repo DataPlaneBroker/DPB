@@ -35,7 +35,8 @@
  */
 
 /**
- * Contains wrappers for exposing network abstractions through REST APIs.
+ * Contains wrappers for exposing network abstractions through REST
+ * APIs.
  * 
  * @author simpsons
  */

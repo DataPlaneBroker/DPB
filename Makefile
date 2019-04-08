@@ -69,7 +69,6 @@ DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.apps
 DOC_PKGS += uk.ac.lancs.networks.jsoncmd
-DOC_PKGS += uk.ac.lancs.networks.rest
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.transients
 DOC_PKGS += uk.ac.lancs.networks.persist

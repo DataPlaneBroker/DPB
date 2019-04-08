@@ -49,7 +49,6 @@ class Sequence extends Expression {
     final List<Expression> parts;
     final boolean starting, ending;
 
-    
     @Override
     boolean starting() {
         return starting;

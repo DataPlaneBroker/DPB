@@ -41,6 +41,7 @@ import java.io.StringWriter;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -67,10 +68,11 @@ import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
-import uk.ac.lancs.rest.RESTContext;
-import uk.ac.lancs.rest.RESTField;
-import uk.ac.lancs.rest.RESTRegistration;
-import uk.ac.lancs.rest.RESTRequestHandlerMapper;
+import uk.ac.lancs.rest.server.Method;
+import uk.ac.lancs.rest.server.RESTDispatcher;
+import uk.ac.lancs.rest.server.RESTField;
+import uk.ac.lancs.rest.server.RESTRegistration;
+import uk.ac.lancs.rest.server.Route;
 
 /**
  * Implements a REST API for a network controller. Use
@@ -142,37 +144,28 @@ public class RESTNetworkControlServer {
     }
 
     /**
-     * Bind this network controller to a prefix.
+     * Bind this network controller to a prefix in a dispatcher.
      * 
-     * @param mapper the mapper consulted by the HTTP server
+     * @param dispatcher the dispatcher consulted by the HTTP server
      * 
      * @param prefix the path prefix, e.g.,
      * <samp>/network/mynet/v1</samp>
      */
-    public void bind(RESTRequestHandlerMapper mapper, String prefix) {
-        RESTRegistration.start().on("GET").at(prefix + "/services")
-            .register(mapper, this::listServices);
-        RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9]+)/activate").with(SID)
-            .register(mapper, this::activateService);
-        RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9]+)/deactivate").with(SID)
-            .register(mapper, this::deactivateService);
-        RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9]+)/release").with(SID)
-            .register(mapper, this::releaseService);
-        RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9]+)/define").with(SID)
-            .register(mapper, this::defineService);
-        RESTRegistration.start().on("POST")
-            .at(prefix + "/service/(?<sid>[0-9]+)/await-status").with(SID)
-            .register(mapper, this::awaitServiceStatus);
-        RESTRegistration.start().on("POST").at(prefix + "/create-service")
-            .register(mapper, this::createService);
+    public void bind(RESTDispatcher dispatcher, String prefix) {
+        RESTRegistration reg = new RESTRegistration();
+        try {
+            reg.record(this, prefix);
+        } catch (IllegalAccessException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            throw new UnsupportedOperationException("unimplemented", e);
+        }
+        reg.register(dispatcher);
     }
 
-    private void listServices(HttpRequest request, HttpResponse response,
-                              HttpContext context, RESTContext restCtxt)
+    @Route("/services")
+    void listServices(HttpRequest request, HttpResponse response,
+                      HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
         JsonArrayBuilder builder = Json.createArrayBuilder();
@@ -184,11 +177,13 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_OK);
     }
 
-    private void activateService(HttpRequest request, HttpResponse response,
-                                 HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/activate")
+    void activateService(HttpRequest request, HttpResponse response,
+                         HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
-        int sid = restCtxt.get(SID);
+        int sid = SID.get(matcher);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -198,11 +193,13 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
-    private void deactivateService(HttpRequest request, HttpResponse response,
-                                   HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/deactivate")
+    void deactivateService(HttpRequest request, HttpResponse response,
+                           HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
-        int sid = restCtxt.get(SID);
+        int sid = SID.get(matcher);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -212,11 +209,13 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
-    private void releaseService(HttpRequest request, HttpResponse response,
-                                HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/release")
+    void releaseService(HttpRequest request, HttpResponse response,
+                        HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
-        int sid = restCtxt.get(SID);
+        int sid = SID.get(matcher);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -244,11 +243,13 @@ public class RESTNetworkControlServer {
         return Json.createReader(reqEnt.getContent()).readObject();
     }
 
-    private void defineService(HttpRequest request, HttpResponse response,
-                               HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/define")
+    void defineService(HttpRequest request, HttpResponse response,
+                       HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
-        int sid = restCtxt.get(SID);
+        int sid = SID.get(matcher);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -280,8 +281,10 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
-    private void createService(HttpRequest request, HttpResponse response,
-                               HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/create-service")
+    void createService(HttpRequest request, HttpResponse response,
+                       HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
         Service srv = network.newService();
@@ -291,12 +294,13 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_OK);
     }
 
-    private void awaitServiceStatus(HttpRequest request,
-                                    HttpResponse response,
-                                    HttpContext context, RESTContext restCtxt)
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/await-status")
+    void awaitServiceStatus(HttpRequest request, HttpResponse response,
+                            HttpContext context, Matcher matcher)
         throws HttpException,
             IOException {
-        int sid = restCtxt.get(SID);
+        int sid = SID.get(matcher);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);

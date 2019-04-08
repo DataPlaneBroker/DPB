@@ -49,7 +49,7 @@ import java.lang.annotation.Target;
  * @author simpsons
  */
 @Retention(RUNTIME)
-@Target({METHOD, TYPE})
+@Target({ METHOD, TYPE })
 public @interface NumericDetail {
     /**
      * The default is specified by

@@ -63,7 +63,7 @@ import uk.ac.lancs.networks.fabric.BridgeListener;
 import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.fabric.Interface;
-import uk.ac.lancs.rest.RESTResponse;
+import uk.ac.lancs.rest.client.RESTResponse;
 
 /**
  * Manages a Corsa DP2X00-series switch by creating one VFC per

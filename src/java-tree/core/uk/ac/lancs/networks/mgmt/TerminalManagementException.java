@@ -67,8 +67,9 @@ public class TerminalManagementException extends NetworkManagementException {
      * @param terminalName the name of the terminal to which this error
      * pertains
      */
-    public TerminalManagementException(String networkName, String terminalName,
-                                       String message, Throwable cause) {
+    public TerminalManagementException(String networkName,
+                                       String terminalName, String message,
+                                       Throwable cause) {
         super(networkName, message, cause);
         this.terminalName = terminalName;
     }
@@ -84,8 +85,8 @@ public class TerminalManagementException extends NetworkManagementException {
      * @param terminalName the name of the terminal to which this error
      * pertains
      */
-    public TerminalManagementException(String networkName, String terminalName,
-                                       String message) {
+    public TerminalManagementException(String networkName,
+                                       String terminalName, String message) {
         super(networkName, message);
         this.terminalName = terminalName;
     }
@@ -101,8 +102,8 @@ public class TerminalManagementException extends NetworkManagementException {
      * @param terminalName the name of the terminal to which this error
      * pertains
      */
-    public TerminalManagementException(String networkName, String terminalName,
-                                       Throwable cause) {
+    public TerminalManagementException(String networkName,
+                                       String terminalName, Throwable cause) {
         super(networkName, cause);
         this.terminalName = terminalName;
     }
@@ -116,7 +117,8 @@ public class TerminalManagementException extends NetworkManagementException {
      * @param terminalName the name of the terminal to which this error
      * pertains
      */
-    public TerminalManagementException(String networkName, String terminalName) {
+    public TerminalManagementException(String networkName,
+                                       String terminalName) {
         super(networkName);
         this.terminalName = terminalName;
     }

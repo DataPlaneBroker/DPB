@@ -54,9 +54,9 @@ import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonStructure;
 
-import uk.ac.lancs.rest.RESTClient;
-import uk.ac.lancs.rest.RESTResponse;
-import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
+import uk.ac.lancs.rest.client.RESTClient;
+import uk.ac.lancs.rest.client.RESTResponse;
+import uk.ac.lancs.rest.client.SecureSingleCertificateHttpProvider;
 
 /**
  * Connects to a Corsa REST interface.

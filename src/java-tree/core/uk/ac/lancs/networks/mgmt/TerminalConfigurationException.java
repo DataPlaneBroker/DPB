@@ -80,7 +80,7 @@ public class TerminalConfigurationException
      * @param config the proposed configuration
      */
     public TerminalConfigurationException(String networkName, String config,
-                                             String message) {
+                                          String message) {
         super(networkName, message);
         this.config = config;
     }
@@ -96,7 +96,7 @@ public class TerminalConfigurationException
      * @param config the proposed configuration
      */
     public TerminalConfigurationException(String networkName, String config,
-                                             Throwable cause) {
+                                          Throwable cause) {
         super(networkName, cause);
         this.config = config;
     }
@@ -114,8 +114,7 @@ public class TerminalConfigurationException
      * @param config the proposed configuration
      */
     public TerminalConfigurationException(String networkName, String config,
-                                             String message,
-                                             Throwable cause) {
+                                          String message, Throwable cause) {
         super(networkName, message, cause);
         this.config = config;
     }

@@ -89,7 +89,7 @@ import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.rest.RESTNetworkControlServer;
-import uk.ac.lancs.rest.RESTRequestHandlerMapper;
+import uk.ac.lancs.rest.server.RESTDispatcher;
 import uk.ac.lancs.scc.usmux.Session;
 import uk.ac.lancs.scc.usmux.SessionException;
 import uk.ac.lancs.scc.usmux.SessionServer;
@@ -111,7 +111,7 @@ public final class NetworkServer {
     private final Executor executor;
 
     NetworkServer(Executor executor, SessionServer usmuxServer,
-                  RESTRequestHandlerMapper restMapping, Configuration config)
+                  RESTDispatcher restMapping, Configuration config)
         throws AgentCreationException,
             ServiceCreationException {
         this.executor = executor;
@@ -449,8 +449,7 @@ public final class NetworkServer {
                 new ConfigurationContext(System.getProperties());
             Configuration config;
             config = configCtxt.get(dataplaneConf.toFile());
-            RESTRequestHandlerMapper restMapping =
-                new RESTRequestHandlerMapper();
+            RESTDispatcher restMapping = new RESTDispatcher();
             NetworkServer us =
                 new NetworkServer(executor, usmuxServer, restMapping, config);
 

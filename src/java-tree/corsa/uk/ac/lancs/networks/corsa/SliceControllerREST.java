@@ -52,9 +52,9 @@ import javax.json.JsonArray;
 import javax.json.JsonNumber;
 import javax.json.JsonStructure;
 
-import uk.ac.lancs.rest.RESTClient;
-import uk.ac.lancs.rest.RESTResponse;
-import uk.ac.lancs.rest.SecureSingleCertificateHttpProvider;
+import uk.ac.lancs.rest.client.RESTClient;
+import uk.ac.lancs.rest.client.RESTResponse;
+import uk.ac.lancs.rest.client.SecureSingleCertificateHttpProvider;
 
 /**
  * 
