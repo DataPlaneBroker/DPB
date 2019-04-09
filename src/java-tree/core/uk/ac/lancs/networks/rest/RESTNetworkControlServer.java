@@ -43,6 +43,8 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,6 +57,8 @@ import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonString;
 import javax.json.JsonStructure;
+import javax.json.JsonWriter;
+import javax.json.JsonWriterFactory;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -232,11 +236,19 @@ public class RESTNetworkControlServer {
     }
 
     private void setResponseObject(HttpResponse response, JsonStructure rsp) {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Json.createWriter(out).write(rsp);
-        HttpEntity entity = new ByteArrayEntity(out.toByteArray(), JSON);
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (JsonWriter writer =
+            factory.createWriter(buffer, StandardCharsets.UTF_8)) {
+            writer.write(rsp);
+        }
+        byte[] buf = buffer.toByteArray();
+        System.err.printf("Bytes: %d %s%n", buf.length, Arrays.toString(buf));
+        HttpEntity entity = new ByteArrayEntity(buf, JSON);
         response.setEntity(entity);
     }
+
+    private final JsonWriterFactory factory =
+        Json.createWriterFactory(Collections.emptyMap());
 
     private static final ContentType JSON =
         ContentType.create("application/json");
