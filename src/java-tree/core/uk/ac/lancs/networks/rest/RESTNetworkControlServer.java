@@ -36,8 +36,13 @@
 
 package uk.ac.lancs.networks.rest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,6 +52,7 @@ import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
+import javax.json.JsonReader;
 import javax.json.JsonString;
 import javax.json.JsonStructure;
 
@@ -56,8 +62,8 @@ import org.apache.http.HttpException;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.StringEntity;
 import org.apache.http.protocol.HttpContext;
 
 import uk.ac.lancs.networks.Circuit;
@@ -226,12 +232,14 @@ public class RESTNetworkControlServer {
     }
 
     private void setResponseObject(HttpResponse response, JsonStructure rsp) {
-        StringWriter out = new StringWriter();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
         Json.createWriter(out).write(rsp);
-        StringEntity entity =
-            new StringEntity(out.toString(), ContentType.APPLICATION_JSON);
+        HttpEntity entity = new ByteArrayEntity(out.toByteArray(), JSON);
         response.setEntity(entity);
     }
+
+    private static final ContentType JSON =
+        ContentType.create("application/json");
 
     private JsonObject getRequestObject(HttpRequest request,
                                         HttpResponse response)
@@ -240,7 +248,23 @@ public class RESTNetworkControlServer {
             (HttpEntityEnclosingRequest) request;
         HttpEntity reqEnt = encReq.getEntity();
         // TODO: Check content type.
-        return Json.createReader(reqEnt.getContent()).readObject();
+
+        final JsonReader jr;
+        if (false) {
+            StringWriter msg = new StringWriter();
+            try (Reader in = new InputStreamReader(reqEnt.getContent(),
+                                                   StandardCharsets.UTF_8)) {
+                char[] buf = new char[1024];
+                int got;
+                while ((got = in.read(buf)) > 0)
+                    msg.write(buf, 0, got);
+            }
+            System.err.printf("Message: %s%n", msg.toString());
+            jr = Json.createReader(new StringReader(msg.toString()));
+        } else {
+            jr = Json.createReader(reqEnt.getContent());
+        }
+        return jr.readObject();
     }
 
     @Method("POST")
