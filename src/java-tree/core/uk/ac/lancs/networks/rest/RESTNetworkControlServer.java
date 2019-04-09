@@ -43,7 +43,6 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -242,7 +241,6 @@ public class RESTNetworkControlServer {
             writer.write(rsp);
         }
         byte[] buf = buffer.toByteArray();
-        System.err.printf("Bytes: %d %s%n", buf.length, Arrays.toString(buf));
         HttpEntity entity = new ByteArrayEntity(buf, JSON);
         response.setEntity(entity);
     }
