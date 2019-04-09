@@ -54,6 +54,7 @@ import javax.json.JsonArray;
 import javax.json.JsonArrayBuilder;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
+import javax.json.JsonReaderFactory;
 import javax.json.JsonString;
 import javax.json.JsonStructure;
 import javax.json.JsonWriter;
@@ -235,6 +236,8 @@ public class RESTNetworkControlServer {
     }
 
     private void setResponseObject(HttpResponse response, JsonStructure rsp) {
+        final JsonWriterFactory factory =
+            Json.createWriterFactory(Collections.emptyMap());
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         try (JsonWriter writer =
             factory.createWriter(buffer, StandardCharsets.UTF_8)) {
@@ -244,9 +247,6 @@ public class RESTNetworkControlServer {
         HttpEntity entity = new ByteArrayEntity(buf, JSON);
         response.setEntity(entity);
     }
-
-    private final JsonWriterFactory factory =
-        Json.createWriterFactory(Collections.emptyMap());
 
     private static final ContentType JSON =
         ContentType.create("application/json");
@@ -259,6 +259,8 @@ public class RESTNetworkControlServer {
         HttpEntity reqEnt = encReq.getEntity();
         // TODO: Check content type.
 
+        final JsonReaderFactory factory =
+            Json.createReaderFactory(Collections.emptyMap());
         final JsonReader jr;
         if (false) {
             StringWriter msg = new StringWriter();
@@ -270,9 +272,9 @@ public class RESTNetworkControlServer {
                     msg.write(buf, 0, got);
             }
             System.err.printf("Message: %s%n", msg.toString());
-            jr = Json.createReader(new StringReader(msg.toString()));
+            jr = factory.createReader(new StringReader(msg.toString()));
         } else {
-            jr = Json.createReader(reqEnt.getContent());
+            jr = factory.createReader(reqEnt.getContent());
         }
         return jr.readObject();
     }
