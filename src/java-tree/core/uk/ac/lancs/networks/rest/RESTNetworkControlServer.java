@@ -43,10 +43,12 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -68,6 +70,7 @@ import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.protocol.HttpContext;
 
 import uk.ac.lancs.networks.Circuit;
@@ -106,6 +109,7 @@ import uk.ac.lancs.rest.server.Route;
  * with the single field <samp>service-id</samp> containing the new
  * service's id.
  * 
+ * <dt><code>PUT <var>prefix</var>/service/<var>sid</var>/define</code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/define</code>
  * 
  * <dd>Invoke {@link Service#define(uk.ac.lancs.networks.Segment)}. The
@@ -123,12 +127,15 @@ import uk.ac.lancs.rest.server.Route;
  * or {@link Service#release()} respectively with the given service id.
  * No content is returned on success.
  * 
+ * <dt><code>GET <var>prefix</var>/service/<var>sid</var>/await-status?acceptable=<var>status</var>&amp;timeout-millis=<var>num</var></code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/await-status</code>
  * 
  * <dd>Invoke {@link Service#awaitStatus(java.util.Collection, long)}.
- * The request body must contain an array <samp>acceptable</samp>
+ * The POST request body must contain an array <samp>acceptable</samp>
  * listing acceptable statuses, and an integer
- * <samp>timeout-millis</samp> giving the timeout in milliseconds.
+ * <samp>timeout-millis</samp> giving the timeout in milliseconds. The
+ * GET request URI must include <samp>timeout-millis</samp>, and any
+ * number of <samp>acceptable</samp>s (including none).
  * 
  * </dl>
  * 
@@ -282,6 +289,9 @@ public class RESTNetworkControlServer {
             return jr.readObject();
         } catch (JsonParsingException ex) {
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+            StringEntity rspEnt =
+                new StringEntity("bad JSON request\n", ERROR_TYPE);
+            response.setEntity(rspEnt);
             return null;
         }
     }
@@ -338,6 +348,10 @@ public class RESTNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_OK);
     }
 
+    private static final ContentType ERROR_TYPE =
+        ContentType.create("text/plain", StandardCharsets.UTF_8);
+
+    @Method("GET")
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/await-status")
     void awaitServiceStatus(HttpRequest request, HttpResponse response,
@@ -350,15 +364,45 @@ public class RESTNetworkControlServer {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
             return;
         }
-        JsonObject req = getRequestObject(request, response);
-        if (req == null) return;
-        EnumSet<ServiceStatus> accepted = EnumSet.noneOf(ServiceStatus.class);
-        for (JsonString txt : req.getJsonArray("acceptable")
-            .getValuesAs(JsonString.class)) {
-            ServiceStatus v = ServiceStatus.valueOf(txt.getString());
-            accepted.add(v);
+        final Collection<ServiceStatus> accepted;
+        final long timeoutMillis;
+        if (request.getRequestLine().getMethod().equals("POST")) {
+            JsonObject req = getRequestObject(request, response);
+            if (req == null) return;
+            accepted = EnumSet.noneOf(ServiceStatus.class);
+            for (JsonString txt : req.getJsonArray("acceptable")
+                .getValuesAs(JsonString.class)) {
+                ServiceStatus v = ServiceStatus.valueOf(txt.getString());
+                accepted.add(v);
+            }
+            timeoutMillis = req.getJsonNumber("timeout-millis").longValue();
+        } else {
+            try {
+                accepted = rest.params("acceptable").stream()
+                    .map(ServiceStatus::valueOf).collect(Collectors.toSet());
+                timeoutMillis = Long.parseLong(rest.param("timeout-millis"));
+            } catch (NumberFormatException ex) {
+                response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+                StringEntity rspEnt =
+                    new StringEntity("timeout-millis not integer\n",
+                                     ERROR_TYPE);
+                response.setEntity(rspEnt);
+                return;
+            } catch (IllegalArgumentException ex) {
+                response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+                StringEntity rspEnt = new StringEntity("Bad status in "
+                    + rest.params("acceptable") + '\n', ERROR_TYPE);
+                response.setEntity(rspEnt);
+                return;
+            } catch (NullPointerException ex) {
+                response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+                StringEntity rspEnt =
+                    new StringEntity("timeout-millis not specified\n",
+                                     ERROR_TYPE);
+                response.setEntity(rspEnt);
+                return;
+            }
         }
-        long timeoutMillis = req.getJsonNumber("timeout-millis").longValue();
         ServiceStatus result = srv.awaitStatus(accepted, timeoutMillis);
         JsonObject rsp = Json.createObjectBuilder()
             .add("status", result.toString()).build();
