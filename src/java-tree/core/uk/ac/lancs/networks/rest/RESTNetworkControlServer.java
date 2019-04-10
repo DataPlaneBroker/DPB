@@ -47,7 +47,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -80,6 +79,7 @@ import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.rest.server.Method;
+import uk.ac.lancs.rest.server.RESTContext;
 import uk.ac.lancs.rest.server.RESTDispatcher;
 import uk.ac.lancs.rest.server.RESTField;
 import uk.ac.lancs.rest.server.RESTRegistration;
@@ -176,7 +176,7 @@ public class RESTNetworkControlServer {
 
     @Route("/services")
     void listServices(HttpRequest request, HttpResponse response,
-                      HttpContext context, Matcher matcher)
+                      HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
         JsonArrayBuilder builder = Json.createArrayBuilder();
@@ -191,10 +191,10 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/activate")
     void activateService(HttpRequest request, HttpResponse response,
-                         HttpContext context, Matcher matcher)
+                         HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(matcher);
+        int sid = SID.get(rest.matcher());
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -207,10 +207,10 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/deactivate")
     void deactivateService(HttpRequest request, HttpResponse response,
-                           HttpContext context, Matcher matcher)
+                           HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(matcher);
+        int sid = SID.get(rest.matcher());
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -223,10 +223,10 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/release")
     void releaseService(HttpRequest request, HttpResponse response,
-                        HttpContext context, Matcher matcher)
+                        HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(matcher);
+        int sid = SID.get(rest.matcher());
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -287,12 +287,13 @@ public class RESTNetworkControlServer {
     }
 
     @Method("POST")
+    @Method("PUT")
     @Route("/service/(?<sid>[0-9]+)/define")
     void defineService(HttpRequest request, HttpResponse response,
-                       HttpContext context, Matcher matcher)
+                       HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(matcher);
+        int sid = SID.get(rest.matcher());
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -327,7 +328,7 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Route("/create-service")
     void createService(HttpRequest request, HttpResponse response,
-                       HttpContext context, Matcher matcher)
+                       HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
         Service srv = network.newService();
@@ -340,10 +341,10 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/await-status")
     void awaitServiceStatus(HttpRequest request, HttpResponse response,
-                            HttpContext context, Matcher matcher)
+                            HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(matcher);
+        int sid = SID.get(rest.matcher());
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
