@@ -59,6 +59,7 @@ import javax.json.JsonString;
 import javax.json.JsonStructure;
 import javax.json.JsonWriter;
 import javax.json.JsonWriterFactory;
+import javax.json.stream.JsonParsingException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpEntityEnclosingRequest;
@@ -259,24 +260,30 @@ public class RESTNetworkControlServer {
         HttpEntity reqEnt = encReq.getEntity();
         // TODO: Check content type.
 
-        final JsonReaderFactory factory =
-            Json.createReaderFactory(Collections.emptyMap());
-        final JsonReader jr;
-        if (false) {
-            StringWriter msg = new StringWriter();
-            try (Reader in = new InputStreamReader(reqEnt.getContent(),
-                                                   StandardCharsets.UTF_8)) {
-                char[] buf = new char[1024];
-                int got;
-                while ((got = in.read(buf)) > 0)
-                    msg.write(buf, 0, got);
+        try {
+            final JsonReaderFactory factory =
+                Json.createReaderFactory(Collections.emptyMap());
+            final JsonReader jr;
+            if (false) {
+                StringWriter msg = new StringWriter();
+                try (Reader in =
+                    new InputStreamReader(reqEnt.getContent(),
+                                          StandardCharsets.UTF_8)) {
+                    char[] buf = new char[1024];
+                    int got;
+                    while ((got = in.read(buf)) > 0)
+                        msg.write(buf, 0, got);
+                }
+                System.err.printf("Message: %s%n", msg.toString());
+                jr = factory.createReader(new StringReader(msg.toString()));
+            } else {
+                jr = factory.createReader(reqEnt.getContent());
             }
-            System.err.printf("Message: %s%n", msg.toString());
-            jr = factory.createReader(new StringReader(msg.toString()));
-        } else {
-            jr = factory.createReader(reqEnt.getContent());
+            return jr.readObject();
+        } catch (JsonParsingException ex) {
+            response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
+            return null;
         }
-        return jr.readObject();
     }
 
     @Method("POST")
