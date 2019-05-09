@@ -453,23 +453,37 @@ class Slice:
                 (match, tbl, prio) = self.switch.tuple_match(tups[i])
                 actions = self.switch.tuple_action(tups[1-i], tups[i][0])
 
+                ## Apply egress meter as action if feature available.
+                if hasattr(parser, 'OFPActionMeter') and tups[1-i] in outmtrs:
+                    mtr = outmtrs[tups[1-i]]
+                    actions.insert(0, parser.OFPActionMeter(mtr))
+
                 ## Because we're short-circuiting the process by not
                 ## going to T2, we also have to pop off an inner VLAN
                 ## tag if the ingress circuit has it.
-                if len(tups[i]) >= 3:
+                if len(tups[i]) >= 2:
                     actions.insert(0, parser.OFPActionPopVlan())
-                
+
+                ## Apply ingress meter as action if feature available.
+                if hasattr(parser, 'OFPActionMeter') and tups[i] in inmtrs:
+                    mtr = inmtrs[tups[i]]
+                    actions.insert(0, parser.OFPActionMeter(mtr))
+
                 inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
 
-                ## Apply egress meter.
-                if tups[1-i] in outmtrs:
-                    inst.insert(0,
-                                parser.OFPInstructionMeter(outmtrs[tups[1-i]]))
+                ## Apply meter instructions if meter actions are not
+                ## available.
+                if not hasattr(parser, 'OFPActionMeter'):
+                    ## Apply egress meter.
+                    if tups[1-i] in outmtrs:
+                        mtr = outmtrs[tups[1-i]]
+                        inst.insert(0, parser.OFPInstructionMeter(mtr))
 
-                ## Apply ingress meter.
-                if tups[i] in inmtrs:
-                    inst.insert(0, parser.OFPInstructionMeter(inmtrs[tups[i]]))
+                    ## Apply ingress meter.
+                    if tups[i] in inmtrs:
+                        mtr = inmtrs[tups[i]]
+                        inst.insert(0, parser.OFPInstructionMeter(mtr))
 
                 msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                         datapath=dp,
@@ -550,7 +564,10 @@ class Slice:
             ## are to go to the controller.
             group = self.switch.get_group_for_tuple(stup)
             (match, tbl, prio) = self.switch.tuple_match(stup)
-            actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
+            actions = [parser.OFPActionSetField(metadata=group),
+                       parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
+            if (len(stup) >= 2):
+                actions.insert(0, parser.OFPActionPopVlan())
             inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                  actions)]
             ## Apply an ingress meter.
@@ -652,11 +669,11 @@ class SwitchStatus:
         if len(tup) == 2:
             if mac is None:
                 return (parser.OFPMatch(in_port=tup[0],
-                                        metadata=tup[1]), 1, 4)
+                                        vlan_vid=0x1000|tup[1]), 0, 4)
             else:
                 return (parser.OFPMatch(in_port=tup[0],
                                         eth_src=mac,
-                                        metadata=tup[1]), 1, 5)
+                                        vlan_vid=0x1000|tup[1]), 0, 5)
         if mac is None:
             return (parser.OFPMatch(in_port=tup[0],
                                     metadata=tup[1],
@@ -864,6 +881,9 @@ class SwitchStatus:
     ## allocate one if not already allocated.
     def get_group_for_tuple(self, tup):
         return self.tuple_to_group.get(tup)
+
+    def get_tuple_for_group(self, group):
+        return self.group_to_tuple.get(group)
 
     ## Get or claim a group id for a given tuple.
     def claim_group_for_tuple(self, tup):
@@ -1089,7 +1109,7 @@ class SwitchStatus:
     ## Record that an (in_port, vlan_vid) rule in T0 might not be
     ## necessary any more.
     def invalidate_first_tag_rule(self, tup):
-        if len(tup) < 2:
+        if len(tup) < 3:
             return
         self.invalid_first_tag_rules.add(tup[0:2])
         return
@@ -1098,7 +1118,7 @@ class SwitchStatus:
     ## the VLAN id in the metadata, popping the VLAN tag, and passing
     ## on to T1 (which will then check for a second tag).
     def ensure_first_tag_rule(self, tup):
-        if len(tup) < 2:
+        if len(tup) < 3:
             return
         port = tup[0]
         vlan = tup[1]
@@ -1239,26 +1259,30 @@ class TupleSlicer(app_manager.RyuApp):
         if msg.reason != ofp.OFPRR_IDLE_TIMEOUT:
             return
 
-        if msg.table_id == 0:
-            tup = (match['in_port'],)
-        else:
-            if 'vlan_vid' not in match:
-                tup = (match['in_port'], match['metadata'])
-            else:
-                tup = (match['in_port'],
-                       match['metadata'],
-                       match['vlan_vid'] & 0xfff)
+        group = msg.cookie
+        # if msg.table_id == 0:
+        #     tup = (match['in_port'],)
+        # else:
+        #     if 'vlan_vid' not in match:
+        #         tup = (match['in_port'], match['metadata'])
+        #     else:
+        #         tup = (match['in_port'],
+        #                match['metadata'],
+        #                match['vlan_vid'] & 0xfff)
         ## We've not seen a packet from this MAC on its last tuple
         ## for a while.
-        self._not_heard_from(dp, tup, match['eth_src'])
+        self._not_heard_from(dp, group, match['eth_src'])
 
-    def _not_heard_from(self, dp, tup, mac):
+    def _not_heard_from(self, dp, group, mac):
         ofp = dp.ofproto
         parser = dp.ofproto_parser
         status = self.switches[dp.id]
+        tup = status.get_tuple_for_group(group)
+        if tup is None:
+            return
         slize = status.get_slice(tup)
         tups = slize.get_tuples()
-        group = status.get_group_for_tuple(tup)
+        # group = status.get_group_for_tuple(tup)
 
         LOG.info("%016x: %s/G%03d/%17s not heard from",
                  dp.id, tuple_text(tup), group, mac)
@@ -1359,13 +1383,18 @@ class TupleSlicer(app_manager.RyuApp):
         ## distinguish it from rules for the same MAC in other slices.
         (match, tbl, prio) = status.tuple_match(tup, mac)
         actions = [parser.OFPActionSetField(metadata=group)]
-        if len(tup) > 2:
+        ## Apply an ingress meter instruction if meter actions are not
+        ## available.
+        if hasattr(parser, 'OFPActionMeter') and inmtr is not None:
+            actions.insert(0, parser.OFPActionMeter(inmtr))
+        if len(tup) > 1:
             actions.append(parser.OFPActionPopVlan())
         inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                              actions),
                 parser.OFPInstructionGotoTable(2)]
-        ## Apply an ingress meter.
-        if inmtr is not None:
+        ## Apply an ingress meter instruction if meter actions are not
+        ## available.
+        if not hasattr(parser, 'OFPActionMeter') and inmtr is not None:
             inst.insert(0, parser.OFPInstructionMeter(inmtr))
         mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                   cookie=group,
@@ -1397,19 +1426,11 @@ class TupleSlicer(app_manager.RyuApp):
         dmac = eth.dst
         in_port = msg.match['in_port']
 
-        ## Form the tuple from in_port, metadata and vlan_vid.  Pop
-        ## the VLAN tag if present.
-        pop_vlan = False
-        if tbl == 0:
-            tup = (in_port,)
-        elif 'vlan_vid' in msg.match:
-            tup = (in_port,
-                   msg.match['metadata'],
-                   msg.match['vlan_vid'] & 0x0fff)
-            pop_vlan = True
-        else:
-            tup = (in_port,
-                   msg.match['metadata'])
+        ## The metadata identifies the tuple.
+        group = msg.match['metadata']
+        tup = status.get_tuple_for_group(group)
+        if tup is None:
+            return
 
         ## Learn that this MAC address has most recently been seen on
         ## this port.
@@ -1426,26 +1447,21 @@ class TupleSlicer(app_manager.RyuApp):
         if dtup is None:
             ## If we haven't seen this destination recently, we output
             ## to the source tuple's group action.
-            group = status.get_group_for_tuple(tup)
-            if group is None:
+            dgroup = status.get_group_for_tuple(dtup)
+            if dgroup is None:
                 return
-            actions = [parser.OFPActionGroup(group)]
+            actions = [parser.OFPActionGroup(dgroup)]
         elif dtup == tup:
             ## Don't loop packets back.
             return
         else:
             ## Perform the defined actions for the destination tuple.
             actions = status.tuple_action(dtup, in_port)
-            ## Apply an egress meter.
-            if hasattr(parser, 'OFPActionMeter'):
-                outmtr = status.get_outmeter(dtup)
-                if outmtr is not None:
-                    actions.insert(0, parser.OFPActionMeter(outmtr))
-
-        ## Make sure we've popped off the extra VLAN before we do
-        ## anything else.
-        if pop_vlan:
-            actions.insert(0, parser.OFPActionPopVlan())
+            # ## Apply an egress meter.
+            # if hasattr(parser, 'OFPActionMeter'):
+            #     outmtr = status.get_outmeter(dtup)
+            #     if outmtr is not None:
+            #         actions.insert(0, parser.OFPActionMeter(outmtr))
 
         ## Issue the packet.
         mymsg = parser.OFPPacketOut(datapath=dp,
