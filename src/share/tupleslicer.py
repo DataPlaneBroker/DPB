@@ -404,6 +404,7 @@ class Slice:
                 match = parser.OFPMatch(metadata=group)
                 msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
                                         cookie=0xffffffffffffffff,
+                                        cookie_mask=0xffffffffffffffff,
                                         datapath=dp,
                                         table_id=2,
                                         match=match,
