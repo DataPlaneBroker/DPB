@@ -451,14 +451,25 @@ class Slice:
                          tuple_text(tups[i]), tuple_text(tups[1-i]))
                 (match, tbl, prio) = self.switch.tuple_match(tups[i])
                 actions = self.switch.tuple_action(tups[1-i], tups[i][0])
+
+                ## Because we're short-circuiting the process by not
+                ## going to T2, we also have to pop off an inner VLAN
+                ## tag if the ingress circuit has it.
+                if len(tups[i]) >= 3:
+                    actions.insert(0, parser.OFPActionPopVlan())
+                
                 inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                      actions)]
-                ## Apply ingress (i) and egress meters (1-i).
+
+                ## Apply egress meter.
                 if tups[1-i] in outmtrs:
                     inst.insert(0,
                                 parser.OFPInstructionMeter(outmtrs[tups[1-i]]))
+
+                ## Apply ingress meter.
                 if tups[i] in inmtrs:
                     inst.insert(0, parser.OFPInstructionMeter(inmtrs[tups[i]]))
+
                 msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
                                         datapath=dp,
                                         table_id=tbl,
