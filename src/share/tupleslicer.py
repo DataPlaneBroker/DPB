@@ -1066,6 +1066,8 @@ class SwitchStatus:
 
         ## Delete rules corresponding to the remaining candidates.
         for tup in self.invalid_first_tag_rules:
+            LOG.info("%016x: deleting first-tag rule for %s", dp.id,
+                     tuple_text(tup))
             port = tup[0]
             vlan = tup[1]
             match = parser.OFPMatch(in_port=port,
@@ -1104,6 +1106,8 @@ class SwitchStatus:
         ofp = dp.ofproto
         parser = dp.ofproto_parser
 
+        LOG.info("%016x: adding first-tag rule for %s", dp.id,
+                 tuple_text(tup))
         match = parser.OFPMatch(in_port=port,
                                 vlan_vid=0x1000|vlan)
         actions = [parser.OFPActionPopVlan(), \
