@@ -90,8 +90,7 @@ import uk.ac.lancs.rest.server.Route;
 
 /**
  * Implements a REST API for a network controller. Use
- * {@link #bind(RESTRequestHandlerMapper, String)} to attach it to an
- * HTTP server.
+ * {@link #bind(RESTDispatcher, String)} to attach it to an HTTP server.
  * 
  * <p>
  * The following requests are defined:
@@ -141,8 +140,8 @@ import uk.ac.lancs.rest.server.Route;
  * 
  * <p>
  * The <samp><var>prefix</var></samp> is specified in the
- * {@link #bind(RESTRequestHandlerMapper, String)} call, and should
- * begin with a forward slash but not end in one, for example,
+ * {@link #bind(RESTDispatcher, String)} call, and should begin with a
+ * forward slash but not end in one, for example,
  * <samp>/network/aggregator</samp>.
  * 
  * @author simpsons
