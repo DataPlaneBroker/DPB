@@ -730,9 +730,9 @@ public final class Commander {
      * specified terminal.
      * 
      * <dt><samp>provide <var>terminal</var>
-     * <var>rate[</var>:<var>]rate</var></samp>
+     * <var>rate</var>[:<var>rate</var>]</samp>
      * <dt><samp>withdraw <var>terminal</var>
-     * <var>rate[</var>:<var>]rate</var></samp>
+     * <var>rate</var>[:<var>rate</var>]</samp>
      * 
      * <dd>Provide/withdraw bandwidth to/from the trunk connecting the
      * specified terminal. The first rate is from the terminal to its
