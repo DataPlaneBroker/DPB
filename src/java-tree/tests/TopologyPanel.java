@@ -35,8 +35,11 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.List;
@@ -50,7 +53,7 @@ import javax.swing.JPanel;
  */
 final class TopologyPanel extends JPanel {
     private static final long serialVersionUID = 1L;
-
+    private static final BasicStroke stroke = new BasicStroke(2.0f);
     private final TopologyModel model;
 
     public TopologyPanel(TopologyModel model) {
@@ -70,15 +73,19 @@ final class TopologyPanel extends JPanel {
         g.setColor(Color.WHITE);
         g.fillRect(pxmin, pymin, pxmax - 1, pymax - 1);
 
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setStroke(stroke);
+
         /* Get the dimensions of the model. */
         Rectangle2D.Double modelBounds = model.getBounds();
-        if (modelBounds == null)
-            return;
+        if (modelBounds == null) return;
         final double xmin = modelBounds.getMinX();
         final double xmax = modelBounds.getMaxX();
         final double ymin = modelBounds.getMinY();
         final double ymax = modelBounds.getMaxY();
-        
+
         final double xmid = xmin + (xmax - xmin) / 2.0;
         final double ymid = ymin + (ymax - ymin) / 2.0;
 

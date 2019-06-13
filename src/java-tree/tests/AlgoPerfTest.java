@@ -36,6 +36,8 @@
  */
 
 import java.awt.Dimension;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.Arrays;
@@ -89,25 +91,30 @@ public class AlgoPerfTest {
     /**
      * @param args
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         final MyTopologyModel topModel = new MyTopologyModel();
         SwingUtilities.invokeLater(() -> {
+            GraphicsDevice device = GraphicsEnvironment
+                .getLocalGraphicsEnvironment().getScreenDevices()[0];
             JFrame frame = new JFrame();
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            frame.setUndecorated(true);
+            device.setFullScreenWindow(frame);
             TopologyPanel panel = new TopologyPanel(topModel);
             topModel.setComponent(panel);
             frame.setContentPane(panel);
-            panel.setPreferredSize(new Dimension(300, 300));
+            panel.setPreferredSize(new Dimension(800, 800));
             frame.validate();
             frame.pack();
             frame.setVisible(true);
         });
 
         /* Create a scale-free network. */
-        final int vertexCount = 100;
+        final int vertexCount = 400;
         final int newEdgesPerVertex = 2;
         Collection<Edge<Vertex>> edges = new HashSet<>();
         {
-            final Random rng = new Random(20);
+            final Random rng = new Random();
 
             /* Remember which other vertices an vertex joins. */
             Map<Vertex, Collection<Vertex>> edgeSets = new HashMap<>();
@@ -128,7 +135,8 @@ public class AlgoPerfTest {
 
                 /* Identify vertices to link to. */
                 Collection<Vertex> chosen = new HashSet<>();
-                for (int j = 0; j < newEdgesPerVertex; j++) {
+                final int linkCount = rng.nextInt(newEdgesPerVertex) + 1;
+                for (int j = 0; j < linkCount; j++) {
                     int chosenIndex = rng.nextInt(edgeCount);
                     for (Map.Entry<Vertex, Collection<Vertex>> entry : edgeSets
                         .entrySet()) {
@@ -143,10 +151,10 @@ public class AlgoPerfTest {
                 /* Link to those vertices. */
                 edgeSets.put(latest, new HashSet<>());
                 for (Vertex existing : chosen) {
-                    chosen.add(existing);
-                    edgeSets.get(latest).add(existing);
-                    edgeSets.get(existing).add(latest);
-                    edgeCount += 2;
+                    if (edgeSets.get(latest).add(existing)) {
+                        edgeSets.get(existing).add(latest);
+                        edgeCount += 2;
+                    }
                 }
             }
 
@@ -160,14 +168,18 @@ public class AlgoPerfTest {
             }
 
             topModel.setData(edges);
+            Thread.sleep(10 * 1000);
 
             /* Position them. */
-            for (Vertex v : edgeSets.keySet()) {
+            if (false) for (Vertex v : edgeSets.keySet()) {
                 System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
             }
             final double maxSpeed = 0.01;
             double elapsed = 0.0;
-            for (;;) {
+            final long startTime = System.currentTimeMillis();
+            final double frameRate = 240.0;
+            final double framePeriod = 1000.0 / frameRate;
+            for (int cycle = 0;; cycle++) {
                 /* Compute forces given current positions and edges. */
                 edgeSets.keySet().forEach(Vertex::resetForce);
 
@@ -192,7 +204,7 @@ public class AlgoPerfTest {
                     b.fy -= bfy;
                 }
 
-                /* TODO: Make all vertices repel each other. */
+                /* Make all vertices repel each other. */
                 Vertex[] arr = new Vertex[edgeSets.keySet().size()];
                 arr = edgeSets.keySet().toArray(arr);
                 final double push = 0.3;
@@ -216,8 +228,8 @@ public class AlgoPerfTest {
                 edgeSets.keySet().forEach(v -> {
                     final double sp2 = v.vx * v.vx + v.vy * v.vy;
                     final double sp = Math.sqrt(sp2);
-                    v.fx -= v.vx * sp * 0.5;
-                    v.fy -= v.vy * sp * 0.5;
+                    v.fx -= v.vx * sp * 0.2;
+                    v.fy -= v.vy * sp * 0.2;
                 });
 
                 /* Convert the forces to accelerations. */
@@ -226,13 +238,14 @@ public class AlgoPerfTest {
                     v.fy /= v.mass;
                 });
 
-                for (Vertex v : edgeSets.keySet()) {
+                if (false) for (Vertex v : edgeSets.keySet()) {
                     System.out.printf("  %d: delta-V (%g, %g)%n", v.id, v.vx,
                                       v.vy);
                 }
 
                 /* Find the largest time jump we can afford. */
-                double bestDelta = 0.1;
+                final double maxDelta = 1.0;
+                double bestDelta = maxDelta;
                 for (Vertex v : edgeSets.keySet()) {
                     {
                         /* Check acceleration. */
@@ -278,13 +291,47 @@ public class AlgoPerfTest {
                     v.y -= yshift;
                 }
 
-                System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
-                                  delta);
-                for (Vertex v : edgeSets.keySet()) {
-                    System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
+                if (false) {
+                    System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
+                                      delta);
+                    for (Vertex v : edgeSets.keySet()) {
+                        System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
+                    }
+                }
+                if (false) {
+                    final long now = System.currentTimeMillis();
+                    final long expected =
+                        (long) (startTime + framePeriod * cycle);
+                    if (now < expected) Thread.sleep(expected - now);
                 }
                 topModel.setData(edges);
+
+                /* Find the average velocity. */
+                double vxsum = 0.0, vysum = 0.0;
+                for (Vertex v : edgeSets.keySet()) {
+                    vxsum += v.vx;
+                    vysum += v.vy;
+                }
+                final double vxmean = vxsum / edgeSets.size();
+                final double vymean = vysum / edgeSets.size();
+
+                if (false) {
+                    /* What's the total energy in the system? */
+                    double energy = 0.0;
+                    double mass = 0.0;
+                    for (Vertex v : edgeSets.keySet()) {
+                        final double vx = v.x - vxmean;
+                        final double vy = v.y - vymean;
+                        energy += v.mass * (vx * vx + vy * vy) / 2.0;
+                        mass += v.mass;
+                    }
+                    System.out.printf("Energy density: %g (delta %g)%n",
+                                      energy / mass, delta);
+                }
+
+                if (cycle > 100 && delta == maxDelta) break;
             }
+            System.out.printf("Complete%n");
         }
     }
 
