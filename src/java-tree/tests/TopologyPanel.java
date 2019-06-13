@@ -1,3 +1,4 @@
+
 /*
  * Copyright 2018,2019, Regents of the University of Lancaster
  * All rights reserved.
@@ -58,17 +59,28 @@ final class TopologyPanel extends JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
-        /* Get the dimensions of the model. */
-        Rectangle2D.Double modelBounds = model.getBounds();
-        final double xmin = modelBounds.getMinX();
-        final double xmax = modelBounds.getMaxX();
-        final double ymin = modelBounds.getMinY();
-        final double ymax = modelBounds.getMaxY();
-
         /* How much space have we got to paint in? */
         final int pxmax = getWidth() + 1;
         final int pymax = getHeight() + 1;
         final int pxmin = 0, pymin = 0;
+        final int pxmid = pxmin + (pxmax - pxmin) / 2;
+        final int pymid = pymin + (pymax - pymin) / 2;
+
+        /* Draw the background. */
+        g.setColor(Color.WHITE);
+        g.fillRect(pxmin, pymin, pxmax - 1, pymax - 1);
+
+        /* Get the dimensions of the model. */
+        Rectangle2D.Double modelBounds = model.getBounds();
+        if (modelBounds == null)
+            return;
+        final double xmin = modelBounds.getMinX();
+        final double xmax = modelBounds.getMaxX();
+        final double ymin = modelBounds.getMinY();
+        final double ymax = modelBounds.getMaxY();
+        
+        final double xmid = xmin + (xmax - xmin) / 2.0;
+        final double ymid = ymin + (ymax - ymin) / 2.0;
 
         /* How many units per pixel? */
         final double xrat = (xmax - xmin) / (pxmax - pxmin);
@@ -92,10 +104,10 @@ final class TopologyPanel extends JPanel {
             final double y1 = first.y;
             final double x2 = second.x;
             final double y2 = second.y;
-            final int px1 = (int) ((x1 - xmin) / rat + pxmin);
-            final int py1 = (int) ((y1 - ymin) / rat + pymin);
-            final int px2 = (int) ((x2 - xmin) / rat + pxmin);
-            final int py2 = (int) ((y2 - ymin) / rat + pymin);
+            final int px1 = (int) ((x1 - xmid) / rat + pxmid);
+            final int py1 = (int) ((y1 - ymid) / rat + pymid);
+            final int px2 = (int) ((x2 - xmid) / rat + pxmid);
+            final int py2 = (int) ((y2 - ymid) / rat + pymid);
             g.drawLine(px1, py1, px2, py2);
         }
     }
