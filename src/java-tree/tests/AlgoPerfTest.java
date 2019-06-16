@@ -110,8 +110,8 @@ public class AlgoPerfTest {
         });
 
         /* Create a scale-free network. */
-        final int vertexCount = 400;
-        final int newEdgesPerVertex = 2;
+        final int vertexCount = 200;
+        final int newEdgesPerVertex = 3;
         Collection<Edge<Vertex>> edges = new HashSet<>();
         {
             final Random rng = new Random();
@@ -135,7 +135,10 @@ public class AlgoPerfTest {
 
                 /* Identify vertices to link to. */
                 Collection<Vertex> chosen = new HashSet<>();
-                final int linkCount = rng.nextInt(newEdgesPerVertex) + 1;
+                final int linkCount = rng
+                    .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1)
+                        + 1)
+                    + 1;
                 for (int j = 0; j < linkCount; j++) {
                     int chosenIndex = rng.nextInt(edgeCount);
                     for (Map.Entry<Vertex, Collection<Vertex>> entry : edgeSets
@@ -167,7 +170,7 @@ public class AlgoPerfTest {
                     edges.add(Edge.of(a, b));
             }
 
-            topModel.setData(edges);
+            topModel.setData(0.0, edges);
             Thread.sleep(10 * 1000);
 
             /* Position them. */
@@ -179,7 +182,13 @@ public class AlgoPerfTest {
             final long startTime = System.currentTimeMillis();
             final double frameRate = 240.0;
             final double framePeriod = 1000.0 / frameRate;
-            for (int cycle = 0;; cycle++) {
+            final long[] steadyLimit = { 10000, 100000, 1000000 };
+            final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
+            double[] lowTarget = new double[steadyLimit.length];
+            double[] highTarget = new double[steadyLimit.length];
+            long[] steady = new long[steadyLimit.length];
+            cycles:
+            for (long cycle = 0;; cycle++) {
                 /* Compute forces given current positions and edges. */
                 edgeSets.keySet().forEach(Vertex::resetForce);
 
@@ -215,21 +224,23 @@ public class AlgoPerfTest {
                         final double dx = b.x - a.x;
                         final double dy = b.y - a.y;
                         final double r2 = dx * dx + dy * dy;
-                        final double bfx = push * dx / r2;
-                        final double bfy = push * dy / r2;
-                        a.fx -= bfx;
-                        a.fy -= bfy;
-                        b.fx += bfx;
-                        b.fy += bfy;
+                        final double r3 = Math.pow(r2, 1.5);
+                        final double bfx = push * dx / r3;
+                        final double bfy = push * dy / r3;
+                        a.fx -= b.mass * bfx;
+                        a.fy -= b.mass * bfy;
+                        b.fx += a.mass * bfx;
+                        b.fy += a.mass * bfy;
                     }
                 }
 
                 /* Compute air resistance. */
+                final double airResistence = 0.3;
                 edgeSets.keySet().forEach(v -> {
                     final double sp2 = v.vx * v.vx + v.vy * v.vy;
                     final double sp = Math.sqrt(sp2);
-                    v.fx -= v.vx * sp * 0.2;
-                    v.fy -= v.vy * sp * 0.2;
+                    v.fx -= v.vx * sp * airResistence;
+                    v.fy -= v.vy * sp * airResistence;
                 });
 
                 /* Convert the forces to accelerations. */
@@ -244,7 +255,7 @@ public class AlgoPerfTest {
                 }
 
                 /* Find the largest time jump we can afford. */
-                final double maxDelta = 1.0;
+                final double maxDelta = 0.1;
                 double bestDelta = maxDelta;
                 for (Vertex v : edgeSets.keySet()) {
                     {
@@ -276,19 +287,72 @@ public class AlgoPerfTest {
                 elapsed += delta;
 
                 /* Recentre everything. */
-                double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
-                double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
-                for (Vertex v : edgeSets.keySet()) {
-                    if (v.x > xmax) xmax = v.x;
-                    if (v.x < xmin) xmin = v.x;
-                    if (v.y > ymax) ymax = v.y;
-                    if (v.y < ymin) ymin = v.y;
+                final double xshift, yshift;
+                if (false) {
+                    /* Recentre by finding the mid-point between
+                     * extremes. Don't use this if you want to damp
+                     * rotation, as it won't be the centre of that
+                     * rotation. */
+                    double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
+                    double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
+                    for (Vertex v : edgeSets.keySet()) {
+                        if (v.x > xmax) xmax = v.x;
+                        if (v.x < xmin) xmin = v.x;
+                        if (v.y > ymax) ymax = v.y;
+                        if (v.y < ymin) ymin = v.y;
+                    }
+                    xshift = xmin + (xmax - xmin) / 2.0;
+                    yshift = ymin + (ymax - ymin) / 2.0;
+                } else {
+                    /* Recentre by finding the centre of gravity. */
+                    double x = 0.0, y = 0.0, mass = 0.0;
+                    for (Vertex v : edgeSets.keySet()) {
+                        mass += v.mass;
+                        x += v.mass * v.x;
+                        y += v.mass * v.y;
+                    }
+                    xshift = x / mass;
+                    yshift = y / mass;
                 }
-                final double xshift = xmin + (xmax - xmin) / 2.0;
-                final double yshift = ymin + (ymax - ymin) / 2.0;
                 for (Vertex v : edgeSets.keySet()) {
                     v.x -= xshift;
                     v.y -= yshift;
+                }
+
+                /* Cancel rotation. */
+                {
+                    double sum = 0.0, sqsum = 0.0;
+                    for (Vertex v : edgeSets.keySet()) {
+                        final double r2 = v.x * v.x + v.y * v.y;
+                        final double rot = (v.vy * v.x - v.vx * v.y) / r2;
+                        sum += rot;
+                        sqsum += rot * rot;
+                    }
+                    sum /= edgeSets.size();
+                    sqsum /= edgeSets.size();
+                    final double var = sqsum - sum * sum;
+                    final double stddev = Math.sqrt(var);
+                    if (false) {
+                        double rem = 0.0;
+                        for (Vertex v : edgeSets.keySet()) {
+                            v.vx += sum * v.y * 2;
+                            v.vy -= sum * v.x * 2;
+                            rem += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
+                        }
+                        rem /= edgeSets.size();
+                    }
+                    if (false) System.out
+                        .printf("rotation: (var %g) %d %d %d = %d%n", var,
+                                steady[0], steady[1], steady[2], cycle);
+
+                    /* Detect stability in the variance. */
+                    for (int i = 0; i < steady.length; i++) {
+                        if (stddev > highTarget[i] || stddev < lowTarget[i]) {
+                            lowTarget[i] = stddev * (1.0 - targetFraction[i]);
+                            highTarget[i] = stddev * (1.0 + targetFraction[i]);
+                            steady[i] = cycle;
+                        }
+                    }
                 }
 
                 if (false) {
@@ -304,18 +368,18 @@ public class AlgoPerfTest {
                         (long) (startTime + framePeriod * cycle);
                     if (now < expected) Thread.sleep(expected - now);
                 }
-                topModel.setData(edges);
-
-                /* Find the average velocity. */
-                double vxsum = 0.0, vysum = 0.0;
-                for (Vertex v : edgeSets.keySet()) {
-                    vxsum += v.vx;
-                    vysum += v.vy;
-                }
-                final double vxmean = vxsum / edgeSets.size();
-                final double vymean = vysum / edgeSets.size();
+                topModel.setData(delta / maxDelta, edges);
 
                 if (false) {
+                    /* Find the average velocity. */
+                    double vxsum = 0.0, vysum = 0.0;
+                    for (Vertex v : edgeSets.keySet()) {
+                        vxsum += v.vx;
+                        vysum += v.vy;
+                    }
+                    final double vxmean = vxsum / edgeSets.size();
+                    final double vymean = vysum / edgeSets.size();
+
                     /* What's the total energy in the system? */
                     double energy = 0.0;
                     double mass = 0.0;
@@ -329,8 +393,11 @@ public class AlgoPerfTest {
                                       energy / mass, delta);
                 }
 
-                if (cycle > 100 && delta == maxDelta) break;
+                // if (cycle > 100 && delta == maxDelta) break;
+                for (int i = 0; i < steady.length; i++)
+                    if (cycle - steady[i] > steadyLimit[i]) break cycles;
             }
+            topModel.setData(-1.0, edges);
             System.out.printf("Complete%n");
         }
     }
@@ -358,12 +425,14 @@ public class AlgoPerfTest {
         private Collection<List<Point2D.Double>> edges;
         private Rectangle2D.Double bounds;
         private JComponent widget;
+        private double speed = 0.2;
 
         synchronized void setComponent(JComponent widget) {
             this.widget = widget;
         }
 
-        void setData(Collection<? extends Edge<? extends Vertex>> edges) {
+        void setData(double speed,
+                     Collection<? extends Edge<? extends Vertex>> edges) {
             /* Convert the edges into Swing/AWT terms. */
             Collection<List<Point2D.Double>> newEdges = new HashSet<>();
             Map<Vertex, Point2D.Double> map = new HashMap<>();
@@ -395,6 +464,7 @@ public class AlgoPerfTest {
             synchronized (this) {
                 this.bounds = newBounds;
                 this.edges = newEdges;
+                this.speed = speed;
                 widget = this.widget;
             }
             if (widget != null)
@@ -410,6 +480,11 @@ public class AlgoPerfTest {
         public synchronized
             Collection<? extends List<? extends Point2D.Double>> getEdges() {
             return edges;
+        }
+
+        @Override
+        public double speed() {
+            return speed;
         }
     }
 }

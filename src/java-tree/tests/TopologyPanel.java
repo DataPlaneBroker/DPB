@@ -53,7 +53,9 @@ import javax.swing.JPanel;
  */
 final class TopologyPanel extends JPanel {
     private static final long serialVersionUID = 1L;
-    private static final BasicStroke stroke = new BasicStroke(2.0f);
+    private static final BasicStroke DIAL_STROKE = new BasicStroke(5.0f);
+    private static final BasicStroke AXIS_STROKE = new BasicStroke(2.0f);
+    private static final BasicStroke EDGE_STROKE = new BasicStroke(2.0f);
     private final TopologyModel model;
 
     public TopologyPanel(TopologyModel model) {
@@ -62,6 +64,10 @@ final class TopologyPanel extends JPanel {
 
     @Override
     protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g;
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                            RenderingHints.VALUE_ANTIALIAS_ON);
+
         /* How much space have we got to paint in? */
         final int pxmax = getWidth() + 1;
         final int pymax = getHeight() + 1;
@@ -69,14 +75,10 @@ final class TopologyPanel extends JPanel {
         final int pxmid = pxmin + (pxmax - pxmin) / 2;
         final int pymid = pymin + (pymax - pymin) / 2;
 
-        /* Draw the background. */
-        g.setColor(Color.WHITE);
-        g.fillRect(pxmin, pymin, pxmax - 1, pymax - 1);
-
-        Graphics2D g2 = (Graphics2D) g;
-        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-                            RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setStroke(stroke);
+        /* Compute speed dial size. */
+        final int sprad =
+            (int) (Math.min(pxmax - pxmin, pymax - pymin) / 10.0);
+        final double angle = Math.PI * model.speed();
 
         /* Get the dimensions of the model. */
         Rectangle2D.Double modelBounds = model.getBounds();
@@ -98,12 +100,31 @@ final class TopologyPanel extends JPanel {
          * = (x - xmin) / rat + pxmin, and py = (y - ymin) / rat +
          * pymin. */
 
+        /* Compute the axes for the centre of gravity. */
+        final int px0 = (int) ((0 - xmid) / rat + pxmid);
+        final int py0 = (int) ((0 - ymid) / rat + pymid);
+
         /* Draw the background. */
-        g.setColor(Color.WHITE);
-        g.fillRect(pxmin, pymin, pxmax - 1, pymax - 1);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(pxmin, pymin, pxmax - 1, pymax - 1);
+
+        if (angle >= 0.0 && angle <= Math.PI) {
+            /* Draw the speed dial. */
+            g2.setColor(Color.BLUE);
+            g2.setStroke(DIAL_STROKE);
+            g2.drawArc(-sprad, 0, sprad * 2, sprad * 2, -90, +180);
+            g2.drawLine(pxmin, sprad, (int) (pxmin + sprad * Math.sin(angle)),
+                        (int) (sprad - sprad * Math.cos(angle)));
+        }
+
+        g2.setStroke(AXIS_STROKE);
+        g2.setColor(Color.RED);
+        g2.drawLine(px0, pymin, px0, pymax);
+        g2.drawLine(pxmin, py0, pxmax, py0);
 
         /* Draw the edges. */
-        g.setColor(Color.BLACK);
+        g2.setStroke(EDGE_STROKE);
+        g2.setColor(Color.BLACK);
         for (List<? extends Point2D.Double> edge : model.getEdges()) {
             final Point2D.Double first = edge.get(0);
             final Point2D.Double second = edge.get(1);
@@ -115,7 +136,7 @@ final class TopologyPanel extends JPanel {
             final int py1 = (int) ((y1 - ymid) / rat + pymid);
             final int px2 = (int) ((x2 - xmid) / rat + pxmid);
             final int py2 = (int) ((y2 - ymid) / rat + pymid);
-            g.drawLine(px1, py1, px2, py2);
+            g2.drawLine(px1, py1, px2, py2);
         }
     }
 }

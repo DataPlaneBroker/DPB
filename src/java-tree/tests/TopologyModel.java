@@ -50,4 +50,6 @@ interface TopologyModel {
     Rectangle2D.Double getBounds();
 
     Collection<? extends List<? extends Point2D.Double>> getEdges();
+    
+    double speed();
 }
