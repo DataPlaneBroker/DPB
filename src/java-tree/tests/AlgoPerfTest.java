@@ -110,7 +110,7 @@ public class AlgoPerfTest {
         });
 
         /* Create a scale-free network. */
-        final int vertexCount = 200;
+        final int vertexCount = 100;
         final int newEdgesPerVertex = 3;
         Collection<Edge<Vertex>> edges = new HashSet<>();
         {
@@ -182,7 +182,7 @@ public class AlgoPerfTest {
             final long startTime = System.currentTimeMillis();
             final double frameRate = 240.0;
             final double framePeriod = 1000.0 / frameRate;
-            final long[] steadyLimit = { 10000, 100000, 1000000 };
+            final long[] steadyLimit = { 1000, 10000, 100000 };
             final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
             double[] lowTarget = new double[steadyLimit.length];
             double[] highTarget = new double[steadyLimit.length];
