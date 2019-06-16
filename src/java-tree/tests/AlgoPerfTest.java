@@ -235,7 +235,7 @@ public class AlgoPerfTest {
                 }
 
                 /* Compute air resistance. */
-                final double airResistence = 0.3;
+                final double airResistence = 0.9;
                 edgeSets.keySet().forEach(v -> {
                     final double sp2 = v.vx * v.vx + v.vy * v.vy;
                     final double sp = Math.sqrt(sp2);
@@ -331,7 +331,7 @@ public class AlgoPerfTest {
                     sum /= edgeSets.size();
                     sqsum /= edgeSets.size();
                     final double var = sqsum - sum * sum;
-                    final double stddev = Math.sqrt(var);
+                    //final double stddev = Math.sqrt(var);
                     if (false) {
                         double rem = 0.0;
                         for (Vertex v : edgeSets.keySet()) {
@@ -346,10 +346,12 @@ public class AlgoPerfTest {
                                 steady[0], steady[1], steady[2], cycle);
 
                     /* Detect stability in the variance. */
+                    final double signal = var;
                     for (int i = 0; i < steady.length; i++) {
-                        if (stddev > highTarget[i] || stddev < lowTarget[i]) {
-                            lowTarget[i] = stddev * (1.0 - targetFraction[i]);
-                            highTarget[i] = stddev * (1.0 + targetFraction[i]);
+                        if (signal > highTarget[i] || signal < lowTarget[i]) {
+                            lowTarget[i] = signal * (1.0 - targetFraction[i]);
+                            highTarget[i] =
+                                signal * (1.0 + targetFraction[i]);
                             steady[i] = cycle;
                         }
                     }
@@ -368,7 +370,17 @@ public class AlgoPerfTest {
                         (long) (startTime + framePeriod * cycle);
                     if (now < expected) Thread.sleep(expected - now);
                 }
-                topModel.setData(delta / maxDelta, edges);
+
+                {
+                    final double minDelta = 1e-6;
+                    assert delta <= maxDelta;
+                    final double ratio = (Math.log(Math.max(minDelta, delta))
+                        - Math.log(minDelta))
+                        / (Math.log(maxDelta) - Math.log(minDelta));
+                    assert ratio >= 0.0;
+                    assert ratio <= 1.0;
+                    topModel.setData(ratio, edges);
+                }
 
                 if (false) {
                     /* Find the average velocity. */
