@@ -45,7 +45,7 @@ Usage: $0 [options] [commands]
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
 For commands, see:
-<http://www.lancaster.ac.uk/~simpsons/javadoc/dataplanebroker-test/uk/ac/
+<http://scc-forge.lancaster.ac.uk/javadoc/dataplanebroker-test/uk/ac/
 lancs/networks/apps/Commander-method-main/1java$lang$String>.
 EOF
 	    exit
