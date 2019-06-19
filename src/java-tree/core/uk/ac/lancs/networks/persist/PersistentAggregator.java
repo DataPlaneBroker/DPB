@@ -1913,12 +1913,14 @@ public class PersistentAggregator implements Aggregator {
 
         /* Get the set of terminals to connect. */
         Collection<Terminal> innerTerminals = bandwidths.keySet();
+        System.err.printf("%nTerminal requirements: %d%n", bandwidths);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
         Collection<Trunk> refs = new ArrayList<>();
         Collection<MyTrunk> adequateTrunks =
             getAdequateTrunks(conn, smallestBandwidth, refs);
+        System.err.printf("Eligible trunks: %d%n", adequateTrunks);
 
         /* Get the set of all networks connected to our selected
          * trunks. */
@@ -1987,11 +1989,16 @@ public class PersistentAggregator implements Aggregator {
             Collection<Edge<Terminal>> tree = SpanningTreeComputer
                 .start(Terminal.class).withEdges(edgeWeights.keySet())
                 .withTerminals(innerTerminals).notifying(p -> {
+                    assert p != null;
                     guide.reached(p);
-                    System.err.printf("Reached %s; groups: %s%n", p,
-                                      terminalGroups.get(p));
-                    reached.addAll(terminalGroups.get(p));
+                    Collection<Terminal> group = terminalGroups.get(p);
+                    System.err.printf("Reached %s; groups: %s%n", p, group);
+                    if (group != null) reached.addAll(group);
                 }).withEdgePreference(guide::select).eliminating(e -> {
+                    assert e != null;
+                    assert e.first() != null;
+                    assert e.second() != null;
+
                     /* Permit edges within the same network. */
                     NetworkControl first = e.first().getNetwork();
                     NetworkControl second = e.second().getNetwork();

@@ -286,6 +286,7 @@ public final class SpanningTreeComputer<V> {
          * added. */
         V adding = start;
         for (;;) {
+            assert adding != null;
             /* All edges from the new vertex are new candidates for the
              * next hop. */
             reachable.addAll(outwards.getOrDefault(adding,
@@ -305,7 +306,8 @@ public final class SpanningTreeComputer<V> {
             Edge<V> bestLink = null;
             for (Iterator<Edge<V>> iter = reachable.iterator(); iter
                 .hasNext();) {
-                Edge<V> cand = iter.next();
+                final Edge<V> cand = iter.next();
+                assert cand != null;
 
                 /* Drop this edge altogether if both ends have been
                  * reached, or the caller says the edge is otherwise no
