@@ -1913,14 +1913,14 @@ public class PersistentAggregator implements Aggregator {
 
         /* Get the set of terminals to connect. */
         Collection<Terminal> innerTerminals = bandwidths.keySet();
-        System.err.printf("%nTerminal requirements: %d%n", bandwidths);
+        System.err.printf("%nTerminal requirements: %s%n", bandwidths);
 
         /* Get a subset of all trunks, those with sufficent bandwidth
          * and free tunnels. */
         Collection<Trunk> refs = new ArrayList<>();
         Collection<MyTrunk> adequateTrunks =
             getAdequateTrunks(conn, smallestBandwidth, refs);
-        System.err.printf("Eligible trunks: %d%n", adequateTrunks);
+        System.err.printf("Eligible trunks: %s%n", adequateTrunks);
 
         /* Get the set of all networks connected to our selected
          * trunks. */
