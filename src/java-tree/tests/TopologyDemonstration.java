@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2018,2019, Regents of the University of Lancaster
  * All rights reserved.
