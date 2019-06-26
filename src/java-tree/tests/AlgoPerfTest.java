@@ -47,8 +47,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.function.IntSupplier;
-import java.util.function.Supplier;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -121,19 +119,15 @@ public class AlgoPerfTest {
             /* Remember which other vertices an vertex joins. */
             Map<Vertex, Collection<Vertex>> neighbors = new HashMap<>();
 
-            generateTopology(Vertex::new, vertexCount, () -> rng
+            Topologies.generateTopology(Vertex::new, vertexCount, () -> rng
                 .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1) + 1)
                 + 1, neighbors, rng);
 
             /* Convert to a set of edges. */
-            edges = convertNeighborsToEdges(neighbors);
+            edges = Topologies.convertNeighborsToEdges(neighbors);
 
             /* Give each vertex a mass proportional to its degree. */
-            for (Map.Entry<Vertex, Collection<Vertex>> entry : neighbors
-                .entrySet()) {
-                Vertex a = entry.getKey();
-                a.mass = entry.getValue().size();
-            }
+            neighbors.forEach((a, n) -> a.mass = n.size());
 
             topModel.setData(0.0, edges);
             Thread.sleep(10 * 1000);
@@ -142,52 +136,6 @@ public class AlgoPerfTest {
             topModel.setData(-1.0, edges);
             System.out.printf("Complete%n");
         }
-    }
-
-    /**
-     * Convert a topology represented as an index from each vertex to
-     * its neighbours to one represented as a set of edges. The
-     * resultant topology is an undirected graph.
-     * 
-     * @param <V> the vertex type
-     * 
-     * @param neighbors the topology as an index from each vertex to its
-     * neighbours
-     * 
-     * @return the set of edges
-     */
-    private static <V> Collection<Edge<V>>
-        convertNeighborsToEdges(Map<? extends V, ? extends Collection<? extends V>> neighbors) {
-        Collection<Edge<V>> edges = new HashSet<>();
-        for (Map.Entry<? extends V, ? extends Collection<? extends V>> entry : neighbors
-            .entrySet()) {
-            V a = entry.getKey();
-            for (V b : entry.getValue())
-                edges.add(Edge.of(a, b));
-        }
-        return edges;
-    }
-
-    /**
-     * Convert a topology represented as a set of edges into one
-     * represented as an index from each vertex to its neighbours.
-     * 
-     * @param <V> the vertex type
-     * 
-     * @param edges the set of edges
-     * 
-     * @return an index from each vertex to its neighbours
-     */
-    private static <V> Map<V, Collection<V>>
-        convertEdgesToNeighbors(Collection<? extends Edge<? extends V>> edges) {
-        final Map<V, Collection<V>> neighbors = new HashMap<>();
-        for (Edge<? extends V> edge : edges) {
-            V v1 = edge.first();
-            V v2 = edge.second();
-            neighbors.computeIfAbsent(v1, k -> new HashSet<>()).add(v2);
-            neighbors.computeIfAbsent(v2, k -> new HashSet<>()).add(v1);
-        }
-        return neighbors;
     }
 
     /**
@@ -203,7 +151,7 @@ public class AlgoPerfTest {
      * 
      * @param pauser an object to regulate reporting
      */
-    private static void
+    public static void
         alignTopology(Collection<? extends Edge<? extends Vertex>> edges,
                       TopologyDisplay<Vertex> display, Pauser pauser) {
         /* The repulsive gravitational constant */
@@ -232,7 +180,7 @@ public class AlgoPerfTest {
 
         /* Create an index from each vertex to its neighbours. */
         final Map<Vertex, Collection<Vertex>> edgeSets =
-            convertEdgesToNeighbors(edges);
+            Topologies.convertEdgesToNeighbors(edges);
 
         double elapsed = 0.0;
         cycles:
@@ -447,68 +395,6 @@ public class AlgoPerfTest {
             // if (cycle > 100 && delta == maxDelta) break;
             for (int i = 0; i < steady.length; i++)
                 if (cycle - steady[i] > steadyLimit[i]) break cycles;
-        }
-    }
-
-    /**
-     * Generate a scale-free graph.
-     * 
-     * @param <V> the vertex type
-     * 
-     * @param source a generator of new vertices
-     * 
-     * @param vertexCount the number of vertices to create
-     * 
-     * @param newEdgesPerVertex the number of times each new vertex will
-     * be attempted to connect to an existing vertex
-     * 
-     * @param edgeSets a record of the topology, mapping each vertex to
-     * its neighbours
-     * 
-     * @param rng a random-number generator for selecting a vertex to
-     * form an edge with
-     */
-    private static <V> void
-        generateTopology(Supplier<V> source, final int vertexCount,
-                         IntSupplier newEdgesPerVertex,
-                         Map<V, Collection<V>> edgeSets, Random rng) {
-        /* Create a starting point. */
-        V v0 = source.get();
-        V v1 = source.get();
-        edgeSets.put(v0, new HashSet<>());
-        edgeSets.put(v1, new HashSet<>());
-        edgeSets.get(v0).add(v1);
-        edgeSets.get(v1).add(v0);
-        int edgeCount = 2;
-
-        /* Add more vertices, and link to a random existing one each
-         * time. */
-        for (int i = 2; i < vertexCount; i++) {
-            V latest = source.get();
-
-            /* Identify vertices to link to. */
-            Collection<V> chosen = new HashSet<>();
-            final int linkCount = newEdgesPerVertex.getAsInt();
-            for (int j = 0; j < linkCount; j++) {
-                int chosenIndex = rng.nextInt(edgeCount);
-                for (Map.Entry<V, Collection<V>> entry : edgeSets
-                    .entrySet()) {
-                    if (chosenIndex < entry.getValue().size()) {
-                        chosen.add(entry.getKey());
-                        break;
-                    }
-                    chosenIndex -= entry.getValue().size();
-                }
-            }
-
-            /* Link to those vertices. */
-            edgeSets.put(latest, new HashSet<>());
-            for (V existing : chosen) {
-                if (edgeSets.get(latest).add(existing)) {
-                    edgeSets.get(existing).add(latest);
-                    edgeCount += 2;
-                }
-            }
         }
     }
 
