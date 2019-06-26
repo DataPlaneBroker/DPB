@@ -40,6 +40,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -130,9 +131,66 @@ public class AlgoPerfTest {
             neighbors.forEach((a, n) -> a.mass = n.size());
 
             topModel.setData(0.0, edges);
-            Thread.sleep(10 * 1000);
+            Thread.sleep(3 * 1000);
 
-            alignTopology(edges, topModel, Pauser.NULL);
+            VertexAttribution<Vertex> attrs =
+                new VertexAttribution<Vertex>() {
+                    @Override
+                    public double y(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public double x(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public double vy(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public double vx(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public void step(Vertex vert, double delta) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public void resetForce(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public void move(Vertex vert, double dx, double dy) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public double mass(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public double force(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public void diminishForce(Vertex vert) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+
+                    @Override
+                    public void addForce(Vertex vert, double x, double y) {
+                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    }
+                };
+            alignTopology(attrs, edges, topModel, Pauser.NULL);
             topModel.setData(-1.0, edges);
             System.out.printf("Complete%n");
         }
@@ -145,14 +203,20 @@ public class AlgoPerfTest {
      * springs. Stop when all vertices are rotating around the centre of
      * mass uniformly.
      * 
+     * @param <V> the vertex type
+     * 
+     * @param attrs a means to manipulate the physical attributes of a
+     * vertex
+     * 
      * @param edges the topology expressed as a set of edges
      * 
      * @param display an object to report the status to after each cycle
      * 
      * @param pauser an object to regulate reporting
      */
-    public static void
-        alignTopology(Collection<? extends Edge<? extends Vertex>> edges,
+    public static <V> void
+        alignTopology(VertexAttribution<V> attrs,
+                      Collection<? extends Edge<? extends Vertex>> edges,
                       TopologyDisplay<Vertex> display, Pauser pauser) {
         /* The repulsive gravitational constant */
         final double push = 0.3;
@@ -179,14 +243,19 @@ public class AlgoPerfTest {
         final long[] steady = new long[steadyLimit.length];
 
         /* Create an index from each vertex to its neighbours. */
-        final Map<Vertex, Collection<Vertex>> edgeSets =
+        final Map<Vertex, Collection<Vertex>> neighbors =
             Topologies.convertEdgesToNeighbors(edges);
+
+        /* Create a repeatable sequence of vertices, so we can iterate
+         * over unique pairs. */
+        final List<Vertex> arr = new ArrayList<>(neighbors.keySet());
+        final int arrlen = arr.size();
 
         double elapsed = 0.0;
         cycles:
         for (long cycle = 0;; cycle++) {
             /* Compute forces given current positions and edges. */
-            edgeSets.keySet().forEach(Vertex::resetForce);
+            neighbors.keySet().forEach(Vertex::resetForce);
 
             /* Apply an elastic force to each edge. */
             final double optLength = 2.0;
@@ -210,12 +279,10 @@ public class AlgoPerfTest {
             }
 
             /* Make all vertices repel each other. */
-            Vertex[] arr = new Vertex[edgeSets.keySet().size()];
-            arr = edgeSets.keySet().toArray(arr);
-            for (int i = 0; i < arr.length - 1; i++) {
-                for (int j = i + 1; j < arr.length; j++) {
-                    final Vertex a = arr[i];
-                    final Vertex b = arr[j];
+            for (int i = 0; i < arrlen - 1; i++) {
+                for (int j = i + 1; j < arrlen; j++) {
+                    final Vertex a = arr.get(i);
+                    final Vertex b = arr.get(j);
                     final double dx = b.x - a.x;
                     final double dy = b.y - a.y;
                     final double r2 = dx * dx + dy * dy;
@@ -230,7 +297,7 @@ public class AlgoPerfTest {
             }
 
             /* Compute air resistance. */
-            edgeSets.keySet().forEach(v -> {
+            neighbors.keySet().forEach(v -> {
                 final double sp2 = v.vx * v.vx + v.vy * v.vy;
                 final double sp = Math.sqrt(sp2);
                 v.fx -= v.vx * sp * airResistance;
@@ -238,19 +305,19 @@ public class AlgoPerfTest {
             });
 
             /* Convert the forces to accelerations. */
-            edgeSets.keySet().forEach(v -> {
+            neighbors.keySet().forEach(v -> {
                 v.fx /= v.mass;
                 v.fy /= v.mass;
             });
 
-            if (false) for (Vertex v : edgeSets.keySet()) {
+            if (false) for (Vertex v : neighbors.keySet()) {
                 System.out.printf("  %d: delta-V (%g, %g)%n", v.id, v.vx,
                                   v.vy);
             }
 
             /* Find the largest time jump we can afford. */
             double bestDelta = maxDelta;
-            for (Vertex v : edgeSets.keySet()) {
+            for (Vertex v : neighbors.keySet()) {
                 {
                     /* Check acceleration. */
                     final double acc2 = v.fx * v.fx + v.fy * v.fy;
@@ -271,7 +338,7 @@ public class AlgoPerfTest {
                 (elapsed + bestDelta > elapsed) ? bestDelta : 0.0001;
 
             /* Apply all accelerations and velocities. */
-            edgeSets.keySet().forEach(v -> {
+            neighbors.keySet().forEach(v -> {
                 v.vx += v.fx * delta;
                 v.vy += v.fy * delta;
                 v.x += v.vx * delta;
@@ -279,59 +346,43 @@ public class AlgoPerfTest {
             });
             elapsed += delta;
 
-            /* Recentre everything. */
-            final double xshift, yshift;
-            if (false) {
-                /* Recentre by finding the mid-point between extremes.
-                 * Don't use this if you want to damp rotation, as it
-                 * won't be the centre of that rotation. */
-                double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
-                double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
-                for (Vertex v : edgeSets.keySet()) {
-                    if (v.x > xmax) xmax = v.x;
-                    if (v.x < xmin) xmin = v.x;
-                    if (v.y > ymax) ymax = v.y;
-                    if (v.y < ymin) ymin = v.y;
-                }
-                xshift = xmin + (xmax - xmin) / 2.0;
-                yshift = ymin + (ymax - ymin) / 2.0;
-            } else {
+            {
                 /* Recentre by finding the centre of gravity. */
                 double x = 0.0, y = 0.0, mass = 0.0;
-                for (Vertex v : edgeSets.keySet()) {
+                for (Vertex v : neighbors.keySet()) {
                     mass += v.mass;
                     x += v.mass * v.x;
                     y += v.mass * v.y;
                 }
-                xshift = x / mass;
-                yshift = y / mass;
-            }
-            for (Vertex v : edgeSets.keySet()) {
-                v.x -= xshift;
-                v.y -= yshift;
+                final double xshift = x / mass;
+                final double yshift = y / mass;
+                for (Vertex v : neighbors.keySet()) {
+                    v.x -= xshift;
+                    v.y -= yshift;
+                }
             }
 
             /* Cancel rotation. */
             {
                 double sum = 0.0, sqsum = 0.0;
-                for (Vertex v : edgeSets.keySet()) {
+                for (Vertex v : neighbors.keySet()) {
                     final double r2 = v.x * v.x + v.y * v.y;
                     final double rot = (v.vy * v.x - v.vx * v.y) / r2;
                     sum += rot;
                     sqsum += rot * rot;
                 }
-                sum /= edgeSets.size();
-                sqsum /= edgeSets.size();
+                sum /= neighbors.size();
+                sqsum /= neighbors.size();
                 final double var = sqsum - sum * sum;
                 // final double stddev = Math.sqrt(var);
                 if (false) {
                     double rem = 0.0;
-                    for (Vertex v : edgeSets.keySet()) {
+                    for (Vertex v : neighbors.keySet()) {
                         v.vx += sum * v.y * 2;
                         v.vy -= sum * v.x * 2;
                         rem += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
                     }
-                    rem /= edgeSets.size();
+                    rem /= neighbors.size();
                 }
                 if (false)
                     System.out.printf("rotation: (var %g) %d %d %d = %d%n",
@@ -352,13 +403,14 @@ public class AlgoPerfTest {
             if (false) {
                 System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
                                   delta);
-                for (Vertex v : edgeSets.keySet()) {
+                for (Vertex v : neighbors.keySet()) {
                     System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
                 }
             }
             pauser.pause(cycle);
 
             {
+                /* Report the latest positions. */
                 final double minDelta = 1e-6;
                 assert delta <= maxDelta;
                 final double ratio =
@@ -372,17 +424,17 @@ public class AlgoPerfTest {
             if (false) {
                 /* Find the average velocity. */
                 double vxsum = 0.0, vysum = 0.0;
-                for (Vertex v : edgeSets.keySet()) {
+                for (Vertex v : neighbors.keySet()) {
                     vxsum += v.vx;
                     vysum += v.vy;
                 }
-                final double vxmean = vxsum / edgeSets.size();
-                final double vymean = vysum / edgeSets.size();
+                final double vxmean = vxsum / neighbors.size();
+                final double vymean = vysum / neighbors.size();
 
                 /* What's the total energy in the system? */
                 double energy = 0.0;
                 double mass = 0.0;
-                for (Vertex v : edgeSets.keySet()) {
+                for (Vertex v : neighbors.keySet()) {
                     final double vx = v.x - vxmean;
                     final double vy = v.y - vymean;
                     energy += v.mass * (vx * vx + vy * vy) / 2.0;
