@@ -47,6 +47,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.function.IntSupplier;
+import java.util.function.Supplier;
 
 import javax.swing.JComponent;
 import javax.swing.JFrame;
@@ -119,47 +121,9 @@ public class AlgoPerfTest {
             /* Remember which other vertices an vertex joins. */
             Map<Vertex, Collection<Vertex>> edgeSets = new HashMap<>();
 
-            /* Create a starting point. */
-            Vertex v0 = new Vertex();
-            Vertex v1 = new Vertex();
-            edgeSets.put(v0, new HashSet<>());
-            edgeSets.put(v1, new HashSet<>());
-            edgeSets.get(v0).add(v1);
-            edgeSets.get(v1).add(v0);
-            int edgeCount = 2;
-
-            /* Add more vertices, and link to a random existing one each
-             * time. */
-            for (int i = 2; i < vertexCount; i++) {
-                Vertex latest = new Vertex();
-
-                /* Identify vertices to link to. */
-                Collection<Vertex> chosen = new HashSet<>();
-                final int linkCount = rng
-                    .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1)
-                        + 1)
-                    + 1;
-                for (int j = 0; j < linkCount; j++) {
-                    int chosenIndex = rng.nextInt(edgeCount);
-                    for (Map.Entry<Vertex, Collection<Vertex>> entry : edgeSets
-                        .entrySet()) {
-                        if (chosenIndex < entry.getValue().size()) {
-                            chosen.add(entry.getKey());
-                            break;
-                        }
-                        chosenIndex -= entry.getValue().size();
-                    }
-                }
-
-                /* Link to those vertices. */
-                edgeSets.put(latest, new HashSet<>());
-                for (Vertex existing : chosen) {
-                    if (edgeSets.get(latest).add(existing)) {
-                        edgeSets.get(existing).add(latest);
-                        edgeCount += 2;
-                    }
-                }
-            }
+            generateTopology(Vertex::new, vertexCount, () -> rng
+                .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1) + 1)
+                + 1, edgeSets, rng);
 
             /* Convert to a set of edges. */
             for (Map.Entry<Vertex, Collection<Vertex>> entry : edgeSets
@@ -331,7 +295,7 @@ public class AlgoPerfTest {
                     sum /= edgeSets.size();
                     sqsum /= edgeSets.size();
                     final double var = sqsum - sum * sum;
-                    //final double stddev = Math.sqrt(var);
+                    // final double stddev = Math.sqrt(var);
                     if (false) {
                         double rem = 0.0;
                         for (Vertex v : edgeSets.keySet()) {
@@ -414,6 +378,68 @@ public class AlgoPerfTest {
         }
     }
 
+    /**
+     * Generate a scale-free graph.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param source a generator of new vertices
+     * 
+     * @param vertexCount the number of vertices to create
+     * 
+     * @param newEdgesPerVertex the number of times each new vertex will
+     * be attempted to connect to an existing vertex
+     * 
+     * @param edgeSets a record of the topology, mapping each vertex to
+     * its neighbours
+     * 
+     * @param rng a random-number generator for selecting a vertex to
+     * form an edge with
+     */
+    private static <V> void
+        generateTopology(Supplier<V> source, final int vertexCount,
+                         IntSupplier newEdgesPerVertex,
+                         Map<V, Collection<V>> edgeSets, Random rng) {
+        /* Create a starting point. */
+        V v0 = source.get();
+        V v1 = source.get();
+        edgeSets.put(v0, new HashSet<>());
+        edgeSets.put(v1, new HashSet<>());
+        edgeSets.get(v0).add(v1);
+        edgeSets.get(v1).add(v0);
+        int edgeCount = 2;
+
+        /* Add more vertices, and link to a random existing one each
+         * time. */
+        for (int i = 2; i < vertexCount; i++) {
+            V latest = source.get();
+
+            /* Identify vertices to link to. */
+            Collection<V> chosen = new HashSet<>();
+            final int linkCount = newEdgesPerVertex.getAsInt();
+            for (int j = 0; j < linkCount; j++) {
+                int chosenIndex = rng.nextInt(edgeCount);
+                for (Map.Entry<V, Collection<V>> entry : edgeSets
+                    .entrySet()) {
+                    if (chosenIndex < entry.getValue().size()) {
+                        chosen.add(entry.getKey());
+                        break;
+                    }
+                    chosenIndex -= entry.getValue().size();
+                }
+            }
+
+            /* Link to those vertices. */
+            edgeSets.put(latest, new HashSet<>());
+            for (V existing : chosen) {
+                if (edgeSets.get(latest).add(existing)) {
+                    edgeSets.get(existing).add(latest);
+                    edgeCount += 2;
+                }
+            }
+        }
+    }
+
     @SuppressWarnings("unused")
     private static double positiveQuadraticSolution(double a, double b,
                                                     double c) {
@@ -433,7 +459,8 @@ public class AlgoPerfTest {
         }
     }
 
-    private static class MyTopologyModel implements TopologyModel {
+    private static class MyTopologyModel
+        implements TopologyModel, TopologyDisplay<Vertex> {
         private Collection<List<Point2D.Double>> edges;
         private Rectangle2D.Double bounds;
         private JComponent widget;
@@ -443,8 +470,10 @@ public class AlgoPerfTest {
             this.widget = widget;
         }
 
-        void setData(double speed,
-                     Collection<? extends Edge<? extends Vertex>> edges) {
+        @Override
+        public void
+            setData(double speed,
+                    Collection<? extends Edge<? extends Vertex>> edges) {
             /* Convert the edges into Swing/AWT terms. */
             Collection<List<Point2D.Double>> newEdges = new HashSet<>();
             Map<Vertex, Point2D.Double> map = new HashMap<>();
