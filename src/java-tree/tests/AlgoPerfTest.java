@@ -119,262 +119,334 @@ public class AlgoPerfTest {
             final Random rng = new Random();
 
             /* Remember which other vertices an vertex joins. */
-            Map<Vertex, Collection<Vertex>> edgeSets = new HashMap<>();
+            Map<Vertex, Collection<Vertex>> neighbors = new HashMap<>();
 
             generateTopology(Vertex::new, vertexCount, () -> rng
                 .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1) + 1)
-                + 1, edgeSets, rng);
+                + 1, neighbors, rng);
 
             /* Convert to a set of edges. */
-            for (Map.Entry<Vertex, Collection<Vertex>> entry : edgeSets
+            edges = convertNeighborsToEdges(neighbors);
+
+            /* Give each vertex a mass proportional to its degree. */
+            for (Map.Entry<Vertex, Collection<Vertex>> entry : neighbors
                 .entrySet()) {
                 Vertex a = entry.getKey();
                 a.mass = entry.getValue().size();
-                for (Vertex b : entry.getValue())
-                    edges.add(Edge.of(a, b));
             }
 
             topModel.setData(0.0, edges);
             Thread.sleep(10 * 1000);
 
-            /* Position them. */
-            if (false) for (Vertex v : edgeSets.keySet()) {
-                System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
-            }
-            final double maxSpeed = 0.01;
-            double elapsed = 0.0;
-            final long startTime = System.currentTimeMillis();
-            final double frameRate = 240.0;
-            final double framePeriod = 1000.0 / frameRate;
-            final long[] steadyLimit = { 1000, 10000, 100000 };
-            final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
-            double[] lowTarget = new double[steadyLimit.length];
-            double[] highTarget = new double[steadyLimit.length];
-            long[] steady = new long[steadyLimit.length];
-            cycles:
-            for (long cycle = 0;; cycle++) {
-                /* Compute forces given current positions and edges. */
-                edgeSets.keySet().forEach(Vertex::resetForce);
+            alignTopology(edges, topModel, Pauser.NULL);
+            topModel.setData(-1.0, edges);
+            System.out.printf("Complete%n");
+        }
+    }
 
-                /* Apply an elastic force to each edge. */
-                final double optLength = 2.0;
-                final double spring = 0.1;
-                for (Edge<Vertex> entry : edges) {
-                    final Vertex a = entry.first();
-                    final Vertex b = entry.second();
+    /**
+     * Convert a topology represented as an index from each vertex to
+     * its neighbours to one represented as a set of edges. The
+     * resultant topology is an undirected graph.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param neighbors the topology as an index from each vertex to its
+     * neighbours
+     * 
+     * @return the set of edges
+     */
+    private static <V> Collection<Edge<V>>
+        convertNeighborsToEdges(Map<? extends V, ? extends Collection<? extends V>> neighbors) {
+        Collection<Edge<V>> edges = new HashSet<>();
+        for (Map.Entry<? extends V, ? extends Collection<? extends V>> entry : neighbors
+            .entrySet()) {
+            V a = entry.getKey();
+            for (V b : entry.getValue())
+                edges.add(Edge.of(a, b));
+        }
+        return edges;
+    }
+
+    /**
+     * Convert a topology represented as a set of edges into one
+     * represented as an index from each vertex to its neighbours.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param edges the set of edges
+     * 
+     * @return an index from each vertex to its neighbours
+     */
+    private static <V> Map<V, Collection<V>>
+        convertEdgesToNeighbors(Collection<? extends Edge<? extends V>> edges) {
+        final Map<V, Collection<V>> neighbors = new HashMap<>();
+        for (Edge<? extends V> edge : edges) {
+            V v1 = edge.first();
+            V v2 = edge.second();
+            neighbors.computeIfAbsent(v1, k -> new HashSet<>()).add(v2);
+            neighbors.computeIfAbsent(v2, k -> new HashSet<>()).add(v1);
+        }
+        return neighbors;
+    }
+
+    /**
+     * Allow the vertices of a topology to move around each other to
+     * form a stable, dispersed structure. A simulation is run in which
+     * gravity pushes all vertices apart, and edges behave like ideal
+     * springs. Stop when all vertices are rotating around the centre of
+     * mass uniformly.
+     * 
+     * @param edges the topology expressed as a set of edges
+     * 
+     * @param display an object to report the status to after each cycle
+     * 
+     * @param pauser an object to regulate reporting
+     */
+    private static void
+        alignTopology(Collection<? extends Edge<? extends Vertex>> edges,
+                      TopologyDisplay<Vertex> display, Pauser pauser) {
+        /* The repulsive gravitational constant */
+        final double push = 0.3;
+
+        /* The maximum allowed speed of any vertex */
+        final double maxSpeed = 0.01;
+
+        /* The strength of air resistance to damp motion */
+        final double airResistance = 0.9;
+
+        /* The maximum simulation step */
+        final double maxDelta = 0.1;
+
+        /* Prepare to detect the end of the simulation. The first two
+         * arrays must have the same length. steadyLimit indicates how
+         * many cycles must pass to stop if the rotation variance is
+         * stable within the threshold given by targetFraction. The
+         * remaining arrays are derived from the first two, and act as
+         * working state or precomputed values during the simulation. */
+        final long[] steadyLimit = { 1000, 10000, 100000 };
+        final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
+        final double[] lowTarget = new double[steadyLimit.length];
+        final double[] highTarget = new double[steadyLimit.length];
+        final long[] steady = new long[steadyLimit.length];
+
+        /* Create an index from each vertex to its neighbours. */
+        final Map<Vertex, Collection<Vertex>> edgeSets =
+            convertEdgesToNeighbors(edges);
+
+        double elapsed = 0.0;
+        cycles:
+        for (long cycle = 0;; cycle++) {
+            /* Compute forces given current positions and edges. */
+            edgeSets.keySet().forEach(Vertex::resetForce);
+
+            /* Apply an elastic force to each edge. */
+            final double optLength = 2.0;
+            final double spring = 0.1;
+            for (Edge<? extends Vertex> entry : edges) {
+                final Vertex a = entry.first();
+                final Vertex b = entry.second();
+                final double dx = b.x - a.x;
+                final double dy = b.y - a.y;
+                final double r2 = dx * dx + dy * dy;
+                final double dist = Math.sqrt(r2);
+                final double sinth = dy / dist;
+                final double costh = dx / dist;
+                final double force = (dist - optLength) * spring;
+                final double bfx = force * costh;
+                final double bfy = force * sinth;
+                a.fx += bfx;
+                a.fy += bfy;
+                b.fx -= bfx;
+                b.fy -= bfy;
+            }
+
+            /* Make all vertices repel each other. */
+            Vertex[] arr = new Vertex[edgeSets.keySet().size()];
+            arr = edgeSets.keySet().toArray(arr);
+            for (int i = 0; i < arr.length - 1; i++) {
+                for (int j = i + 1; j < arr.length; j++) {
+                    final Vertex a = arr[i];
+                    final Vertex b = arr[j];
                     final double dx = b.x - a.x;
                     final double dy = b.y - a.y;
                     final double r2 = dx * dx + dy * dy;
-                    final double dist = Math.sqrt(r2);
-                    final double sinth = dy / dist;
-                    final double costh = dx / dist;
-                    final double force = (dist - optLength) * spring;
-                    final double bfx = force * costh;
-                    final double bfy = force * sinth;
-                    a.fx += bfx;
-                    a.fy += bfy;
-                    b.fx -= bfx;
-                    b.fy -= bfy;
+                    final double r3 = Math.pow(r2, 1.5);
+                    final double bfx = push * dx / r3;
+                    final double bfy = push * dy / r3;
+                    a.fx -= b.mass * bfx;
+                    a.fy -= b.mass * bfy;
+                    b.fx += a.mass * bfx;
+                    b.fy += a.mass * bfy;
+                }
+            }
+
+            /* Compute air resistance. */
+            edgeSets.keySet().forEach(v -> {
+                final double sp2 = v.vx * v.vx + v.vy * v.vy;
+                final double sp = Math.sqrt(sp2);
+                v.fx -= v.vx * sp * airResistance;
+                v.fy -= v.vy * sp * airResistance;
+            });
+
+            /* Convert the forces to accelerations. */
+            edgeSets.keySet().forEach(v -> {
+                v.fx /= v.mass;
+                v.fy /= v.mass;
+            });
+
+            if (false) for (Vertex v : edgeSets.keySet()) {
+                System.out.printf("  %d: delta-V (%g, %g)%n", v.id, v.vx,
+                                  v.vy);
+            }
+
+            /* Find the largest time jump we can afford. */
+            double bestDelta = maxDelta;
+            for (Vertex v : edgeSets.keySet()) {
+                {
+                    /* Check acceleration. */
+                    final double acc2 = v.fx * v.fx + v.fy * v.fy;
+                    final double acc = Math.sqrt(acc2);
+                    final double delta = maxSpeed / acc;
+                    if (delta < bestDelta) bestDelta = delta;
                 }
 
-                /* Make all vertices repel each other. */
-                Vertex[] arr = new Vertex[edgeSets.keySet().size()];
-                arr = edgeSets.keySet().toArray(arr);
-                final double push = 0.3;
-                for (int i = 0; i < arr.length - 1; i++) {
-                    for (int j = i + 1; j < arr.length; j++) {
-                        final Vertex a = arr[i];
-                        final Vertex b = arr[j];
-                        final double dx = b.x - a.x;
-                        final double dy = b.y - a.y;
-                        final double r2 = dx * dx + dy * dy;
-                        final double r3 = Math.pow(r2, 1.5);
-                        final double bfx = push * dx / r3;
-                        final double bfy = push * dy / r3;
-                        a.fx -= b.mass * bfx;
-                        a.fy -= b.mass * bfy;
-                        b.fx += a.mass * bfx;
-                        b.fy += a.mass * bfy;
-                    }
-                }
-
-                /* Compute air resistance. */
-                final double airResistence = 0.9;
-                edgeSets.keySet().forEach(v -> {
+                {
+                    /* Check velocity. */
                     final double sp2 = v.vx * v.vx + v.vy * v.vy;
                     final double sp = Math.sqrt(sp2);
-                    v.fx -= v.vx * sp * airResistence;
-                    v.fy -= v.vy * sp * airResistence;
-                });
-
-                /* Convert the forces to accelerations. */
-                edgeSets.keySet().forEach(v -> {
-                    v.fx /= v.mass;
-                    v.fy /= v.mass;
-                });
-
-                if (false) for (Vertex v : edgeSets.keySet()) {
-                    System.out.printf("  %d: delta-V (%g, %g)%n", v.id, v.vx,
-                                      v.vy);
+                    final double delta = maxSpeed / sp;
+                    if (delta < bestDelta) bestDelta = delta;
                 }
-
-                /* Find the largest time jump we can afford. */
-                final double maxDelta = 0.1;
-                double bestDelta = maxDelta;
-                for (Vertex v : edgeSets.keySet()) {
-                    {
-                        /* Check acceleration. */
-                        final double acc2 = v.fx * v.fx + v.fy * v.fy;
-                        final double acc = Math.sqrt(acc2);
-                        final double delta = maxSpeed / acc;
-                        if (delta < bestDelta) bestDelta = delta;
-                    }
-
-                    {
-                        /* Check velocity. */
-                        final double sp2 = v.vx * v.vx + v.vy * v.vy;
-                        final double sp = Math.sqrt(sp2);
-                        final double delta = maxSpeed / sp;
-                        if (delta < bestDelta) bestDelta = delta;
-                    }
-                }
-                final double delta =
-                    (elapsed + bestDelta > elapsed) ? bestDelta : 0.0001;
-
-                /* Apply all accelerations and velocities. */
-                edgeSets.keySet().forEach(v -> {
-                    v.vx += v.fx * delta;
-                    v.vy += v.fy * delta;
-                    v.x += v.vx * delta;
-                    v.y += v.vy * delta;
-                });
-                elapsed += delta;
-
-                /* Recentre everything. */
-                final double xshift, yshift;
-                if (false) {
-                    /* Recentre by finding the mid-point between
-                     * extremes. Don't use this if you want to damp
-                     * rotation, as it won't be the centre of that
-                     * rotation. */
-                    double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
-                    double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
-                    for (Vertex v : edgeSets.keySet()) {
-                        if (v.x > xmax) xmax = v.x;
-                        if (v.x < xmin) xmin = v.x;
-                        if (v.y > ymax) ymax = v.y;
-                        if (v.y < ymin) ymin = v.y;
-                    }
-                    xshift = xmin + (xmax - xmin) / 2.0;
-                    yshift = ymin + (ymax - ymin) / 2.0;
-                } else {
-                    /* Recentre by finding the centre of gravity. */
-                    double x = 0.0, y = 0.0, mass = 0.0;
-                    for (Vertex v : edgeSets.keySet()) {
-                        mass += v.mass;
-                        x += v.mass * v.x;
-                        y += v.mass * v.y;
-                    }
-                    xshift = x / mass;
-                    yshift = y / mass;
-                }
-                for (Vertex v : edgeSets.keySet()) {
-                    v.x -= xshift;
-                    v.y -= yshift;
-                }
-
-                /* Cancel rotation. */
-                {
-                    double sum = 0.0, sqsum = 0.0;
-                    for (Vertex v : edgeSets.keySet()) {
-                        final double r2 = v.x * v.x + v.y * v.y;
-                        final double rot = (v.vy * v.x - v.vx * v.y) / r2;
-                        sum += rot;
-                        sqsum += rot * rot;
-                    }
-                    sum /= edgeSets.size();
-                    sqsum /= edgeSets.size();
-                    final double var = sqsum - sum * sum;
-                    // final double stddev = Math.sqrt(var);
-                    if (false) {
-                        double rem = 0.0;
-                        for (Vertex v : edgeSets.keySet()) {
-                            v.vx += sum * v.y * 2;
-                            v.vy -= sum * v.x * 2;
-                            rem += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
-                        }
-                        rem /= edgeSets.size();
-                    }
-                    if (false) System.out
-                        .printf("rotation: (var %g) %d %d %d = %d%n", var,
-                                steady[0], steady[1], steady[2], cycle);
-
-                    /* Detect stability in the variance. */
-                    final double signal = var;
-                    for (int i = 0; i < steady.length; i++) {
-                        if (signal > highTarget[i] || signal < lowTarget[i]) {
-                            lowTarget[i] = signal * (1.0 - targetFraction[i]);
-                            highTarget[i] =
-                                signal * (1.0 + targetFraction[i]);
-                            steady[i] = cycle;
-                        }
-                    }
-                }
-
-                if (false) {
-                    System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
-                                      delta);
-                    for (Vertex v : edgeSets.keySet()) {
-                        System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
-                    }
-                }
-                if (false) {
-                    final long now = System.currentTimeMillis();
-                    final long expected =
-                        (long) (startTime + framePeriod * cycle);
-                    if (now < expected) Thread.sleep(expected - now);
-                }
-
-                {
-                    final double minDelta = 1e-6;
-                    assert delta <= maxDelta;
-                    final double ratio = (Math.log(Math.max(minDelta, delta))
-                        - Math.log(minDelta))
-                        / (Math.log(maxDelta) - Math.log(minDelta));
-                    assert ratio >= 0.0;
-                    assert ratio <= 1.0;
-                    topModel.setData(ratio, edges);
-                }
-
-                if (false) {
-                    /* Find the average velocity. */
-                    double vxsum = 0.0, vysum = 0.0;
-                    for (Vertex v : edgeSets.keySet()) {
-                        vxsum += v.vx;
-                        vysum += v.vy;
-                    }
-                    final double vxmean = vxsum / edgeSets.size();
-                    final double vymean = vysum / edgeSets.size();
-
-                    /* What's the total energy in the system? */
-                    double energy = 0.0;
-                    double mass = 0.0;
-                    for (Vertex v : edgeSets.keySet()) {
-                        final double vx = v.x - vxmean;
-                        final double vy = v.y - vymean;
-                        energy += v.mass * (vx * vx + vy * vy) / 2.0;
-                        mass += v.mass;
-                    }
-                    System.out.printf("Energy density: %g (delta %g)%n",
-                                      energy / mass, delta);
-                }
-
-                // if (cycle > 100 && delta == maxDelta) break;
-                for (int i = 0; i < steady.length; i++)
-                    if (cycle - steady[i] > steadyLimit[i]) break cycles;
             }
-            topModel.setData(-1.0, edges);
-            System.out.printf("Complete%n");
+            final double delta =
+                (elapsed + bestDelta > elapsed) ? bestDelta : 0.0001;
+
+            /* Apply all accelerations and velocities. */
+            edgeSets.keySet().forEach(v -> {
+                v.vx += v.fx * delta;
+                v.vy += v.fy * delta;
+                v.x += v.vx * delta;
+                v.y += v.vy * delta;
+            });
+            elapsed += delta;
+
+            /* Recentre everything. */
+            final double xshift, yshift;
+            if (false) {
+                /* Recentre by finding the mid-point between extremes.
+                 * Don't use this if you want to damp rotation, as it
+                 * won't be the centre of that rotation. */
+                double xmin = Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
+                double ymin = Double.MAX_VALUE, ymax = -Double.MAX_VALUE;
+                for (Vertex v : edgeSets.keySet()) {
+                    if (v.x > xmax) xmax = v.x;
+                    if (v.x < xmin) xmin = v.x;
+                    if (v.y > ymax) ymax = v.y;
+                    if (v.y < ymin) ymin = v.y;
+                }
+                xshift = xmin + (xmax - xmin) / 2.0;
+                yshift = ymin + (ymax - ymin) / 2.0;
+            } else {
+                /* Recentre by finding the centre of gravity. */
+                double x = 0.0, y = 0.0, mass = 0.0;
+                for (Vertex v : edgeSets.keySet()) {
+                    mass += v.mass;
+                    x += v.mass * v.x;
+                    y += v.mass * v.y;
+                }
+                xshift = x / mass;
+                yshift = y / mass;
+            }
+            for (Vertex v : edgeSets.keySet()) {
+                v.x -= xshift;
+                v.y -= yshift;
+            }
+
+            /* Cancel rotation. */
+            {
+                double sum = 0.0, sqsum = 0.0;
+                for (Vertex v : edgeSets.keySet()) {
+                    final double r2 = v.x * v.x + v.y * v.y;
+                    final double rot = (v.vy * v.x - v.vx * v.y) / r2;
+                    sum += rot;
+                    sqsum += rot * rot;
+                }
+                sum /= edgeSets.size();
+                sqsum /= edgeSets.size();
+                final double var = sqsum - sum * sum;
+                // final double stddev = Math.sqrt(var);
+                if (false) {
+                    double rem = 0.0;
+                    for (Vertex v : edgeSets.keySet()) {
+                        v.vx += sum * v.y * 2;
+                        v.vy -= sum * v.x * 2;
+                        rem += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
+                    }
+                    rem /= edgeSets.size();
+                }
+                if (false)
+                    System.out.printf("rotation: (var %g) %d %d %d = %d%n",
+                                      var, steady[0], steady[1], steady[2],
+                                      cycle);
+
+                /* Detect stability in the variance. */
+                final double signal = var;
+                for (int i = 0; i < steady.length; i++) {
+                    if (signal > highTarget[i] || signal < lowTarget[i]) {
+                        lowTarget[i] = signal * (1.0 - targetFraction[i]);
+                        highTarget[i] = signal * (1.0 + targetFraction[i]);
+                        steady[i] = cycle;
+                    }
+                }
+            }
+
+            if (false) {
+                System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
+                                  delta);
+                for (Vertex v : edgeSets.keySet()) {
+                    System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
+                }
+            }
+            pauser.pause(cycle);
+
+            {
+                final double minDelta = 1e-6;
+                assert delta <= maxDelta;
+                final double ratio =
+                    (Math.log(Math.max(minDelta, delta)) - Math.log(minDelta))
+                        / (Math.log(maxDelta) - Math.log(minDelta));
+                assert ratio >= 0.0;
+                assert ratio <= 1.0;
+                display.setData(ratio, edges);
+            }
+
+            if (false) {
+                /* Find the average velocity. */
+                double vxsum = 0.0, vysum = 0.0;
+                for (Vertex v : edgeSets.keySet()) {
+                    vxsum += v.vx;
+                    vysum += v.vy;
+                }
+                final double vxmean = vxsum / edgeSets.size();
+                final double vymean = vysum / edgeSets.size();
+
+                /* What's the total energy in the system? */
+                double energy = 0.0;
+                double mass = 0.0;
+                for (Vertex v : edgeSets.keySet()) {
+                    final double vx = v.x - vxmean;
+                    final double vy = v.y - vymean;
+                    energy += v.mass * (vx * vx + vy * vy) / 2.0;
+                    mass += v.mass;
+                }
+                System.out.printf("Energy density: %g (delta %g)%n",
+                                  energy / mass, delta);
+            }
+
+            // if (cycle > 100 && delta == maxDelta) break;
+            for (int i = 0; i < steady.length; i++)
+                if (cycle - steady[i] > steadyLimit[i]) break cycles;
         }
     }
 
