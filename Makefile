@@ -43,6 +43,7 @@ roots_tests += TestGeographicSpan
 roots_tests += TestJsonServer
 roots_tests += TestJsonClient
 roots_tests += AlgoPerfTest
+roots_tests += TopologyDemonstration
 deps_tests += core
 
 JARDEPS_OUTDIR=out
@@ -93,6 +94,9 @@ installed-jars:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%-src.zip)
 
 testalgoperf:  all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" AlgoPerfTest
+
+topodemo:  all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TopologyDemonstration
 
 testdv: all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" TestDV

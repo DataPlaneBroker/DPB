@@ -59,10 +59,7 @@ import uk.ac.lancs.routing.span.Edge;
  * 
  * @author simpsons
  */
-public class AlgoPerfTest {
-    /**
-     * @param args
-     */
+public class TopologyDemonstration {
     public static void main(String[] args) throws Exception {
         final MyTopologyModel topModel = new MyTopologyModel();
         SwingUtilities.invokeLater(() -> {
