@@ -206,25 +206,6 @@ public class AlgoPerfTest {
         }
     }
 
-    @SuppressWarnings("unused")
-    private static double positiveQuadraticSolution(double a, double b,
-                                                    double c) {
-        final double disc = b * b - 4 * a * c;
-        final double sqrt = Math.sqrt(disc);
-        final double s1 = (-b - sqrt) / 2 / a;
-        final double s2 = (-b + sqrt) / 2 / a;
-        if (Double.isNaN(s1) || s1 < 0.0) {
-            if (Double.isNaN(s2) || s2 < 0.0) return Double.NaN;
-            // throw new IllegalArgumentException("a=" + a + "; b=" + b
-            // + "; c=" + c);
-            return s2;
-        } else if (Double.isNaN(s2) || s2 < 0.0) {
-            return s1;
-        } else {
-            return Math.max(s1, s2);
-        }
-    }
-
     private static class MyTopologyModel
         implements TopologyModel, TopologyDisplay<Vertex> {
         private Collection<List<Point2D.Double>> edges;
