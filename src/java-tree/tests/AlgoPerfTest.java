@@ -64,6 +64,11 @@ public class AlgoPerfTest {
     private static class Vertex {
         public final int id;
 
+        @Override
+        public String toString() {
+            return Integer.toString(id);
+        }
+
         Vertex() {
             id = nextId++;
             x = 0.3 * id * Math.cos(id);
@@ -137,57 +142,66 @@ public class AlgoPerfTest {
                 new VertexAttribution<Vertex>() {
                     @Override
                     public double y(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        return vert.y;
                     }
 
                     @Override
                     public double x(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        return vert.x;
                     }
 
                     @Override
                     public double vy(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        return vert.vy;
                     }
 
                     @Override
                     public double vx(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        return vert.vx;
                     }
 
                     @Override
                     public void step(Vertex vert, double delta) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        vert.vx += vert.fx * delta;
+                        vert.vy += vert.fy * delta;
+                        vert.x += vert.vx * delta;
+                        vert.y += vert.vy * delta;
                     }
 
                     @Override
                     public void resetForce(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        vert.fx = 0.0;
+                        vert.fy = 0.0;
                     }
 
                     @Override
                     public void move(Vertex vert, double dx, double dy) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        vert.x += dx;
+                        vert.y += dy;
                     }
 
                     @Override
                     public double mass(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        return vert.mass;
                     }
 
                     @Override
                     public double force(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        final double fx = vert.fx;
+                        final double fy = vert.fy;
+                        return Math.sqrt(fx * fx + fy * fy);
                     }
 
                     @Override
                     public void diminishForce(Vertex vert) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                        vert.fx /= vert.mass;
+                        vert.fy /= vert.mass;
                     }
 
                     @Override
-                    public void addForce(Vertex vert, double x, double y) {
-                        throw new UnsupportedOperationException("unimplemented"); // TODO
+                    public void addForce(Vertex vert, double dx, double dy) {
+                        vert.fx += dx;
+                        vert.fy += dy;
                     }
                 };
             alignTopology(attrs, edges, topModel, Pauser.NULL);
@@ -261,10 +275,10 @@ public class AlgoPerfTest {
             final double optLength = 2.0;
             final double spring = 0.1;
             for (Edge<? extends Vertex> entry : edges) {
-                final Vertex a = entry.first();
-                final Vertex b = entry.second();
-                final double dx = b.x - a.x;
-                final double dy = b.y - a.y;
+                final V a = (V) entry.first();
+                final V b = (V) entry.second();
+                final double dx = attrs.xDiff(b, a);
+                final double dy = attrs.yDiff(b, a);
                 final double r2 = dx * dx + dy * dy;
                 final double dist = Math.sqrt(r2);
                 final double sinth = dy / dist;
@@ -272,47 +286,44 @@ public class AlgoPerfTest {
                 final double force = (dist - optLength) * spring;
                 final double bfx = force * costh;
                 final double bfy = force * sinth;
-                a.fx += bfx;
-                a.fy += bfy;
-                b.fx -= bfx;
-                b.fy -= bfy;
+                attrs.addForce(a, bfx, bfy);
+                attrs.addForce(b, -bfx, -bfy);
             }
 
             /* Make all vertices repel each other. */
             for (int i = 0; i < arrlen - 1; i++) {
                 for (int j = i + 1; j < arrlen; j++) {
-                    final Vertex a = arr.get(i);
-                    final Vertex b = arr.get(j);
-                    final double dx = b.x - a.x;
-                    final double dy = b.y - a.y;
+                    final V a = (V) arr.get(i);
+                    final V b = (V) arr.get(j);
+                    final double dx = attrs.xDiff(b, a);
+                    final double dy = attrs.yDiff(b, a);
                     final double r2 = dx * dx + dy * dy;
                     final double r3 = Math.pow(r2, 1.5);
                     final double bfx = push * dx / r3;
                     final double bfy = push * dy / r3;
-                    a.fx -= b.mass * bfx;
-                    a.fy -= b.mass * bfy;
-                    b.fx += a.mass * bfx;
-                    b.fy += a.mass * bfy;
+                    final double bmass = -attrs.mass(b);
+                    final double amass = attrs.mass(a);
+                    attrs.addForce(a, bmass * bfx, bmass * bfy);
+                    attrs.addForce(b, amass * bfx, amass * bfy);
                 }
             }
 
             /* Compute air resistance. */
             neighbors.keySet().forEach(v -> {
-                final double sp2 = v.vx * v.vx + v.vy * v.vy;
-                final double sp = Math.sqrt(sp2);
-                v.fx -= v.vx * sp * airResistance;
-                v.fy -= v.vy * sp * airResistance;
+                final double vx = attrs.vx((V) v);
+                final double vy = attrs.vy((V) v);
+                final double sp2 = vx * vx + vy * vy;
+                final double sp = -Math.sqrt(sp2);
+                attrs.addForce((V) v, vx * sp * airResistance,
+                               vy * sp * airResistance);
             });
 
             /* Convert the forces to accelerations. */
-            neighbors.keySet().forEach(v -> {
-                v.fx /= v.mass;
-                v.fy /= v.mass;
-            });
+            neighbors.keySet().forEach(v -> attrs.diminishForce((V) v));
 
             if (false) for (Vertex v : neighbors.keySet()) {
-                System.out.printf("  %d: delta-V (%g, %g)%n", v.id, v.vx,
-                                  v.vy);
+                System.out.printf("  %s: delta-V (%g, %g)%n", v,
+                                  attrs.vx((V) v), attrs.vy((V) v));
             }
 
             /* Find the largest time jump we can afford. */
@@ -320,16 +331,14 @@ public class AlgoPerfTest {
             for (Vertex v : neighbors.keySet()) {
                 {
                     /* Check acceleration. */
-                    final double acc2 = v.fx * v.fx + v.fy * v.fy;
-                    final double acc = Math.sqrt(acc2);
+                    final double acc = attrs.force((V) v);
                     final double delta = maxSpeed / acc;
                     if (delta < bestDelta) bestDelta = delta;
                 }
 
                 {
                     /* Check velocity. */
-                    final double sp2 = v.vx * v.vx + v.vy * v.vy;
-                    final double sp = Math.sqrt(sp2);
+                    final double sp = attrs.speed((V) v);
                     final double delta = maxSpeed / sp;
                     if (delta < bestDelta) bestDelta = delta;
                 }
@@ -338,36 +347,33 @@ public class AlgoPerfTest {
                 (elapsed + bestDelta > elapsed) ? bestDelta : 0.0001;
 
             /* Apply all accelerations and velocities. */
-            neighbors.keySet().forEach(v -> {
-                v.vx += v.fx * delta;
-                v.vy += v.fy * delta;
-                v.x += v.vx * delta;
-                v.y += v.vy * delta;
-            });
+            neighbors.keySet().forEach(v -> attrs.step((V) v, delta));
             elapsed += delta;
 
             {
                 /* Recentre by finding the centre of gravity. */
                 double x = 0.0, y = 0.0, mass = 0.0;
                 for (Vertex v : neighbors.keySet()) {
-                    mass += v.mass;
-                    x += v.mass * v.x;
-                    y += v.mass * v.y;
+                    final double vm = attrs.mass((V) v);
+                    mass += vm;
+                    x += vm * attrs.x((V) v);
+                    y += vm * attrs.y((V) v);
                 }
                 final double xshift = x / mass;
                 final double yshift = y / mass;
-                for (Vertex v : neighbors.keySet()) {
-                    v.x -= xshift;
-                    v.y -= yshift;
-                }
+                neighbors.keySet()
+                    .forEach(v -> attrs.move((V) v, -xshift, -yshift));
             }
 
-            /* Cancel rotation. */
             {
+                /* Compute mean rotation. */
                 double sum = 0.0, sqsum = 0.0;
                 for (Vertex v : neighbors.keySet()) {
-                    final double r2 = v.x * v.x + v.y * v.y;
-                    final double rot = (v.vy * v.x - v.vx * v.y) / r2;
+                    final double x = attrs.x((V) v);
+                    final double y = attrs.y((V) v);
+                    final double r2 = x * x + y * y;
+                    final double rot =
+                        (attrs.vy((V) v) * x - attrs.vx((V) v) * y) / r2;
                     sum += rot;
                     sqsum += rot * rot;
                 }
@@ -375,15 +381,6 @@ public class AlgoPerfTest {
                 sqsum /= neighbors.size();
                 final double var = sqsum - sum * sum;
                 // final double stddev = Math.sqrt(var);
-                if (false) {
-                    double rem = 0.0;
-                    for (Vertex v : neighbors.keySet()) {
-                        v.vx += sum * v.y * 2;
-                        v.vy -= sum * v.x * 2;
-                        rem += Math.sqrt(v.vx * v.vx + v.vy * v.vy);
-                    }
-                    rem /= neighbors.size();
-                }
                 if (false)
                     System.out.printf("rotation: (var %g) %d %d %d = %d%n",
                                       var, steady[0], steady[1], steady[2],
@@ -404,7 +401,8 @@ public class AlgoPerfTest {
                 System.out.printf("%nElapsed: %gs (by %gs)%n", elapsed,
                                   delta);
                 for (Vertex v : neighbors.keySet()) {
-                    System.out.printf("  %d: (%g, %g)%n", v.id, v.x, v.y);
+                    System.out.printf("  %s: (%g, %g)%n", v, attrs.x((V) v),
+                                      attrs.y((V) v));
                 }
             }
             pauser.pause(cycle);
@@ -425,8 +423,8 @@ public class AlgoPerfTest {
                 /* Find the average velocity. */
                 double vxsum = 0.0, vysum = 0.0;
                 for (Vertex v : neighbors.keySet()) {
-                    vxsum += v.vx;
-                    vysum += v.vy;
+                    vxsum += attrs.vx((V) v);
+                    vysum += attrs.vy((V) v);
                 }
                 final double vxmean = vxsum / neighbors.size();
                 final double vymean = vysum / neighbors.size();
@@ -435,10 +433,11 @@ public class AlgoPerfTest {
                 double energy = 0.0;
                 double mass = 0.0;
                 for (Vertex v : neighbors.keySet()) {
-                    final double vx = v.x - vxmean;
-                    final double vy = v.y - vymean;
-                    energy += v.mass * (vx * vx + vy * vy) / 2.0;
-                    mass += v.mass;
+                    final double vx = attrs.x((V) v) - vxmean;
+                    final double vy = attrs.y((V) v) - vymean;
+                    final double vm = attrs.mass((V) v);
+                    energy += vm * (vx * vx + vy * vy) / 2.0;
+                    mass += vm;
                 }
                 System.out.printf("Energy density: %g (delta %g)%n",
                                   energy / mass, delta);

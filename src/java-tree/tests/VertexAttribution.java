@@ -61,11 +61,11 @@ public interface VertexAttribution<V> {
      * 
      * @param vert the vertex to operate on
      * 
-     * @param x the X dimension of the vector
+     * @param dx the X dimension of the vector
      * 
-     * @param y the Y dimension of the vector
+     * @param dy the Y dimension of the vector
      */
-    void addForce(V vert, double x, double y);
+    void addForce(V vert, double dx, double dy);
 
     /**
      * Divide the force by the mass.
