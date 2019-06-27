@@ -36,6 +36,8 @@
 package uk.ac.lancs.networks;
 
 import java.util.Collection;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 
 /**
@@ -154,6 +156,7 @@ public interface Service {
     default ServiceStatus
         awaitStatus(Collection<? extends ServiceStatus> accept,
                     long timeoutMillis) {
+        ExecutorService executor = Executors.newFixedThreadPool(1);
         final long expiry = System.currentTimeMillis() + timeoutMillis;
         class Ctxt implements ServiceListener {
             ServiceStatus got;
@@ -161,12 +164,15 @@ public interface Service {
 
             @Override
             public void newStatus(ServiceStatus newStatus) {
-                synchronized (this) {
-                    this.got = newStatus;
-                    if (acceptable(newStatus)) {
-                        this.waiting = false;
-                        notify();
-                    }
+                executor.execute(() -> internalNewStatus(newStatus));
+            }
+
+            private synchronized void
+                internalNewStatus(ServiceStatus newStatus) {
+                this.got = newStatus;
+                if (acceptable(newStatus)) {
+                    this.waiting = false;
+                    notify();
                 }
             }
 
