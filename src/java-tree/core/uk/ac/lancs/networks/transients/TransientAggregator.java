@@ -1283,8 +1283,13 @@ public class TransientAggregator implements Aggregator {
             Collection<Edge<Terminal>> tree = SpanningTreeComputer
                 .start(Terminal.class).withEdges(edgeWeights.keySet())
                 .withTerminals(innerTerminals).notifying(p -> {
+                    assert p != null;
                     guide.reached(p);
-                    reached.addAll(terminalGroups.get(p));
+                    Collection<Terminal> grp = terminalGroups.get(p);
+                    if (grp != null)
+                        reached.addAll(grp);
+                    else
+                        reached.add(p);
                 }).withEdgePreference(guide::select).eliminating(e -> {
                     /* Permit edges within the same switch. */
                     NetworkControl first = e.first().getNetwork();
