@@ -36,6 +36,7 @@
 package uk.ac.lancs.networks;
 
 import java.util.Collection;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
@@ -149,14 +150,45 @@ public interface Service {
      * ones if the status is released, or the timeout or interrupt
      * occurred
      * 
-     * @default The default implementation creates a listener on the
-     * service object, and waits for one of the accepted statuses,
-     * {@link ServiceStatus#RELEASED} or the timeout, or an interrupt.
+     * @default The default implementation creates an
+     * {@link ExecutorService}, uses it to call
+     * {@link #awaitStatus(Executor, Collection, long)}, then shuts it
+     * down.
      */
     default ServiceStatus
         awaitStatus(Collection<? extends ServiceStatus> accept,
                     long timeoutMillis) {
         ExecutorService executor = Executors.newFixedThreadPool(1);
+        try {
+            return awaitStatus(executor, accept, timeoutMillis);
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    /**
+     * Wait until the status changes to an acceptable value, or the
+     * service is released, or a timeout occurs.
+     * 
+     * @param accept the set of acceptable values
+     * 
+     * @param executor an executor for receiving updates on
+     * 
+     * @param timeoutMillis the maximum amount of time to wait before
+     * giving up
+     * 
+     * @return the latest status, which might not be one of the accepted
+     * ones if the status is released, or the timeout or interrupt
+     * occurred
+     * 
+     * @default The default implementation creates a listener on the
+     * service object, and waits for one of the accepted statuses,
+     * {@link ServiceStatus#RELEASED} or the timeout, or an interrupt.
+     */
+    default ServiceStatus
+        awaitStatus(Executor executor,
+                    Collection<? extends ServiceStatus> accept,
+                    long timeoutMillis) {
         final long expiry = System.currentTimeMillis() + timeoutMillis;
         class Ctxt implements ServiceListener {
             ServiceStatus got;
@@ -188,8 +220,8 @@ public interface Service {
                     long delay = expiry - System.currentTimeMillis();
                     if (delay < 0) break;
                     try {
-                        System.err.printf("Waiting %gs for %s%n",
-                                          delay / 1000.0, accept);
+                        // System.err.printf("Waiting %gs for %s%n",
+                        // delay / 1000.0, accept);
                         wait(delay);
                     } catch (InterruptedException e) {
                         break;
