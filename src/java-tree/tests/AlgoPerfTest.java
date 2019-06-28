@@ -35,17 +35,15 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 import uk.ac.lancs.networks.NetworkControl;
@@ -117,9 +115,8 @@ public class AlgoPerfTest {
             Map<Vertex, Switch> vertexToSwitch = new IdentityHashMap<>();
 
             Map<String, NetworkControl> subnets = new HashMap<>();
-            MyExecutor exec = new MyExecutor();
-            exec.start();
-            aggr = new TransientAggregator(exec, "aggr", subnets::get);
+            aggr = new TransientAggregator(Executors.newFixedThreadPool(1),
+                                           "aggr", subnets::get);
 
             /* Build a transient broker network out of the topology. */
             for (Edge<Vertex> edge : edges) {
@@ -242,37 +239,5 @@ public class AlgoPerfTest {
         }
 
         /* Clear out all services so we can start again. */
-    }
-
-    private static class MyExecutor extends Thread implements Executor {
-        private final List<Runnable> queue = new ArrayList<>();
-
-        public MyExecutor() {
-            setDaemon(false);
-        }
-
-        @Override
-        public synchronized void execute(Runnable command) {
-            queue.add(command);
-            notify();
-        }
-
-        private synchronized Runnable get() {
-            while (queue.isEmpty())
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    throw new UnsupportedOperationException("unimplemented",
-                                                            e);
-                }
-            return queue.remove(0);
-        }
-
-        @Override
-        public void run() {
-            Runnable r;
-            while ((r = get()) != null)
-                r.run();
-        }
     }
 }
