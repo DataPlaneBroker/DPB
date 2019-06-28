@@ -35,25 +35,37 @@
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
+import java.io.PrintWriter;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Random;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Segment;
 import uk.ac.lancs.networks.Service;
+import uk.ac.lancs.networks.ServiceException;
 import uk.ac.lancs.networks.ServiceStatus;
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Aggregator;
+import uk.ac.lancs.networks.mgmt.LabelsInUseException;
+import uk.ac.lancs.networks.mgmt.LabelsUnavailableException;
 import uk.ac.lancs.networks.mgmt.SubterminalBusyException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.mgmt.TerminalConfigurationException;
+import uk.ac.lancs.networks.mgmt.TerminalExistsException;
 import uk.ac.lancs.networks.mgmt.TerminalId;
 import uk.ac.lancs.networks.mgmt.TerminalNameException;
 import uk.ac.lancs.networks.mgmt.Trunk;
@@ -73,40 +85,199 @@ public class AlgoPerfTest {
      * @param args
      */
     public static void main(String[] args) throws Exception {
-        final Random rng = new Random(111);
+        final int nodeCount = 54;
+        final int vertexCount = 2;
+        Path coordsFile = Paths
+            .get("scratch/" + nodeCount + "-" + vertexCount + "-coords.csv");
+        Path edgesFile = Paths
+            .get("scratch/" + nodeCount + "-" + vertexCount + "-edges.csv");
+        Path graphFile = Paths
+            .get("scratch/" + nodeCount + "-" + vertexCount + "-graph.svg");
+        Path lbsFile = Paths.get("scratch/" + nodeCount + "-" + vertexCount
+            + "-latency-by-service.csv");
+        Path lbcFile = Paths.get("scratch/" + nodeCount + "-" + vertexCount
+            + "-latency-by-circuit.csv");
+
+        final Random rng = new Random();
 
         /* Create a scale-free topology. */
-        final int vertexCount = 10;
-        final int newEdgesPerVertex = 2;
-        Collection<Edge<Vertex>> edges = new HashSet<>();
+        Collection<Edge<Vertex>> edges =
+            createTopology(rng, nodeCount, vertexCount);
+        System.err.printf("Topology created%n");
+
         {
-            /* Remember which other vertices an vertex joins. */
-            Map<Vertex, Collection<Vertex>> neighbors = new HashMap<>();
+            /* Record the topology. */
+            Map<Vertex, Collection<Vertex>> neighbors =
+                Topologies.convertEdgesToNeighbors(edges);
+            try (PrintWriter out =
+                new PrintWriter(Files.newBufferedWriter(coordsFile))) {
+                for (Vertex v : neighbors.keySet())
+                    out.printf("%s, %g, %g%n", v, v.x, v.y);
+            }
+            try (PrintWriter out =
+                new PrintWriter(Files.newBufferedWriter(edgesFile))) {
+                for (Edge<Vertex> edge : edges)
+                    out.printf("%s, %s%n", edge.first(), edge.second());
+            }
+            double xmin = +Double.MAX_VALUE, xmax = -Double.MAX_VALUE;
+            double ymin = +Double.MAX_VALUE, ymax = -Double.MIN_VALUE;
+            for (Vertex v : neighbors.keySet()) {
+                if (v.x > xmax) xmax = v.x;
+                if (v.x < xmin) xmin = v.x;
+                if (v.y > ymax) ymax = v.y;
+                if (v.y < ymin) ymin = v.y;
+            }
+            final double margin = Math.max(xmax - xmin, ymax - ymin) / 100.0;
+            xmin -= margin;
+            ymin -= margin;
+            xmax += margin;
+            ymax += margin;
 
-            Topologies.generateTopology(Vertex::new, vertexCount, () -> rng
-                .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1) + 1)
-                + 1, neighbors, rng);
+            try (PrintWriter out =
+                new PrintWriter(Files.newBufferedWriter(graphFile))) {
+                out.println("<?xml version=\"1.0\" " + "standalone=\"no\"?>");
+                out.println("<!DOCTYPE svg PUBLIC");
+                out.println(" \"-//W3C//DTD SVG 20000303 Stylable//EN\"");
+                out.println(" \"http://www.w3.org/TR/2000/03/"
+                    + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
+                out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
+                out.printf(" viewBox='%g %g %g %g'>%n", xmin, ymin,
+                           xmax - xmin, ymax - ymin);
+                out.printf("<g fill='none' stroke='black'"
+                    + " stroke-width='%g' stroke-linecap='round'>%n", margin);
+                for (Edge<Vertex> edge : edges)
+                    out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g' />%n",
+                               edge.first().x, edge.first().y,
+                               edge.second().x, edge.second().y);
+                out.println("</g>");
+                out.println("</svg>");
+            }
+        }
+        System.err.printf("Graph recorded%n");
 
-            /* Convert to a set of edges. */
-            edges = Topologies.convertNeighborsToEdges(neighbors);
+        Statistics latencyByService = new Statistics();
+        Statistics latencyByCircuit = new Statistics();
 
-            /* Give each vertex a mass proportional to its degree. */
-            neighbors.forEach((a, n) -> a.mass = n.size());
+        for (int run = 0; run < 100; run++) {
+            /* Create a simulated network based on the provided
+             * topology. */
+            Scenario scen = new Scenario(edges);
 
-            /* Allow vertices to find stable, optimum positions. */
-            Topologies.alignTopology(Vertex.ATTRIBUTION, edges,
-                                     (sp, ed) -> {}, Pauser.NULL);
-            System.out.printf("Complete%n");
+            /* Keep track of which services are up, and how many
+             * circuits are in use. */
+            BitSet services = new BitSet();
+            int circuitCount = 0;
+
+            /* Keep adding services. */
+            int nextLabel = 1;
+            Collection<ServiceStatus> preaccept = new HashSet<>(Arrays
+                .asList(ServiceStatus.INACTIVE, ServiceStatus.FAILED));
+            Collection<ServiceStatus> acceptables = new HashSet<>(Arrays
+                .asList(ServiceStatus.ACTIVE, ServiceStatus.FAILED));
+            try {
+                for (;;) {
+                    /* Choose a description of the circuit. */
+                    final Segment seg;
+                    /* Choose the number of circuits to connect. */
+                    final int cc = rng.nextInt(rng.nextInt(2) + 1) + 2;
+                    {
+                        final int label = nextLabel++;
+                        Collection<Terminal> chosen =
+                            scen.chooseTerminals(rng, cc);
+                        Segment.Builder builder = Segment.start();
+                        for (Terminal t : chosen)
+                            builder.add(t, label, 10.0, 10.0);
+                        seg = builder.create();
+                    }
+                    // System.err.printf("%nseg: %s%n",
+                    // seg.circuitFlows());
+
+                    /* Create the service, and time it. */
+                    final long start = System.nanoTime();
+                    Service srv = scen.getNetwork().newService();
+                    srv.define(seg);
+                    while (!preaccept
+                        .contains(srv.awaitStatus(preaccept, 10000)))
+                        ;
+                    srv.activate();
+                    while (!acceptables
+                        .contains(srv.awaitStatus(acceptables, 10000)))
+                        ;
+                    final long end = System.nanoTime();
+                    if (false) System.err.printf("%d %d Service %d: %s%n",
+                                                 services.cardinality(),
+                                                 circuitCount, srv.id(),
+                                                 srv.status());
+
+                    /* Record the timings with our averages. */
+                    latencyByService.incorporate(services.cardinality(),
+                                                 end - start);
+                    latencyByCircuit.incorporate(circuitCount, end - start);
+
+                    /* Record the new number of services and engaged
+                     * circuits. */
+                    services.set(srv.id());
+                    circuitCount += cc;
+                }
+            } catch (ServiceException ex) {
+                System.err.printf("terminating run %d "
+                    + "due to service exception%n", run);
+            }
+            scen.discard();
+            System.err.printf("Threads: %d%n", Thread.activeCount());
+            System.gc();
         }
 
-        final Aggregator aggr;
+        try (PrintWriter out =
+            new PrintWriter(Files.newBufferedWriter(lbsFile))) {
+            for (Statistics.Row row : latencyByService) {
+                out.printf("%d, %d, %g, %g%n", row.key, row.count, row.mean,
+                           row.stddev);
+            }
+        }
 
-        /* Keep a set of aggregator terminals to use for test circuits,
-         * and the proportion of likelihood of being chosen. */
-        final Map<Terminal, Double> candidates = new HashMap<>();
-        final double candidateSum;
+        try (PrintWriter out =
+            new PrintWriter(Files.newBufferedWriter(lbcFile))) {
+            for (Statistics.Row row : latencyByCircuit) {
+                out.printf("%d, %d, %g, %g%n", row.key, row.count, row.mean,
+                           row.stddev);
+            }
+        }
+    }
 
-        {
+    static Collection<Edge<Vertex>>
+        createTopology(final Random rng, final int vertexCount,
+                       final int newEdgesPerVertex) {
+        Collection<Edge<Vertex>> edges = new HashSet<>();
+        /* Remember which other vertices an vertex joins. */
+        Map<Vertex, Collection<Vertex>> neighbors = new HashMap<>();
+
+        Topologies.generateTopology(Vertex::new, vertexCount, () -> rng
+            .nextInt(rng.nextInt(rng.nextInt(newEdgesPerVertex) + 1) + 1) + 1,
+                                    neighbors, rng);
+
+        /* Convert to a set of edges. */
+        edges = Topologies.convertNeighborsToEdges(neighbors);
+
+        /* Give each vertex a mass proportional to its degree. */
+        neighbors.forEach((a, n) -> a.mass = n.size());
+
+        /* Allow vertices to find stable, optimum positions. */
+        Topologies.alignTopology(Vertex.ATTRIBUTION, edges, (sp, ed) -> {},
+                                 Pauser.NULL);
+        return edges;
+    }
+
+    static class Scenario {
+        Scenario(Collection<Edge<Vertex>> edges)
+            throws TerminalExistsException,
+                TerminalNameException,
+                TerminalConfigurationException,
+                SubterminalBusyException,
+                UnknownSubterminalException,
+                UnknownSubnetworkException,
+                LabelsUnavailableException,
+                LabelsInUseException {
             Map<Vertex, Collection<Vertex>> neighbors =
                 Topologies.convertEdgesToNeighbors(edges);
 
@@ -115,8 +286,7 @@ public class AlgoPerfTest {
             Map<Vertex, Switch> vertexToSwitch = new IdentityHashMap<>();
 
             Map<String, NetworkControl> subnets = new HashMap<>();
-            aggr = new TransientAggregator(Executors.newFixedThreadPool(1),
-                                           "aggr", subnets::get);
+            aggr = new TransientAggregator(executor, "aggr", subnets::get);
 
             /* Build a transient broker network out of the topology. */
             for (Edge<Vertex> edge : edges) {
@@ -173,71 +343,119 @@ public class AlgoPerfTest {
                 candidates.values().stream().mapToDouble(d -> d).sum();
         }
 
-        /* Keep track of which services are up, and how many circuits
-         * are in use. */
-        BitSet services = new BitSet();
-        int circuitCount = 0;
-
-        /* Keep adding services. */
-        int nextLabel = 1;
-        Collection<ServiceStatus> preaccept = new HashSet<>(Arrays
-            .asList(ServiceStatus.INACTIVE, ServiceStatus.FAILED));
-        Collection<ServiceStatus> acceptables = new HashSet<>(Arrays
-            .asList(ServiceStatus.ACTIVE, ServiceStatus.FAILED));
-        for (;;) {
-            /* Choose a description of the circuit. */
-            final Segment seg;
-            /* Choose the number of circuits to connect. */
-            final int cc = rng.nextInt(rng.nextInt(2) + 1) + 2;
-            {
-                final int label = nextLabel++;
-                Collection<Terminal> chosen = new HashSet<>();
-                double sum = candidateSum;
-                for (int i = 0; i < cc; i++) {
-                    /* Choose a random terminal. */
-                    double pick = rng.nextDouble() * sum;
-                    for (Map.Entry<Terminal, Double> entry : candidates
-                        .entrySet()) {
-                        /* Skip over terminals we've already chosen. */
-                        Terminal t = entry.getKey();
-                        if (chosen.contains(t)) continue;
-
-                        /* See if this is the selected one. */
-                        double amount = entry.getValue();
-                        pick -= amount;
-                        if (pick >= 0.0) continue;
-
-                        /* Record this as selected, and ensure we don't
-                         * select it again. */
-                        sum -= amount;
-                        chosen.add(t);
-                        break;
-                    }
-                }
-                Segment.Builder builder = Segment.start();
-                for (Terminal t : chosen)
-                    builder.add(t, label, 10.0, 10.0);
-                seg = builder.create();
-            }
-            System.err.printf("%nseg: %s%n", seg.circuitFlows());
-
-            /* Create the service. */
-            Service srv = aggr.getControl().newService();
-            services.set(srv.id());
-            circuitCount += cc;
-            srv.define(seg);
-            while (!preaccept.contains(srv.awaitStatus(preaccept, 10000)))
-                ;
-            System.err.printf("activating...%n");
-            srv.activate();
-            System.err.printf("Service %d: %s%n", srv.id(), srv.status());
-            while (!acceptables.contains(srv.awaitStatus(acceptables, 10000)))
-                ;
-            System.err.printf("%d %d Service %d: %s%n",
-                              services.cardinality(), circuitCount, srv.id(),
-                              srv.status());
+        public void discard() {
+            executor.shutdown();
         }
 
-        /* Clear out all services so we can start again. */
+        private final ExecutorService executor =
+            Executors.newFixedThreadPool(1);
+
+        /* Keep a set of aggregator terminals to use for test circuits,
+         * and the proportion of likelihood of being chosen. */
+        private final Map<Terminal, Double> candidates = new HashMap<>();
+        private final double candidateSum;
+
+        private final Aggregator aggr;
+
+        NetworkControl getNetwork() {
+            return aggr.getControl();
+        }
+
+        Collection<Terminal> chooseTerminals(Random rng, int cc) {
+            Collection<Terminal> chosen = new HashSet<>();
+            double sum = candidateSum;
+            for (int i = 0; i < cc; i++) {
+                /* Choose a random terminal. */
+                double pick = rng.nextDouble() * sum;
+                for (Map.Entry<Terminal, Double> entry : candidates
+                    .entrySet()) {
+                    /* Skip over terminals we've already chosen. */
+                    Terminal t = entry.getKey();
+                    if (chosen.contains(t)) continue;
+
+                    /* See if this is the selected one. */
+                    double amount = entry.getValue();
+                    pick -= amount;
+                    if (pick >= 0.0) continue;
+
+                    /* Record this as selected, and ensure we don't
+                     * select it again. */
+                    sum -= amount;
+                    chosen.add(t);
+                    break;
+                }
+            }
+            return chosen;
+        }
+    }
+
+    static class Statistics implements Iterable<Statistics.Row> {
+        private double[] sum = new double[100], sum2 = new double[100];
+        private long[] count = new long[100];
+
+        void incorporate(int key, double sample) {
+            if (key >= count.length) {
+                int newLength =
+                    Math.max(count.length + count.length / 2, key + 1);
+                sum = Arrays.copyOf(sum, newLength);
+                sum2 = Arrays.copyOf(sum2, newLength);
+                count = Arrays.copyOf(count, newLength);
+            }
+            sum[key] += sample;
+            sum2[key] += sample * sample;
+            count[key]++;
+        }
+
+        double mean(int key) {
+            return sum[key] / count[key];
+        }
+
+        static class Row {
+            public final int key;
+            public final double mean, stddev;
+            public final long count;
+
+            Row(int key, long count, double mean, double stddev) {
+                this.key = key;
+                this.count = count;
+                this.mean = mean;
+                this.stddev = stddev;
+            }
+        }
+
+        @Override
+        public Iterator<Row> iterator() {
+            return new Iterator<Row>() {
+                int cand = 0;
+                int next = -1;
+
+                private boolean ensureNext() {
+                    if (next >= 0) return true;
+                    while (cand < count.length && count[cand] == 0)
+                        cand++;
+                    if (cand < count.length) {
+                        next = cand++;
+                        return true;
+                    }
+                    return false;
+                }
+
+                @Override
+                public boolean hasNext() {
+                    return ensureNext();
+                }
+
+                @Override
+                public Row next() {
+                    if (!ensureNext()) throw new NoSuchElementException();
+                    int ch = next;
+                    next = -1;
+                    double mean = sum[ch] / count[ch];
+                    double var = sum2[ch] / count[ch] - mean * mean;
+                    double stddev = Math.sqrt(var);
+                    return new Row(ch, count[ch], mean, stddev);
+                }
+            };
+        }
     }
 }
