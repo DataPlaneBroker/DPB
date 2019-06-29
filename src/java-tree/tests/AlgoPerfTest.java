@@ -159,6 +159,13 @@ public class AlgoPerfTest {
         Statistics latencyByCircuit = new Statistics();
 
         for (int run = 0; run < 100; run++) {
+            /* Ignore statistics of the first run, as they might be
+             * heavily influenced by Java optimizations. */
+            if (run == 1) {
+                latencyByCircuit.reset();
+                latencyByService.reset();
+            }
+
             /* Create a simulated network based on the provided
              * topology. */
             Scenario scen = new Scenario(edges);
@@ -393,7 +400,13 @@ public class AlgoPerfTest {
         private double[] sum = new double[100], sum2 = new double[100];
         private long[] count = new long[100];
 
-        void incorporate(int key, double sample) {
+        public void reset() {
+            Arrays.setAll(sum, i -> 0.0);
+            Arrays.setAll(sum2, i -> 0.0);
+            Arrays.setAll(count, i -> 0);
+        }
+
+        public void incorporate(int key, double sample) {
             if (key >= count.length) {
                 int newLength =
                     Math.max(count.length + count.length / 2, key + 1);
@@ -404,10 +417,6 @@ public class AlgoPerfTest {
             sum[key] += sample;
             sum2[key] += sample * sample;
             count[key]++;
-        }
-
-        double mean(int key) {
-            return sum[key] / count[key];
         }
 
         static class Row {
