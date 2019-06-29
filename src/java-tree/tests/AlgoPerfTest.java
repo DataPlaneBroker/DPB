@@ -39,6 +39,7 @@ import java.io.PrintWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -87,6 +88,8 @@ public class AlgoPerfTest {
     public static void main(String[] args) throws Exception {
         final int nodeCount = 54;
         final int vertexCount = 2;
+        final long seed = new SecureRandom().nextLong();
+
         Path coordsFile = Paths
             .get("scratch/" + nodeCount + "-" + vertexCount + "-coords.csv");
         Path edgesFile = Paths
@@ -98,7 +101,7 @@ public class AlgoPerfTest {
         Path lbcFile = Paths.get("scratch/" + nodeCount + "-" + vertexCount
             + "-latency-by-circuit.csv");
 
-        final Random rng = new Random();
+        final Random rng = new Random(seed);
 
         /* Create a scale-free topology. */
         Collection<Edge<Vertex>> edges =
@@ -140,6 +143,7 @@ public class AlgoPerfTest {
                 out.println(" \"-//W3C//DTD SVG 20000303 Stylable//EN\"");
                 out.println(" \"http://www.w3.org/TR/2000/03/"
                     + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
+                out.printf("<!-- seed: %d -->%n", seed);
                 out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
                 out.printf(" viewBox='%g %g %g %g'>%n", xmin, ymin,
                            xmax - xmin, ymax - ymin);
