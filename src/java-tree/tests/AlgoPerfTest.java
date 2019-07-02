@@ -162,7 +162,7 @@ public class AlgoPerfTest {
         Statistics latencyByService = new Statistics();
         Statistics latencyByCircuit = new Statistics();
 
-        for (int run = 0; run < 100; run++) {
+        for (int run = 0; run < 101; run++) {
             /* Ignore statistics of the first run, as they might be
              * heavily influenced by Java optimizations. */
             if (run == 1) {
