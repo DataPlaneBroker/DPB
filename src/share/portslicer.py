@@ -74,6 +74,7 @@ from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ether
+from ryu.lib.packet import ipv4
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
@@ -159,7 +160,7 @@ class Slice:
 
         dp = self.switch.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         LOG.info("%016x: %s -> %s", dp.id,
                  list(self.established), list(self.sanitized))
 
@@ -190,23 +191,23 @@ class Slice:
             oldports = self.established - self.sanitized
         for p in oldports:
             LOG.info("%016x: deleting rules for port %d", dp.id, p)
-            match = ofp_parser.OFPMatch(in_port=p)
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        datapath=dp,
-                                        table_id=0,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=ofp.OFPP_ANY,
-                                        out_group=ofp.OFPG_ANY)
+            match = parser.OFPMatch(in_port=p)
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    datapath=dp,
+                                    table_id=0,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=ofp.OFPP_ANY,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
-            match = ofp_parser.OFPMatch()
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                        datapath=dp,
-                                        table_id=1,
-                                        match=match,
-                                        buffer_id=ofp.OFPCML_NO_BUFFER,
-                                        out_port=p,
-                                        out_group=ofp.OFPG_ANY)
+            match = parser.OFPMatch()
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                    datapath=dp,
+                                    table_id=1,
+                                    match=match,
+                                    buffer_id=ofp.OFPCML_NO_BUFFER,
+                                    out_port=p,
+                                    out_group=ofp.OFPG_ANY)
             dp.send_msg(msg)
 
         if len(self.sanitized) <= 2 and len(self.established) > 2:
@@ -221,9 +222,9 @@ class Slice:
             ## Remove the group definition from the switch table,
             ## automatically deleting the destination rule that
             ## directs to it.
-            msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                         command=ofp.OFPGC_DELETE,
-                                         group_id=self.group)
+            msg = parser.OFPGroupMod(datapath=dp,
+                                     command=ofp.OFPGC_DELETE,
+                                     group_id=self.group)
             dp.send_msg(msg)
 
             ## Release the group number, and forget it.
@@ -246,7 +247,7 @@ class Slice:
 
         dp = self.switch.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## A slice with fewer than 2 ports should have no OpenFlow
         ## manifestations.  The default drop rule should apply.
@@ -262,16 +263,16 @@ class Slice:
             for i in [ 0, 1 ]:
                 LOG.info("%016x: adding e-line for %d->%d", dp.id,
                          pl[i], pl[1-i])
-                match = ofp_parser.OFPMatch(in_port=pl[i])
-                actions = [ofp_parser.OFPActionOutput(pl[1-i])]
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                            datapath=dp,
-                                            table_id=0,
-                                            priority=3,
-                                            match=match,
-                                            instructions=inst)
+                match = parser.OFPMatch(in_port=pl[i])
+                actions = [parser.OFPActionOutput(pl[1-i])]
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        datapath=dp,
+                                        table_id=0,
+                                        priority=3,
+                                        match=match,
+                                        instructions=inst)
                 dp.send_msg(msg)
             return
 
@@ -283,17 +284,17 @@ class Slice:
             newports = self.sanitized - self.established
         for p in newports:
             LOG.info("%016x: adding ctrl rule for %d", dp.id, p)
-            match = ofp_parser.OFPMatch(in_port=p)
-            actions = [ofp_parser.OFPActionOutput(ofp.OFPP_CONTROLLER,
-                                                  65535)]
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     actions)]
-            msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                        datapath=dp,
-                                        table_id=0,
-                                        priority=1,
-                                        match=match,
-                                        instructions=inst)
+            match = parser.OFPMatch(in_port=p)
+            actions = [parser.OFPActionOutput(ofp.OFPP_CONTROLLER,
+                                              65535)]
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                 actions)]
+            msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                    datapath=dp,
+                                    table_id=0,
+                                    priority=1,
+                                    match=match,
+                                    instructions=inst)
             dp.send_msg(msg)
 
         if len(self.established) <= 2:
@@ -307,13 +308,13 @@ class Slice:
             ## in the target set.
             buckets = []
             for p in self.sanitized:
-                output = ofp_parser.OFPActionOutput(p)
-                buckets.append(ofp_parser.OFPBucket(actions=[output]))
-            msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                         command=ofp.OFPGC_ADD,
-                                         type_=ofp.OFPGT_ALL,
-                                         group_id=self.group,
-                                         buckets=buckets)
+                output = parser.OFPActionOutput(p)
+                buckets.append(parser.OFPBucket(actions=[output]))
+            msg = parser.OFPGroupMod(datapath=dp,
+                                     command=ofp.OFPGC_ADD,
+                                     type_=ofp.OFPGT_ALL,
+                                     group_id=self.group,
+                                     buckets=buckets)
             dp.send_msg(msg)
 
             if use_vlans_as_meta:
@@ -322,17 +323,17 @@ class Slice:
                 ## the pseudo-VLAN tag we added in T0, and this must
                 ## be removed first.  This rule will automatically be
                 ## deleted when the group is deleted.
-                match = ofp_parser.OFPMatch(vlan_vid=(self.group|0x1000))
-                actions = [ofp_parser.OFPActionPopVlan(),
-                           ofp_parser.OFPActionGroup(self.group)]
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                            datapath=dp,
-                                            table_id=1,
-                                            priority=1,
-                                            match=match,
-                                            instructions=inst)
+                match = parser.OFPMatch(vlan_vid=(self.group|0x1000))
+                actions = [parser.OFPActionPopVlan(),
+                           parser.OFPActionGroup(self.group)]
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        datapath=dp,
+                                        table_id=1,
+                                        priority=1,
+                                        match=match,
+                                        instructions=inst)
                 dp.send_msg(msg)
 
         if not use_vlans_as_meta:
@@ -341,16 +342,16 @@ class Slice:
             ## in_port).
             for p in newports:
                 LOG.info("%016x: unknown macs from %d to controller", dp.id, p)
-                match = ofp_parser.OFPMatch(in_port=p)
-                actions = [ofp_parser.OFPActionGroup(self.group)]
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                            datapath=dp,
-                                            table_id=1,
-                                            priority=1,
-                                            match=match,
-                                            instructions=inst)
+                match = parser.OFPMatch(in_port=p)
+                actions = [parser.OFPActionGroup(self.group)]
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                msg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                        datapath=dp,
+                                        table_id=1,
+                                        priority=1,
+                                        match=match,
+                                        instructions=inst)
                 dp.send_msg(msg)
 
         ## The set has changed.  Set the group to output to the target
@@ -359,12 +360,12 @@ class Slice:
                  self.group, list(self.sanitized))
         buckets = []
         for p in self.sanitized:
-            output = ofp_parser.OFPActionOutput(p)
-            buckets.append(ofp_parser.OFPBucket(actions=[output]))
-        msg = ofp_parser.OFPGroupMod(datapath=dp,
-                                     command=ofp.OFPGC_MODIFY,
-                                     group_id=self.group,
-                                     buckets=buckets)
+            output = parser.OFPActionOutput(p)
+            buckets.append(parser.OFPBucket(actions=[output]))
+        msg = parser.OFPGroupMod(datapath=dp,
+                                 command=ofp.OFPGC_MODIFY,
+                                 group_id=self.group,
+                                 buckets=buckets)
         dp.send_msg(msg)
         return
 
@@ -510,32 +511,32 @@ class SwitchStatus:
             return
         dp = self.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## Delete dynamic rules in the source table matching this
         ## in_port and passing on to the destination table.
         LOG.info("%016x: resetting port %d in T0", dp.id, port)
-        match = ofp_parser.OFPMatch(in_port=port)
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                    datapath=dp,
-                                    table_id=0,
-                                    match=match,
-                                    buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=ofp.OFPP_ANY,
-                                    out_group=ofp.OFPG_ANY)
+        match = parser.OFPMatch(in_port=port)
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                datapath=dp,
+                                table_id=0,
+                                match=match,
+                                buffer_id=ofp.OFPCML_NO_BUFFER,
+                                out_port=ofp.OFPP_ANY,
+                                out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
         ## Delete dynamic rules in the destination table outputting
         ## unicast to the port.
         LOG.info("%016x: resetting port %d in T1", dp.id, port)
-        match = ofp_parser.OFPMatch()
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                    datapath=dp,
-                                    table_id=1,
-                                    match=match,
-                                    buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=port,
-                                    out_group=ofp.OFPG_ANY)
+        match = parser.OFPMatch()
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                datapath=dp,
+                                table_id=1,
+                                match=match,
+                                buffer_id=ofp.OFPCML_NO_BUFFER,
+                                out_port=port,
+                                out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
     def revalidate(self):
@@ -598,7 +599,7 @@ class PortSlicer(app_manager.RyuApp):
 
     def _configure_set(self, dp, ports):
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
     @set_ev_cls(dpset.EventPortAdd, dpset.DPSET_EV_DISPATCHER)
     def port_added(self, ev):
@@ -619,11 +620,77 @@ class PortSlicer(app_manager.RyuApp):
         LOG.info("%016x: port %d removal complete", dp.id, port.port_no)
         return
 
+    def drop_dhcp(self, dp):
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        LOG.info("%016x: Disallowing DHCP", dp.id)
+
+        ## Drop DHCP packets (bootpc, bootps).
+        for pt in (67, 68):
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_src=pt)
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      datapath=dp,
+                                      table_id=0,
+                                      priority=7,
+                                      match=match,
+                                      instructions=inst)
+            dp.send_msg(mymsg)
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_dst=pt)
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      datapath=dp,
+                                      table_id=0,
+                                      priority=7,
+                                      match=match,
+                                      instructions=inst)
+            dp.send_msg(mymsg)
+
+        return
+
+    def pass_dhcp(self, dp):
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        LOG.info("%016x: Allowing DHCP", dp.id)
+
+        ## Delete rules dropping DHCP packets (bootpc, bootps).
+        for pt in (67, 68):
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_src=pt)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      datapath=dp,
+                                      table_id=0,
+                                      match=match,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY)
+            dp.send_msg(mymsg)
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_dst=pt)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      datapath=dp,
+                                      table_id=0,
+                                      match=match,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY)
+            dp.send_msg(mymsg)
+
+        return
+
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def datapath_handler(self, ev):
         dp = ev.dp
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         if not ev.enter:
             ## A switch has been detached.
@@ -638,41 +705,42 @@ class PortSlicer(app_manager.RyuApp):
 
         ## Delete all flows in the source, destination and group
         ## tables.
-        match = ofp_parser.OFPMatch()
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                      datapath=dp,
-                                      table_id=0,
-                                      buffer_id=ofp.OFPCML_NO_BUFFER,
-                                      out_port=ofp.OFPP_ANY,
-                                      out_group=ofp.OFPG_ANY,
-                                      match=match)
+        match = parser.OFPMatch()
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                  datapath=dp,
+                                  table_id=0,
+                                  buffer_id=ofp.OFPCML_NO_BUFFER,
+                                  out_port=ofp.OFPP_ANY,
+                                  out_group=ofp.OFPG_ANY,
+                                  match=match)
         dp.send_msg(mymsg)
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                      datapath=dp,
-                                      table_id=1,
-                                      buffer_id=ofp.OFPCML_NO_BUFFER,
-                                      out_port=ofp.OFPP_ANY,
-                                      out_group=ofp.OFPG_ANY,
-                                      match=match)
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                  datapath=dp,
+                                  table_id=1,
+                                  buffer_id=ofp.OFPCML_NO_BUFFER,
+                                  out_port=ofp.OFPP_ANY,
+                                  out_group=ofp.OFPG_ANY,
+                                  match=match)
         dp.send_msg(mymsg)
 
         ## Delete all groups.
-        mymsg = ofp_parser.OFPGroupMod(datapath=dp,
-                                       command=ofp.OFPGC_DELETE,
-                                       group_id=ofp.OFPG_ALL)
+        mymsg = parser.OFPGroupMod(datapath=dp,
+                                   command=ofp.OFPGC_DELETE,
+                                   group_id=ofp.OFPG_ALL)
         dp.send_msg(mymsg)
 
         ## Drop LLDP packets.
-        match = ofp_parser.OFPMatch(vlan_vid=0x0000, eth_type=0x88CC)
+        match = parser.OFPMatch(vlan_vid=0x0000,
+                                eth_type=ether.ETH_TYPE_LLDP)
         actions = []
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions)]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      datapath=dp,
-                                      table_id=0,
-                                      priority=4,
-                                      match=match,
-                                      instructions=inst)
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                  datapath=dp,
+                                  table_id=0,
+                                  priority=4,
+                                  match=match,
+                                  instructions=inst)
         dp.send_msg(mymsg)
 
         ## The default rule should just drop everything.  Earlier
@@ -680,9 +748,9 @@ class PortSlicer(app_manager.RyuApp):
         ## controller, but only for multi-port slices.  (This command
         ## has been disabled, since the default behaviour of a table
         ## is to drop anyway, so the rule is redundant.)
-        # match = ofp_parser.OFPMatch()
-        # inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
-        # mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+        # match = parser.OFPMatch()
+        # inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+        # mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
         #                               datapath=dp,
         #                               table_id=0,
         #                               priority=0,
@@ -720,7 +788,7 @@ class PortSlicer(app_manager.RyuApp):
 
     def _not_heard_from(self, dp, in_port, mac):
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
         status = self.switches[dp.id]
         slize = status.get_slice(in_port)
         if slize is None:
@@ -737,16 +805,16 @@ class PortSlicer(app_manager.RyuApp):
         ## Delete learned rules in the destination table matching this
         ## destination and belonging to this group (as identified by
         ## cookie).
-        match = ofp_parser.OFPMatch(eth_dst=mac)
-        msg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                    cookie=group,
-                                    cookie_mask=0xffffffffffffffff,
-                                    datapath=dp,
-                                    table_id=1,
-                                    match=match,
-                                    buffer_id=ofp.OFPCML_NO_BUFFER,
-                                    out_port=ofp.OFPP_ANY,
-                                    out_group=ofp.OFPG_ANY)
+        match = parser.OFPMatch(eth_dst=mac)
+        msg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                cookie=group,
+                                cookie_mask=0xffffffffffffffff,
+                                datapath=dp,
+                                table_id=1,
+                                match=match,
+                                buffer_id=ofp.OFPCML_NO_BUFFER,
+                                out_port=ofp.OFPP_ANY,
+                                out_group=ofp.OFPG_ANY)
         dp.send_msg(msg)
 
     def _learn(self, dp, port, mac, timeout=600):
@@ -789,7 +857,7 @@ class PortSlicer(app_manager.RyuApp):
         slize.see(mac, port)
 
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         if use_vlans_as_meta:
             ## In the destination table, map the destination address and
@@ -798,18 +866,18 @@ class PortSlicer(app_manager.RyuApp):
             ## flooding for that destination on that slice.  Make sure the
             ## fake VLAN tag used to carry the slice's group id is popped
             ## before transmission.
-            match = ofp_parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
-            actions = [ofp_parser.OFPActionPopVlan(),
-                       ofp_parser.OFPActionOutput(port)]
-            inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                     actions)]
-            mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                          cookie=group,
-                                          datapath=dp,
-                                          table_id=1,
-                                          priority=2,
-                                          match=match,
-                                          instructions=inst)
+            match = parser.OFPMatch(vlan_vid=(group|0x1000), eth_dst=mac)
+            actions = [parser.OFPActionPopVlan(),
+                       parser.OFPActionOutput(port)]
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                 actions)]
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      cookie=group,
+                                      datapath=dp,
+                                      table_id=1,
+                                      priority=2,
+                                      match=match,
+                                      instructions=inst)
             dp.send_msg(mymsg)
         else:
             ## For each port, match the destination and send to the
@@ -820,67 +888,67 @@ class PortSlicer(app_manager.RyuApp):
             ## delete them without deleting similar rules for the same
             ## mac in a different group.
             for p in ports:
-                match = ofp_parser.OFPMatch(in_port=p, eth_dst=mac)
+                match = parser.OFPMatch(in_port=p, eth_dst=mac)
                 if p == port:
                     LOG.info("%016x: adding %d/%17s -> drop", dp.id, p, mac)
                     actions = []
                 else:
                     LOG.info("%016x: adding %d/%17s -> %d", dp.id, p, mac, port)
-                    actions = [ofp_parser.OFPActionOutput(port)]
-                inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                         actions)]
-                mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                              cookie=group,
-                                              datapath=dp,
-                                              table_id=1,
-                                              priority=2,
-                                              match=match,
-                                              instructions=inst)
+                    actions = [parser.OFPActionOutput(port)]
+                inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                                     actions)]
+                mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                          cookie=group,
+                                          datapath=dp,
+                                          table_id=1,
+                                          priority=2,
+                                          match=match,
+                                          instructions=inst)
                 dp.send_msg(mymsg)
 
         ## Make sure that, if the source address is seen again on a
         ## different port in the slice, the controller will deal with
         ## it.
-        match = ofp_parser.OFPMatch(eth_src=mac)
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
-                                      cookie=group,
-                                      cookie_mask=0xffffffffffffffff,
-                                      datapath=dp,
-                                      table_id=0,
-                                      buffer_id=ofp.OFPCML_NO_BUFFER,
-                                      out_port=ofp.OFPP_ANY,
-                                      out_group=ofp.OFPG_ANY,
-                                      match=match)
+        match = parser.OFPMatch(eth_src=mac)
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                  cookie=group,
+                                  cookie_mask=0xffffffffffffffff,
+                                  datapath=dp,
+                                  table_id=0,
+                                  buffer_id=ofp.OFPCML_NO_BUFFER,
+                                  out_port=ofp.OFPP_ANY,
+                                  out_group=ofp.OFPG_ANY,
+                                  match=match)
         dp.send_msg(mymsg)
 
         ## In the source table, prevent traffic from this source
         ## address on this port from being forwarded to the controller
         ## again.
-        match = ofp_parser.OFPMatch(in_port=port, eth_src=mac)
+        match = parser.OFPMatch(in_port=port, eth_src=mac)
         if use_vlans_as_meta:
             ## We record which slice the packet belongs to by pushing
             ## a VLAN tag with its allocated group id.  The
             ## destination table will pop it off before transmission,
             ## so it never leaves the switch.  TODO: Drop setgrp, and
             ## just set vlan_vid=0x1000|group?
-            setgrp = ofp_parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
-                                                   0x1000|group)
-            actions = [ofp_parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
-                       ofp_parser.OFPActionSetField(setgrp)]
+            setgrp = parser.OFPMatchField.make(dp.ofproto.OXM_OF_VLAN_VID,
+                                               0x1000|group)
+            actions = [parser.OFPActionPushVlan(ether.ETH_TYPE_8021Q),
+                       parser.OFPActionSetField(setgrp)]
         else:
             actions = []
-        inst = [ofp_parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
-                                                 actions),
-                ofp_parser.OFPInstructionGotoTable(1)]
-        mymsg = ofp_parser.OFPFlowMod(command=ofp.OFPFC_ADD,
-                                      cookie=group,
-                                      datapath=dp,
-                                      table_id=0,
-                                      priority=2,
-                                      idle_timeout=timeout,
-                                      flags=ofp.OFPFF_SEND_FLOW_REM,
-                                      match=match,
-                                      instructions=inst)
+        inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
+                                             actions),
+                parser.OFPInstructionGotoTable(1)]
+        mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                  cookie=group,
+                                  datapath=dp,
+                                  table_id=0,
+                                  priority=2,
+                                  idle_timeout=timeout,
+                                  flags=ofp.OFPFF_SEND_FLOW_REM,
+                                  match=match,
+                                  instructions=inst)
         dp.send_msg(mymsg)
 
 
@@ -889,7 +957,7 @@ class PortSlicer(app_manager.RyuApp):
         msg = ev.msg
         dp = msg.datapath
         ofp = dp.ofproto
-        ofp_parser = dp.ofproto_parser
+        parser = dp.ofproto_parser
 
         ## We are only called if a packet has an unrecognized source
         ## address.  Extract the fields we're interested in.
@@ -914,16 +982,16 @@ class PortSlicer(app_manager.RyuApp):
         out1 = slize.lookup(eth.dst)
         actions = []
         if out1 is not None and out1 in outs:
-            actions.append(ofp_parser.OFPActionOutput(out1))
+            actions.append(parser.OFPActionOutput(out1))
         else:
             for p in outs:
                 if p == in_port:
                     continue
-                actions.append(ofp_parser.OFPActionOutput(p))
-        mymsg = ofp_parser.OFPPacketOut(datapath=dp,
-                                        buffer_id=msg.buffer_id,
-                                        in_port=in_port,
-                                        actions=actions)
+                actions.append(parser.OFPActionOutput(p))
+        mymsg = parser.OFPPacketOut(datapath=dp,
+                                    buffer_id=msg.buffer_id,
+                                    in_port=in_port,
+                                    actions=actions)
         dp.send_msg(mymsg)
         return
         
@@ -967,6 +1035,12 @@ class SliceController(ControllerBase):
                 ps = set(ps)
                 LOG.info("%016x: creating %s", dpid, list(ps))
                 status.create_slice(ps)
+        if 'dhcp' in new_config:
+            dp = api.get_datapath(self.ctrl, dpid)
+            if new_config['dhcp']:
+                self.ctrl.pass_dhcp(dp)
+            else:
+                self.ctrl.drop_dhcp(dp)
         status.revalidate()
         LOG.info("%016x: completed changes", dpid)
         if 'learn' in new_config:

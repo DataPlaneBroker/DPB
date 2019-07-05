@@ -225,6 +225,7 @@ from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
 from ryu.ofproto import ether
+from ryu.lib.packet import ipv4
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
@@ -1181,6 +1182,72 @@ class TupleSlicer(app_manager.RyuApp):
         status.revalidate()
         return
 
+    def drop_dhcp(self, dp):
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        LOG.info("%016x: Disallowing DHCP", dp.id)
+
+        ## Drop DHCP packets (bootpc, bootps).
+        for pt in (67, 68):
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_src=pt)
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      datapath=dp,
+                                      table_id=0,
+                                      priority=7,
+                                      match=match,
+                                      instructions=inst)
+            dp.send_msg(mymsg)
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_dst=pt)
+            inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS, [])]
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_ADD,
+                                      datapath=dp,
+                                      table_id=0,
+                                      priority=7,
+                                      match=match,
+                                      instructions=inst)
+            dp.send_msg(mymsg)
+
+        return
+
+    def pass_dhcp(self, dp):
+        ofp = dp.ofproto
+        parser = dp.ofproto_parser
+
+        LOG.info("%016x: Allowing DHCP", dp.id)
+
+        ## Delete rules dropping DHCP packets (bootpc, bootps).
+        for pt in (67, 68):
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_src=pt)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      datapath=dp,
+                                      table_id=0,
+                                      match=match,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY)
+            dp.send_msg(mymsg)
+            match = parser.OFPMatch(eth_type=ether.ETH_TYPE_IP,
+                                    ip_proto=ipv4.inet.IPPROTO_UDP,
+                                    udp_dst=pt)
+            mymsg = parser.OFPFlowMod(command=ofp.OFPFC_DELETE,
+                                      datapath=dp,
+                                      table_id=0,
+                                      match=match,
+                                      buffer_id=ofp.OFPCML_NO_BUFFER,
+                                      out_port=ofp.OFPP_ANY,
+                                      out_group=ofp.OFPG_ANY)
+            dp.send_msg(mymsg)
+
+        return
+
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def datapath_handler(self, ev):
         dp = ev.dp
@@ -1516,6 +1583,12 @@ class SliceController(ControllerBase):
                         outrates[tup] = mp['egress-bw']
                 LOG.info("%016x: creating %s", dpid, tuples_text(ps))
                 status.create_slice(ps, inrates, outrates)
+        if 'dhcp' in new_config:
+            dp = api.get_datapath(self.ctrl, dpid)
+            if new_config['dhcp']:
+                self.ctrl.pass_dhcp(dp)
+            else:
+                self.ctrl.drop_dhcp(dp)
         status.revalidate()
         LOG.info("%016x: completed changes", dpid)
         if 'learn' in new_config:
