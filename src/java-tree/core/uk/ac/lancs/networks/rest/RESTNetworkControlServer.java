@@ -200,7 +200,7 @@ public class RESTNetworkControlServer {
                          HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(rest.matcher());
+        int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -216,7 +216,7 @@ public class RESTNetworkControlServer {
                            HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(rest.matcher());
+        int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -232,7 +232,7 @@ public class RESTNetworkControlServer {
                         HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(rest.matcher());
+        int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -302,7 +302,7 @@ public class RESTNetworkControlServer {
                        HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(rest.matcher());
+        int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
@@ -357,7 +357,7 @@ public class RESTNetworkControlServer {
                             HttpContext context, RESTContext rest)
         throws HttpException,
             IOException {
-        int sid = SID.get(rest.matcher());
+        int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
