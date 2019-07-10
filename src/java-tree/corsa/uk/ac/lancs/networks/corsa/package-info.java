@@ -35,7 +35,12 @@
  */
 
 /**
- * @resume Classes to operate a DP2000-series CORSA switch via REST
+ * {@link uk.ac.lancs.networks.corsa.SliceControllerREST} describes the
+ * REST API of the Ryu controller, which is distinct from the Corsa
+ * management REST API implemented by
+ * {@link uk.ac.lancs.networks.corsa.rest.CorsaREST}.
+ * 
+ * @resume Classes to operate a DP2000-series Corsa switch via REST
  * 
  * @author simpsons
  */

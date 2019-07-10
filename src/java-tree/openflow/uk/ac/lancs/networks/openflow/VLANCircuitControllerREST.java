@@ -62,6 +62,159 @@ import uk.ac.lancs.rest.client.SecureSingleCertificateHttpProvider;
  * Wraps a REST interface to an OpenFlow controller implementing a
  * VLAN-circuit sliced learning switch.
  * 
+ * <p>
+ * The controller runs in Python under Ryu, and is called
+ * <samp>tupleslicer.py</samp>. It maintains a collection of internal
+ * circuit sets per datapath, each circuit set implying that the
+ * identified circuit should be connected at Layer 2. No circuit belongs
+ * to more than one set.
+ * 
+ * <p>
+ * A circuit id ({@link VLANCircuitId}) identifies a port, and zero, one
+ * or two VLAN ids. When one VLAN id is specified (e.g., (6,300)), the
+ * circuit id identifies single-tagged traffic (using CTAG (with the
+ * value 300)) on the given port (6). When two VLAN ids are specified
+ * (e.g., (6,300,20), the traffic is double-tagged with an outer STAG
+ * (300) and an inner CTAG (20), on the given port (6). When no VLAN ids
+ * are specified, the traffic is untagged.
+ * 
+ * <p>
+ * Some circuits overlap. It is not possible to distinguish untagged
+ * traffic from traffic whose payload contains a tag, so an untagged
+ * circuit id like (6) overlaps any tagged circuit on the same port,
+ * such as (6,300) and (6,300,20). While these latter circuit ids are
+ * distinguishable from each other (because one uses CTAG(300) while the
+ * other uses STAG(300)), OpenFlow is currently unable to distinguish
+ * them, so they also overlap each other. As a result, if the controller
+ * is asked to implement a circuit set that includes (say) (6,300), it
+ * will first remove all circuits matching (6) and (6,300,*).
+ * 
+ * <p>
+ * The circuits of a set with exactly two elements are connected using
+ * simple ELINE rules, i.e., traffic from one circuit is simply passed
+ * to the other after appropriate retagging, and vice versa, with no
+ * further interaction with the controller.
+ * 
+ * <p>
+ * The circuits of a set with more than two elements are connected using
+ * learning-switch rules, where the controller is consulted when a MAC
+ * address is seen on a circuit that it was not most recently seen on,
+ * resulting in the removal of rules matching that address and connected
+ * with the same circuit set. The same MAC address may be learned on two
+ * circuits simultaneously, if the circuits belong to different sets.
+ * 
+ * <p>
+ * No circuit set contains only one element. Any set left in a state
+ * with only one element is deleted, and will have no rules pertaining
+ * to it.
+ * 
+ * <p>
+ * Metering actions/instructions are applied. Each circuit has an
+ * associated ingress meter, applied as its traffic enters the switch,
+ * and an egress meter, applied as it exits. A meter's rate is
+ * optionally supplied with the corresponding circuit id. If none is
+ * specified, the meter's rate is set to an unattainably high value,
+ * effectively disabling metering.
+ * 
+ * <p>
+ * The REST interface is under the virtual path
+ * <samp>/slicer/api/v1/config</samp>. The next path element identifies
+ * the DPID of the switch to be configured, as a 16-nibble hex code.
+ * Circuit ids are represented as arrays of 1-3 integers.
+ * 
+ * <p>
+ * A <code>GET</code> or <code>POST</code> on (say)
+ * <samp>/slicer/api/v1/config/0003fe289c27e8ba</samp> will yield the
+ * current circuit sets of the switch with DPID 0003fe289c27e8ba. The
+ * response takes the form of a JSON array with each element being an
+ * array of circuits corresponding to a circuit set.
+ * 
+ * <p>
+ * A <code>POST</code> on
+ * <samp>/slicer/api/v1/config/0003fe289c27e8ba</samp> with a request
+ * body consisting of a JSON object changes the circuit-set
+ * configuration.
+ * 
+ * <p>
+ * If the JSON object contains an array called <samp>slices</samp>,
+ * whose elements are arrays of objects of <samp>circuit</samp> (a
+ * circuit id as an array), <samp>egress-bw</samp> (the optional egress
+ * bandwidth as a real number in Mbps), and <samp>ingress-bw</samp> (the
+ * optional ingress bandwidth as a real number in Mbps), these are
+ * interpreted as circuit sets, and are created in the switch.
+ * 
+ * <p>
+ * An optional array called <samp>disused</samp> may contain circuits to
+ * be removed from their sets. Circuits belonging to existing sets are
+ * first removed from them, and the OpenFlow rules of any resulting
+ * circuit sets with only one element are removed altogether.
+ * 
+ * <p>
+ * An optional object <samp>learn</samp> allows a MAC address
+ * <samp>mac</samp> to be artificially learned on a specific circuit
+ * <samp>tuple</samp>. An optional <samp>timeout</samp> sets the idle
+ * timeout (in seconds) for the rule that prevents appearance of the MAC
+ * address on its circuit from triggering contact with the controller.
+ * This feature is intended only for debugging.
+ * 
+ * <p>
+ * An optional boolean <samp>dhcp</samp> injects (false) or removes
+ * (true) rules applied to all traffic that prevent DHCP from traversing
+ * the switch. This is intended as a work-around for use with OSM which
+ * does not yet have the logic to prevent two sites from using the same
+ * IP address pool.
+ * 
+ * <p>
+ * A complete example:
+ * 
+ * <pre>
+ * &#123;
+ *   "slices": [
+ *     [
+ *       &#123;
+ *         "circuit": [6,60,600],
+ *         "ingress-bw": 30.3,
+ *         "egress-bw": 19
+ *       &#125;,
+ *       &#123;
+ *         "circuit": [3,30],
+ *         "egress-bw": 14.2
+ *       &#125;,
+ *       &#123;
+ *         "circuit": [2],
+ *         "ingress-bw": 18.7,
+ *       &#125;
+ *     ],
+ *     [
+ *       &#123;
+ *         "circuit": [3,40],
+ *         "ingress-bw": 30.3,
+ *         "egress-bw": 19
+ *       &#125;,
+ *       &#123;
+ *         "circuit": [4,40],
+ *         "egress-bw": 14.2
+ *       &#125;
+ *     ],
+ *   ],
+ *   "disused": [
+ *     [6,60,601],
+ *     [3,50],
+ *     [1],
+ *   ],
+ *   "learn": &#123;
+ *     "mac": "00:11:22:33:44:55",
+ *     "tuple": [3,30],
+ *     "timeout": 30
+ *   &#125;,
+ *   "dhcp": False
+ * &#125;
+ * </pre>
+ * 
+ * <p>
+ * This class only generates requests containing <samp>slices</samp> or
+ * <samp>disused</samp>.
+ * 
  * @author simpsons
  */
 public final class VLANCircuitControllerREST extends RESTClient {

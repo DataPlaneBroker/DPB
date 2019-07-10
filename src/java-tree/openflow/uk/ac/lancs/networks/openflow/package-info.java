@@ -35,6 +35,9 @@
  */
 
 /**
+ * {@link uk.ac.lancs.networks.openflow.VLANCircuitControllerREST}
+ * describes the REST API of the Ryu controller.
+ * 
  * @resume Fabric abstractions for generic OpenFlow switches
  * 
  * @author simpsons
