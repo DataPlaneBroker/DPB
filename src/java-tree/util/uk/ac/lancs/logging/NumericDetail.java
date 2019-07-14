@@ -52,9 +52,6 @@ import java.lang.annotation.Target;
 @Target({ METHOD, TYPE })
 public @interface NumericDetail {
     /**
-     * The default is specified by
-     * {@link FormatDefaults#numericLevel()}.
-     * 
      * @resume The logging level that enables this message
      * 
      * @return the logging level
