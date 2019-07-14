@@ -44,7 +44,7 @@ roots_tests += TestJsonServer
 roots_tests += TestJsonClient
 roots_tests += AlgoPerfTest
 roots_tests += TopologyDemonstration
-deps_tests += core
+jdeps_tests += initiate-dpb-core
 
 JARDEPS_OUTDIR=out
 JARDEPS_SRCDIR=src/java-tree
