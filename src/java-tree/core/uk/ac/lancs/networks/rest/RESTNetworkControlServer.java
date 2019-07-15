@@ -181,8 +181,8 @@ public class RESTNetworkControlServer {
     }
 
     @Route("/services")
-    void listServices(HttpRequest request, HttpResponse response,
-                      HttpContext context)
+    private void listServices(HttpRequest request, HttpResponse response,
+                              HttpContext context)
         throws HttpException,
             IOException {
         JsonArrayBuilder builder = Json.createArrayBuilder();
@@ -196,8 +196,8 @@ public class RESTNetworkControlServer {
 
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/activate")
-    void activateService(HttpRequest request, HttpResponse response,
-                         HttpContext context)
+    private void activateService(HttpRequest request, HttpResponse response,
+                                 HttpContext context)
         throws HttpException,
             IOException {
         RESTContext rest = RESTContext.get(context);
@@ -213,8 +213,8 @@ public class RESTNetworkControlServer {
 
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/deactivate")
-    void deactivateService(HttpRequest request, HttpResponse response,
-                           HttpContext context)
+    private void deactivateService(HttpRequest request, HttpResponse response,
+                                   HttpContext context)
         throws HttpException,
             IOException {
         RESTContext rest = RESTContext.get(context);
@@ -230,8 +230,8 @@ public class RESTNetworkControlServer {
 
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/release")
-    void releaseService(HttpRequest request, HttpResponse response,
-                        HttpContext context)
+    private void releaseService(HttpRequest request, HttpResponse response,
+                                HttpContext context)
         throws HttpException,
             IOException {
         RESTContext rest = RESTContext.get(context);
@@ -301,8 +301,8 @@ public class RESTNetworkControlServer {
     @Method("POST")
     @Method("PUT")
     @Route("/service/(?<sid>[0-9]+)/define")
-    void defineService(HttpRequest request, HttpResponse response,
-                       HttpContext context)
+    private void defineService(HttpRequest request, HttpResponse response,
+                               HttpContext context)
         throws HttpException,
             IOException {
         RESTContext rest = RESTContext.get(context);
@@ -340,8 +340,8 @@ public class RESTNetworkControlServer {
 
     @Method("POST")
     @Route("/create-service")
-    void createService(HttpRequest request, HttpResponse response,
-                       HttpContext context)
+    private void createService(HttpRequest request, HttpResponse response,
+                               HttpContext context)
         throws HttpException,
             IOException {
         Service srv = network.newService();
@@ -357,8 +357,9 @@ public class RESTNetworkControlServer {
     @Method("GET")
     @Method("POST")
     @Route("/service/(?<sid>[0-9]+)/await-status")
-    void awaitServiceStatus(HttpRequest request, HttpResponse response,
-                            HttpContext context)
+    private void awaitServiceStatus(HttpRequest request,
+                                    HttpResponse response,
+                                    HttpContext context)
         throws HttpException,
             IOException {
         RESTContext rest = RESTContext.get(context);
