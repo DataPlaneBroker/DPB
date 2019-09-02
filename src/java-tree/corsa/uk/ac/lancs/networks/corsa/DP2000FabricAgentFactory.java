@@ -139,6 +139,12 @@ import uk.ac.lancs.scc.jardeps.Service;
  * 
  * <dd>Specifies the type of VFC to create.
  * 
+ * <dt><samp>resources</samp> (default
+ * <samp>{@value #DEFAULT_RESOURCES}</samp>)
+ * 
+ * <dd>Specifies the amount of resources to allocate when creating a
+ * VFC.
+ * 
  * <dt><samp>metering</samp> (default <samp>true</samp>)
  * 
  * <dd>Specifies whether tunnel attachments should have metering applied
@@ -244,6 +250,11 @@ public class DP2000FabricAgentFactory implements AgentFactory {
     /**
      * @undocumented
      */
+    public static final int DEFAULT_RESOURCES = 3;
+
+    /**
+     * @undocumented
+     */
     public static final String VFCPERSERVICE_TYPE_NAME =
         "corsa-dp2x00-brperlink";
 
@@ -313,6 +324,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                          ? DEFAULT_VFCPERSERVICE_COMPLETE_DESCRIPTION_SUFFIX
                          : DEFAULT_SHAREDVFC_COMPLETE_DESCRIPTION_SUFFIX);
         final String subtype = conf.get("subtype", DEFAULT_SUBYTPE);
+        final String resourcesText = conf.get("resources");
+        final int resources = resourcesText == null ? DEFAULT_RESOURCES
+            : Integer.parseInt(resourcesText);
         final String netns =
             conf.get("ctrl.netns", DEFAULT_NETWORK_NAMESPACE);
         final InetSocketAddress controller =
@@ -410,9 +424,9 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     maxBridges, descPrefix,
                                                     partialDescSuffix,
                                                     fullDescSuffix, subtype,
-                                                    netns, controller,
-                                                    service, cert, authz,
-                                                    withMetering,
+                                                    resources, netns,
+                                                    controller, service, cert,
+                                                    authz, withMetering,
                                                     withShaping);
                         return type.cast(result);
                     }
@@ -423,10 +437,11 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     descPrefix,
                                                     partialDescSuffix,
                                                     fullDescSuffix, subtype,
-                                                    netns, controller,
-                                                    service, cert, authz,
-                                                    ctrlService, ctrlCert,
-                                                    ctrlAuthz, withMetering,
+                                                    resources, netns,
+                                                    controller, service, cert,
+                                                    authz, ctrlService,
+                                                    ctrlCert, ctrlAuthz,
+                                                    withMetering,
                                                     withShaping);
                         return type.cast(result);
                     }

@@ -98,6 +98,8 @@ public class VFCPerServiceFabric implements Fabric {
 
     private final String subtype;
 
+    private final int resources;
+
     private final CorsaREST rest;
 
     private final boolean withMetering;
@@ -131,6 +133,9 @@ public class VFCPerServiceFabric implements Fabric {
      * @param subtype the VFC subtype to use when creating VFCs, e.g.,
      * <samp>ls-vpn</samp>, <samp>openflow</samp>, etc.
      * 
+     * @param resources the percentage of resources to allocate when
+     * creating a VFC
+     * 
      * @param netns the network namespace for the controller port of
      * each new VFC
      * 
@@ -161,10 +166,10 @@ public class VFCPerServiceFabric implements Fabric {
                                int maxBridges, String descPrefix,
                                String partialDescSuffix,
                                String fullDescSuffix, String subtype,
-                               String netns, InetSocketAddress controller,
-                               URI service, X509Certificate cert,
-                               String authz, boolean withMetering,
-                               boolean withShaping)
+                               int resources, String netns,
+                               InetSocketAddress controller, URI service,
+                               X509Certificate cert, String authz,
+                               boolean withMetering, boolean withShaping)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -175,6 +180,7 @@ public class VFCPerServiceFabric implements Fabric {
         this.withMetering = withMetering;
         this.withShaping = withShaping;
         this.subtype = subtype;
+        this.resources = resources;
         this.netns = netns;
         this.controller = controller;
         this.rest = new CorsaREST(service, cert, authz);
@@ -293,9 +299,10 @@ public class VFCPerServiceFabric implements Fabric {
                     /* Create the bridge, and record the name
                      * allocated. */
                     {
-                        RESTResponse<String> creationRsp = rest
-                            .createBridge(new BridgeDesc().descr(partialDesc)
-                                .resources(2).subtype(subtype).netns(netns));
+                        RESTResponse<String> creationRsp =
+                            rest.createBridge(new BridgeDesc()
+                                .descr(partialDesc).resources(resources)
+                                .subtype(subtype).netns(netns));
                         if (creationRsp.code != 201) {
                             System.err.printf(
                                               "Failed to "

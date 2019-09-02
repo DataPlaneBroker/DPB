@@ -87,6 +87,7 @@ public final class PortSlicedVFCFabric implements Fabric {
 
     private final String netns;
     private final String subtype;
+    private final int resources;
     private final CorsaREST rest;
     private String bridgeId;
     private long dpid;
@@ -140,6 +141,9 @@ public final class PortSlicedVFCFabric implements Fabric {
      * @param subtype the VFC subtype to use when creating VFCs, e.g.,
      * <samp>ls-vpn</samp>, <samp>openflow</samp>, etc.
      * 
+     * @param resources the percentage of resources to allocate when
+     * creating a VFC
+     * 
      * @param netns the network namespace for the controller port of a
      * new VFC if it needs to be created
      * 
@@ -179,11 +183,12 @@ public final class PortSlicedVFCFabric implements Fabric {
     public PortSlicedVFCFabric(int portCount, int maxAggregations,
                                String descPrefix, String partialDescSuffix,
                                String fullDescSuffix, String subtype,
-                               String netns, InetSocketAddress controller,
-                               URI service, X509Certificate cert,
-                               String authz, URI ctrlService,
-                               X509Certificate ctrlCert, String ctrlAuthz,
-                               boolean withMetering, boolean withShaping)
+                               int resources, String netns,
+                               InetSocketAddress controller, URI service,
+                               X509Certificate cert, String authz,
+                               URI ctrlService, X509Certificate ctrlCert,
+                               String ctrlAuthz, boolean withMetering,
+                               boolean withShaping)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -194,6 +199,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.withMetering = withMetering;
         this.withShaping = withShaping;
         this.subtype = subtype;
+        this.resources = resources;
         this.netns = netns;
         this.controller = controller;
         this.sliceRest =
@@ -584,7 +590,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         {
             RESTResponse<String> creationRsp =
                 rest.createBridge(new BridgeDesc().descr(partialDesc)
-                    .resources(10).subtype(subtype).netns(netns));
+                    .resources(resources).subtype(subtype).netns(netns));
             if (creationRsp.code != 201)
                 throw new RuntimeException("bridge creation failure: "
                     + creationRsp.code);
