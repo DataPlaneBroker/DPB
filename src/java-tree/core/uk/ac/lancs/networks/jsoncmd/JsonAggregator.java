@@ -381,7 +381,7 @@ public class JsonAggregator extends JsonNetwork implements Aggregator {
         public void withdrawBandwidth(double upstream, double downstream)
             throws BandwidthUnavailableException {
             JsonObject req =
-                startRequest("decrease-bw").add("upstream-bw", upstream)
+                startRequest("decrease-trunk-bw").add("upstream-bw", upstream)
                     .add("downstream-bw", downstream).build();
             JsonObject rsp = interact(req);
             try {
