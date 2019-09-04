@@ -33,35 +33,23 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks;
+
+package uk.ac.lancs.networks.services;
+
+import java.util.UUID;
 
 /**
- * Describes the completion status of a service. This indicates simply
- * whether the current layout matches the target layout requested by the
- * user.
+ * Provides network services on demand.
  * 
  * @author simpsons
  */
-enum Completion {
+public interface Provider {
     /**
-     * The service is attempting to allocate the correct resources for
-     * its intent. A call to
-     * {@link Service#define(java.util.Collection)} with a different set
-     * than the current one will push the service into this state
-     * temporarily.
+     * Get or create a service.
+     * 
+     * @param id the identifier for the service
+     * 
+     * @return the object for manipulating the service
      */
-    COMPLETING,
-
-    /**
-     * The service has completed allocating the correct resources for
-     * its intent.
-     */
-    COMPLETE,
-
-    /**
-     * The service has given up trying to allocate resources for its
-     * intent. {@link Service#errors()} may yield information about why
-     * it failed.
-     */
-    INCOMPLETE;
+    Service getService(UUID id);
 }

@@ -33,35 +33,26 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks;
+
+package uk.ac.lancs.networks.services;
 
 /**
- * Describes the activation status of a service.
+ * Receives status updates about a service.
  * 
  * @author simpsons
  */
-enum Activation {
+public interface ServiceListener {
     /**
-     * The service is inactive. Some resources may be allocated, but
-     * physical switches are not set up to transfer traffic.
+     * Receive a change in the completion status.
+     * 
+     * @param status the new status
      */
-    INACTIVE,
+    void completion(Completion status);
 
     /**
-     * The service is activating. The user wishes the service to be
-     * active, but transfer of traffic is not yet completely happening.
+     * Receive a change in the activation status.
+     * 
+     * @param status the new status
      */
-    ACTIVATING,
-
-    /**
-     * The service is active. All resources are allocated, and traffic
-     * is being transferred.
-     */
-    ACTIVE,
-
-    /**
-     * The service is deactivating. The user wishes the service to be
-     * inactive, but some transfer of traffic may still be happening.
-     */
-    DEACTIVATING;
+    void activation(Activation status);
 }
