@@ -752,6 +752,11 @@ public final class Commander {
      * <dd>Make labels <var>low</var> to <var>high</var> unavailable on
      * the trunk at the specified terminal.
      * 
+     * <dt><samp>set-delay <var>terminal</var> <var>delay</var></samp>
+     * 
+     * <dd>Set the nominal delay (really just a cost metric) on
+     * the trunk at the specified terminal.
+     * 
      * <dt><samp>new</samp>
      * 
      * <dd>Create a new service for the current network.
