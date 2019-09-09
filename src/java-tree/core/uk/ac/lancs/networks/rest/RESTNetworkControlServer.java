@@ -238,10 +238,13 @@ public class RESTNetworkControlServer {
         int sid = rest.get(SID);
         Service srv = network.getService(sid);
         if (srv == null) {
-            response.setStatusCode(HttpStatus.SC_NOT_FOUND);
-            return;
+            // response.setStatusCode(HttpStatus.SC_NOT_FOUND);
+            // return;
+            System.err.printf("Service %d not found,"
+                + " but treating as released%n", sid);
+        } else {
+            srv.release();
         }
-        srv.release();
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
