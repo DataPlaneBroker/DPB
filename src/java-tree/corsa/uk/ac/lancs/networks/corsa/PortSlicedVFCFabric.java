@@ -50,6 +50,10 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -351,6 +355,12 @@ public final class PortSlicedVFCFabric implements Fabric {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
             if (!started) {
                 try {
+                    ExecutorService es =
+                        Executors.newFixedThreadPool(service.size());
+                    CompletionService<Void> cs =
+                        new ExecutorCompletionService<>(es);
+                    int csGot = 0;
+
                     /* Allocate each circuit to an OF port, attach them,
                      * and set the QoS. */
                     BitSet ofPorts = new BitSet();
@@ -378,23 +388,39 @@ public final class PortSlicedVFCFabric implements Fabric {
                             /* Set the outgoing rate of the tunnel. */
                             desc.shapedRate(flow.egress);
                         }
-                        {
-                            final long t0 = System.currentTimeMillis();
-                            rest.attachTunnel(bridgeId, desc);
-                            final long t1 = System.currentTimeMillis();
-                            System.err.printf("Port %d time: %gs%n", ofport,
-                                              (t1 - t0) / 1000.0);
-                        }
 
-                        if (withMetering) {
-                            final long t0 = System.currentTimeMillis();
-                            /* Set the incoming QoS of the tunnel. */
-                            rest.patchTunnel(bridgeId, ofport,
-                                             Meter.cir(flow.ingress * 1024.0),
-                                             Meter.cbs(10));
-                            final long t1 = System.currentTimeMillis();
-                            System.err.printf("Port %d metering time: %gs%n",
-                                              ofport, (t1 - t0) / 1000.0);
+                        cs.submit(() -> {
+                            {
+                                final long t0 = System.currentTimeMillis();
+                                rest.attachTunnel(bridgeId, desc);
+                                final long t1 = System.currentTimeMillis();
+                                System.err.printf("Port %d time: %gs%n",
+                                                  ofport, (t1 - t0) / 1000.0);
+                            }
+
+                            if (withMetering) {
+                                final long t0 = System.currentTimeMillis();
+                                /* Set the incoming QoS of the
+                                 * tunnel. */
+                                rest.patchTunnel(bridgeId, ofport,
+                                                 Meter.cir(flow.ingress
+                                                     * 1024.0),
+                                                 Meter.cbs(10));
+                                final long t1 = System.currentTimeMillis();
+                                System.err
+                                    .printf("Port %d metering time: %gs%n",
+                                            ofport, (t1 - t0) / 1000.0);
+                            }
+                            return null;
+                        });
+                        csGot++;
+                    }
+                    while (csGot > 0) {
+                        try {
+                            cs.take();
+                            csGot--;
+                        } catch (InterruptedException e) {
+                            // Um?
                         }
                     }
 
