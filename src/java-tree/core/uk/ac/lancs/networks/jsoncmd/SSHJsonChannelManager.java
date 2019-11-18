@@ -137,6 +137,12 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             if (keyPath != null) {
                 command.add("-i");
                 command.add(keyPath.toAbsolutePath().toString());
+
+                /* IdentitiesOnly=yes should be enough to prevent the
+                 * use of the agent, but it seems to be ineffective.
+                 * IdentityAgent=none seems to work. */
+                command.add("-o");
+                command.add("IdentityAgent=none");
             }
             command.add("-o");
             command.add("ForwardX11=no");
