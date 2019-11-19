@@ -107,7 +107,7 @@ public class PersistentAggregator implements Aggregator {
          * references to this service have gone.
          */
         void cleanUp() {
-            clients.forEach(Client::term);
+            clients.parallelStream().forEach(Client::term);
             logger.fine("Service object " + id + " discarded");
         }
 
@@ -305,7 +305,7 @@ public class PersistentAggregator implements Aggregator {
 
                         /* Ensure that all subservices are
                          * deactivated. */
-                        clients.forEach(Client::deactivate);
+                        clients.parallelStream().forEach(Client::deactivate);
 
                         /* Release all trunk resources now. We
                          * definitely don't need them any more. */
@@ -327,7 +327,8 @@ public class PersistentAggregator implements Aggregator {
                             /* The clients must have been DORMANT, but
                              * the user prematurely activated us. */
                             callOut(ServiceStatus.ACTIVATING);
-                            clients.forEach(Client::activate);
+                            clients.parallelStream()
+                                .forEach(Client::activate);
                             break;
 
                         case RELEASE:
@@ -378,7 +379,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Lose the references to all the subservices, and make sure
              * they've lost our callbacks. */
-            clients.forEach(Client::term);
+            clients.parallelStream().forEach(Client::term);
             clients.clear();
 
             /* Ensure this service can't be found again by users. */
@@ -499,7 +500,7 @@ public class PersistentAggregator implements Aggregator {
                 assert clients.isEmpty();
                 clients.addAll(subcons.keySet().stream().map(Client::new)
                     .collect(Collectors.toList()));
-                clients.forEach(Client::init);
+                clients.parallelStream().forEach(Client::init);
                 dormantCount += clients.size();
 
                 /* Tell each of the subconnections to initiate spanning
@@ -623,7 +624,7 @@ public class PersistentAggregator implements Aggregator {
             if (!initiated) return;
 
             callOut(ServiceStatus.ACTIVATING);
-            clients.forEach(Client::activate);
+            clients.parallelStream().forEach(Client::activate);
         }
 
         @Override
@@ -642,7 +643,7 @@ public class PersistentAggregator implements Aggregator {
             if (inactiveCount + failedCount == clients.size()) {
                 callOut(ServiceStatus.INACTIVE);
             } else {
-                clients.forEach(Client::deactivate);
+                clients.parallelStream().forEach(Client::deactivate);
             }
         }
 
@@ -667,7 +668,7 @@ public class PersistentAggregator implements Aggregator {
                         callOut(ServiceStatus.DEACTIVATING);
 
                         /* Deactivate inferiors. */
-                        clients.forEach(Client::deactivate);
+                        clients.parallelStream().forEach(Client::deactivate);
                     }
                 } else {
                     /* Record the new intent and initiate the release
@@ -689,7 +690,7 @@ public class PersistentAggregator implements Aggregator {
             callOut(ServiceStatus.RELEASING);
 
             /* Release subservice resources. */
-            clients.forEach(Client::release);
+            clients.parallelStream().forEach(Client::release);
 
             /* Release tunnel resources. */
             releaseTunnels(conn, this.id);
@@ -767,7 +768,7 @@ public class PersistentAggregator implements Aggregator {
 
             /* Ensure we receive status updates. We don't receive any
              * until this synchronized call terminates. */
-            clients.forEach(Client::init);
+            clients.parallelStream().forEach(Client::init);
 
             for (Client cli : clients) {
                 cli.lastStatus = cli.subservice.status();
