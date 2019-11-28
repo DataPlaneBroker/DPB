@@ -1,5 +1,6 @@
 /bin/
 /classes/
+/scratch/
 /out/
 /tmp/
 /jardeps-install.mk
