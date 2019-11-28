@@ -90,7 +90,10 @@ import uk.ac.lancs.rest.service.Route;
 
 /**
  * Implements a REST API for a network controller. Use
- * {@link #bind(RESTDispatcher, String)} to attach it to an HTTP server.
+ * {@link #bind(RESTDispatcher, String)} to attach it to an HTTP server
+ * under a given prefix, <samp><var>prefix</var></samp>. The prefix
+ * should begin with a forward slash but not end in one, for example,
+ * <samp>/network/aggregator</samp>.
  * 
  * <p>
  * The following requests are defined:
@@ -100,13 +103,19 @@ import uk.ac.lancs.rest.service.Route;
  * <dt><code>GET <var>prefix</var>/services</code>
  * 
  * <dd>Invoke {@link NetworkControl#getServiceIds()}, and yield a JSON
- * array of the service ids.
+ * array of the service ids. Example response: <pre>
+ * [ 1, 2, 4, 6, 7 ]
+ * </pre>
  * 
  * <dt><code>POST <var>prefix</var>/create-service</code>
  * 
  * <dd>Invoke {@link NetworkControl#newService()}, returning an object
  * with the single field <samp>service-id</samp> containing the new
- * service's id.
+ * service's id. Example response: <pre>
+ * { "service-id" : 6 }
+ * </pre> The service id appears in the request URI of the other calls,
+ * e.g.,
+ * <samp><var>prefix</var>/service/<strong><var>sid</var></strong>/define</samp>
  * 
  * <dt><code>PUT <var>prefix</var>/service/<var>sid</var>/define</code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/define</code>
@@ -116,7 +125,16 @@ import uk.ac.lancs.rest.service.Route;
  * <samp>segment</samp>. Each object identifies the terminal by name
  * <samp>terminal-name</samp>, the label <samp>label</samp>, the ingress
  * bandwidth <samp>ingress</samp>, and the egress bandwidth
- * <samp>egress</samp>.
+ * <samp>egress</samp>. Example request: <pre>
+ * {
+ *   "segment" :
+ *   [
+ *      { "terminal-name": "a", "label": 320, "ingress" : 10.0, "egress" : 10.0 },
+ *      { "terminal-name": "b", "label": 1287, "ingress" : 10.0, "egress" : 10.0 },
+ *      { "terminal-name": "c", "label": 431, "ingress" : 10.0, "egress" : 10.0 }
+ *   ]
+ * }
+ * </pre>
  * 
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/activate</code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/deactivate</code>
@@ -132,17 +150,19 @@ import uk.ac.lancs.rest.service.Route;
  * <dd>Invoke {@link Service#awaitStatus(java.util.Collection, long)}.
  * The POST request body must contain an array <samp>acceptable</samp>
  * listing acceptable statuses, and an integer
- * <samp>timeout-millis</samp> giving the timeout in milliseconds. The
- * GET request URI must include <samp>timeout-millis</samp>, and any
- * number of <samp>acceptable</samp>s (including none).
+ * <samp>timeout-millis</samp> giving the timeout in milliseconds.
+ * Example request: <pre>
+ * {
+ *   "acceptable" : [ "INACTIVE", "ACTIVE" ],
+ *   "timeout-millis" : 4000
+ * }
+ * </pre> The GET request URI must include <samp>timeout-millis</samp>,
+ * and any number of <samp>acceptable</samp>s (including none). Example
+ * response: <pre>
+ * { "status" : "RELEASED" }
+ * </pre>
  * 
  * </dl>
- * 
- * <p>
- * The <samp><var>prefix</var></samp> is specified in the
- * {@link #bind(RESTDispatcher, String)} call, and should begin with a
- * forward slash but not end in one, for example,
- * <samp>/network/aggregator</samp>.
  * 
  * @author simpsons
  */
