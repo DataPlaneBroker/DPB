@@ -43,6 +43,8 @@ import javax.json.JsonObjectBuilder;
  * Describes an operation to set a tunnel's metering.
  * 
  * @author simpsons
+ * 
+ * @param <T> the type of the meter field
  */
 public class Meter<T extends Number> implements TunnelPatchOp {
     private final String part;
