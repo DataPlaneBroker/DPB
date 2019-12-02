@@ -841,6 +841,11 @@ public class PersistentSwitch implements Switch {
                     stmt.execute();
                 } catch (SQLIntegrityConstraintViolationException ex) {
                     return null;
+                } catch (SQLException ex) {
+                    /* TODO: SQLite doesn't throw the specific exception
+                     * above. We should probably search the database for
+                     * a duplicate first. */
+                    return null;
                 }
             }
             conn.commit();

@@ -2309,6 +2309,13 @@ public class PersistentAggregator implements Aggregator {
                         logger.log(Level.SEVERE, "Aborted creation of service"
                             + " with duplicate handle " + handle);
                         return null;
+                    } catch (SQLException ex) {
+                        /* TODO: SQLite doesn't throw the specific
+                         * exception above. We should probably search
+                         * the database for a duplicate first. */
+                        logger.log(Level.SEVERE, "Aborted creation of service"
+                            + " with duplicate handle " + handle);
+                        return null;
                     }
                 }
                 Service result = serviceWatcher.getFresh(id);
