@@ -365,7 +365,14 @@ public final class Commander {
             String sid = iter.next();
             int id = Integer.parseInt(sid);
             service = network.getControl().getService(id);
-            return true;
+            return service != null;
+        }
+
+        if ("-S".equals(arg)) {
+            usage = arg + " <service-handle>";
+            String handle = iter.next();
+            service = network.getControl().getService(handle);
+            return service != null;
         }
 
         if ("new".equals(arg)) {
@@ -374,6 +381,16 @@ public final class Commander {
                               networkName);
             return true;
         }
+
+        if (arg.startsWith("new:")) {
+            usage = arg + ":<service-handle>";
+            String handle = arg.substring(4);
+            service = network.getControl().newService(handle);
+            System.out.printf("Created new service: %d (%s) on %s%n",
+                              service.id(), handle, networkName);
+            return true;
+        }
+
         if ("-e".equals(arg)) {
             usage = arg + " <terminal-name>:<label>";
             String epid = iter.next();
@@ -694,9 +711,13 @@ public final class Commander {
      * 
      * <dd>Apply subsequent commands to the specified network.
      * 
-     * <dt><samp>-s <var>service</var></samp>
+     * <dt><samp>-s <var>service-id</var></samp>
      * 
      * <dd>Select the numbered service of the current network.
+     * 
+     * <dt><samp>-S <var>service-handle</var></samp>
+     * 
+     * <dd>Select by handle the service of the current network.
      * 
      * <dt><samp>add-terminal <var>name</var> <var>mapping</var></samp>
      * 
@@ -754,12 +775,14 @@ public final class Commander {
      * 
      * <dt><samp>set-delay <var>terminal</var> <var>delay</var></samp>
      * 
-     * <dd>Set the nominal delay (really just a cost metric) on
-     * the trunk at the specified terminal.
+     * <dd>Set the nominal delay (really just a cost metric) on the
+     * trunk at the specified terminal.
      * 
      * <dt><samp>new</samp>
+     * <dt><samp>new:<var>service-handle</var></samp>
      * 
-     * <dd>Create a new service for the current network.
+     * <dd>Create a new service for the current network. Use the handle
+     * to identify the service if provided.
      * 
      * <dt><samp>--in <var>rate</var></samp>
      * <dt><samp>--out <var>rate</var></samp>
