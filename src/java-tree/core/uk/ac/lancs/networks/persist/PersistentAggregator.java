@@ -2253,8 +2253,8 @@ public class PersistentAggregator implements Aggregator {
             try (Connection conn = newDatabaseContext(false)) {
                 final int id;
                 try (PreparedStatement stmt =
-                    conn.prepareStatement("SELECT handle FROM " + handleTable
-                        + " WHERE service_id = ?;")) {
+                    conn.prepareStatement("SELECT service_id FROM "
+                        + handleTable + " WHERE handle = ?;")) {
                     stmt.setString(1, handle);
                     try (ResultSet rs = stmt.executeQuery()) {
                         if (!rs.next()) return null;
