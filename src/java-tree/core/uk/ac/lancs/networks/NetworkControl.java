@@ -105,7 +105,8 @@ public interface NetworkControl {
      * @param handle the service's handle, or {@code null} if none
      * required
      * 
-     * @return the new service
+     * @return the new service, or {@code null} if the handle is already
+     * in use
      * 
      * @constructor
      */

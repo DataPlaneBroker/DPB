@@ -1654,6 +1654,8 @@ public class TransientAggregator implements Aggregator {
         @Override
         public Service newService(String handle) {
             synchronized (TransientAggregator.this) {
+                if (handle != null && servicesByHandle.containsKey(handle))
+                    return null;
                 int id = nextServiceId++;
                 MyService conn = new MyService(id, handle);
                 services.put(id, conn);

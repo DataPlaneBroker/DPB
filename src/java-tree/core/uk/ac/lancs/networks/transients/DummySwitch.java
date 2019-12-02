@@ -323,6 +323,8 @@ public class DummySwitch implements Switch {
         @Override
         public Service newService(String handle) {
             synchronized (DummySwitch.this) {
+                if (handle != null && connsByHandle.containsKey(handle))
+                    return null;
                 int id = nextConnectionId++;
                 MyService conn = new MyService(id, handle);
                 connections.put(id, conn);

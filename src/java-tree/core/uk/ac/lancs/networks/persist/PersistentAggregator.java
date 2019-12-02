@@ -2305,6 +2305,10 @@ public class PersistentAggregator implements Aggregator {
                         stmt.setInt(1, id);
                         stmt.setString(2, handle);
                         stmt.execute();
+                    } catch (SQLIntegrityConstraintViolationException ex) {
+                        logger.log(Level.SEVERE, "Aborted creation of service"
+                            + " with duplicate handle " + handle);
+                        return null;
                     }
                 }
                 Service result = serviceWatcher.getFresh(id);

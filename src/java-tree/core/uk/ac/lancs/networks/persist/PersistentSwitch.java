@@ -45,6 +45,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -838,6 +839,8 @@ public class PersistentSwitch implements Switch {
                     stmt.setInt(1, id);
                     stmt.setString(2, handle);
                     stmt.execute();
+                } catch (SQLIntegrityConstraintViolationException ex) {
+                    return null;
                 }
             }
             conn.commit();
