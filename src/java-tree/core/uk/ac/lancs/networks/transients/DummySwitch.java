@@ -97,12 +97,16 @@ public class DummySwitch implements Switch {
         }
     }
 
+    private final Map<String, MyService> connsByHandle = new HashMap<>();
+
     private class MyService implements Service {
         final int id;
+        final String handle;
         final Collection<ServiceListener> listeners = new HashSet<>();
 
-        MyService(int id) {
+        MyService(int id, String handle) {
             this.id = id;
+            this.handle = handle;
         }
 
         boolean active, released;
@@ -181,18 +185,25 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public synchronized void release() {
-            if (released) return;
-            connections.remove(id);
-            request = null;
-            released = true;
-            if (active) {
-                active = false;
-                callOut(ServiceStatus.DEACTIVATING);
-                callOut(ServiceStatus.INACTIVE);
+        public void release() {
+            synchronized (this) {
+                if (released) return;
+                // connections.remove(id);
+                request = null;
+                released = true;
+                if (active) {
+                    active = false;
+                    callOut(ServiceStatus.DEACTIVATING);
+                    callOut(ServiceStatus.INACTIVE);
+                }
+                callOut(ServiceStatus.RELEASING);
+                callOut(ServiceStatus.RELEASED);
             }
-            callOut(ServiceStatus.RELEASING);
-            callOut(ServiceStatus.RELEASED);
+
+            synchronized (DummySwitch.this) {
+                connections.remove(id);
+                if (handle != null) connsByHandle.remove(handle);
+            }
         }
 
         @Override
@@ -310,11 +321,12 @@ public class DummySwitch implements Switch {
         }
 
         @Override
-        public Service newService() {
+        public Service newService(String handle) {
             synchronized (DummySwitch.this) {
                 int id = nextConnectionId++;
-                MyService conn = new MyService(id);
+                MyService conn = new MyService(id, handle);
                 connections.put(id, conn);
+                if (handle != null) connsByHandle.put(handle, conn);
                 return conn;
             }
         }
@@ -346,7 +358,9 @@ public class DummySwitch implements Switch {
 
         @Override
         public Collection<Integer> getServiceIds() {
-            return new HashSet<>(connections.keySet());
+            synchronized (DummySwitch.this) {
+                return new HashSet<>(connections.keySet());
+            }
         }
 
         @Override
@@ -357,6 +371,13 @@ public class DummySwitch implements Switch {
         @Override
         public String name() {
             return name;
+        }
+
+        @Override
+        public Service getService(String handle) {
+            synchronized (DummySwitch.this) {
+                return connsByHandle.get(handle);
+            }
         }
     };
 }

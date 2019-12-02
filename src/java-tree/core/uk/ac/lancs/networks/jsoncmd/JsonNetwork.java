@@ -254,8 +254,10 @@ public class JsonNetwork implements Network {
 
     private final NetworkControl control = new NetworkControl() {
         @Override
-        public Service newService() {
-            JsonObject req = startRequest("new-service").build();
+        public Service newService(String handle) {
+            JsonObjectBuilder reqBuild = startRequest("new-service");
+            if (handle != null) reqBuild = reqBuild.add("handle", handle);
+            JsonObject req = reqBuild.build();
             JsonObject rsp = interact(req);
             int id = rsp.getInt("service-id");
             return serviceWatcher.get(id);
@@ -291,6 +293,16 @@ public class JsonNetwork implements Network {
             return rsp.getJsonArray("service-ids")
                 .getValuesAs(JsonNumber.class).stream()
                 .map(JsonNumber::intValue).collect(Collectors.toList());
+        }
+
+        @Override
+        public Service getService(String handle) {
+            JsonObject req =
+                startRequest("find-service").add("handle", handle).build();
+            JsonObject rsp = interact(req);
+            if (!rsp.containsKey("service-id")) return null;
+            int id = rsp.getInt("service-id");
+            return serviceWatcher.get(id);
         }
 
         @Override

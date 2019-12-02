@@ -394,6 +394,11 @@ public class PersistentAggregator implements Aggregator {
                 stmt.execute();
             }
             try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                + handleTable + " WHERE service_id = ?;")) {
+                stmt.setInt(1, id);
+                stmt.execute();
+            }
+            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
                 + serviceTable + " WHERE service_id = ?;")) {
                 stmt.setInt(1, id);
                 stmt.execute();
@@ -1427,7 +1432,7 @@ public class PersistentAggregator implements Aggregator {
     private final Function<? super String, ? extends NetworkControl> inferiors;
 
     private final String circuitTable, terminalTable, serviceTable,
-        subserviceTable, trunkTable, labelTable;
+        handleTable, subserviceTable, trunkTable, labelTable;
     private final String dbConnectionAddress;
     private final Properties dbConnectionConfig;
 
@@ -1532,6 +1537,7 @@ public class PersistentAggregator implements Aggregator {
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
+        this.handleTable = dbConfig.get("handles.table", "handles");
         this.subserviceTable = dbConfig.get("services.table", "subservices");
         this.trunkTable = dbConfig.get("trunks.table", "trunks");
         this.labelTable = dbConfig.get("labels.table", "labels");
@@ -1575,6 +1581,14 @@ public class PersistentAggregator implements Aggregator {
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
                     + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
+
+                /* Some services are created with unique user-defined
+                 * handles. */
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + handleTable
+                    + " (handle VARCHAR(160) PRIMARY KEY,"
+                    + " service_id INTEGER,"
+                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id));");
 
                 /* The end-point table records which superior circuits
                  * are associated with each initiated service. When no
@@ -2235,6 +2249,28 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
+        public Service getService(String handle) {
+            try (Connection conn = newDatabaseContext(false)) {
+                final int id;
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT handle FROM " + handleTable
+                        + " WHERE service_id = ?;")) {
+                    stmt.setString(1, handle);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (!rs.next()) return null;
+                        id = rs.getInt(1);
+                    }
+                }
+                Service result = serviceWatcher.get(id);
+                conn.commit();
+                return result;
+            } catch (SQLException e) {
+                throw new NetworkException(control.name(), "unable to"
+                    + " find service " + handle, e);
+            }
+        }
+
+        @Override
         public Service getService(int id) {
             try (Connection conn = newDatabaseContext(false)) {
                 Service result = serviceWatcher.get(id);
@@ -2247,7 +2283,7 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
-        public Service newService() {
+        public Service newService(String handle) {
             try (Connection conn = newDatabaseContext(false)) {
                 final int id;
                 try (PreparedStatement stmt =
@@ -2260,6 +2296,15 @@ public class PersistentAggregator implements Aggregator {
                         if (!rs.next()) throw new NetworkException(control
                             .name(), "could not" + " generate new service id");
                         id = rs.getInt(1);
+                    }
+                }
+                if (handle != null) {
+                    try (PreparedStatement stmt =
+                        conn.prepareStatement("INSERT INTO " + handleTable
+                            + " (service_id, handle)" + " VALUES (?, ?);")) {
+                        stmt.setInt(1, id);
+                        stmt.setString(2, handle);
+                        stmt.execute();
                     }
                 }
                 Service result = serviceWatcher.getFresh(id);

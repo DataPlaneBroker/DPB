@@ -199,6 +199,7 @@ public class TransientAggregator implements Aggregator {
          ***/
 
         final int id;
+        final String handle;
         final Collection<ServiceListener> listeners = new HashSet<>();
         final List<Client> clients = new ArrayList<>();
 
@@ -222,8 +223,9 @@ public class TransientAggregator implements Aggregator {
          */
         Intent intent = Intent.INACTIVE;
 
-        MyService(int id) {
+        MyService(int id, String handle) {
             this.id = id;
+            this.handle = handle;
         }
 
         @Override
@@ -552,6 +554,7 @@ public class TransientAggregator implements Aggregator {
             /* Ensure this service can't be found again by users. */
             synchronized (TransientAggregator.this) {
                 services.remove(id);
+                if (handle != null) servicesByHandle.remove(handle);
             }
 
             /* Send our last report to all users. */
@@ -1000,6 +1003,7 @@ public class TransientAggregator implements Aggregator {
     private final Map<String, MyTerminal> terminals = new HashMap<>();
     private final Map<Terminal, MyTrunk> trunks = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
+    private final Map<String, MyService> servicesByHandle = new HashMap<>();
     private int nextServiceId;
 
     /**
@@ -1641,11 +1645,19 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public Service newService() {
+        public Service getService(String handle) {
+            synchronized (TransientAggregator.this) {
+                return servicesByHandle.get(handle);
+            }
+        }
+
+        @Override
+        public Service newService(String handle) {
             synchronized (TransientAggregator.this) {
                 int id = nextServiceId++;
-                MyService conn = new MyService(id);
+                MyService conn = new MyService(id, handle);
                 services.put(id, conn);
+                if (handle != null) servicesByHandle.put(handle, conn);
                 return conn;
             }
         }

@@ -94,6 +94,7 @@ public class PersistentSwitch implements Switch {
 
     private class MyService implements Service, BridgeListener {
         final int id;
+        final String handle;
         final Collection<ServiceListener> listeners = new HashSet<>();
 
         @Override
@@ -101,8 +102,9 @@ public class PersistentSwitch implements Switch {
             return PersistentSwitch.this.name + ":" + id;
         }
 
-        MyService(int id) {
+        MyService(int id, String handle) {
             this.id = id;
+            this.handle = handle;
             self = protect(BridgeListener.class, this);
         }
 
@@ -327,6 +329,12 @@ public class PersistentSwitch implements Switch {
                     stmt.execute();
                 }
                 try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM " + handleTable
+                        + " WHERE service_id = ?;")) {
+                    stmt.setInt(1, id);
+                    stmt.execute();
+                }
+                try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + serviceTable
                         + " WHERE service_id = ?;")) {
                     stmt.setInt(1, id);
@@ -349,6 +357,7 @@ public class PersistentSwitch implements Switch {
             } else {
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
+                    if (handle != null) servicesByHandle.remove(handle);
                 }
                 released = true;
                 callOut(ServiceStatus.RELEASED);
@@ -452,6 +461,7 @@ public class PersistentSwitch implements Switch {
     private final String name;
     private final Map<String, SwitchTerminal> terminals = new HashMap<>();
     private final Map<Integer, MyService> services = new HashMap<>();
+    private final Map<String, MyService> servicesByHandle = new HashMap<>();
 
     /**
      * Print out the status of all services and trunks of this switch.
@@ -532,6 +542,7 @@ public class PersistentSwitch implements Switch {
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
         this.serviceTable = dbConfig.get("services.table", "services");
+        this.handleTable = dbConfig.get("handles.table", "handles");
         if (!services.isEmpty())
             throw new IllegalStateException("services already running in "
                 + name);
@@ -551,6 +562,11 @@ public class PersistentSwitch implements Switch {
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
                     + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
+                stmt.execute("CREATE TABLE IF NOT EXISTS " + handleTable
+                    + " (handle VARCHAR(160) PRIMARY KEY,"
+                    + " service_id INTEGER,"
+                    + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
+                    + "(service_id));");
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + circuitTable
                     + " (service_id INTEGER," + " terminal_id INTEGER,"
                     + " label INTEGER UNSIGNED," + " metering DECIMAL(9,3),"
@@ -580,13 +596,19 @@ public class PersistentSwitch implements Switch {
             /* Recreate empty services from entries in our tables. */
             Map<Integer, Intent> intents = new HashMap<>();
             try (Statement stmt = conn.createStatement();
-                ResultSet rs = stmt.executeQuery("SELECT service_id, intent"
-                    + " FROM " + serviceTable + ";")) {
+                ResultSet rs =
+                    stmt.executeQuery("SELECT st.service_id AS service_id,"
+                        + " st.intent AS intent," + " ht.handle AS handle"
+                        + " FROM " + serviceTable + " AS st LEFT JOIN "
+                        + handleTable + " AS ht"
+                        + " ON ht.service_id = st.service_id;")) {
                 while (rs.next()) {
                     final int id = rs.getInt(1);
                     final Intent intent = Intent.values()[rs.getInt(2)];
-                    MyService service = new MyService(id);
+                    final String handle = rs.getString(3);
+                    MyService service = new MyService(id, handle);
                     services.put(id, service);
+                    if (handle != null) servicesByHandle.put(handle, service);
                     intents.put(id, intent);
                 }
             }
@@ -633,7 +655,8 @@ public class PersistentSwitch implements Switch {
         }
     }
 
-    private final String circuitTable, terminalTable, serviceTable;
+    private final String circuitTable, terminalTable, serviceTable,
+        handleTable;
     private final String dbConnectionAddress;
     private final Properties dbConnectionConfig;
 
@@ -738,14 +761,19 @@ public class PersistentSwitch implements Switch {
         }
 
         @Override
-        public Service newService() {
-            return PersistentSwitch.this.newService();
+        public Service newService(String handle) {
+            return PersistentSwitch.this.newService(handle);
         }
 
         @Override
         public Map<Edge<Terminal>, ChordMetrics>
             getModel(double minimumBandwidth) {
             return PersistentSwitch.this.getModel(minimumBandwidth);
+        }
+
+        @Override
+        public Service getService(String handle) {
+            return PersistentSwitch.this.getService(handle);
         }
 
         @Override
@@ -787,27 +815,44 @@ public class PersistentSwitch implements Switch {
     }
 
     // Shadowing NetworkControl
-    synchronized Service newService() {
+    synchronized Service newService(String handle) {
         final int id;
-        try (Connection conn = database();
-            PreparedStatement stmt =
+        try (Connection conn = database()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement stmt =
                 conn.prepareStatement("INSERT INTO " + serviceTable
                     + " (intent) VALUES (?);",
                                       Statement.RETURN_GENERATED_KEYS)) {
-            stmt.setInt(1, Intent.INACTIVE.ordinal());
-            stmt.execute();
-            try (ResultSet rs = stmt.getGeneratedKeys()) {
-                if (!rs.next()) throw new NetworkException(control
-                    .name(), "id unreported" + " for new service");
-                id = rs.getInt(1);
+                stmt.setInt(1, Intent.INACTIVE.ordinal());
+                stmt.execute();
+                try (ResultSet rs = stmt.getGeneratedKeys()) {
+                    if (!rs.next()) throw new NetworkException(control
+                        .name(), "id unreported" + " for new service");
+                    id = rs.getInt(1);
+                }
             }
+            if (handle != null) {
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("INSERT INTO " + handleTable
+                        + " (service_id, handle)" + " VALUES (?, ?);")) {
+                    stmt.setInt(1, id);
+                    stmt.setString(2, handle);
+                    stmt.execute();
+                }
+            }
+            conn.commit();
         } catch (SQLException ex) {
             throw new NetworkException(control.name(), "creating service",
                                        ex);
         }
-        MyService srv = new MyService(id);
+        MyService srv = new MyService(id, handle);
         services.put(id, srv);
         return srv;
+    }
+
+    // Shadowing NetworkControl
+    synchronized Service getService(String handle) {
+        return servicesByHandle.get(handle);
     }
 
     // Shadowing NetworkControl

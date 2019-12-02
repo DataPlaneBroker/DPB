@@ -90,11 +90,56 @@ public interface NetworkControl {
      * @return the new service
      * 
      * @constructor
+     * 
+     * @default Invoke
+     * <code>{@linkplain #newService(String) newService}(null)</code>,
+     * and yield the result.
      */
-    Service newService();
+    default Service newService() {
+        return newService(null);
+    }
 
     /**
-     * Get an existing service.
+     * Create a service with a caller-defined handle.
+     * 
+     * @param handle the service's handle, or {@code null} if none
+     * required
+     * 
+     * @return the new service
+     * 
+     * @constructor
+     */
+    Service newService(String handle);
+
+    /**
+     * Get an existing service by handle.
+     * 
+     * @param handle the service's caller-defined handle
+     * 
+     * @return the service with the requested handle, or {@code null} if
+     * it does not exist
+     */
+    Service getService(String handle);
+
+    /**
+     * Get an existing service by handle, or abort.
+     * 
+     * @param handle the service's caller-defined handle
+     * 
+     * @return the service with the requested handle
+     * 
+     * @throws UnknownServiceHandleException if no service with the
+     * requested handle exists
+     */
+    default Service requireService(String handle)
+        throws UnknownServiceHandleException {
+        Service srv = getService(handle);
+        if (srv != null) return srv;
+        throw new UnknownServiceHandleException(this.name(), handle);
+    }
+
+    /**
+     * Get an existing service by id.
      * 
      * @param id the service identifier
      * 
@@ -104,7 +149,7 @@ public interface NetworkControl {
     Service getService(int id);
 
     /**
-     * Get an existing service.
+     * Get an existing service by id, or abort.
      * 
      * @param id the service identifier
      * 

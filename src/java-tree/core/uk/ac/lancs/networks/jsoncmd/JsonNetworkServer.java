@@ -299,8 +299,20 @@ public class JsonNetworkServer {
                     .add("exists", srv != null).build());
             }
 
+            case "find-service": {
+                String handle = req.getString("handle", null);
+                Service srv = network.getControl().getService(handle);
+                if (srv == null) {
+                    return empty();
+                } else {
+                    return one(Json.createObjectBuilder()
+                        .add("service-id", srv.id()).build());
+                }
+            }
+
             case "new-service": {
-                Service srv = network.getControl().newService();
+                String handle = req.getString("handle", null);
+                Service srv = network.getControl().newService(handle);
                 return one(Json.createObjectBuilder()
                     .add("service-id", srv.id()).build());
             }
