@@ -91,7 +91,7 @@ import uk.ac.lancs.rest.service.Route;
  * 
  * <dl>
  * 
- * <dt><code>PUT <var>prefix</var>/service/by-id/<var>uuid</var></code>
+ * <dt><code>PUT <var>prefix</var>/service/by-handle/<var>uuid</var></code>
  * 
  * <dd>Create a service using the supplied UUID as a handle by calling
  * {@link NetworkControl#newService(String)}. The request body must be a
@@ -109,7 +109,7 @@ import uk.ac.lancs.rest.service.Route;
  * handle; 500 if the service could not be activated within the timeout;
  * 400 if a port does not exist as a terminal; 204 on success.
  * 
- * <dt><code>DELETE <var>prefix</var>/service/by-id/<var>uuid</var></code>
+ * <dt><code>DELETE <var>prefix</var>/service/by-handle/<var>uuid</var></code>
  * 
  * <dd>Look up the service using the supplied UUID as a handle by
  * calling {@link NetworkControl#getService(String)}. If not found,
@@ -157,7 +157,7 @@ public class FiveGExchangeNetworkControlServer {
         reg.register(dispatcher);
     }
 
-    @Route("/service/by-id/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
+    @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
         + "-(?:[0-9a-f]{4})-(?:[0-9a-f]{4})-(?:[0-9a-f]{12}))")
     @Method("PUT")
     private void establish(HttpRequest request, HttpResponse response,
@@ -209,7 +209,7 @@ public class FiveGExchangeNetworkControlServer {
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
-    @Route("/service/by-id/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
+    @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
         + "-(?:[0-9a-f]{4})-(?:[0-9a-f]{4})-(?:[0-9a-f]{12}))")
     @Method("DELETE")
     private void release(HttpRequest request, HttpResponse response,
