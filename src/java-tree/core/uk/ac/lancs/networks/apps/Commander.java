@@ -386,6 +386,11 @@ public final class Commander {
             usage = arg + ":<service-handle>";
             String handle = arg.substring(4);
             service = network.getControl().newService(handle);
+            if (service == null) {
+                System.out.printf("Failed to create service with handle %s%n",
+                                  handle);
+                return false;
+            }
             System.out.printf("Created new service: %d (%s) on %s%n",
                               service.id(), handle, networkName);
             return true;
