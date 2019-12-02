@@ -259,8 +259,11 @@ public class JsonNetwork implements Network {
             if (handle != null) reqBuild = reqBuild.add("handle", handle);
             JsonObject req = reqBuild.build();
             JsonObject rsp = interact(req);
-            int id = rsp.getInt("service-id");
-            return serviceWatcher.get(id);
+            if (rsp.containsKey("service-id")) {
+                int id = rsp.getInt("service-id");
+                return serviceWatcher.get(id);
+            }
+            return null;
         }
 
         @Override

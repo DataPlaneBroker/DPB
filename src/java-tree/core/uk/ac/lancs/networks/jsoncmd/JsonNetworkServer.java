@@ -313,6 +313,7 @@ public class JsonNetworkServer {
             case "new-service": {
                 String handle = req.getString("handle", null);
                 Service srv = network.getControl().newService(handle);
+                if (srv == null) return empty();
                 return one(Json.createObjectBuilder()
                     .add("service-id", srv.id()).build());
             }
