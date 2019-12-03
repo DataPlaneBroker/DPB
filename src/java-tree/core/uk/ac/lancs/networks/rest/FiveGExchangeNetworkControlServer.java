@@ -182,13 +182,9 @@ public class FiveGExchangeNetworkControlServer {
         throws IOException {
         RESTContext rest = RESTContext.get(context);
         UUID uuid = rest.get(UUID_FIELD);
-        Service srv = network.newService(uuid.toString());
-        if (srv == null) {
-            response.setStatusCode(HttpStatus.SC_CONFLICT);
-            return;
-        }
 
         JsonObject req = getRequestObject(request, response);
+        System.err.printf("request: %s%n", req);
         JsonArray segemntDesc = req.getJsonArray("endpoints");
         Map<Circuit, TrafficFlow> parts = new HashMap<>();
         for (JsonObject endPoint : segemntDesc
@@ -207,8 +203,14 @@ public class FiveGExchangeNetworkControlServer {
         }
         Segment segment = Segment.create(parts);
         try {
-            /* Define the service end points, activate it, and wait for
-             * it to complete activation. */
+            /* Create the service, define end points, activate it, and
+             * wait for it to complete activation. */
+            Service srv = network.newService(uuid.toString());
+            if (srv == null) {
+                response.setStatusCode(HttpStatus.SC_CONFLICT);
+                return;
+            }
+
             srv.define(segment);
             srv.activate();
             ServiceStatus st =
