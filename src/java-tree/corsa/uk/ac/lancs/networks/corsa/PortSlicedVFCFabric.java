@@ -440,6 +440,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                             // Um?
                         }
                     }
+                    es.shutdown();
 
                     {
                         final long t0 = System.currentTimeMillis();
