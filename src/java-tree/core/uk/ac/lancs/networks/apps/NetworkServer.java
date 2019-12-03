@@ -88,6 +88,7 @@ import uk.ac.lancs.networks.mgmt.Aggregator;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.rest.FiveGExchangeNetworkControlServer;
 import uk.ac.lancs.networks.rest.RESTNetworkControlServer;
 import uk.ac.lancs.rest.server.RESTDispatcher;
 import uk.ac.lancs.scc.usmux.Session;
@@ -103,6 +104,11 @@ import uk.ac.lancs.scc.usmux.SessionServerFactory;
  * REST functions defined by {@link RESTNetworkControlServer} are bound
  * to the prefix
  * <samp>http://0.0.0.0:4753/network/<var>network-name</var>.</samp>
+ * 
+ * <p>
+ * REST functions defined by {@link FiveGExchangeNetworkControlServer}
+ * are bound to the prefix
+ * <samp>http://0.0.0.0:4753/5gnetwork/<var>network-name</var>.</samp>
  * 
  * @author simpsons
  */
@@ -187,6 +193,13 @@ public final class NetworkServer {
             String prefix = "/network/" + entry.getKey();
             new RESTNetworkControlServer(entry.getValue().getControl())
                 .bind(restMapping, prefix);
+        }
+
+        /* Add network controller to the 5GExchange REST API. */
+        for (Map.Entry<String, Network> entry : networks.entrySet()) {
+            String prefix = "/5gnetwork/" + entry.getKey();
+            new FiveGExchangeNetworkControlServer(entry.getValue()
+                .getControl()).bind(restMapping, prefix);
         }
     }
 
