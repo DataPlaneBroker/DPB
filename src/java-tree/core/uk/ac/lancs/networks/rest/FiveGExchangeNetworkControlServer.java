@@ -184,6 +184,7 @@ public class FiveGExchangeNetworkControlServer {
         UUID uuid = rest.get(UUID_FIELD);
 
         JsonObject req = getRequestObject(request, response);
+        if (req == null) return;
         System.err.printf("request: %s%n", req);
         JsonArray segemntDesc = req.getJsonArray("endpoints");
         Map<Circuit, TrafficFlow> parts = new HashMap<>();
