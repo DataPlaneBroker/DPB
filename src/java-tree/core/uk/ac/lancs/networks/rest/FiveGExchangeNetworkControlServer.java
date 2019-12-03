@@ -276,6 +276,7 @@ public class FiveGExchangeNetworkControlServer {
             }
             return jr.readObject();
         } catch (JsonParsingException ex) {
+            ex.printStackTrace();
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
             StringEntity rspEnt =
                 new StringEntity("bad JSON request\n", ERROR_TYPE);
