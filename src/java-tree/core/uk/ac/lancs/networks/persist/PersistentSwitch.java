@@ -855,6 +855,7 @@ public class PersistentSwitch implements Switch {
         }
         MyService srv = new MyService(id, handle);
         services.put(id, srv);
+        if (handle != null) servicesByHandle.put(handle, srv);
         return srv;
     }
 
