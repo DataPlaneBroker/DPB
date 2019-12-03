@@ -332,18 +332,35 @@ public final class PortSlicedVFCFabric implements Fabric {
         void stop() {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
 
+            ExecutorService es = Executors.newFixedThreadPool(service.size());
+            CompletionService<Void> cs = new ExecutorCompletionService<>(es);
+            int csGot = 0;
+
             /* Detach tunnels from ports. */
             for (Channel circuit : service.keySet()) {
-                /* Find which OF port it is attached to, and detach
-                 * it. */
-                int ofport = circuitToPort.getOrDefault(circuit, 0);
-                if (ofport <= 0) continue;
+                cs.submit(() -> {
+                    /* Find which OF port it is attached to, and detach
+                     * it. */
+                    int ofport = circuitToPort.getOrDefault(circuit, 0);
+                    if (ofport <= 0) return null;
+                    try {
+                        rest.detachTunnel(bridgeId, ofport);
+                    } catch (IOException e) {
+                        /* Perhaps we don't care by this stage. */
+                    }
+                    return null;
+                });
+                csGot++;
+            }
+            while (csGot > 0) {
                 try {
-                    rest.detachTunnel(bridgeId, ofport);
-                } catch (IOException e) {
-                    /* Perhaps we don't care by this stage. */
+                    cs.take();
+                    csGot--;
+                } catch (InterruptedException e) {
+                    // Um?
                 }
             }
+            es.shutdown();
 
             inform(BridgeListener::destroyed);
             listeners.clear();
