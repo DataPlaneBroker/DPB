@@ -202,28 +202,30 @@ public class FiveGExchangeNetworkControlServer {
             parts.put(circuit, flow);
         }
         Segment segment = Segment.create(parts);
-        try {
-            /* Create the service, define end points, activate it, and
-             * wait for it to complete activation. */
-            Service srv = network.newService(uuid.toString());
-            if (srv == null) {
-                response.setStatusCode(HttpStatus.SC_CONFLICT);
-                return;
-            }
 
+        /* Create the service, define end points, activate it, and wait
+         * for it to complete activation. */
+        Service srv = network.newService(uuid.toString());
+        if (srv == null) {
+            response.setStatusCode(HttpStatus.SC_CONFLICT);
+            return;
+        }
+        try {
             srv.define(segment);
             srv.activate();
             ServiceStatus st =
                 srv.awaitStatus(Collections.singleton(ServiceStatus.ACTIVE),
                                 30 * 1000);
             if (st != ServiceStatus.ACTIVE) {
-                srv.release();
                 response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
                 return;
             }
+            srv = null;
         } catch (InvalidServiceException e) {
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
             return;
+        } finally {
+            if (srv != null) srv.release();
         }
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
