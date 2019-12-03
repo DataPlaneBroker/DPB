@@ -185,7 +185,6 @@ public class FiveGExchangeNetworkControlServer {
 
         JsonObject req = getRequestObject(request, response);
         if (req == null) return;
-        System.err.printf("request: %s%n", req);
         JsonArray segemntDesc = req.getJsonArray("endpoints");
         Map<Circuit, TrafficFlow> parts = new HashMap<>();
         for (JsonObject endPoint : segemntDesc
@@ -276,7 +275,6 @@ public class FiveGExchangeNetworkControlServer {
             }
             return jr.readObject();
         } catch (JsonParsingException ex) {
-            ex.printStackTrace();
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
             StringEntity rspEnt =
                 new StringEntity("bad JSON request\n", ERROR_TYPE);
