@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.IntFunction;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -121,6 +122,7 @@ import uk.ac.lancs.rest.service.Route;
  * @author simpsons
  */
 public class FiveGExchangeNetworkControlServer {
+    private final IntFunction<String> portMapper;
     private final NetworkControl network;
     private static final RESTField<UUID> UUID_FIELD =
         RESTField.ofUUID().from("uuid").done();
@@ -134,7 +136,22 @@ public class FiveGExchangeNetworkControlServer {
      * @param network the network controller
      */
     public FiveGExchangeNetworkControlServer(NetworkControl network) {
+        this(network, Integer::toString);
+    }
+
+    /**
+     * Create a REST adaptation of a network controller interface, using
+     * an arbitrary mapping from port number to terminal name.
+     * 
+     * @param network the network controller
+     * 
+     * @param portMapper the mapping function from an integer port
+     * number to a terminal name
+     */
+    public FiveGExchangeNetworkControlServer(NetworkControl network,
+                                             IntFunction<String> portMapper) {
         this.network = network;
+        this.portMapper = portMapper;
     }
 
     /**
@@ -178,7 +195,7 @@ public class FiveGExchangeNetworkControlServer {
             .getValuesAs(JsonObject.class)) {
             final int port = endPoint.getInt("island_switch_port");
             final int vlan = endPoint.getInt("island_service_vlan_id");
-            final Terminal term = network.getTerminal(Integer.toString(port));
+            final Terminal term = network.getTerminal(portMapper.apply(port));
             if (term == null) {
                 response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
                 return;
