@@ -134,6 +134,8 @@ install:: install-data
 install:: install-scripts
 install:: install-jars
 
+install-ctrl:: install-data
+
 install-jars:: $(SELECTED_JARS:%=install-jar-%)
 install-jar-%::
 	@$(call JARDEPS_INSTALL,$(PREFIX)/share/java,$*,$(version_$*))
