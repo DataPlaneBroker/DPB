@@ -50,7 +50,7 @@ JARDEPS_OUTDIR=out
 JARDEPS_SRCDIR=src/java-tree
 JARDEPS_MERGEDIR=src/java-merge
 
-include jardeps.mk
+-include jardeps.mk
 -include jardeps-install.mk
 
 SHAREDIR=$(PREFIX)/share/dataplane-broker
@@ -63,7 +63,7 @@ scripts += dpb-client
 scripts += dpb-ssh-agent
 
 
-include binodeps.mk
+-include binodeps.mk
 
 
 DOC_PKGS += uk.ac.lancs.routing.metric
