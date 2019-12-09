@@ -135,6 +135,7 @@ install:: install-scripts
 install:: install-jars
 
 install-ctrl:: install-data
+install-ssh:: install-scripts
 
 install-jars:: $(SELECTED_JARS:%=install-jar-%)
 install-jar-%::
