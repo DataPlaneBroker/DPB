@@ -105,6 +105,8 @@ public final class PortSlicedVFCFabric implements Fabric {
 
     private final boolean withShaping;
 
+    private final boolean withDestruction;
+
     /**
      * Maps the circuit description of each tunnel attachment to the OF
      * port of our VFC. The circuit is in canonical form.
@@ -175,6 +177,9 @@ public final class PortSlicedVFCFabric implements Fabric {
      * 
      * @param withShaping enables shaping applied to tunnel attachments
      * 
+     * @param withDestruction {@code true} if existing VFCs with the
+     * matching prefix but not the correct suffix should be deleted
+     * 
      * @throws NoSuchAlgorithmException if there is no SSL support in
      * this implementation
      * 
@@ -192,7 +197,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                                X509Certificate cert, String authz,
                                URI ctrlService, X509Certificate ctrlCert,
                                String ctrlAuthz, boolean withMetering,
-                               boolean withShaping)
+                               boolean withShaping, boolean withDestruction)
         throws KeyManagementException,
             NoSuchAlgorithmException,
             IOException {
@@ -206,6 +211,7 @@ public final class PortSlicedVFCFabric implements Fabric {
         this.resources = resources;
         this.netns = netns;
         this.controller = controller;
+        this.withDestruction = withDestruction;
         this.sliceRest =
             new SliceControllerREST(ctrlService, ctrlCert, ctrlAuthz);
         this.rest = new CorsaREST(service, cert, authz);
@@ -643,8 +649,10 @@ public final class PortSlicedVFCFabric implements Fabric {
                 continue;
             }
 
-            /* Delete others. */
-            rest.destroyBridge(bridgeId);
+            if (withDestruction) {
+                /* Delete others. */
+                rest.destroyBridge(bridgeId);
+            }
         }
     }
 

@@ -118,6 +118,7 @@ import uk.ac.lancs.scc.jardeps.Service;
  * <samp>{@value #DEFAULT_DESCRIPTION_PREFIX}</samp>)
  * <dt><samp>description.partial</samp> (default
  * <samp>{@value #DEFAULT_PARTIAL_DESCRIPTION_SUFFIX}</samp>)
+ * <dt><samp>description.destroy</samp> (default <samp>false</samp>)
  * <dt><samp>description.complete</samp> (default
  * <samp>{@value #DEFAULT_VFCPERSERVICE_COMPLETE_DESCRIPTION_SUFFIX}</samp>
  * for <samp>{@value #VFCPERSERVICE_TYPE_NAME}</samp>)
@@ -132,7 +133,8 @@ import uk.ac.lancs.scc.jardeps.Service;
  * on the next restart of the agent. Any other bridge with the same
  * prefix is considered to be the responsibility of the agent, assumed
  * to be related to a different fabric implementation that it has
- * replaced, and will also be removed.
+ * replaced, and will also be removed, <em>if
+ * <samp>description.destroy</samp> is <samp>true</samp></em>.
  * 
  * <dt><samp>subtype</samp> (default
  * <samp>{@value #DEFAULT_SUBYTPE}</samp>)
@@ -337,6 +339,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                           .toString(DEFAULT_CONTROLLER_PORT))));
         final int maxBridges = Integer.parseInt(conf
             .get("capacity.bridges", Integer.toString(DEFAULT_MAX_BRIDGES)));
+        final boolean withDestruction = Boolean.parseBoolean(conf
+            .get("description.destroy", Boolean.toString(false)));
         final int portCount = Integer.parseInt(conf
             .get("capacity.ports", Integer.toString(DEFAULT_PORT_COUNT)));
         final int maxAggregations = Integer.parseInt(conf
@@ -441,8 +445,8 @@ public class DP2000FabricAgentFactory implements AgentFactory {
                                                     controller, service, cert,
                                                     authz, ctrlService,
                                                     ctrlCert, ctrlAuthz,
-                                                    withMetering,
-                                                    withShaping);
+                                                    withMetering, withShaping,
+                                                    withDestruction);
                         return type.cast(result);
                     }
                     return null;
