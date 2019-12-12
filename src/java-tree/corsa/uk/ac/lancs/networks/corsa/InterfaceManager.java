@@ -99,7 +99,7 @@ public final class InterfaceManager {
 
     private static final Pattern INTERFACE_PATTERN =
         Pattern.compile("^(?<type>(?:lag|phys|))"
-            + "(?:\\.?(?<num>[0-9]+)(?<dt>x2)?(?:\\.(?<outer>[0-9]+))?)$");
+            + "(?:\\.?(?<num>[0-9]+)(?<dt>x2)?(?:\\.(?<outer>[0-9]+))?)?$");
 
     /**
      * Get the interface with the given definition.
