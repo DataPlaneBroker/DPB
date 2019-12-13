@@ -105,11 +105,11 @@ class STagInterface implements CorsaInterface {
 
     @Override
     public int getMinimumCircuitLabel() {
-        return 0;
+        return 1;
     }
 
     @Override
     public int getMaximumCircuitLabel() {
-        return 4095;
+        return 4094;
     }
 }

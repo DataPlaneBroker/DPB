@@ -137,7 +137,7 @@ final class PortInterface implements STaggableInterface {
             if (doubleTagged)
                 throw new UnsupportedOperationException("unsupported: "
                     + kind);
-            return 0;
+            return 1;
 
         default:
             throw new UnsupportedOperationException("unsupported: " + kind);
@@ -164,8 +164,8 @@ final class PortInterface implements STaggableInterface {
         return doubleTagged ? null : TagKind.VLAN_STAG;
     }
 
-    private static final int MAXIMUM_SINGLE_TAGGED_VLAN = 4095;
-    private static final int MAXIMUM_DOUBLE_TAGGED_VLAN = 4096 * 4096 - 1;
+    private static final int MAXIMUM_SINGLE_TAGGED_VLAN = 4094;
+    private static final int MAXIMUM_DOUBLE_TAGGED_VLAN = 4094 * 4094;
 
     @Override
     public TunnelDesc configureTunnel(TunnelDesc desc, int label) {
@@ -173,8 +173,9 @@ final class PortInterface implements STaggableInterface {
             if (label < 0 || label > MAXIMUM_DOUBLE_TAGGED_VLAN)
                 throw new IndexOutOfBoundsException("not valid"
                     + " double-tagged VLAN: " + label);
-            return base.configureTunnel(desc, port).vlanId(label >> 12)
-                .innerVlanId(label & 0xfff);
+            return base.configureTunnel(desc, port)
+                .vlanId((label - 1) / 4094 + 1)
+                .innerVlanId((label - 1) % 4094 + 1);
         } else {
             if (label < 0 || label > MAXIMUM_SINGLE_TAGGED_VLAN)
                 throw new IndexOutOfBoundsException("not valid VLAN: "
@@ -204,8 +205,9 @@ final class PortInterface implements STaggableInterface {
     public Channel resolve(int label) {
         if (doubleTagged)
             return base.tag(TagKind.ENUMERATION, TagKind.VLAN_STAG, port)
-                .tag(TagKind.VLAN_STAG, TagKind.VLAN_CTAG, label >> 12)
-                .channel(label & 0xfff);
+                .tag(TagKind.VLAN_STAG, TagKind.VLAN_CTAG,
+                     (label - 1) / 4094 + 1)
+                .channel((label - 1) % 4094 + 1);
         else
             return channel(label);
     }
