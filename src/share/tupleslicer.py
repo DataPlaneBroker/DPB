@@ -107,9 +107,10 @@
 ## 2-tuple slices, match the port, and deliver to the corresponding
 ## tuple (which may entail pushing one or two tags, and sending to the
 ## output or input port).  (2) For (port) tuples of multi-tuple
-## slices, match the port, and send to the controller.  (3) For (port,
-## vlan) and (port, vlan, inner) tuples of multi-tuple slices, match
-## port and vlan, then pop vlan, set it as metadata, and submit to T1.
+## slices, match the port, and send to the controller[*].  (3) For
+## (port, vlan) and (port, vlan, inner) tuples of multi-tuple slices,
+## match port and vlan, then pop vlan, set it as metadata, and submit
+## to T1.
 
 ## P6 (no-vlan, LLDP) => drop
 ##
@@ -151,7 +152,7 @@
 ## metadata to the tuple's group id, pop the vlan tag in the latter
 ## case, then then either re-tag and deliver to a port for 2-tuple
 ## slices, or set the metadata to the tuple's group id, and deliver to
-## the controller.
+## the controller[*].
 
 ## For each learned MAC m on tuple it(port, vlan)
 ##
@@ -169,12 +170,13 @@
 ##
 ## ** For each it(port, vlan) or of tuples(s):
 ##
-## *** P4 C=group(it) (in_port=port, metadata=vlan) => controller
+## *** P4 C=group(it) (in_port=port, metadata=vlan) => either
+## *** (controller:65535) or (controller:100, T2)
 ##
 ## ** For each it(port, vlan, inner) of tuples(s):
 ##
 ## *** P4 C=group(it) (in_port=port, metadata=vlan, vlan=inner) =>
-## *** controller
+## *** either (controller:65535) or (controller:100, T2)
 ##
 ## * If count(tuples(s)) == 2:
 ##
@@ -190,6 +192,26 @@
 ##
 ## *** P4 (in_port=port, metadata=vlan, vlan=inner) => pop-vlan,
 ## *** out_actions(ot, port)
+
+## [*] There are two options for sending to the controller, which
+## action's purpose is to allow the controller to learn the source
+## address association with the source tuple.  The original way was to
+## send the whole packet to the controller, allowing it to learn the
+## associatin, and then to use its complete knowledge of learned
+## associations to deliver the packet back into the datapath with the
+## right actions.  The new way is to deliver only a header to the
+## controller, and then send the packet to the destination table T2
+## anyway; packet egress does not depend on whether the source address
+## has been learned.  The header allows the controller to learn the
+## association, but the controller then discards the packet, knowing
+## that a complete copy has already been handled correctly in the
+## datapath.  This should have been the original way, and if correct
+## and well supported, the old way can be safely deleted.  The old way
+## was only used because the Corsa doesn't seem to support sending to
+## the controller AND submission to another table as dual
+## actions/instructions.  As this controller was based on the Corsa
+## controller, it was assumed that this combination was generally not
+## permitted.
 
 ## The controller implements a REST interface allowing any number of
 ## tuple sets to be specified.  The controller retains all tuple set
@@ -561,16 +583,23 @@ class Slice:
                 dp.send_msg(msg)
 
         for stup in newports:
-            ## Packets from this tuple with unrecognized source MACs
-            ## are to go to the controller.
+            ## A copy of the header of a packet from this tuple with
+            ## an unrecognized source MAC, or the whole pakcet, is to
+            ## go to the controller.
             group = self.switch.get_group_for_tuple(stup)
             (match, tbl, prio) = self.switch.tuple_match(stup)
+            ## Choose how much of the packet to send to the contoller.
+            snaplen = 65535 if self.switch.unknown_src_to_ctrl else 100
             actions = [parser.OFPActionSetField(metadata=group),
-                       parser.OFPActionOutput(ofp.OFPP_CONTROLLER, 65535)]
+                       parser.OFPActionOutput(ofp.OFPP_CONTROLLER, snaplen)]
             if (len(stup) >= 2):
                 actions.insert(0, parser.OFPActionPopVlan())
             inst = [parser.OFPInstructionActions(ofp.OFPIT_APPLY_ACTIONS,
                                                  actions)]
+            ## If we're only sending the header to the controller,
+            ## also submit the whole packet to the destination table.
+            if not self.switch.unknown_src_to_ctrl:
+                inst.append(parser.OFPInstructionGotoTable(2))
             ## Apply an ingress meter.
             if stup in inmtrs:
                 inst.insert(0, parser.OFPInstructionMeter(inmtrs[stup]))
@@ -625,6 +654,8 @@ class Slice:
 class SwitchStatus:
     def __init__(self):
         self.datapath = None
+
+        self.unknown_src_to_ctrl = False
 
         ## Keep a set of ports known to belong to the switch.
         self.known_ports = set()
@@ -1502,6 +1533,12 @@ class TupleSlicer(app_manager.RyuApp):
         ## Learn that this MAC address has most recently been seen on
         ## this port.
         slize = self._learn(dp, tup, mac)
+
+        ## If we're only expecting a packet header, we assume the
+        ## rules will send a complete packet to the destination table,
+        ## so we don't have to handle it ourselves.
+        if not status.unknown_src_to_ctrl:
+            return
 
         ## Commit our changes before we submit the packet back through
         ## the tables.
