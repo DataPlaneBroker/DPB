@@ -170,10 +170,10 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
                 switch (errorType) {
                 case "unauthorized":
                     throw new IllegalArgumentException("no access: "
-                        + networkName);
+                        + status.getString("network", networkName));
                 case "no-network":
                     throw new IllegalArgumentException("no network: "
-                        + networkName);
+                        + status.getString("network-name", networkName));
                 default:
                     throw new IllegalArgumentException("unknown network error: "
                         + errorType + " on " + networkName);

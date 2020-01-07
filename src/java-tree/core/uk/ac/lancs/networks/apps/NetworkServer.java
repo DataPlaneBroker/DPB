@@ -503,11 +503,11 @@ public final class NetworkServer {
     }
 
     private interface PrettyLogger extends FormattedLogger {
-        @Format("controlled: [%s]")
+        @Format("controlled: %s")
         @Detail(ShadowLevel.INFO)
         void listControllables(Collection<? extends String> names);
 
-        @Format("managed: [%s]")
+        @Format("managed: %s")
         @Detail(ShadowLevel.INFO)
         void listManagables(Collection<? extends String> names);
 
