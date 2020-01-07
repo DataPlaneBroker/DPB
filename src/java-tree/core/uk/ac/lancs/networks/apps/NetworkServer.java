@@ -297,6 +297,7 @@ public final class NetworkServer {
                         /* Fail if the selected network is not
                          * accessible. */
                         if (!controllables.contains(networkName)) {
+                            logger.unauthorized(networkName, controllables);
                             jout.writeObject(Json.createObjectBuilder()
                                 .add("error", "unauthorized")
                                 .add("network", networkName).build());
@@ -307,6 +308,8 @@ public final class NetworkServer {
                          * exist. */
                         Network network = networks.get(networkName);
                         if (network == null) {
+                            logger.unknownNetwork(networkName,
+                                                  networks.keySet());
                             jout.writeObject(Json.createObjectBuilder()
                                 .add("error", "no-network")
                                 .add("network-name", networkName).build());
@@ -500,13 +503,21 @@ public final class NetworkServer {
     }
 
     private interface PrettyLogger extends FormattedLogger {
-        @Format("controlled: %s")
+        @Format("controlled: [%s]")
         @Detail(ShadowLevel.INFO)
         void listControllables(Collection<? extends String> names);
 
-        @Format("managed: %s")
+        @Format("managed: [%s]")
         @Detail(ShadowLevel.INFO)
         void listManagables(Collection<? extends String> names);
+
+        @Format("unauthorized: [%s] not in %s")
+        @Detail(ShadowLevel.INFO)
+        void unauthorized(String name, Collection<? extends String> names);
+
+        @Format("no network: [%s] not in %s")
+        @Detail(ShadowLevel.INFO)
+        void unknownNetwork(String name, Collection<? extends String> names);
 
         @Format("%s -> %s")
         @Detail(ShadowLevel.FINER)
