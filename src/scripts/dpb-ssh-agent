@@ -54,6 +54,7 @@ done
     for nw in "${!AUTHZ[@]}" ; do
 	cmd="${AUTHZ["$nw"]}"
 	printf '%s %s\n' "$cmd" "$nw"
+	printf >&2 '%s %s\n' "$cmd" "$nw"
     done
     if [ -n "$AUTH_TOKEN" ] ; then
 	printf 'auth :%s\n' "$AUTH_TOKEN"
