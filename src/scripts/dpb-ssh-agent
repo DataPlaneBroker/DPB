@@ -23,6 +23,10 @@ while [ $# -gt 0 ] ; do
 	    SOCKET="$1"
 	    shift
 	    ;;
+	(-o)
+	    SSH_ORIGINAL_COMMAND="$1"
+	    shift
+	    ;;
 	(-a)
 	    AUTH_TOKEN="$1"
 	    shift
@@ -64,5 +68,6 @@ done
     fi
     printf 'drop\n'
     printf '%s\n' "$SSH_ORIGINAL_COMMAND"
+    printf >&2 'Client arguments: [%s]\n' "$SSH_ORIGINAL_COMMAND"
     cat
 ) | nc -U ${SHUTDOWN:+-N} "$SOCKET"
