@@ -279,7 +279,7 @@ public final class NetworkServer {
                         break;
                     }
                 }
-                logger.listControllables(managables);
+                logger.listManagables(managables);
                 logger.listControllables(controllables);
 
                 /* Read one more line, which is the name of the
