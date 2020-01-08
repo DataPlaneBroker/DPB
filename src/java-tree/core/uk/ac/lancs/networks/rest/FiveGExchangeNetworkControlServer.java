@@ -103,8 +103,15 @@ import uk.ac.lancs.rest.service.Route;
  * terminal name. This array is used to build a {@link Segment}, and
  * passed to {@link Service#define(Segment)}. The service is then
  * activated with {@link Service#activate()}, and the call returns when
- * the service has reached the active state, or after 30 seconds. A
- * nominal bandwidth of 10Mbps is used.
+ * the service has reached the active state, or after 30 seconds. Each
+ * element of <samp>endpoints</samp> may contain
+ * <samp>ingress_bandwidth</samp>, <samp>egress_bandwidth</samp> and
+ * <samp>bandwidth</samp>, and the request object may also contain
+ * <samp>bandwidth</samp>. These must be numbers (in Mbps) if present.
+ * <samp>endpoints[*].bandwidth</samp> is used as a default for
+ * <samp>ingress_bandwidth</samp> and <samp>egress_bandwidth</samp>, and
+ * the outer <samp>bandwidth</samp> serves as a default for that, and
+ * 10.0 is used as a final default.
  * 
  * The HTTP status 409 is returned if the UUID is already in use as a
  * handle; 500 if the service could not be activated within the timeout;
@@ -174,6 +181,26 @@ public class FiveGExchangeNetworkControlServer {
         reg.register(dispatcher);
     }
 
+    /**
+     * Get a real field from a JSON object, or a default value.
+     * 
+     * @param req the object to extract a real field from
+     * 
+     * @param key the name of the field to extract
+     * 
+     * @param defaultValue the value to return if the field is absent
+     * 
+     * @return the value of the field
+     * 
+     * @throws ClassCastException if the specified field is not a real
+     * number
+     */
+    private static double getJsonDouble(JsonObject req, String key,
+                                        double defaultValue) {
+        if (req.containsKey(key)) return req.getJsonNumber(key).doubleValue();
+        return defaultValue;
+    }
+
     @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
         + "-(?:[0-9a-f]{4})-(?:[0-9a-f]{4})-(?:[0-9a-f]{12}))")
     @Method("PUT")
@@ -186,19 +213,29 @@ public class FiveGExchangeNetworkControlServer {
         JsonObject req = getRequestObject(request, response);
         if (req == null) return;
         JsonArray segemntDesc = req.getJsonArray("endpoints");
+        final double serviceBandwidth = getJsonDouble(req, "bandwidth", 10.0);
         Map<Circuit, TrafficFlow> parts = new HashMap<>();
         for (JsonObject endPoint : segemntDesc
             .getValuesAs(JsonObject.class)) {
             final int port = endPoint.getInt("island_switch_port");
             final int vlan = endPoint.getInt("island_service_vlan_id");
+            final double endPointBandwidth = endPoint.containsKey("bandwidth")
+                ? endPoint.getJsonNumber("bandwidth").doubleValue()
+                : serviceBandwidth;
+            final double ingressBandwidth =
+                getJsonDouble(endPoint, "ingress_bandwidth",
+                              endPointBandwidth);
+            final double egressBandwidth =
+                getJsonDouble(endPoint, "egress_bandwidth",
+                              endPointBandwidth);
             final Terminal term = network.getTerminal(portMapper.apply(port));
             if (term == null) {
                 response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
                 return;
             }
             final Circuit circuit = term.circuit(vlan);
-            /* TODO: Get bandwidth(s) from the request. */
-            TrafficFlow flow = TrafficFlow.of(10.0, 10.0);
+            TrafficFlow flow =
+                TrafficFlow.of(ingressBandwidth, egressBandwidth);
             parts.put(circuit, flow);
         }
         Segment segment = Segment.create(parts);
