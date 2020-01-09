@@ -117,12 +117,30 @@ import uk.ac.lancs.rest.service.Route;
  * handle; 500 if the service could not be activated within the timeout;
  * 400 if a port does not exist as a terminal; 204 on success.
  * 
+ * Example:
+ * 
+ * <pre>
+ * SRVID="0ca924e9-5c16-46fd-9b52-bc3e70581594"
+ * curl -i -X PUT "http://localhost:4753/service/by-handle/$SRVID" \
+ * -H "Content-Type: application/json" \
+ * -d '{ "endpoints":[
+ *   { "island_service_vlan_id":117, "island_switch_port":1 },
+ *   { "island_service_vlan_id":121, "island_switch_port":2 },
+ *   { "island_service_vlan_id":105, "island_switch_port":2 } ] }'
+ * </pre>
+ * 
  * <dt><code>DELETE <var>prefix</var>/service/by-handle/<var>uuid</var></code>
  * 
  * <dd>Look up the service using the supplied UUID as a handle by
  * calling {@link NetworkControl#getService(String)}. If not found,
  * return 404. Otherwise, release the service, and immediately return
  * 204.
+ * 
+ * Example:
+ * 
+ * <pre>
+ * curl -i -X DELETE "http://localhost:4753/service/by-handle/$SRVID"
+ * </pre>
  * 
  * </dl>
  * 
