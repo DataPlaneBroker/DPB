@@ -411,7 +411,8 @@ public class PersistentSwitch implements Switch {
         }
 
         synchronized void dump(PrintWriter out) {
-            out.printf("  %3d %-8s (intent=%-8s)", id, status(), intent);
+            out.printf("  %3d %-8s (intent=%-8s) %s", id, status(), intent,
+                       handle);
             if (request != null) {
                 for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
                     .circuitFlows().entrySet()) {
