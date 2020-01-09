@@ -222,6 +222,7 @@ public class FiveGExchangeNetworkControlServer {
     @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
         + "-(?:[0-9a-f]{4})-(?:[0-9a-f]{4})-(?:[0-9a-f]{12}))")
     @Method("PUT")
+    @Method("POST")
     private void establish(HttpRequest request, HttpResponse response,
                            HttpContext context)
         throws IOException {
