@@ -400,6 +400,7 @@ public class PersistentSwitch implements Switch {
                 callOut(ServiceStatus.RELEASING);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
+                    if (handle != null) servicesByHandle.remove(handle);
                 }
                 released = true;
                 callOut(ServiceStatus.RELEASED);
