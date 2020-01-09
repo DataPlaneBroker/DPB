@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.networks.rest;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -53,6 +54,9 @@ import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonReaderFactory;
+import javax.json.JsonStructure;
+import javax.json.JsonWriter;
+import javax.json.JsonWriterFactory;
 import javax.json.stream.JsonParsingException;
 
 import org.apache.http.HttpEntity;
@@ -60,6 +64,7 @@ import org.apache.http.HttpEntityEnclosingRequest;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.protocol.HttpContext;
@@ -249,6 +254,11 @@ public class FiveGExchangeNetworkControlServer {
                               endPointBandwidth);
             final Terminal term = network.getTerminal(portMapper.apply(port));
             if (term == null) {
+                JsonObject rsp = Json.createObjectBuilder()
+                    .add("error-message", "no such terminal: " + port + "("
+                        + portMapper.apply(port) + ")")
+                    .build();
+                setResponseObject(response, rsp);
                 response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
                 return;
             }
@@ -263,6 +273,10 @@ public class FiveGExchangeNetworkControlServer {
          * for it to complete activation. */
         Service srv = network.newService(uuid.toString());
         if (srv == null) {
+            JsonObject rsp = Json.createObjectBuilder()
+                .add("error-message", "service handle in use: " + uuid)
+                .build();
+            setResponseObject(response, rsp);
             response.setStatusCode(HttpStatus.SC_CONFLICT);
             return;
         }
@@ -273,16 +287,28 @@ public class FiveGExchangeNetworkControlServer {
                 srv.awaitStatus(Collections.singleton(ServiceStatus.ACTIVE),
                                 30 * 1000);
             if (st != ServiceStatus.ACTIVE) {
+                JsonObject rsp =
+                    Json.createObjectBuilder()
+                        .add("error-message",
+                             "couldn't create service for... reasons")
+                        .build();
+                setResponseObject(response, rsp);
                 response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
                 return;
             }
             srv = null;
         } catch (InvalidServiceException e) {
+            JsonObject rsp = Json.createObjectBuilder()
+                .add("error-message", "invalid service: " + e.getMessage())
+                .build();
+            setResponseObject(response, rsp);
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
             return;
         } finally {
             if (srv != null) srv.release();
         }
+        JsonObject rsp = Json.createObjectBuilder().build();
+        setResponseObject(response, rsp);
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
@@ -295,10 +321,15 @@ public class FiveGExchangeNetworkControlServer {
         UUID uuid = rest.get(UUID_FIELD);
         Service srv = network.getService(uuid.toString());
         if (srv == null) {
+            JsonObject rsp = Json.createObjectBuilder()
+                .add("error-message", "unknown handle: " + uuid).build();
+            setResponseObject(response, rsp);
             response.setStatusCode(HttpStatus.SC_NOT_FOUND);
             return;
         }
         srv.release();
+        JsonObject rsp = Json.createObjectBuilder().build();
+        setResponseObject(response, rsp);
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }
 
@@ -332,10 +363,30 @@ public class FiveGExchangeNetworkControlServer {
             return jr.readObject();
         } catch (JsonParsingException ex) {
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
-            StringEntity rspEnt =
-                new StringEntity("bad JSON request\n", ERROR_TYPE);
-            response.setEntity(rspEnt);
+            JsonObject rsp = Json.createObjectBuilder()
+                .add("error-message", "Failed to parse request")
+                .add("debug", ex.getMessage()).build();
+            setResponseObject(response, rsp);
+            // StringEntity rspEnt =
+            // new StringEntity("bad JSON request\n", ERROR_TYPE);
+            // response.setEntity(rspEnt);
             return null;
         }
     }
+
+    private void setResponseObject(HttpResponse response, JsonStructure rsp) {
+        final JsonWriterFactory factory =
+            Json.createWriterFactory(Collections.emptyMap());
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        try (JsonWriter writer =
+            factory.createWriter(buffer, StandardCharsets.UTF_8)) {
+            writer.write(rsp);
+        }
+        byte[] buf = buffer.toByteArray();
+        HttpEntity entity = new ByteArrayEntity(buf, JSON);
+        response.setEntity(entity);
+    }
+
+    private static final ContentType JSON =
+        ContentType.create("application/json");
 }
