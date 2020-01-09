@@ -159,9 +159,6 @@ public class FiveGExchangeNetworkControlServer {
     private static final RESTField<UUID> UUID_FIELD =
         RESTField.ofUUID().from("uuid").done();
 
-    private static final ContentType ERROR_TYPE =
-        ContentType.create("text/plain", StandardCharsets.UTF_8);
-
     /**
      * Create a REST adaptation of a network controller interface.
      * 
