@@ -98,6 +98,7 @@ import uk.ac.lancs.rest.service.Route;
  * <dl>
  * 
  * <dt><code>PUT <var>prefix</var>/service/by-handle/<var>uuid</var></code>
+ * <dt><code>POST <var>prefix</var>/service/by-handle/<var>uuid</var></code>
  * 
  * <dd>Create a service using the supplied UUID as a handle by calling
  * {@link NetworkControl#newService(String)}. The request body must be a
@@ -135,6 +136,7 @@ import uk.ac.lancs.rest.service.Route;
  * </pre>
  * 
  * <dt><code>DELETE <var>prefix</var>/service/by-handle/<var>uuid</var></code>
+ * <dt><code>POST <var>prefix</var>/service/by-handle/<var>uuid</var>/release</code>
  * 
  * <dd>Look up the service using the supplied UUID as a handle by
  * calling {@link NetworkControl#getService(String)}. If not found,
@@ -310,6 +312,14 @@ public class FiveGExchangeNetworkControlServer {
         JsonObject rsp = Json.createObjectBuilder().build();
         setResponseObject(response, rsp);
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
+    }
+
+    @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
+        + "-(?:[0-9a-f]{4})-(?:[0-9a-f]{4})-(?:[0-9a-f]{12}))/release")
+    @Method("POST")
+    private void release2(HttpRequest request, HttpResponse response,
+                          HttpContext context) {
+        release(request, response, context);
     }
 
     @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
