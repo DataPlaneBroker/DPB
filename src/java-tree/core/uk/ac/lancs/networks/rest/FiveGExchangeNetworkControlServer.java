@@ -363,9 +363,11 @@ public class FiveGExchangeNetworkControlServer {
             return jr.readObject();
         } catch (JsonParsingException ex) {
             response.setStatusCode(HttpStatus.SC_BAD_REQUEST);
-            JsonObject rsp = Json.createObjectBuilder()
-                .add("error-message", "Failed to parse request")
-                .add("debug", ex.getMessage()).build();
+            JsonObject rsp =
+                Json.createObjectBuilder()
+                    .add("error-message",
+                         "failed to parse request: " + ex.getMessage())
+                    .build();
             setResponseObject(response, rsp);
             // StringEntity rspEnt =
             // new StringEntity("bad JSON request\n", ERROR_TYPE);
