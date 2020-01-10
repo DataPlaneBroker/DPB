@@ -394,128 +394,162 @@ public final class PortSlicedVFCFabric implements Fabric {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
             boolean failed = false;
             if (!started) {
-                ExecutorService es =
-                    Executors.newFixedThreadPool(service.size());
-                try {
-                    CompletionService<Map.Entry<Channel, Integer>> cs =
-                        new ExecutorCompletionService<>(es);
-                    int csGot = 0;
+                /* Check that all circuits are available, as far as we
+                 * know. */
+                for (Channel circuit : service.keySet()) {
+                    if (circuitToPort.containsKey(circuit)) {
+                        failed = true;
+                        final Throwable t = new RuntimeException("tunnel "
+                            + circuit + " occupied by ofport "
+                            + circuitToPort.get(circuit));
+                        inform(bl -> bl.error(t));
+                    }
+                }
 
-                    /* Allocate each circuit to an OF port, attach them,
-                     * and set the QoS. */
-                    BitSet ofPorts = new BitSet();
-                    for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : service
-                        .entrySet()) {
-                        TrafficFlow flow = entry.getValue();
-                        final Channel circuit = entry.getKey();
+                /* Now establish the circuits. */
+                if (!failed) {
+                    ExecutorService es =
+                        Executors.newFixedThreadPool(service.size());
+                    try {
+                        CompletionService<Map.Entry<Channel, Integer>> cs =
+                            new ExecutorCompletionService<>(es);
+                        int csGot = 0;
 
-                        /* Choose the next available OF port, and mark
-                         * it as in use. */
-                        final int ofport = nextFreePort();
-                        ofPorts.set(ofport);
-                        assert circuit != null;
-                        portToCircuit.put(ofport, circuit);
-                        circuitToPort.put(circuit, ofport);
+                        /* Allocate each circuit to an OF port, attach
+                         * them, and set the QoS. */
+                        BitSet ofPorts = new BitSet();
+                        for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : service
+                            .entrySet()) {
+                            TrafficFlow flow = entry.getValue();
+                            final Channel circuit = entry.getKey();
 
-                        /* Attach the circuit to the OF port, setting
-                         * the outgoing QoS. */
-                        TunnelDesc desc = new TunnelDesc();
-                        CorsaInterface iface =
-                            (CorsaInterface) circuit.getInterface();
-                        iface.configureTunnel(desc, circuit.getLabel())
-                            .ofport(ofport);
-                        if (withShaping) {
-                            /* Set the outgoing rate of the tunnel. */
-                            desc.shapedRate(flow.egress);
-                        }
+                            /* Choose the next available OF port, and
+                             * mark it as in use. */
+                            final int ofport = nextFreePort();
+                            ofPorts.set(ofport);
+                            assert circuit != null;
+                            portToCircuit.put(ofport, circuit);
+                            circuitToPort.put(circuit, ofport);
 
-                        cs.submit(() -> {
-                            final RESTResponse<Void> rsp;
-                            {
-                                final long t0 = System.currentTimeMillis();
-                                rsp = rest.attachTunnel(bridgeId, desc);
-                                final long t1 = System.currentTimeMillis();
-                                System.err.printf("Port %d time: %gs%n",
-                                                  ofport, (t1 - t0) / 1000.0);
-                            }
-
-                            if (rsp.code == 201 && withMetering) {
-                                final long t0 = System.currentTimeMillis();
-                                /* Set the incoming QoS of the
+                            /* Attach the circuit to the OF port,
+                             * setting the outgoing QoS. */
+                            TunnelDesc desc = new TunnelDesc();
+                            CorsaInterface iface =
+                                (CorsaInterface) circuit.getInterface();
+                            iface.configureTunnel(desc, circuit.getLabel())
+                                .ofport(ofport);
+                            if (withShaping) {
+                                /* Set the outgoing rate of the
                                  * tunnel. */
-                                rest.patchTunnel(bridgeId, ofport,
-                                                 Meter.cir(flow.ingress
-                                                     * 1024.0),
-                                                 Meter.cbs(10));
-                                final long t1 = System.currentTimeMillis();
-                                System.err
-                                    .printf("Port %d metering time: %gs%n",
-                                            ofport, (t1 - t0) / 1000.0);
+                                desc.shapedRate(flow.egress);
                             }
-                            return new Map.Entry<Channel, Integer>() {
-                                @Override
-                                public Channel getKey() {
-                                    return circuit;
+
+                            System.err.printf("%s -> ofport %d%n", circuit,
+                                              ofport);
+                            cs.submit(() -> {
+                                final RESTResponse<Void> rsp;
+                                {
+                                    final long t0 =
+                                        System.currentTimeMillis();
+                                    rsp = rest.attachTunnel(bridgeId, desc);
+                                    final long t1 =
+                                        System.currentTimeMillis();
+                                    System.err.printf("Port %d time: %gs%n",
+                                                      ofport,
+                                                      (t1 - t0) / 1000.0);
                                 }
 
-                                @Override
-                                public Integer getValue() {
-                                    return rsp.code;
+                                if (rsp.code == 201 && withMetering) {
+                                    final long t0 =
+                                        System.currentTimeMillis();
+                                    /* Set the incoming QoS of the
+                                     * tunnel. */
+                                    rest.patchTunnel(bridgeId, ofport,
+                                                     Meter.cir(flow.ingress
+                                                         * 1024.0),
+                                                     Meter.cbs(10));
+                                    final long t1 =
+                                        System.currentTimeMillis();
+                                    System.err
+                                        .printf("Port %d metering time: %gs%n",
+                                                ofport, (t1 - t0) / 1000.0);
                                 }
+                                return new Map.Entry<Channel, Integer>() {
+                                    @Override
+                                    public Channel getKey() {
+                                        return circuit;
+                                    }
 
-                                @Override
-                                public Integer setValue(Integer value) {
-                                    throw new UnsupportedOperationException("immutable");
-                                }
-                            };
-                        });
-                        csGot++;
-                    }
-                    while (csGot > 0) {
-                        try {
-                            Map.Entry<Channel, Integer> rsp = cs.take().get();
-                            csGot--;
-                            if (rsp.getValue() != 201) failed = true;
-                            statuses.put(rsp.getKey(), rsp.getValue());
-                        } catch (InterruptedException
-                            | ExecutionException e) {
-                            // Shouldn't happen.
-                            throw new AssertionError("unreachable",
-                                                     e.getCause());
+                                    @Override
+                                    public Integer getValue() {
+                                        return rsp.code;
+                                    }
+
+                                    @Override
+                                    public Integer setValue(Integer value) {
+                                        throw new UnsupportedOperationException("immutable");
+                                    }
+                                };
+                            });
+                            csGot++;
                         }
-                    }
-
-                    if (!failed) {
-                        final long t0 = System.currentTimeMillis();
-                        /* Tell the controller of the new OF port
-                         * set. */
-                        RESTResponse<Collection<? extends BitSet>> defRsp =
-                            sliceRest.definePortSets(dpid, ofPorts);
-                        if (defRsp.code != 200) {
-                            RuntimeException t =
-                                new RuntimeException("failed to set slice port set");
-                            for (BridgeSlice slice : bridgesByCircuitSet
-                                .values()) {
-                                slice.inform(l -> l.error(t));
-                                slice.stop();
+                        while (csGot > 0) {
+                            try {
+                                Map.Entry<Channel, Integer> rsp =
+                                    cs.take().get();
+                                csGot--;
+                                if (rsp.getValue() != 201) failed = true;
+                                statuses.put(rsp.getKey(), rsp.getValue());
+                            } catch (InterruptedException
+                                | ExecutionException e) {
+                                // Shouldn't happen.
+                                throw new AssertionError("unreachable",
+                                                         e.getCause());
                             }
                         }
-                        final long t1 = System.currentTimeMillis();
-                        System.err.printf("New port set %s time: %gs%n",
-                                          ofPorts, (t1 - t0) / 1000.0);
+
+                        if (!failed) {
+                            final long t0 = System.currentTimeMillis();
+                            /* Tell the controller of the new OF port
+                             * set. */
+                            RESTResponse<Collection<? extends BitSet>> defRsp =
+                                sliceRest.definePortSets(dpid, ofPorts);
+                            if (defRsp.code != 200) {
+                                failed = true;
+                                RuntimeException t =
+                                    new RuntimeException("failed to set slice port set " + ofPorts);
+                                inform(l -> l.error(t));
+                                // for (BridgeSlice slice :
+                                // bridgesByCircuitSet
+                                // .values()) {
+                                // slice.inform(l -> l.error(t));
+                                // slice.stop();
+                                // }
+                            }
+                            final long t1 = System.currentTimeMillis();
+                            System.err.printf("New port set %s time: %gs%n",
+                                              ofPorts, (t1 - t0) / 1000.0);
+                        }
+                    } catch (IOException ex) {
+                        RuntimeException t =
+                            new RuntimeException("failed to start slice", ex);
+                        inform(l -> l.error(t));
+                        // for (BridgeSlice slice : bridgesByCircuitSet
+                        // .values()) {
+                        // slice.inform(l -> l.error(t));
+                        // slice.stop();
+                        // }
+                    } finally {
+                        es.shutdown();
                     }
-                } catch (IOException ex) {
-                    RuntimeException t =
-                        new RuntimeException("failed to start slice", ex);
-                    for (BridgeSlice slice : bridgesByCircuitSet.values()) {
-                        slice.inform(l -> l.error(t));
-                        slice.stop();
-                    }
-                } finally {
-                    es.shutdown();
                 }
 
                 started = true;
+            }
+            for (Map.Entry<Channel, Integer> entry : statuses.entrySet()) {
+                final int code = entry.getValue();
+                final Channel circuit = entry.getKey();
+                System.err.printf("%s -> code %d\n", circuit, code);
             }
             if (failed) {
                 for (Map.Entry<Channel, Integer> entry : statuses
