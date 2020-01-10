@@ -350,7 +350,7 @@ public class PersistentSwitch implements Switch {
             if (oldBridge != null) {
                 /* We must notify the user before destroying the bridge,
                  * so that the 'deactivating' event arrives before the
-                 * 'deactivating' one. */
+                 * 'released' one. */
                 callOut(ServiceStatus.DEACTIVATING);
                 synchronized (PersistentSwitch.this) {
                     retainBridges();
