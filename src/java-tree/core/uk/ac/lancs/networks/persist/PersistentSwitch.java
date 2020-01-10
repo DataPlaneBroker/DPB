@@ -348,7 +348,8 @@ public class PersistentSwitch implements Switch {
             }
 
             if (oldBridge != null) {
-                System.err.printf("deleting old bridge to release %d%n", id);
+                // System.err.printf("deleting old bridge to release
+                // %d%n", id);
                 /* We must notify the user before destroying the bridge,
                  * so that the 'deactivating' event arrives before the
                  * 'released' one. */
@@ -357,8 +358,9 @@ public class PersistentSwitch implements Switch {
                     retainBridges();
                 }
             } else {
-                System.err.printf("no need delete old bridge to release %d%n",
-                                  id);
+                // System.err.printf("no need delete old bridge to
+                // release %d%n",
+                // id);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                     if (handle != null) servicesByHandle.remove(handle);
@@ -397,14 +399,15 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized void destroyed() {
-            System.err.printf("bridge destroyed for service %d%n", id);
+            // System.err.printf("bridge destroyed for service %d%n",
+            // id);
             /* Detect redundant calls. */
             if (destroyed) return;
             destroyed = true;
-            System.err.printf("marked inactive service %d%n", id);
+            // System.err.printf("marked inactive service %d%n", id);
 
             if (intent == Intent.RELEASE) {
-                System.err.printf("releasing service %d%n", id);
+                // System.err.printf("releasing service %d%n", id);
                 callOut(ServiceStatus.RELEASING);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
@@ -414,7 +417,7 @@ public class PersistentSwitch implements Switch {
                 callOut(ServiceStatus.RELEASED);
                 listeners.clear();
             } else {
-                System.err.printf("not to be released %d%n", id);
+                // System.err.printf("not to be released %d%n", id);
                 callOut(ServiceStatus.INACTIVE);
             }
         }
