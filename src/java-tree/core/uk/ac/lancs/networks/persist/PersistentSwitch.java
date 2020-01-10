@@ -399,8 +399,10 @@ public class PersistentSwitch implements Switch {
             /* Detect redundant calls. */
             if (!active) return;
             active = false;
+            System.err.printf("marked inactive service %d%n", id);
 
             if (intent == Intent.RELEASE) {
+                System.err.printf("releasing service %d%n", id);
                 callOut(ServiceStatus.RELEASING);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
@@ -410,6 +412,7 @@ public class PersistentSwitch implements Switch {
                 callOut(ServiceStatus.RELEASED);
                 listeners.clear();
             } else {
+                System.err.printf("not to be released %d%n", id);
                 callOut(ServiceStatus.INACTIVE);
             }
         }
