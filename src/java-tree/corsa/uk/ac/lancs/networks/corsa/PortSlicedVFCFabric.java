@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -311,6 +312,7 @@ public final class PortSlicedVFCFabric implements Fabric {
 
     private class BridgeSlice {
         private final Map<Channel, TrafficFlow> service;
+        private final Map<Channel, Integer> statuses = new HashMap<>();
 
         /**
          * Create a bridge for something not already in the physical
@@ -345,7 +347,17 @@ public final class PortSlicedVFCFabric implements Fabric {
                 int csGot = 0;
 
                 /* Detach tunnels from ports. */
-                for (Channel circuit : service.keySet()) {
+                for (Iterator<Map.Entry<Channel, Integer>> iter =
+                    statuses.entrySet().iterator(); iter.hasNext();) {
+                    Map.Entry<Channel, Integer> entry = iter.next();
+                    iter.remove();
+
+                    /* Skip tunnels that failed. They might have failed
+                     * because they already exist, so don't delete
+                     * them. */
+                    if (entry.getValue() != 201) continue;
+
+                    final Channel circuit = entry.getKey();
                     cs.submit(() -> {
                         /* Find which OF port it is attached to, and
                          * detach it. */
@@ -380,11 +392,12 @@ public final class PortSlicedVFCFabric implements Fabric {
 
         void start() {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
+            boolean failed = false;
             if (!started) {
                 ExecutorService es =
                     Executors.newFixedThreadPool(service.size());
                 try {
-                    CompletionService<Void> cs =
+                    CompletionService<Map.Entry<Channel, Integer>> cs =
                         new ExecutorCompletionService<>(es);
                     int csGot = 0;
 
@@ -394,7 +407,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                     for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : service
                         .entrySet()) {
                         TrafficFlow flow = entry.getValue();
-                        Channel circuit = entry.getKey();
+                        final Channel circuit = entry.getKey();
 
                         /* Choose the next available OF port, and mark
                          * it as in use. */
@@ -417,15 +430,16 @@ public final class PortSlicedVFCFabric implements Fabric {
                         }
 
                         cs.submit(() -> {
+                            final RESTResponse<Void> rsp;
                             {
                                 final long t0 = System.currentTimeMillis();
-                                rest.attachTunnel(bridgeId, desc);
+                                rsp = rest.attachTunnel(bridgeId, desc);
                                 final long t1 = System.currentTimeMillis();
                                 System.err.printf("Port %d time: %gs%n",
                                                   ofport, (t1 - t0) / 1000.0);
                             }
 
-                            if (withMetering) {
+                            if (rsp.code == 201 && withMetering) {
                                 final long t0 = System.currentTimeMillis();
                                 /* Set the incoming QoS of the
                                  * tunnel. */
@@ -438,20 +452,40 @@ public final class PortSlicedVFCFabric implements Fabric {
                                     .printf("Port %d metering time: %gs%n",
                                             ofport, (t1 - t0) / 1000.0);
                             }
-                            return null;
+                            return new Map.Entry<Channel, Integer>() {
+                                @Override
+                                public Channel getKey() {
+                                    return circuit;
+                                }
+
+                                @Override
+                                public Integer getValue() {
+                                    return rsp.code;
+                                }
+
+                                @Override
+                                public Integer setValue(Integer value) {
+                                    throw new UnsupportedOperationException("immutable");
+                                }
+                            };
                         });
                         csGot++;
                     }
                     while (csGot > 0) {
                         try {
-                            cs.take();
+                            Map.Entry<Channel, Integer> rsp = cs.take().get();
                             csGot--;
-                        } catch (InterruptedException e) {
-                            // Um?
+                            if (rsp.getValue() != 201) failed = true;
+                            statuses.put(rsp.getKey(), rsp.getValue());
+                        } catch (InterruptedException
+                            | ExecutionException e) {
+                            // Shouldn't happen.
+                            throw new AssertionError("unreachable",
+                                                     e.getCause());
                         }
                     }
 
-                    {
+                    if (!failed) {
                         final long t0 = System.currentTimeMillis();
                         /* Tell the controller of the new OF port
                          * set. */
@@ -483,7 +517,18 @@ public final class PortSlicedVFCFabric implements Fabric {
 
                 started = true;
             }
-            inform(BridgeListener::created);
+            if (failed) {
+                for (Map.Entry<Channel, Integer> entry : statuses
+                    .entrySet()) {
+                    final int code = entry.getValue();
+                    if (code == 201) continue;
+                    final Throwable t = new RuntimeException("tunnel "
+                        + entry.getKey() + " yielded " + code);
+                    inform(bl -> bl.error(t));
+                }
+            } else {
+                inform(BridgeListener::created);
+            }
         }
 
         private final Collection<BridgeListener> listeners = new HashSet<>();
