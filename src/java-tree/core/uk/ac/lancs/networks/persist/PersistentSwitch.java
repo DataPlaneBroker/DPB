@@ -399,8 +399,8 @@ public class PersistentSwitch implements Switch {
         public synchronized void destroyed() {
             System.err.printf("bridge destroyed for service %d%n", id);
             /* Detect redundant calls. */
-            if (!destroyed) return;
-            destroyed = false;
+            if (destroyed) return;
+            destroyed = true;
             System.err.printf("marked inactive service %d%n", id);
 
             if (intent == Intent.RELEASE) {
