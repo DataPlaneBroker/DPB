@@ -384,6 +384,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                 es.shutdown();
             }
 
+            System.err.printf("Sending 'destroyed' for %s%n",
+                              service.keySet());
             inform(BridgeListener::destroyed);
             listeners.clear();
         }
@@ -517,7 +519,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                             if (defRsp.code != 200) {
                                 failed = true;
                                 RuntimeException t =
-                                    new RuntimeException("failed to set slice port set " + ofPorts);
+                                    new RuntimeException("failed to set slice port set "
+                                        + ofPorts);
                                 inform(l -> l.error(t));
                                 // for (BridgeSlice slice :
                                 // bridgesByCircuitSet

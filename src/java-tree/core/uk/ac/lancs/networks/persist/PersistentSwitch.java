@@ -392,6 +392,7 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized void destroyed() {
+            System.err.printf("bridge destroyed for service %d%n", id);
             /* Detect redundant calls. */
             if (!active) return;
             active = false;
