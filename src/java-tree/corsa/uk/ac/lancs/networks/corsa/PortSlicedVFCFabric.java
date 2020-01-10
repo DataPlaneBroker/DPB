@@ -384,8 +384,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                 es.shutdown();
             }
 
-            System.err.printf("Sending 'destroyed' for %s%n",
-                              service.keySet());
+            System.err.printf("Sending 'destroyed' for %s to %d%n",
+                              service.keySet(), listeners.size());
             inform(BridgeListener::destroyed);
             listeners.clear();
         }

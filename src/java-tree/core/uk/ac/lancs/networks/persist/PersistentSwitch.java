@@ -348,6 +348,7 @@ public class PersistentSwitch implements Switch {
             }
 
             if (oldBridge != null) {
+                System.err.printf("deleting old bridge to release %d%n", id);
                 /* We must notify the user before destroying the bridge,
                  * so that the 'deactivating' event arrives before the
                  * 'released' one. */
@@ -356,6 +357,8 @@ public class PersistentSwitch implements Switch {
                     retainBridges();
                 }
             } else {
+                System.err.printf("no need delete old bridge to release %d%n",
+                                  id);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                     if (handle != null) servicesByHandle.remove(handle);
