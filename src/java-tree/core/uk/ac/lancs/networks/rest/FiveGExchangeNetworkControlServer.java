@@ -307,7 +307,7 @@ public class FiveGExchangeNetworkControlServer {
         }
         JsonObject rsp = Json.createObjectBuilder().build();
         setResponseObject(response, rsp);
-        response.setStatusCode(HttpStatus.SC_NO_CONTENT);
+        response.setStatusCode(HttpStatus.SC_OK);
     }
 
     @Route("/service/by-handle/(?<uuid>(?:[0-9a-f]{8})-(?:[0-9a-f]{4})"
@@ -336,7 +336,7 @@ public class FiveGExchangeNetworkControlServer {
         srv.release();
         JsonObject rsp = Json.createObjectBuilder().build();
         setResponseObject(response, rsp);
-        response.setStatusCode(HttpStatus.SC_NO_CONTENT);
+        response.setStatusCode(HttpStatus.SC_OK);
     }
 
     private JsonObject getRequestObject(HttpRequest request,
