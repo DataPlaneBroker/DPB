@@ -33,59 +33,11 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.jsoncmd;
-
-import javax.json.Json;
-import javax.json.JsonObject;
 
 /**
- * Selects the network on a remote channel.
+ * @resume Applications and utilities for manipulating networks and
+ * switches, with additional dependencies
  * 
  * @author simpsons
  */
-final class NetworkJsonChannelManager implements JsonChannelManager {
-    private final JsonChannelManager base;
-    private final String name;
-
-    /**
-     * Create a channel manager that sends a message to select the
-     * remote network before passing the channel to the user.
-     * 
-     * @param base the base provider of channels
-     * 
-     * @param name the name of the network to select
-     */
-    public NetworkJsonChannelManager(JsonChannelManager base, String name) {
-        this.base = base;
-        this.name = name;
-    }
-
-    /**
-     * {@inheritDoc}
-     * 
-     * <p>
-     * The peer of this code is in
-     * {@link uk.ac.lancs.networks.apps.server.NetworkServer}.
-     */
-    @Override
-    public JsonChannel getChannel() {
-        JsonChannel result = base.getChannel();
-        /* Select the remote network. */
-        JsonObject req = Json.createObjectBuilder()
-            .add("type", "select-network").add("network-name", name).build();
-        result.write(req);
-        JsonObject rsp = result.read();
-        String error = rsp.getString("error", null);
-        if (error != null) {
-            switch (error) {
-            case "unauthorized":
-                throw new IllegalArgumentException("unauthorized to access "
-                    + name);
-
-            case "no-network":
-                throw new IllegalArgumentException("no network " + name);
-            }
-        }
-        return result;
-    }
-}
+package uk.ac.lancs.networks.apps.server;

@@ -9,27 +9,34 @@ PRINTF=printf
 
 PROJECT_JAVACFLAGS += -Xlint:unchecked
 
-jars += $(SELECTED_JARS)
+jars += $(COMMON_JARS)
+jars += $(SERVER_JARS)
 jars += $(TEST_JARS)
 
-SELECTED_JARS += initiate-dpb-core
+COMMON_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 deps_core += util
 roots_core=$(found_core)
 
-SELECTED_JARS += initiate-dpb-corsa
+SERVER_JARS += initiate-dpb-server
+trees_initiate-dpb-server += server
+deps_server += core
+deps_server += util
+roots_server=$(found_server)
+
+COMMON_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
 roots_corsa=$(found_corsa)
 
-SELECTED_JARS += initiate-dpb-openflow
+COMMON_JARS += initiate-dpb-openflow
 trees_initiate-dpb-openflow += openflow
 deps_openflow += util
 deps_openflow += core
 roots_openflow=$(found_openflow)
 
-SELECTED_JARS += initiate-dpb-util
+COMMON_JARS += initiate-dpb-util
 trees_initiate-dpb-util += util
 roots_util=$(found_util)
 
@@ -70,6 +77,7 @@ DOC_PKGS += uk.ac.lancs.routing.metric
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.apps
+DOC_PKGS += uk.ac.lancs.networks.apps.server
 DOC_PKGS += uk.ac.lancs.networks.jsoncmd
 DOC_PKGS += uk.ac.lancs.networks.mgmt
 DOC_PKGS += uk.ac.lancs.networks.rest
@@ -86,11 +94,17 @@ DOC_PKGS += uk.ac.lancs.regex
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)
-DOC_SRC=$(call jardeps_srcdirs4jars,$(SELECTED_JARS))
+DOC_SRC=$(call jardeps_srcdirs4jars,$(jars))
 DOC_CORE=dataplanebroker$(DOC_CORE_SFX)
 
-installed-jars:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
-installed-jars:: $(SELECTED_JARS:%=$(JARDEPS_OUTDIR)/%-src.zip)
+common-jars:: $(COMMON_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+common-jars:: $(COMMON_JARS:%=$(JARDEPS_OUTDIR)/%-src.zip)
+
+server-jars:: common-jars
+server-jars:: $(SERVER_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
+server-jars:: $(SERVER_JARS:%=$(JARDEPS_OUTDIR)/%-src.zip)
+
+client-jars:: common-jars
 
 testalgoperf:  all $(TEST_JARS:%=$(JARDEPS_OUTDIR)/%.jar)
 	$(JAVA) -ea -cp "$(JARDEPS_OUTDIR)/initiate-dpb-core.jar:$(JARDEPS_OUTDIR)/tests.jar" AlgoPerfTest
@@ -128,7 +142,9 @@ testconfig: all
 blank:: clean
 	$(RM) -r out
 
-all:: installed-jars
+all:: client server
+client:: client-jars
+server:: server-jars
 
 install:: install-data
 install:: install-scripts
@@ -136,8 +152,14 @@ install:: install-jars
 
 install-ctrl:: install-data
 install-ssh:: install-scripts
+install-client:: install-scripts install-client-jars
+install-server:: install-scripts install-server-jars
 
-install-jars:: $(SELECTED_JARS:%=install-jar-%)
+install-common-jars:: $(COMMON_JARS:%=install-jar-%)
+install-server-jars install-client-jars:: install-common-jars
+install-server-jars:: $(SERVER_JARS:%=install-jar-%)
+
+install-jars:: install-client-jars install-server-jars
 install-jar-%::
 	@$(call JARDEPS_INSTALL,$(PREFIX)/share/java,$*,$(version_$*))
 

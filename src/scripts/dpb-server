@@ -82,10 +82,10 @@ fi
 
 exec jrun "${EXTRAS[@]}" \
      -lusmux_session -lusmux_server -lusmux_unix -ljavax.json \
-     -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
-     -linitiate-dpb-openflow -linitiate-dpb-corsa -llurest-server-api \
-     -llurest-client-api -llurest-service \
+     -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-server \
+     -linitiate-dpb-util -linitiate-dpb-openflow -linitiate-dpb-corsa \
+     -llurest-server-api -llurest-client-api -llurest-service \
      ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
      -Dprogram.name="$0" -Dusmux.config="$USMUX" \
      -Dnetwork.config.server="$CONFIG" ${ASSERT:+-ea} \
-     uk.ac.lancs.networks.apps.NetworkServer
+     uk.ac.lancs.networks.apps.server.NetworkServer

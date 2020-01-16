@@ -33,7 +33,7 @@
  *
  * Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
-package uk.ac.lancs.networks.apps;
+package uk.ac.lancs.networks.apps.server;
 
 import java.io.IOException;
 import java.io.InputStream;
