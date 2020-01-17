@@ -37,6 +37,7 @@ package uk.ac.lancs.networks.apps.server;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -103,12 +104,12 @@ import uk.ac.lancs.scc.usmux.SessionServerFactory;
  * <p>
  * REST functions defined by {@link RESTNetworkControlServer} are bound
  * to the prefix
- * <samp>http://0.0.0.0:4753/network/<var>network-name</var>.</samp>
+ * <samp>http://{@value #DEFAULT_HOST_TEXT}:{@value #DEFAULT_PORT}/network/<var>network-name</var>.</samp>
  * 
  * <p>
  * REST functions defined by {@link FiveGExchangeNetworkControlServer}
  * are bound to the prefix
- * <samp>http://0.0.0.0:4753/5gnetwork/<var>network-name</var>.</samp>
+ * <samp>http://{@value #DEFAULT_HOST_TEXT}:{@value #DEFAULT_PORT}/5gnetwork/<var>network-name</var>.</samp>
  * 
  * @author simpsons
  */
@@ -423,6 +424,9 @@ public final class NetworkServer {
         executor.execute(ixn);
     }
 
+    private static final String DEFAULT_HOST_TEXT = "0.0.0.0";
+    private static final int DEFAULT_PORT = 4753;
+
     /**
      * Runs a server containing agents that operate switches.
      * 
@@ -443,6 +447,38 @@ public final class NetworkServer {
      * <dt><samp>network.config.server</samp>
      * 
      * <dd>Specifies the path to the agent configuration file.
+     * 
+     * </dl>
+     * 
+     * <p>
+     * The configuration file may contain the following properties:
+     * 
+     * <dl>
+     * 
+     * <dt><samp>agents</samp></dt>
+     * 
+     * <dd>A comma-separated list of keys of agents to instantiate
+     * 
+     * <dt><samp><var>agent-key</var>.name=<var>agent-key</var></samp></dt>
+     * 
+     * <dd>The name to register the agent under
+     * 
+     * <dt><samp><var>agent-key</var>.type</samp></dt>
+     * 
+     * <dd>The agent's type, to be recognized by
+     * {@link AgentFactory#recognize(Configuration)}
+     * 
+     * <dt><samp><var>agent-key</var>.<var>other-properties</var></samp></dt>
+     * 
+     * <dd>Other agent-specific properties
+     * 
+     * <dt><samp>rest.host={@value #DEFAULT_HOST_TEXT}</samp>
+     * 
+     * <dd>Specifies the host to bind the HTTP server to.
+     * 
+     * <dt><samp>rest.port={@value #DEFAULT_PORT}</samp>
+     * 
+     * <dd>Specifies the port to bind the HTTP server to.
      * 
      * </dl>
      * 
@@ -470,19 +506,22 @@ public final class NetworkServer {
                 new NetworkServer(executor, usmuxServer, restMapping, config);
 
             /* Create HTTP server. */
-            HttpServer webServer =
-                ServerBootstrap.bootstrap().setListenerPort(4753)
-                    .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
-                        .custom().setTcpNoDelay(true).build())
-                    .setExceptionLogger((ex) -> {
-                        try {
-                            throw ex;
-                        } catch (ConnectionClosedException e) {
-                            // Ignore.
-                        } catch (Throwable t) {
-                            t.printStackTrace(System.err);
-                        }
-                    }).setHandlerMapper(restMapping).create();
+            InetAddress host = InetAddress
+                .getByName(config.get("rest.host", DEFAULT_HOST_TEXT));
+            int port = config.getInt("rest.port", DEFAULT_PORT);
+            HttpServer webServer = ServerBootstrap.bootstrap()
+                .setLocalAddress(host).setListenerPort(port)
+                .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
+                    .custom().setTcpNoDelay(true).build())
+                .setExceptionLogger((ex) -> {
+                    try {
+                        throw ex;
+                    } catch (ConnectionClosedException e) {
+                        // Ignore.
+                    } catch (Throwable t) {
+                        t.printStackTrace(System.err);
+                    }
+                }).setHandlerMapper(restMapping).create();
             webServer.start();
 
             /* Start to accept calls. */
