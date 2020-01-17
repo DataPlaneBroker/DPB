@@ -581,6 +581,25 @@ public interface Configuration {
     }
 
     /**
+     * Get a configuration parameter as an integer, or use a default.
+     * 
+     * @param key the parameter key
+     * 
+     * @param defaultValue the value to use if the key is absent
+     * 
+     * @return the value of the parameter, or the default value if not
+     * present
+     * 
+     * @throws NumberFormatException if the key is present, but does not
+     * parse as an integer
+     */
+    default int getInt(String key, int defaultValue) {
+        String text = get(key);
+        if (text == null) return defaultValue;
+        return Integer.parseInt(text);
+    }
+
+    /**
      * Normalize a node key. Double dots are condensed to single ones.
      * Leading and trailing dots are removed.
      * 
