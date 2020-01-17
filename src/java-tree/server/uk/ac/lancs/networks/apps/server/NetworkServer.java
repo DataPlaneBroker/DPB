@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import javax.json.Json;
@@ -72,10 +73,6 @@ import uk.ac.lancs.agent.AgentFactory;
 import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.config.ConfigurationContext;
-import uk.ac.lancs.logging.Detail;
-import uk.ac.lancs.logging.Format;
-import uk.ac.lancs.logging.FormattedLogger;
-import uk.ac.lancs.logging.ShadowLevel;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.Service;
 import uk.ac.lancs.networks.jsoncmd.ContinuousJsonReader;
@@ -280,8 +277,8 @@ public final class NetworkServer {
                         break;
                     }
                 }
-                logger.listManagables(managables);
-                logger.listControllables(controllables);
+                logger.info(() -> "managed: " + managables);
+                logger.info(() -> "controlled: " + controllables);
 
                 /* Read one more line, which is the name of the
                  * network. */
@@ -298,7 +295,9 @@ public final class NetworkServer {
                         /* Fail if the selected network is not
                          * accessible. */
                         if (!controllables.contains(networkName)) {
-                            logger.unauthorized(networkName, controllables);
+                            final String nn = networkName;
+                            logger.warning(() -> "unauthorized: [" + nn
+                                + "] not in " + controllables);
                             jout.writeObject(Json.createObjectBuilder()
                                 .add("error", "unauthorized")
                                 .add("network", networkName).build());
@@ -309,8 +308,9 @@ public final class NetworkServer {
                          * exist. */
                         Network network = networks.get(networkName);
                         if (network == null) {
-                            logger.unknownNetwork(networkName,
-                                                  networks.keySet());
+                            final String nn = networkName;
+                            logger.warning(() -> "no network: [" + nn
+                                + "] not in " + networks.keySet());
                             jout.writeObject(Json.createObjectBuilder()
                                 .add("error", "no-network")
                                 .add("network-name", networkName).build());
@@ -374,16 +374,17 @@ public final class NetworkServer {
                             executor.execute(() -> {
                                 JsonObject req;
                                 while ((req = session.read()) != null) {
+                                    final JsonObject rr = req;
                                     for (JsonObject rsp : process(req,
                                                                   actions::add)) {
-                                        System.err.printf("%s -> %s%n", req,
-                                                          rsp);
+                                        logger
+                                            .finer(() -> rr.toString()
+                                                + " -> " + rsp);
                                         session.write(rsp);
                                     }
-                                    logger.requestComplete(req);
-                                    System.err
-                                        .printf("Request complete: %s%n",
-                                                req);
+                                    logger
+                                        .fine(() -> "Request complete: "
+                                            + rr);
                                 }
                             });
                         } while (true);
@@ -541,32 +542,5 @@ public final class NetworkServer {
         return Collections.singletonList(elem);
     }
 
-    private interface PrettyLogger extends FormattedLogger {
-        @Format("controlled: %s")
-        @Detail(ShadowLevel.INFO)
-        void listControllables(Collection<? extends String> names);
-
-        @Format("managed: %s")
-        @Detail(ShadowLevel.INFO)
-        void listManagables(Collection<? extends String> names);
-
-        @Format("unauthorized: [%s] not in %s")
-        @Detail(ShadowLevel.INFO)
-        void unauthorized(String name, Collection<? extends String> names);
-
-        @Format("no network: [%s] not in %s")
-        @Detail(ShadowLevel.INFO)
-        void unknownNetwork(String name, Collection<? extends String> names);
-
-        @Format("%s -> %s")
-        @Detail(ShadowLevel.FINER)
-        void requestSummary(JsonObject req, JsonObject rsp);
-
-        @Format("Request complete: %s")
-        @Detail(ShadowLevel.FINE)
-        void requestComplete(JsonObject req);
-    }
-
-    private static PrettyLogger logger = FormattedLogger
-        .get(NetworkServer.class.getName(), PrettyLogger.class);
+    private static Logger logger = Logger.getLogger(NetworkServer.class.getName());
 }
