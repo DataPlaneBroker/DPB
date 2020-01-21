@@ -56,6 +56,7 @@ import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.mgmt.TerminalExistsException;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -67,6 +68,7 @@ public class DummySwitch implements Switch {
     private class MyTerminal implements Terminal {
         private final String name;
         private final String iface;
+        double ingressCapacity = -1.0, egressCapacity = -1.0;
 
         MyTerminal(String name, String ifconfig) {
             this.name = name;
@@ -97,6 +99,24 @@ public class DummySwitch implements Switch {
         }
     }
 
+    private Map<MyTerminal, TrafficFlow> sumTerminalFlows() {
+        assert Thread.holdsLock(this);
+        Map<MyTerminal, TrafficFlow> result = new HashMap<>();
+        for (MyTerminal t : terminals.values())
+            result.put(t, TrafficFlow.of(0.0, 0.0));
+        for (MyService srv : connections.values()) {
+            for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : srv.request
+                .circuitFlows().entrySet()) {
+                Terminal t = entry.getKey().getTerminal();
+                TrafficFlow old = result.get(t);
+                if (old == null) continue;
+                TrafficFlow adj = entry.getValue();
+                result.put((MyTerminal) t, old.add(adj));
+            }
+        }
+        return result;
+    }
+
     private final Map<String, MyService> connsByHandle = new HashMap<>();
 
     private class MyService implements Service {
@@ -124,8 +144,12 @@ public class DummySwitch implements Switch {
              * applied to all implicit and explicit consumers. */
             request = Segment.sanitize(request, 0.01);
 
-            /* Check that all circuits belong to us. */
-            for (Circuit ep : request.circuitFlows().keySet()) {
+            /* Check that all circuits belong to us. Also track the
+             * bandwidth usage on each terminal. */
+            final Map<MyTerminal, TrafficFlow> additional = new HashMap<>();
+            for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
+                .circuitFlows().entrySet()) {
+                final Circuit ep = entry.getKey();
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof MyTerminal))
                     throw new InvalidServiceException(control
@@ -134,7 +158,41 @@ public class DummySwitch implements Switch {
                 if (mp.owner() != DummySwitch.this)
                     throw new InvalidServiceException(control
                         .name(), id, "not my circuit: " + ep);
+                additional.put(mp,
+                               additional
+                                   .computeIfAbsent(mp,
+                                                    k -> TrafficFlow.of(0.0,
+                                                                        0.0))
+                                   .add(entry.getValue()));
             }
+
+            /* Check terminal capacities. */
+            synchronized (DummySwitch.this) {
+                final Map<MyTerminal, TrafficFlow> inUse = sumTerminalFlows();
+                for (Map.Entry<MyTerminal, TrafficFlow> entry : additional
+                    .entrySet()) {
+                    MyTerminal mp = entry.getKey();
+                    TrafficFlow next = entry.getValue();
+                    TrafficFlow tiu = inUse.get(mp);
+                    if (mp.ingressCapacity >= 0.0
+                        && tiu.ingress + next.ingress > mp.ingressCapacity) {
+                        String msg = "ingress capacity: " + mp.ingressCapacity
+                            + "; use: " + tiu.ingress + "; requested: "
+                            + next.ingress;
+                        throw new InvalidServiceException(control.name(), id,
+                                                          msg);
+                    }
+                    if (mp.egressCapacity >= 0.0
+                        && tiu.egress + next.egress > mp.egressCapacity) {
+                        String msg = "egress capacity: " + mp.egressCapacity
+                            + "; use: " + tiu.egress + "; requested: "
+                            + next.egress;
+                        throw new InvalidServiceException(control.name(), id,
+                                                          msg);
+                    }
+                }
+            }
+
             this.request = request;
             callOut(ServiceStatus.ESTABLISHING);
             callOut(ServiceStatus.INACTIVE);
@@ -382,4 +440,75 @@ public class DummySwitch implements Switch {
             }
         }
     };
+
+    @Override
+    public void provideBandwidth(String terminalName, double ingress,
+                                 double egress)
+        throws UnknownTerminalException {
+        synchronized (this) {
+            if (ingress < 0.0)
+                throw new IllegalArgumentException("-ve ingress for "
+                    + terminalName + " on " + name + ": " + ingress);
+            if (egress < 0.0)
+                throw new IllegalArgumentException("-ve egress for "
+                    + terminalName + " on " + name + ": " + egress);
+            MyTerminal t = terminals.get(terminalName);
+            if (t == null)
+                throw new UnknownTerminalException(name, terminalName);
+            t.ingressCapacity += ingress;
+            t.egressCapacity += egress;
+        }
+    }
+
+    @Override
+    public void withdrawBandwidth(String terminalName, double ingress,
+                                  double egress)
+        throws UnknownTerminalException {
+        synchronized (this) {
+            if (ingress < 0.0)
+                throw new IllegalArgumentException("-ve ingress for "
+                    + terminalName + " on " + name + ": " + ingress);
+            if (egress < 0.0)
+                throw new IllegalArgumentException("-ve egress for "
+                    + terminalName + " on " + name + ": " + egress);
+            MyTerminal t = terminals.get(terminalName);
+            if (t == null)
+                throw new UnknownTerminalException(name, terminalName);
+            TrafficFlow inUse = sumTerminalFlows().get(t);
+            final double newIngress = t.ingressCapacity - ingress;
+            if (newIngress < inUse.ingress)
+                throw new IllegalArgumentException("can't remove " + ingress
+                    + " from ingress " + t.ingressCapacity + " when "
+                    + inUse.ingress + " is in use");
+            final double newEgress = t.egressCapacity - egress;
+            if (newEgress < inUse.egress)
+                throw new IllegalArgumentException("can't remove " + egress
+                    + " from egress " + t.egressCapacity + " when "
+                    + inUse.egress + " is in use");
+            t.ingressCapacity = newIngress;
+            t.egressCapacity = newEgress;
+        }
+    }
+
+    @Override
+    public void disableIngressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException {
+        synchronized (this) {
+            MyTerminal t = terminals.get(terminalName);
+            if (t == null)
+                throw new UnknownTerminalException(name, terminalName);
+            t.ingressCapacity = -1.0;
+        }
+    }
+
+    @Override
+    public void disableEgressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException {
+        synchronized (this) {
+            MyTerminal t = terminals.get(terminalName);
+            if (t == null)
+                throw new UnknownTerminalException(name, terminalName);
+            t.egressCapacity = -1.0;
+        }
+    }
 }

@@ -82,6 +82,18 @@ public class JsonSwitchServer extends JsonNetworkServer {
      * 
      * <dd>Invoke {@link Switch#getTerminals()}.
      * 
+     * <dt><samp>provide-terminal-bandwidth <var>terminal-name</var>
+     * <var>ingress-bandwidth</var> <var>egress-bandwidth</var></samp>
+     * 
+     * <dd>Invoke
+     * {@link Switch#provideBandwidth(String, double, double)}.
+     * 
+     * <dt><samp>withdraw-terminal-bandwidth <var>terminal-name</var>
+     * <var>ingress-bandwidth</var> <var>egress-bandwidth</var></samp>
+     * 
+     * <dd>Invoke
+     * {@link Switch#withdrawBandwidth(String, double, double)}.
+     * 
      * </dl>
      */
     @Override
@@ -94,6 +106,38 @@ public class JsonSwitchServer extends JsonNetworkServer {
                 String name = req.getString("terminal-name");
                 String config = req.getString("terminal-config");
                 network.addTerminal(name, config);
+                return empty();
+            }
+
+            case "disable-terminal-ingress-bandwidth": {
+                String name = req.getString("terminal-name");
+                network.disableIngressBandwidthCheck(name);
+                return empty();
+            }
+
+            case "disable-terminal-egress-bandwidth": {
+                String name = req.getString("terminal-name");
+                network.disableEgressBandwidthCheck(name);
+                return empty();
+            }
+
+            case "provide-terminal-bandwidth": {
+                String name = req.getString("terminal-name");
+                double ingress =
+                    req.getJsonNumber("ingress-bandwidth").doubleValue();
+                double egress =
+                    req.getJsonNumber("egress-bandwidth").doubleValue();
+                network.provideBandwidth(name, ingress, egress);
+                return empty();
+            }
+
+            case "withdraw-terminal-bandwidth": {
+                String name = req.getString("terminal-name");
+                double ingress =
+                    req.getJsonNumber("ingress-bandwidth").doubleValue();
+                double egress =
+                    req.getJsonNumber("egress-bandwidth").doubleValue();
+                network.withdrawBandwidth(name, ingress, egress);
                 return empty();
             }
 

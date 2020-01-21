@@ -77,4 +77,98 @@ public interface Switch extends Network {
      * @return a set of all terminals and their interface mappings
      */
     Map<Terminal, String> getTerminals();
+
+    /**
+     * Disable ingress bandwidth checking on a terminal. The terminal's
+     * ingress allocation is abolished.
+     * 
+     * @param terminalName the terminal on which checking is to be set
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     */
+    void disableIngressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException;
+
+    /**
+     * Disable egress bandwidth checking on a terminal. The terminal's
+     * egress allocation is abolished.
+     * 
+     * @param terminalName the terminal on which checking is to be set
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     */
+    void disableEgressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException;
+
+    /**
+     * Provide bandwidths to a terminal.
+     * 
+     * @param terminalName the name of the terminal whose quota is to be
+     * adjusted
+     * 
+     * @param ingress the amount to increase the ingress bandwidth by
+     * 
+     * @param egress the amount to increase the egress bandwidth by
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     * 
+     * @throws IllegalArgumentException if either bandwidth is negative
+     */
+    void provideBandwidth(String terminalName, double ingress, double egress)
+        throws UnknownTerminalException;
+
+    /**
+     * Provide bandwidth to a terminal.
+     * 
+     * @param terminalName the name of the terminal whose quota is to be
+     * adjusted
+     * 
+     * @param amount the amount to increase the ingress and egress
+     * bandwidths by
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     * 
+     * @throws IllegalArgumentException if either bandwidth is negative
+     */
+    default void provideBandwidth(String terminalName, double amount)
+        throws UnknownTerminalException {
+        provideBandwidth(terminalName, amount, amount);
+    }
+
+    /**
+     * Withdraw bandwidths from a terminal.
+     * 
+     * @param terminalName the name of the terminal whose quota is to be
+     * adjusted
+     * 
+     * @param ingress the amount to decrease the ingress bandwidth by
+     * 
+     * @param egress the amount to decrease the egress bandwidth by
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     * 
+     * @throws IllegalArgumentException if the bandwidth is negative, or
+     * the amount exceeds either available level
+     */
+    void withdrawBandwidth(String terminalName, double ingress, double egress)
+        throws UnknownTerminalException;
+
+    /**
+     * Withdraw bandwidth from a terminal.
+     * 
+     * @param terminalName the name of the terminal whose quota is to be
+     * adjusted
+     * 
+     * @param amount the amount to decrease the ingress/egress
+     * bandwidths by
+     * 
+     * @throws UnknownTerminalException if the terminal does not exist
+     * 
+     * @throws IllegalArgumentException if the bandwidth is negative, or
+     * the amount exceeds either available level
+     */
+    default void withdrawBandwidth(String terminalName, double amount)
+        throws UnknownTerminalException {
+        withdrawBandwidth(terminalName, amount, amount);
+    }
 }

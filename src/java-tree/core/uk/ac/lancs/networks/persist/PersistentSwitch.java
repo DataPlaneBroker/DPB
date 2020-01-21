@@ -77,6 +77,7 @@ import uk.ac.lancs.networks.fabric.Channel;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.mgmt.NetworkResourceException;
 import uk.ac.lancs.networks.mgmt.Switch;
+import uk.ac.lancs.networks.mgmt.UnknownTerminalException;
 import uk.ac.lancs.routing.span.Edge;
 
 /**
@@ -967,5 +968,31 @@ public class PersistentSwitch implements Switch {
         debugStatement(Connection conn, String text) throws SQLException {
         // System.err.printf("Preparing: %s%n", text);
         return conn.prepareStatement(text);
+    }
+
+    @Override
+    public void disableIngressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public void disableEgressBandwidthCheck(String terminalName)
+        throws UnknownTerminalException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public void provideBandwidth(String terminalName, double ingress,
+                                 double egress)
+        throws UnknownTerminalException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
+    }
+
+    @Override
+    public void withdrawBandwidth(String terminalName, double ingress,
+                                  double egress)
+        throws UnknownTerminalException {
+        throw new UnsupportedOperationException("unimplemented"); // TODO
     }
 }

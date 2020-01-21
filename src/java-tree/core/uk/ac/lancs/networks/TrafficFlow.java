@@ -70,6 +70,17 @@ public final class TrafficFlow {
         return new TrafficFlow(ingress, egress);
     }
 
+    /**
+     * Describe the aggregate of this flow and another.
+     * 
+     * @param other the other flow
+     * 
+     * @return the sum of this flow and the other
+     */
+    public TrafficFlow add(TrafficFlow other) {
+        return TrafficFlow.of(ingress + other.ingress, egress + other.egress);
+    }
+
     private TrafficFlow(double ingress, double egress) {
         if (ingress < 0.0)
             throw new IllegalArgumentException("illegal negative"
