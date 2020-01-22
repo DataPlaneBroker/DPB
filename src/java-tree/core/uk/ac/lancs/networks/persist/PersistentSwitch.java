@@ -991,6 +991,8 @@ public class PersistentSwitch implements Switch {
                                 Double egress)
         throws UnknownTerminalException {
         try (Connection conn = database()) {
+            conn.setAutoCommit(false);
+
             /* Check whether the terminal exists, and get the current
              * capacities. */
             final int tid;
