@@ -156,8 +156,13 @@ public class PersistentSwitch implements Switch {
             if (this.request != null)
                 throw new IllegalStateException("service in use");
 
-            /* Check that all circuits belong to us. */
-            for (Circuit ep : request.circuitFlows().keySet()) {
+            /* Check that all circuits belong to us. Also track the
+             * bandwidth demand on each terminal. */
+            final Map<SwitchTerminal, TrafficFlow> additional =
+                new HashMap<>();
+            for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
+                .circuitFlows().entrySet()) {
+                final Circuit ep = entry.getKey();
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof SwitchTerminal))
                     throw new InvalidServiceException(control.name(), id,
@@ -170,6 +175,12 @@ public class PersistentSwitch implements Switch {
                                                       "circuit " + ep
                                                           + " not part of "
                                                           + name);
+                additional.put(mp,
+                               additional
+                                   .computeIfAbsent(mp,
+                                                    k -> TrafficFlow.of(0.0,
+                                                                        0.0))
+                                   .add(entry.getValue()));
             }
 
             /* Sanitize the request such that no circuit produces less
@@ -177,11 +188,77 @@ public class PersistentSwitch implements Switch {
              * greater than the sum of the others' ingress rates. */
             this.request = Segment.sanitize(request, 0.01);
 
-            callOut(ServiceStatus.ESTABLISHING);
-
             /* Add the details to the database. */
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
+
+                /* Get total bandwidths for each of the terminals. */
+                StringBuilder expr = new StringBuilder();
+                for (@SuppressWarnings("unused")
+                SwitchTerminal t : additional.keySet())
+                    expr.append(" OR tt.name = ?");
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("SELECT tt.name AS name,"
+                        + " ct.metering AS ingress," + " ct.shaping AS egress"
+                        + " FROM " + circuitTable + " AS ct LEFT JOIN "
+                        + terminalTable + " AS tt"
+                        + " ON ct.terminal_id = tt.terminal_id" + " WHERE 1=0"
+                        + expr + ";")) {
+                    int pos = 1;
+                    for (SwitchTerminal t : additional.keySet())
+                        stmt.setString(pos++, t.name());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next()) {
+                            SwitchTerminal mp =
+                                terminals.get(rs.getString(1));
+                            double ingress = rs.getDouble(2);
+                            double egress = rs.getDouble(3);
+                            additional.put(mp, additional.get(mp)
+                                .add(TrafficFlow.of(ingress, egress)));
+                        }
+                    }
+                }
+
+                /* Reject if insufficient bandwidth. */
+                try (PreparedStatement stmt = conn
+                    .prepareStatement("SELECT name," + " metering AS ingress,"
+                        + " shaping AS egress" + " FROM " + terminalTable
+                        + " WHERE 1=0" + expr + ";")) {
+                    int pos = 1;
+                    for (SwitchTerminal t : additional.keySet())
+                        stmt.setString(pos++, t.name());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        while (rs.next()) {
+                            SwitchTerminal mp =
+                                terminals.get(rs.getString(1));
+                            TrafficFlow required = additional.get(mp);
+                            double ingressLimit = rs.getDouble(2);
+                            if (!rs.wasNull()
+                                && required.ingress > ingressLimit)
+                                throw new ServiceException(name, id,
+                                                           "ingress bandwidth "
+                                                               + required.ingress
+                                                               + " exceeded limit "
+                                                               + ingressLimit
+                                                               + " at "
+                                                               + mp.name());
+                            double egressLimit = rs.getDouble(3);
+                            if (!rs.wasNull()
+                                && required.egress > egressLimit)
+                                throw new ServiceException(name, id,
+                                                           "egress bandwidth "
+                                                               + required.egress
+                                                               + " exceeded limit "
+                                                               + egressLimit
+                                                               + " at "
+                                                               + mp.name());
+                        }
+                    }
+                }
+
+                callOut(ServiceStatus.ESTABLISHING);
+
+                /* Apply the changes. */
                 try (PreparedStatement stmt =
                     conn.prepareStatement("INSERT INTO " + circuitTable
                         + " (service_id, terminal_id,"
