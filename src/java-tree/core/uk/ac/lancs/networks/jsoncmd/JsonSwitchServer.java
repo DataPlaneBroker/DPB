@@ -109,35 +109,23 @@ public class JsonSwitchServer extends JsonNetworkServer {
                 return empty();
             }
 
-            case "disable-terminal-ingress-bandwidth": {
+            case "modify-terminal-bandwidth": {
                 String name = req.getString("terminal-name");
-                network.disableIngressBandwidthCheck(name);
-                return empty();
-            }
 
-            case "disable-terminal-egress-bandwidth": {
-                String name = req.getString("terminal-name");
-                network.disableEgressBandwidthCheck(name);
-                return empty();
-            }
+                JsonObject ingressObject = req.getJsonObject("ingress");
+                boolean setIngress =
+                    ingressObject.getString("action").equals("set");
+                Double ingress = ingressObject.isNull("amount") ? null
+                    : ingressObject.getJsonNumber("amount").doubleValue();
 
-            case "provide-terminal-bandwidth": {
-                String name = req.getString("terminal-name");
-                double ingress =
-                    req.getJsonNumber("ingress-bandwidth").doubleValue();
-                double egress =
-                    req.getJsonNumber("egress-bandwidth").doubleValue();
-                network.provideBandwidth(name, ingress, egress);
-                return empty();
-            }
+                JsonObject egressObject = req.getJsonObject("egress");
+                boolean setEgress =
+                    egressObject.getString("action").equals("set");
+                Double egress = egressObject.isNull("amount") ? null
+                    : egressObject.getJsonNumber("amount").doubleValue();
 
-            case "withdraw-terminal-bandwidth": {
-                String name = req.getString("terminal-name");
-                double ingress =
-                    req.getJsonNumber("ingress-bandwidth").doubleValue();
-                double egress =
-                    req.getJsonNumber("egress-bandwidth").doubleValue();
-                network.withdrawBandwidth(name, ingress, egress);
+                network.modifyBandwidth(name, setIngress, ingress, setEgress,
+                                        egress);
                 return empty();
             }
 

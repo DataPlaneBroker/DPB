@@ -40,7 +40,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 
+import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 
 import uk.ac.lancs.networks.Terminal;
 import uk.ac.lancs.networks.mgmt.Switch;
@@ -108,61 +110,28 @@ public class JsonSwitch extends JsonNetwork implements Switch {
     }
 
     @Override
-    public void provideBandwidth(String terminalName, double ingress,
-                                 double egress)
+    public void modifyBandwidth(String terminalName, boolean setIngress,
+                                Double ingress, boolean setEgress,
+                                Double egress)
         throws UnknownTerminalException {
-        JsonObject req = startRequest("provide-terminal-bandwidth")
+        JsonObjectBuilder ingressBuilder = Json.createObjectBuilder()
+            .add("action", setIngress ? "set" : "adjust");
+        if (ingress != null)
+            ingressBuilder.add("amount", ingress);
+        else
+            ingressBuilder.addNull("amount");
+
+        JsonObjectBuilder egressBuilder = Json.createObjectBuilder()
+            .add("action", setEgress ? "set" : "adjust");
+        if (egress != null)
+            ingressBuilder.add("amount", egress);
+        else
+            ingressBuilder.addNull("amount");
+
+        JsonObject req = startRequest("modify-terminal-bandwidth")
             .add("terminal-name", terminalName)
-            .add("ingress-bandwidth", ingress).add("egress-bandwidth", egress)
-            .build();
-        JsonObject rsp = interact(req);
-        try {
-            checkErrors(rsp);
-        } catch (UnknownTerminalException | RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-
-    @Override
-    public void withdrawBandwidth(String terminalName, double ingress,
-                                  double egress)
-        throws UnknownTerminalException {
-        JsonObject req = startRequest("withdraw-terminal-bandwidth")
-            .add("terminal-name", terminalName)
-            .add("ingress-bandwidth", ingress).add("egress-bandwidth", egress)
-            .build();
-        JsonObject rsp = interact(req);
-        try {
-            checkErrors(rsp);
-        } catch (UnknownTerminalException | RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-
-    @Override
-    public void disableIngressBandwidthCheck(String terminalName)
-        throws UnknownTerminalException {
-        JsonObject req = startRequest("disable-terminal-ingress-bandwidth")
-            .add("terminal-name", terminalName).build();
-        JsonObject rsp = interact(req);
-        try {
-            checkErrors(rsp);
-        } catch (UnknownTerminalException | RuntimeException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new UndeclaredThrowableException(e);
-        }
-    }
-
-    @Override
-    public void disableEgressBandwidthCheck(String terminalName)
-        throws UnknownTerminalException {
-        JsonObject req = startRequest("disable-terminal-egress-bandwidth")
-            .add("terminal-name", terminalName).build();
+            .add("ingress", ingressBuilder.build())
+            .add("egress", egressBuilder.build()).build();
         JsonObject rsp = interact(req);
         try {
             checkErrors(rsp);

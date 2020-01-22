@@ -68,7 +68,7 @@ public class DummySwitch implements Switch {
     private class MyTerminal implements Terminal {
         private final String name;
         private final String iface;
-        double ingressCapacity = -1.0, egressCapacity = -1.0;
+        Double ingressCapacity = null, egressCapacity = null;
 
         MyTerminal(String name, String ifconfig) {
             this.name = name;
@@ -174,7 +174,8 @@ public class DummySwitch implements Switch {
                     MyTerminal mp = entry.getKey();
                     TrafficFlow next = entry.getValue();
                     TrafficFlow tiu = inUse.get(mp);
-                    if (mp.ingressCapacity >= 0.0
+                    if (mp.ingressCapacity != null
+                        && mp.ingressCapacity >= 0.0
                         && tiu.ingress + next.ingress > mp.ingressCapacity) {
                         String msg = "ingress capacity: " + mp.ingressCapacity
                             + "; use: " + tiu.ingress + "; requested: "
@@ -182,7 +183,7 @@ public class DummySwitch implements Switch {
                         throw new InvalidServiceException(control.name(), id,
                                                           msg);
                     }
-                    if (mp.egressCapacity >= 0.0
+                    if (mp.egressCapacity != null && mp.egressCapacity >= 0.0
                         && tiu.egress + next.egress > mp.egressCapacity) {
                         String msg = "egress capacity: " + mp.egressCapacity
                             + "; use: " + tiu.egress + "; requested: "
@@ -442,73 +443,40 @@ public class DummySwitch implements Switch {
     };
 
     @Override
-    public void provideBandwidth(String terminalName, double ingress,
-                                 double egress)
+    public void modifyBandwidth(String terminalName, boolean setIngress,
+                                Double ingress, boolean setEgress,
+                                Double egress)
         throws UnknownTerminalException {
         synchronized (this) {
-            if (ingress < 0.0)
-                throw new IllegalArgumentException("-ve ingress for "
-                    + terminalName + " on " + name + ": " + ingress);
-            if (egress < 0.0)
-                throw new IllegalArgumentException("-ve egress for "
-                    + terminalName + " on " + name + ": " + egress);
             MyTerminal t = terminals.get(terminalName);
             if (t == null)
                 throw new UnknownTerminalException(name, terminalName);
-            t.ingressCapacity += ingress;
-            t.egressCapacity += egress;
-        }
-    }
+            final Double newIngress;
+            if (setIngress) {
+                newIngress = ingress;
+            } else {
+                newIngress = t.ingressCapacity == null ? 0.0
+                    : t.ingressCapacity + ingress;
+            }
+            if (newIngress != null && newIngress < 0.0)
+                throw new IllegalArgumentException("negative new"
+                    + " ingress capacity " + newIngress + " at terminal "
+                    + terminalName + " on " + name);
 
-    @Override
-    public void withdrawBandwidth(String terminalName, double ingress,
-                                  double egress)
-        throws UnknownTerminalException {
-        synchronized (this) {
-            if (ingress < 0.0)
-                throw new IllegalArgumentException("-ve ingress for "
-                    + terminalName + " on " + name + ": " + ingress);
-            if (egress < 0.0)
-                throw new IllegalArgumentException("-ve egress for "
-                    + terminalName + " on " + name + ": " + egress);
-            MyTerminal t = terminals.get(terminalName);
-            if (t == null)
-                throw new UnknownTerminalException(name, terminalName);
-            TrafficFlow inUse = sumTerminalFlows().get(t);
-            final double newIngress = t.ingressCapacity - ingress;
-            if (newIngress < inUse.ingress)
-                throw new IllegalArgumentException("can't remove " + ingress
-                    + " from ingress " + t.ingressCapacity + " when "
-                    + inUse.ingress + " is in use");
-            final double newEgress = t.egressCapacity - egress;
-            if (newEgress < inUse.egress)
-                throw new IllegalArgumentException("can't remove " + egress
-                    + " from egress " + t.egressCapacity + " when "
-                    + inUse.egress + " is in use");
+            final Double newEgress;
+            if (setEgress) {
+                newEgress = egress;
+            } else {
+                newEgress = t.egressCapacity == null ? 0.0
+                    : t.egressCapacity + egress;
+            }
+            if (newEgress != null && newEgress < 0.0)
+                throw new IllegalArgumentException("negative new"
+                    + " egress capacity " + newEgress + " at terminal "
+                    + terminalName + " on " + name);
+
             t.ingressCapacity = newIngress;
             t.egressCapacity = newEgress;
-        }
-    }
-
-    @Override
-    public void disableIngressBandwidthCheck(String terminalName)
-        throws UnknownTerminalException {
-        synchronized (this) {
-            MyTerminal t = terminals.get(terminalName);
-            if (t == null)
-                throw new UnknownTerminalException(name, terminalName);
-            t.ingressCapacity = -1.0;
-        }
-    }
-
-    @Override
-    public void disableEgressBandwidthCheck(String terminalName)
-        throws UnknownTerminalException {
-        synchronized (this) {
-            MyTerminal t = terminals.get(terminalName);
-            if (t == null)
-                throw new UnknownTerminalException(name, terminalName);
-            t.egressCapacity = -1.0;
         }
     }
 }

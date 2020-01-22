@@ -986,28 +986,113 @@ public class PersistentSwitch implements Switch {
     }
 
     @Override
-    public void disableIngressBandwidthCheck(String terminalName)
+    public void modifyBandwidth(String terminalName, boolean setIngress,
+                                Double ingress, boolean setEgress,
+                                Double egress)
         throws UnknownTerminalException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+        try (Connection conn = database()) {
+            /* Check whether the terminal exists, and get the current
+             * capacities. */
+            final int tid;
+            final Double totalIngress, totalEgress;
+            try (PreparedStatement stmt = conn.prepareStatement("SELECT"
+                + " terminal_id, metering, shaping" + " FROM " + terminalTable
+                + " WHERE name = ? LIMIT 1;")) {
+                stmt.setString(1, terminalName);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (!rs.next())
+                        throw new UnknownTerminalException(name,
+                                                           terminalName);
+                    tid = rs.getInt(1);
+                    final double metering = rs.getDouble(2);
+                    totalIngress = rs.wasNull() ? null : metering;
+                    final double shaping = rs.getDouble(2);
+                    totalEgress = rs.wasNull() ? null : shaping;
+                }
+            }
 
-    @Override
-    public void disableEgressBandwidthCheck(String terminalName)
-        throws UnknownTerminalException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+            String query = "UPDATE " + terminalTable;
+            String sep = "";
+            int pos = 1;
 
-    @Override
-    public void provideBandwidth(String terminalName, double ingress,
-                                 double egress)
-        throws UnknownTerminalException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
-    }
+            final int ingressPos;
+            final double ingressVal;
+            if (setIngress) {
+                if (ingress == null) {
+                    query += sep + " SET metering = NULL";
+                    ingressPos = 0;
+                    ingressVal = 0.0;
+                } else if (ingress < 0.0) {
+                    throw new IllegalArgumentException("-ve ingress capacity "
+                        + ingress + " at " + terminalName + " on " + name);
+                } else {
+                    query += sep + " SET metering = ?";
+                    ingressPos = pos++;
+                    ingressVal = ingress;
+                }
+                sep = ",";
+            } else if (ingress != null) {
+                ingressVal =
+                    ingress + (totalIngress == null ? 0.0 : totalIngress);
+                if (ingressVal < 0.0)
+                    throw new IllegalArgumentException("-ve ingress capacity "
+                        + ingressVal + " at " + terminalName + " on " + name);
+                query += sep + " SET metering =  ?";
+                sep = ",";
+                ingressPos = pos++;
+            } else {
+                ingressPos = 0;
+                ingressVal = 0.0;
+            }
 
-    @Override
-    public void withdrawBandwidth(String terminalName, double ingress,
-                                  double egress)
-        throws UnknownTerminalException {
-        throw new UnsupportedOperationException("unimplemented"); // TODO
+            final int egressPos;
+            final double egressVal;
+            if (setEgress) {
+                if (egress == null) {
+                    query += sep + " SET shaping = NULL";
+                    egressPos = 0;
+                    egressVal = 0.0;
+                } else if (egress < 0.0) {
+                    throw new IllegalArgumentException("-ve egress capacity "
+                        + egress + " at " + terminalName + " on " + name);
+                } else {
+                    query += sep + " SET shaping = ?";
+                    egressPos = pos++;
+                    egressVal = egress;
+                }
+                sep = ",";
+            } else if (egress != null) {
+                egressVal =
+                    egress + (totalEgress == null ? 0.0 : totalEgress);
+                if (egressVal < 0.0)
+                    throw new IllegalArgumentException("-ve egress capacity "
+                        + egressVal + " at " + terminalName + " on " + name);
+                query += sep + " SET shaping = ?";
+                sep = ",";
+                egressPos = pos++;
+            } else {
+                egressPos = 0;
+                egressVal = 0.0;
+            }
+
+            final int termPos = pos++;
+            query += " WHERE terminal_id = ?;";
+
+            /* Stop if there's no valid SQL statement we can run. */
+            if (sep.isEmpty()) return;
+
+            try (PreparedStatement stmt = conn.prepareStatement(query)) {
+                if (ingressPos > 0) stmt.setDouble(ingressPos, ingressVal);
+                if (egressPos > 0) stmt.setDouble(egressPos, egressVal);
+                stmt.setInt(termPos, tid);
+                stmt.execute();
+            }
+
+            conn.commit();
+        } catch (SQLException ex) {
+            throw new NetworkResourceException(name, "DB failure"
+                + " in incrementing terminal " + name + " limits"
+                + " in database", ex);
+        }
     }
 }
