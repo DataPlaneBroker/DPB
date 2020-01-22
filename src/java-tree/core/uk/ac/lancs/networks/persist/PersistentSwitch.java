@@ -575,6 +575,21 @@ public class PersistentSwitch implements Switch {
                     + " (terminal_id INTEGER PRIMARY KEY,"
                     + " name VARCHAR(20) NOT NULL UNIQUE,"
                     + " config VARCHAR(40) NOT NULL);");
+
+                try {
+                    stmt.execute("ALTER TABLE " + terminalTable
+                        + "ADD COLUMN metering DECIMAL(9,3) DEFAULT NULL;");
+                } catch (SQLException ex) {
+                    /* Ignore, as table already has this field. */
+                }
+
+                try {
+                    stmt.execute("ALTER TABLE " + terminalTable
+                        + "ADD COLUMN shaping DECIMAL(9,3) DEFAULT NULL;");
+                } catch (SQLException ex) {
+                    /* Ignore, as table already has this field. */
+                }
+
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
                     + " (service_id INTEGER PRIMARY KEY,"
                     + " intent INT UNSIGNED DEFAULT 0);");
