@@ -200,7 +200,7 @@ public class PersistentSwitch implements Switch {
                 SwitchTerminal t : additional.keySet())
                     expr.append(" OR tt.name = ?");
                 try (PreparedStatement stmt =
-                    debugStatement(conn, "SELECT tt.name AS name,"
+                    conn.prepareStatement("SELECT tt.name AS name,"
                         + " ct.metering AS ingress," + " ct.shaping AS egress"
                         + " FROM " + circuitTable + " AS ct LEFT JOIN "
                         + terminalTable + " AS tt"
@@ -225,7 +225,7 @@ public class PersistentSwitch implements Switch {
                 try (PreparedStatement stmt = conn
                     .prepareStatement("SELECT name," + " metering AS ingress,"
                         + " shaping AS egress" + " FROM " + terminalTable
-                        + " WHERE 1=0" + expr + ";")) {
+                        + " AS tt WHERE 1=0" + expr + ";")) {
                     int pos = 1;
                     for (SwitchTerminal t : additional.keySet())
                         stmt.setString(pos++, t.name());
@@ -1059,6 +1059,7 @@ public class PersistentSwitch implements Switch {
         return stmt.execute(text);
     }
 
+    @SuppressWarnings("unused")
     private static PreparedStatement
         debugStatement(Connection conn, String text) throws SQLException {
         // System.err.printf("Preparing: %s%n", text);
