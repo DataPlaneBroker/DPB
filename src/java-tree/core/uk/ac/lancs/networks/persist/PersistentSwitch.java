@@ -237,23 +237,27 @@ public class PersistentSwitch implements Switch {
                             double ingressLimit = rs.getDouble(2);
                             if (!rs.wasNull()
                                 && required.ingress > ingressLimit)
-                                throw new ServiceException(name, id,
-                                                           "ingress bandwidth "
-                                                               + required.ingress
-                                                               + " exceeded limit "
-                                                               + ingressLimit
-                                                               + " at "
-                                                               + mp.name());
+                                throw new NetworkResourceException(name,
+                                                                   "service "
+                                                                       + id
+                                                                       + " ingress bandwidth "
+                                                                       + required.ingress
+                                                                       + " exceeded limit "
+                                                                       + ingressLimit
+                                                                       + " at "
+                                                                       + mp.name());
                             double egressLimit = rs.getDouble(3);
                             if (!rs.wasNull()
                                 && required.egress > egressLimit)
-                                throw new ServiceException(name, id,
-                                                           "egress bandwidth "
-                                                               + required.egress
-                                                               + " exceeded limit "
-                                                               + egressLimit
-                                                               + " at "
-                                                               + mp.name());
+                                throw new NetworkResourceException(name,
+                                                                   "service "
+                                                                       + id
+                                                                       + " egress bandwidth "
+                                                                       + required.egress
+                                                                       + " exceeded limit "
+                                                                       + egressLimit
+                                                                       + " at "
+                                                                       + mp.name());
                         }
                     }
                 }
