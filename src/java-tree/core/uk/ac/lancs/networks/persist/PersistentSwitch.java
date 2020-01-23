@@ -1114,21 +1114,21 @@ public class PersistentSwitch implements Switch {
             }
 
             String query = "UPDATE " + terminalTable;
-            String sep = "";
+            String sep = " SET";
             int pos = 1;
 
             final int ingressPos;
             final double ingressVal;
             if (setIngress) {
                 if (ingress == null) {
-                    query += sep + " SET metering = NULL";
+                    query += sep + " metering = NULL";
                     ingressPos = 0;
                     ingressVal = 0.0;
                 } else if (ingress < 0.0) {
                     throw new IllegalArgumentException("-ve ingress capacity "
                         + ingress + " at " + terminalName + " on " + name);
                 } else {
-                    query += sep + " SET metering = ?";
+                    query += sep + " metering = ?";
                     ingressPos = pos++;
                     ingressVal = ingress;
                 }
@@ -1139,7 +1139,7 @@ public class PersistentSwitch implements Switch {
                 if (ingressVal < 0.0)
                     throw new IllegalArgumentException("-ve ingress capacity "
                         + ingressVal + " at " + terminalName + " on " + name);
-                query += sep + " SET metering =  ?";
+                query += sep + " metering =  ?";
                 sep = ",";
                 ingressPos = pos++;
             } else {
@@ -1151,14 +1151,14 @@ public class PersistentSwitch implements Switch {
             final double egressVal;
             if (setEgress) {
                 if (egress == null) {
-                    query += sep + " SET shaping = NULL";
+                    query += sep + " shaping = NULL";
                     egressPos = 0;
                     egressVal = 0.0;
                 } else if (egress < 0.0) {
                     throw new IllegalArgumentException("-ve egress capacity "
                         + egress + " at " + terminalName + " on " + name);
                 } else {
-                    query += sep + " SET shaping = ?";
+                    query += sep + " shaping = ?";
                     egressPos = pos++;
                     egressVal = egress;
                 }
@@ -1169,7 +1169,7 @@ public class PersistentSwitch implements Switch {
                 if (egressVal < 0.0)
                     throw new IllegalArgumentException("-ve egress capacity "
                         + egressVal + " at " + terminalName + " on " + name);
-                query += sep + " SET shaping = ?";
+                query += sep + " shaping = ?";
                 sep = ",";
                 egressPos = pos++;
             } else {
@@ -1181,7 +1181,7 @@ public class PersistentSwitch implements Switch {
             query += " WHERE terminal_id = ?;";
 
             /* Stop if there's no valid SQL statement we can run. */
-            if (sep.isEmpty()) return;
+            if (sep.equals(" SET")) return;
 
             try (PreparedStatement stmt = conn.prepareStatement(query)) {
                 if (ingressPos > 0) stmt.setDouble(ingressPos, ingressVal);
