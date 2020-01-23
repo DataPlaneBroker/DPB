@@ -56,6 +56,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import uk.ac.lancs.config.Configuration;
@@ -655,16 +657,18 @@ public class PersistentSwitch implements Switch {
 
                 try {
                     stmt.execute("ALTER TABLE " + terminalTable
-                        + "ADD COLUMN metering DECIMAL(9,3) DEFAULT NULL;");
+                        + " ADD COLUMN metering DECIMAL(9,3) DEFAULT NULL;");
                 } catch (SQLException ex) {
                     /* Ignore, as table already has this field. */
+                    logger.log(Level.INFO, "creating metering column", ex);
                 }
 
                 try {
                     stmt.execute("ALTER TABLE " + terminalTable
-                        + "ADD COLUMN shaping DECIMAL(9,3) DEFAULT NULL;");
+                        + " ADD COLUMN shaping DECIMAL(9,3) DEFAULT NULL;");
                 } catch (SQLException ex) {
                     /* Ignore, as table already has this field. */
+                    logger.log(Level.INFO, "creating shaping column", ex);
                 }
 
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
@@ -1174,4 +1178,7 @@ public class PersistentSwitch implements Switch {
                 + " in database", ex);
         }
     }
+
+    private static final Logger logger =
+        Logger.getLogger(PersistentSwitch.class.getCanonicalName());
 }
