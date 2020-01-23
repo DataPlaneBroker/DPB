@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
@@ -377,14 +378,12 @@ public final class NetworkServer {
                                     final JsonObject rr = req;
                                     for (JsonObject rsp : process(req,
                                                                   actions::add)) {
-                                        logger
-                                            .finer(() -> rr.toString()
-                                                + " -> " + rsp);
+                                        logger.finer(() -> rr.toString()
+                                            + " -> " + rsp);
                                         session.write(rsp);
                                     }
-                                    logger
-                                        .fine(() -> "Request complete: "
-                                            + rr);
+                                    logger.fine(() -> "Request complete: "
+                                        + rr);
                                 }
                             });
                         } while (true);
@@ -408,6 +407,7 @@ public final class NetworkServer {
                     .add("error", "unknown-command")
                     .add("type", req.getString("type")).build());
             } catch (NetworkResourceException ex) {
+                logger.log(Level.SEVERE, "unreachable code", ex);
                 return one(Json.createObjectBuilder()
                     .add("error", "network-resource")
                     .add("network-name", ex.getNetworkName())
@@ -542,5 +542,6 @@ public final class NetworkServer {
         return Collections.singletonList(elem);
     }
 
-    private static Logger logger = Logger.getLogger(NetworkServer.class.getName());
+    private static Logger logger =
+        Logger.getLogger(NetworkServer.class.getName());
 }

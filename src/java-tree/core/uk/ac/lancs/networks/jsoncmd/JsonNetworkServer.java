@@ -592,7 +592,7 @@ public class JsonNetworkServer {
                     .add("start-network-name", end.terminal);
                 builder.add("error", "trunk-expired");
             } catch (NetworkResourceException e2) {
-                builder.add("error", "network-rsrc");
+                builder.add("error", "network-resource");
             }
         } catch (IllegalArgumentException ex) {
             builder.add("error", "bad-argument");
