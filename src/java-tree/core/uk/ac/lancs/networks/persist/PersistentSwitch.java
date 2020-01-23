@@ -1180,5 +1180,5 @@ public class PersistentSwitch implements Switch {
     }
 
     private static final Logger logger =
-        Logger.getLogger(PersistentSwitch.class.getCanonicalName());
+        Logger.getLogger(PersistentSwitch.class.getName());
 }
