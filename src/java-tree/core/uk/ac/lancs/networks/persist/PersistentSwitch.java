@@ -660,7 +660,7 @@ public class PersistentSwitch implements Switch {
                         + " ADD COLUMN metering DECIMAL(9,3) DEFAULT NULL;");
                 } catch (SQLException ex) {
                     /* Ignore, as table already has this field. */
-                    logger.log(Level.INFO, "creating metering column", ex);
+                    logger.log(Level.FINEST, "creating metering column", ex);
                 }
 
                 try {
@@ -668,7 +668,7 @@ public class PersistentSwitch implements Switch {
                         + " ADD COLUMN shaping DECIMAL(9,3) DEFAULT NULL;");
                 } catch (SQLException ex) {
                     /* Ignore, as table already has this field. */
-                    logger.log(Level.INFO, "creating shaping column", ex);
+                    logger.log(Level.FINEST, "creating shaping column", ex);
                 }
 
                 stmt.execute("CREATE TABLE IF NOT EXISTS " + serviceTable
