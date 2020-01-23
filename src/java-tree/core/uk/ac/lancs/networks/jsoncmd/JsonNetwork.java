@@ -162,7 +162,7 @@ public class JsonNetwork implements Network {
         case "bad-argument":
             throw new IllegalArgumentException(rsp.getString("msg"));
 
-        case "network-rsrc":
+        case "network-resource":
             throw new NetworkResourceException(rsp.getString("network-name"),
                                                rsp.getString("msg"));
 
