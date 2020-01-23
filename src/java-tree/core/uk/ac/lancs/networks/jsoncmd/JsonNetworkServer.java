@@ -453,7 +453,8 @@ public class JsonNetworkServer {
             default:
                 return null;
             }
-        } catch (NetworkManagementException | InvalidServiceException e) {
+        } catch (NetworkManagementException | NetworkResourceException
+            | InvalidServiceException e) {
             return handle(e);
         }
     }
