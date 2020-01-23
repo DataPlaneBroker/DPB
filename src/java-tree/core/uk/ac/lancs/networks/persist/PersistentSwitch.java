@@ -1028,13 +1028,26 @@ public class PersistentSwitch implements Switch {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args)
                 throws Throwable {
-                if (method.getReturnType() != Void.TYPE)
-                    return method.invoke(base, args);
+                if (method.getReturnType() != Void.TYPE) {
+                    try {
+                        return method.invoke(base, args);
+                    } catch (InvocationTargetException ex) {
+                        throw ex.getCause();
+                    }
+                }
                 executor.execute(() -> {
                     try {
                         method.invoke(base, args);
-                    } catch (IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException e) {
+                    } catch (InvocationTargetException ex) {
+                        try {
+                            throw ex.getCause();
+                        } catch (RuntimeException | Error e) {
+                            throw e;
+                        } catch (Throwable e) {
+                            throw new AssertionError("unreachable", e);
+                        }
+                    } catch (IllegalAccessException
+                        | IllegalArgumentException e) {
                         throw new AssertionError("unreachable", e);
                     }
                 });

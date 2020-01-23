@@ -38,6 +38,7 @@ package uk.ac.lancs.networks.util;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
@@ -292,7 +293,21 @@ public final class ReferenceWatcher<X, I, K> {
             @Override
             public Object invoke(Object proxy, Method method, Object[] args)
                 throws Throwable {
-                return method.invoke(base, args);
+                System.err.printf("invoking %s.%s(%s)%n", base, method, args);
+                try {
+                    return method.invoke(base, args);
+                } catch (InvocationTargetException ex) {
+                    try {
+                        throw ex.getCause();
+                    } catch (RuntimeException | Error e) {
+                        throw e;
+                    } catch (Throwable t) {
+                        for (Class<?> ok : method.getExceptionTypes()) {
+                            if (ok.isInstance(t)) throw t;
+                        }
+                        throw ex;
+                    }
+                }
             }
         };
         return (X) Proxy.newProxyInstance(loader, new Class<?>[] { type },

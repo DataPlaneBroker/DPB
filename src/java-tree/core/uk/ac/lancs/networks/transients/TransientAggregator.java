@@ -1686,8 +1686,16 @@ public class TransientAggregator implements Aggregator {
                 executor.execute(() -> {
                     try {
                         method.invoke(base, args);
-                    } catch (IllegalAccessException | IllegalArgumentException
-                        | InvocationTargetException e) {
+                    } catch (InvocationTargetException ex) {
+                        try {
+                            throw ex.getCause();
+                        } catch (Error | RuntimeException e) {
+                            throw e;
+                        } catch (Throwable t) {
+                            throw new AssertionError("unreachable", t);
+                        }
+                    } catch (IllegalAccessException
+                        | IllegalArgumentException e) {
                         throw new AssertionError("unreachable", e);
                     }
                 });
