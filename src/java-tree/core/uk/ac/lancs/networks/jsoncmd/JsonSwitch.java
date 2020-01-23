@@ -124,9 +124,9 @@ public class JsonSwitch extends JsonNetwork implements Switch {
         JsonObjectBuilder egressBuilder = Json.createObjectBuilder()
             .add("action", setEgress ? "set" : "adjust");
         if (egress != null)
-            ingressBuilder.add("amount", egress);
+            egressBuilder.add("amount", egress);
         else
-            ingressBuilder.addNull("amount");
+            egressBuilder.addNull("amount");
 
         JsonObject req = startRequest("modify-terminal-bandwidth")
             .add("terminal-name", terminalName)
