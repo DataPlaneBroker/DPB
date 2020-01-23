@@ -308,6 +308,40 @@ public final class Commander {
                 tr.decommission();
         }
 
+        if ("quota".equals(arg)) {
+            usage = arg + " <terminal-name> <rate>[:<rate>]";
+            String subterm = iter.next();
+            String rateText = iter.next();
+
+            String[] rateTexts = rateText.split(":");
+            Double ingressRate = null, egressRate = null;
+            boolean setIngress = true, setEgress = true;
+
+            try {
+                ingressRate = Double.parseDouble(rateTexts[0]);
+            } catch (NumberFormatException ex) {
+                if (rateTexts[0].equals("-"))
+                    setIngress = false;
+                else if (!rateTexts[0].equals("off")) throw ex;
+            }
+            if (rateTexts.length > 1) {
+                try {
+                    egressRate = Double.parseDouble(rateTexts[1]);
+                } catch (NumberFormatException ex) {
+                    if (rateTexts[1].equals("-"))
+                        setEgress = false;
+                    else if (!rateTexts[1].equals("off")) throw ex;
+                }
+            } else {
+                setEgress = setIngress;
+                egressRate = ingressRate;
+            }
+
+            zwitch.modifyBandwidth(subterm, setIngress, ingressRate,
+                                   setEgress, egressRate);
+            return true;
+        }
+
         if ("provide".equals(arg) || "withdraw".equals(arg)) {
             boolean add = arg.charAt(0) == 'p';
             usage = arg + " <terminal-name> <rate>[:<rate>]";
@@ -734,6 +768,14 @@ public final class Commander {
      * <dt><samp>remove-terminal <var>name</var></samp>
      * 
      * <dd>Remove the named terminal.
+     * 
+     * <dt><samp>quota <var>terminal-name</var>
+     * <var>rate</var>[:<var>rate</var>]</samp>
+     * 
+     * <dd>Set the ingress and egress quotas on a switch terminal.
+     * <var>rate</var> can be a decimal to specify the rate,
+     * <samp>off</samp> to disable the rate, or <samp>-</samp> not set a
+     * rate.
      * 
      * <dt><samp>list-trunks</samp>
      * 
