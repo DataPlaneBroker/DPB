@@ -188,7 +188,7 @@ public class PersistentSwitch implements Switch {
             /* Sanitize the request such that no circuit produces less
              * than a token amount, and that no circuit's egress rate is
              * greater than the sum of the others' ingress rates. */
-            this.request = Segment.sanitize(request, 0.01);
+            request = Segment.sanitize(request, 0.01);
 
             /* Add the details to the database. */
             try (Connection conn = database()) {
@@ -262,6 +262,7 @@ public class PersistentSwitch implements Switch {
                     }
                 }
 
+                this.request = request;
                 callOut(ServiceStatus.ESTABLISHING);
 
                 /* Apply the changes. */
