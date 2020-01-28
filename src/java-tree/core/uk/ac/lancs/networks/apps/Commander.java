@@ -775,7 +775,7 @@ public final class Commander {
      * <dd>Set the ingress and egress quotas on a switch terminal.
      * <var>rate</var> can be a decimal to specify the rate,
      * <samp>off</samp> to disable the rate, or <samp>-</samp> not set a
-     * rate.
+     * rate.  When two rates are specified, ingress comes first.
      * 
      * <dt><samp>list-trunks</samp>
      * 
