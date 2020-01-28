@@ -82,17 +82,16 @@ public class JsonSwitchServer extends JsonNetworkServer {
      * 
      * <dd>Invoke {@link Switch#getTerminals()}.
      * 
-     * <dt><samp>provide-terminal-bandwidth <var>terminal-name</var>
-     * <var>ingress-bandwidth</var> <var>egress-bandwidth</var></samp>
+     * <dt><samp>modify-terminal-bandwidth <var>terminal-name</var>
+     * <var>ingress</var> <var>egress</var></samp>
      * 
      * <dd>Invoke
-     * {@link Switch#provideBandwidth(String, double, double)}.
-     * 
-     * <dt><samp>withdraw-terminal-bandwidth <var>terminal-name</var>
-     * <var>ingress-bandwidth</var> <var>egress-bandwidth</var></samp>
-     * 
-     * <dd>Invoke
-     * {@link Switch#withdrawBandwidth(String, double, double)}.
+     * {@link Switch#modifyBandwidth(String, boolean, Double, boolean, Double)}.
+     * <var>ingress</var> and <var>egress</var> are JSON objects with
+     * keys <samp>action</samp> and <samp>amount</samp>.
+     * <samp>amount</samp> is passed as the corresponding {@link Double}
+     * argument, while the {@code boolean} argument is {@code true} iff
+     * <samp>action</samp> is <samp>set</samp>.
      * 
      * </dl>
      */
