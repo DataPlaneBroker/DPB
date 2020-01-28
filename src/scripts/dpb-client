@@ -59,7 +59,6 @@ done
 
 exec jrun "${EXTRAS[@]}" -ljavax.json \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-util \
-     -linitiate-dpb-openflow -linitiate-dpb-corsa \
      ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
      -Dprogram.name="$0" -Dnetwork.config.client="$CONFIG" \
      uk.ac.lancs.networks.apps.Commander "${ARGS[@]}"
