@@ -24,13 +24,13 @@ deps_server += core
 deps_server += util
 roots_server=$(found_server)
 
-COMMON_JARS += initiate-dpb-corsa
+SERVER_JARS += initiate-dpb-corsa
 trees_initiate-dpb-corsa += corsa
 deps_corsa += util
 deps_corsa += core
 roots_corsa=$(found_corsa)
 
-COMMON_JARS += initiate-dpb-openflow
+SERVER_JARS += initiate-dpb-openflow
 trees_initiate-dpb-openflow += openflow
 deps_openflow += util
 deps_openflow += core
