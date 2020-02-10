@@ -140,7 +140,7 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             command.add("ssh");
             if (configPath != null) {
                 command.add("-F");
-                command.add(keyPath.toAbsolutePath().toString());
+                command.add(configPath.toAbsolutePath().toString());
             }
             command.add(hostname);
             if (username != null) {
