@@ -84,7 +84,8 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
      * <dt><samp>key-file</samp></dt>
      * 
      * <dd>Specifies the file containing the private key identifying the
-     * caller.
+     * caller. <samp>$&#123;&#125;</samp> structures are resolved first,
+     * so <samp>$&#123;user.home&#125;</samp> is valid, for example.
      * 
      * </dl>
      */
@@ -93,7 +94,7 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
         hostname = conf.get("host");
         username = conf.get("user");
         port = Integer.parseInt(conf.get("port", "22"));
-        keyPath = conf.getPath("key-file");
+        keyPath = conf.getExpandedPath("key-file");
     }
 
     private final class Channel implements JsonChannel, AutoCloseable {
