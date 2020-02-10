@@ -56,6 +56,7 @@ import uk.ac.lancs.config.Configuration;
 public final class SSHJsonChannelManager implements JsonChannelManager {
     private final String hostname;
     private final String username;
+    private final Path configPath;
     private final int port;
     private final Path keyPath;
     private final String networkName;
@@ -84,10 +85,20 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
      * <dt><samp>key-file</samp></dt>
      * 
      * <dd>Specifies the file containing the private key identifying the
-     * caller. <samp>$&#123;&#125;</samp> structures are resolved first,
-     * so <samp>$&#123;user.home&#125;</samp> is valid, for example.
+     * caller.
+     * 
+     * <dt><samp>config-file</samp> (optional)</dt>
+     * 
+     * <dd>Specifies the SSH configuration file to load. Its main use is
+     * to prevent loading of <samp>~/.ssh/config</samp> by default, in
+     * case there are permission issues.
      * 
      * </dl>
+     * 
+     * <p>
+     * <samp>$&#123;&#125;</samp> structures are resolved first on
+     * <samp>key-file</samp> and <samp>config-file</samp>, so
+     * <samp>$&#123;user.home&#125;</samp> is valid, for example.
      */
     public SSHJsonChannelManager(String network, Configuration conf) {
         this.networkName = network;
@@ -95,6 +106,7 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
         username = conf.get("user");
         port = Integer.parseInt(conf.get("port", "22"));
         keyPath = conf.getExpandedPath("key-file");
+        configPath = conf.getExpandedPath("config-file");
     }
 
     private final class Channel implements JsonChannel, AutoCloseable {
@@ -126,6 +138,10 @@ public final class SSHJsonChannelManager implements JsonChannelManager {
             /* Build the command line. */
             List<String> command = new ArrayList<>();
             command.add("ssh");
+            if (configPath != null) {
+                command.add("-F");
+                command.add(keyPath.toAbsolutePath().toString());
+            }
             command.add(hostname);
             if (username != null) {
                 command.add("-l");
