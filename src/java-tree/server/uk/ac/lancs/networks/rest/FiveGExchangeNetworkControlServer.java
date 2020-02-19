@@ -119,8 +119,9 @@ import uk.ac.lancs.rest.service.Route;
  * 10.0 is used as a final default.
  * 
  * The HTTP status 409 is returned if the UUID is already in use as a
- * handle; 500 if the service could not be activated within the timeout;
- * 400 if a port does not exist as a terminal; 204 on success.
+ * handle; 409 if the service could not be activated within the timeout
+ * (perhaps because too much bandwidth was requested); 400 if a port
+ * does not exist as a terminal; 204 on success.
  * 
  * Example:
  * 
@@ -291,7 +292,7 @@ public class FiveGExchangeNetworkControlServer {
                              "couldn't create service for... reasons")
                         .build();
                 setResponseObject(response, rsp);
-                response.setStatusCode(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+                response.setStatusCode(HttpStatus.SC_CONFLICT);
                 return;
             }
             srv = null;
