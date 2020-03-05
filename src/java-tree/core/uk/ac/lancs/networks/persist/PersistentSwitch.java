@@ -637,7 +637,7 @@ public class PersistentSwitch implements Switch {
         this.fabric = fabric;
 
         /* Record how we talk to the database. */
-        this.dbConnectionAddress = dbConfig.get("service");
+        this.dbConnectionAddress = dbConfig.getExpanded("service");
         this.dbConnectionConfig = dbConfig.toProperties();
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
