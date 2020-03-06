@@ -164,6 +164,8 @@ public final class ConfigurationContext {
             System.out.printf("%nSubview %s:%n", args[i]);
             for (String key : sub.keys()) {
                 System.out.printf("  %s -> [%s]%n", key, sub.get(key));
+                System.out.printf("  %s (expanded) -> [%s]%n", key,
+                                  sub.getExpanded(key));
                 try {
                     URI loc = sub.getLocation(key);
                     System.out.printf("  (as URI) -> [%s]%n", loc);
