@@ -1532,7 +1532,7 @@ public class PersistentAggregator implements Aggregator {
 
         /* Record how we talk to the database. */
         Configuration dbConfig = config.subview("db");
-        this.dbConnectionAddress = dbConfig.get("service");
+        this.dbConnectionAddress = dbConfig.getExpanded("service");
         this.dbConnectionConfig = dbConfig.toProperties();
         this.circuitTable = dbConfig.get("end-points.table", "end_points");
         this.terminalTable = dbConfig.get("terminals.table", "terminals");
