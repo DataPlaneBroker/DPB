@@ -539,6 +539,21 @@ public class JsonNetwork implements Network {
         }
 
         @Override
+        public void reset() {
+            if (!valid) return;
+            JsonObject req = Json.createObjectBuilder()
+                .add("type", "reset-service").add("service-id", id).build();
+            JsonObject rsp = interact(req);
+            try {
+                checkErrors(rsp);
+            } catch (RuntimeException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new UndeclaredThrowableException(e);
+            }
+        }
+
+        @Override
         public void release() {
             if (!valid) return;
             JsonObject req = Json.createObjectBuilder()

@@ -223,6 +223,11 @@ public class JsonNetworkServer {
      * with the provided segment descriptor. An empty object is
      * returned.
      * 
+     * <dt><samp>reset-service <var>service-id</var></samp>
+     * 
+     * <dd>Invoke {@link Service#reset()} on the identified service with
+     * the provided segment descriptor. An empty object is returned.
+     * 
      * <dt><samp>release-service <var>service-id</var></samp>
      * 
      * <dd>Invoke {@link Service#release()} on the identified service
@@ -386,6 +391,12 @@ public class JsonNetworkServer {
             case "deactivate-service": {
                 Service srv = confirmService(req);
                 srv.deactivate();
+                return empty();
+            }
+
+            case "reset-service": {
+                Service srv = confirmService(req);
+                srv.reset();
                 return empty();
             }
 

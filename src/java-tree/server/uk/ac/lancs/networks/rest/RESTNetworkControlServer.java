@@ -138,11 +138,12 @@ import uk.ac.lancs.rest.service.Route;
  * 
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/activate</code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/deactivate</code>
+ * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/reset</code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/release</code>
  * 
- * <dd>Invoke {@link Service#activate()}, {@link Service#deactivate()}
- * or {@link Service#release()} respectively with the given service id.
- * No content is returned on success.
+ * <dd>Invoke {@link Service#activate()}, {@link Service#deactivate()},
+ * {@link Service#reset()} or {@link Service#release()} respectively
+ * with the given service id. No content is returned on success.
  * 
  * <dt><code>GET <var>prefix</var>/service/<var>sid</var>/await-status?acceptable=<var>status</var>&amp;timeout-millis=<var>num</var></code>
  * <dt><code>POST <var>prefix</var>/service/<var>sid</var>/await-status</code>
@@ -264,6 +265,24 @@ public class RESTNetworkControlServer {
                 + " but treating as released%n", sid);
         } else {
             srv.release();
+        }
+        response.setStatusCode(HttpStatus.SC_NO_CONTENT);
+    }
+
+    @Method("POST")
+    @Route("/service/(?<sid>[0-9]+)/reset")
+    private void resetService(HttpRequest request, HttpResponse response,
+                              HttpContext context)
+        throws HttpException,
+            IOException {
+        RESTContext rest = RESTContext.get(context);
+        int sid = rest.get(SID);
+        Service srv = network.getService(sid);
+        if (srv == null) {
+            response.setStatusCode(HttpStatus.SC_NOT_FOUND);
+            return;
+        } else {
+            srv.reset();
         }
         response.setStatusCode(HttpStatus.SC_NO_CONTENT);
     }

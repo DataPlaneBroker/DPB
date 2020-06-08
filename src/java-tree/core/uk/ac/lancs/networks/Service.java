@@ -80,6 +80,12 @@ import java.util.regex.Pattern;
  * A service can be activated and deactivated any number of times.
  * 
  * <p>
+ * Calling {@link #reset()} releases all resources except the service
+ * itself, which returns to the {@link ServiceStatus#DORMANT DORMANT}
+ * status. The service can be used again, preserving its identity. Wait
+ * for the service to become dormant before redefining it.
+ * 
+ * <p>
  * <code>{@linkplain ServiceListener#newStatus(ServiceStatus)
  * newStatus}({@linkplain ServiceStatus#FAILED FAILED})</code> will be
  * invoked on error, and {@link Service#errors()} can be used to get
@@ -286,6 +292,17 @@ public interface Service {
      * it has not failed
      */
     Collection<Throwable> errors();
+
+    /**
+     * Release all resources pertaining to this service, except the
+     * service itself. The service will return to the
+     * {@link ServiceStatus#DORMANT DORMANT} state.
+     */
+    default void reset() {
+        /* TODO: Implement this in the implementing classes, and remove
+         * this default behaviour. */
+        throw new UnsupportedOperationException("unimplemented");
+    }
 
     /**
      * Release all resources pertaining to this service. All methods on
