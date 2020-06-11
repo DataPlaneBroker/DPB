@@ -242,6 +242,19 @@ public class DummySwitch implements Switch {
             if (request == null) return ServiceStatus.DORMANT;
             return active ? ServiceStatus.ACTIVE : ServiceStatus.INACTIVE;
         }
+        
+        @Override
+        public synchronized void reset() {
+            if (released) return;
+            request = null;
+            if (active) {
+                active = false;
+                callOut(ServiceStatus.DEACTIVATING);
+                callOut(ServiceStatus.INACTIVE);
+            }
+            callOut(ServiceStatus.RELEASING);
+            callOut(ServiceStatus.DORMANT);
+        }
 
         @Override
         public void release() {
