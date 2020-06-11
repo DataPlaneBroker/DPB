@@ -534,6 +534,7 @@ public class TransientAggregator implements Aggregator {
                     break;
 
                 case RELEASE:
+                case RESET:
                     /* The user released the service while it was
                      * (trying to be) active. Initiate the release
                      * process. */
