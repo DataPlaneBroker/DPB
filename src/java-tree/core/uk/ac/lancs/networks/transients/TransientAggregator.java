@@ -585,6 +585,7 @@ public class TransientAggregator implements Aggregator {
                 inactiveCount = 0;
                 activeCount = 0;
                 intent = Intent.INACTIVE;
+                request = null;
 
                 /* Notify the user that they can redefine us. */
                 callOut(ServiceStatus.DORMANT);
