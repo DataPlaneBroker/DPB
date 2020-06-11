@@ -237,6 +237,9 @@ public class TransientAggregator implements Aggregator {
             else
                 throw new IllegalStateException("service releasing");
 
+            if (intent == Intent.RESET)
+                throw new IllegalStateException("service resetting");
+
             if (tunnels != null)
                 throw new IllegalStateException("service in use");
             request = Segment.sanitize(request, 0.01);
@@ -302,6 +305,11 @@ public class TransientAggregator implements Aggregator {
             if (intent == Intent.RELEASE)
                 throw new IllegalStateException("released");
 
+            /* If the user has ordered us to reset, we can't do anything
+             * yet. */
+            if (intent == Intent.RESET)
+                throw new IllegalStateException("resetting");
+
             /* Do nothing if we've already recorded the user's intent,
              * as we must also have activated inferior services. */
             if (intent == Intent.ACTIVE) return;
@@ -328,17 +336,34 @@ public class TransientAggregator implements Aggregator {
         }
 
         @Override
-        public synchronized void release() {
+        public void release() {
+            releaseOrReset(true);
+        }
+
+        @Override
+        public void reset() {
+            releaseOrReset(false);
+        }
+
+        private synchronized void releaseOrReset(boolean release) {
             /* There's nothing to do if we've already recorded the
              * user's intent to release the service. */
             if (intent == Intent.RELEASE) return;
+
+            /* Don't do anything if we've already started or completed
+             * the reset. */
+            if (!release) {
+                if (intent == Intent.RESET) return;
+                if (intent == Intent.INACTIVE && tunnels == null
+                    && failedCount == 0) return;
+            }
 
             /* If the current intent is to be active, trigger
              * deactivation first. When it completes, and discovers the
              * release intent, it will start the release process.
              * Otherwise, we start it now. */
             if (intent == Intent.ACTIVE) {
-                intent = Intent.RELEASE;
+                intent = release ? Intent.RELEASE : Intent.RESET;
                 if (activeCount > 0) {
                     if (activeCount == clients.size())
                         callOut(ServiceStatus.DEACTIVATING);
@@ -349,7 +374,7 @@ public class TransientAggregator implements Aggregator {
 
             /* Record the new intent and initiate the release
              * process. */
-            intent = Intent.RELEASE;
+            intent = release ? Intent.RELEASE : Intent.RESET;
             startRelease();
         }
 
@@ -551,15 +576,28 @@ public class TransientAggregator implements Aggregator {
             clients.forEach(Client::term);
             clients.clear();
 
-            /* Ensure this service can't be found again by users. */
-            synchronized (TransientAggregator.this) {
-                services.remove(id);
-                if (handle != null) servicesByHandle.remove(handle);
-            }
+            if (intent == Intent.RESET) {
+                /* Reset all our counters and state. */
+                failedCount = 0;
+                releasedCount = 0;
+                dormantCount = 0;
+                inactiveCount = 0;
+                activeCount = 0;
+                intent = Intent.INACTIVE;
 
-            /* Send our last report to all users. */
-            callOut(ServiceStatus.RELEASED);
-            listeners.clear();
+                /* Notify the user that they can redefine us. */
+                callOut(ServiceStatus.DORMANT);
+            } else {
+                /* Ensure this service can't be found again by users. */
+                synchronized (TransientAggregator.this) {
+                    services.remove(id);
+                    if (handle != null) servicesByHandle.remove(handle);
+                }
+
+                /* Send our last report to all users. */
+                callOut(ServiceStatus.RELEASED);
+                listeners.clear();
+            }
         }
 
         @Override
@@ -1708,6 +1746,6 @@ public class TransientAggregator implements Aggregator {
     }
 
     private static enum Intent {
-        RELEASE, INACTIVE, ACTIVE, ABORT;
+        RESET, RELEASE, INACTIVE, ACTIVE, ABORT;
     }
 }
