@@ -91,7 +91,7 @@ import uk.ac.lancs.routing.span.Edge;
  */
 public class PersistentSwitch implements Switch {
     private enum Intent {
-        INACTIVE, ACTIVE, ABORT, RELEASE;
+        INACTIVE, ACTIVE, ABORT, RELEASE, RESET;
     }
 
     private Fabric fabric;
@@ -148,6 +148,8 @@ public class PersistentSwitch implements Switch {
         public synchronized void define(Segment request)
             throws InvalidServiceException {
             switch (intent) {
+            case RESET:
+                throw new IllegalStateException("service resetting");
             case RELEASE:
                 throw new IllegalStateException("service disused");
             case ABORT:
@@ -317,6 +319,8 @@ public class PersistentSwitch implements Switch {
             switch (intent) {
             case RELEASE:
                 throw new IllegalStateException("service released");
+            case RESET:
+                throw new IllegalStateException("service resetting");
             case ABORT:
                 throw new IllegalStateException("service aborted");
             case ACTIVE:
@@ -343,6 +347,7 @@ public class PersistentSwitch implements Switch {
             assert Thread.holdsLock(this);
             this.bridge =
                 fabric.bridge(self, mapCircuits(request.circuitFlows()));
+            destroyed = false;
             callOut(ServiceStatus.ACTIVATING);
             this.bridge.start();
         }
@@ -381,6 +386,7 @@ public class PersistentSwitch implements Switch {
         public synchronized ServiceStatus status() {
             if (intent == Intent.RELEASE) return released
                 ? ServiceStatus.RELEASED : ServiceStatus.RELEASING;
+            if (intent == Intent.RESET) return ServiceStatus.RELEASING;
             if (intent == Intent.ABORT) return ServiceStatus.FAILED;
             if (intent == Intent.INACTIVE) {
                 if (request == null) return ServiceStatus.DORMANT;
@@ -398,7 +404,16 @@ public class PersistentSwitch implements Switch {
         }
 
         @Override
-        public synchronized void release() {
+        public void reset() {
+            releaseOrReset(false);
+        }
+
+        @Override
+        public void release() {
+            releaseOrReset(true);
+        }
+
+        private synchronized void releaseOrReset(boolean release) {
             if (intent == Intent.RELEASE) return;
             request = null;
             Bridge oldBridge = bridge;
@@ -407,7 +422,8 @@ public class PersistentSwitch implements Switch {
             /* Delete entries from the database. */
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
-                updateIntent(conn, id, intent = Intent.RELEASE);
+                updateIntent(conn, id, intent =
+                    release ? Intent.RELEASE : Intent.RESET);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + circuitTable
                         + " WHERE service_id = ?;")) {
@@ -428,8 +444,8 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceException(control.name(), id, "releasing",
-                                           ex);
+                throw new ServiceException(control.name(), id, release
+                    ? "releasing" : "resetting", ex);
             }
 
             if (oldBridge != null) {
@@ -443,15 +459,32 @@ public class PersistentSwitch implements Switch {
                     retainBridges();
                 }
             } else {
-                // System.err.printf("no need delete old bridge to
-                // release %d%n",
-                // id);
-                synchronized (PersistentSwitch.this) {
-                    services.remove(id);
-                    if (handle != null) servicesByHandle.remove(handle);
+                /* There is no bridge, so we can release/reset
+                 * immediately. */
+                callOut(ServiceStatus.RELEASING);
+                if (release) {
+                    // System.err.printf("no need delete old bridge to
+                    // release %d%n",
+                    // id);
+                    synchronized (PersistentSwitch.this) {
+                        services.remove(id);
+                        if (handle != null) servicesByHandle.remove(handle);
+                    }
+                    released = true;
+                    callOut(ServiceStatus.RELEASED);
+                    listeners.clear();
+                } else {
+                    /* Ensure all fields are reset. */
+                    try (Connection conn = database()) {
+                        active = false;
+                        assert request == null;
+                        assert !released;
+                    } catch (SQLException ex) {
+                        throw new ServiceException(control.name(), id,
+                                                   "direct reset", ex);
+                    }
+                    callOut(ServiceStatus.DORMANT);
                 }
-                released = true;
-                callOut(ServiceStatus.RELEASED);
             }
         }
 
@@ -480,10 +513,20 @@ public class PersistentSwitch implements Switch {
             callOut(ServiceStatus.ACTIVE);
         }
 
+        /**
+         * Indicates whether we have received a
+         * {@link BridgeListener#destroyed()} message from the current
+         * bridge. This must be reset every time we set up a bridge. It
+         * exists to absorb duplicate 'destroyed' calls.
+         */
         private boolean destroyed = false;
 
         @Override
         public synchronized void destroyed() {
+            /* Ignore calls from old bridges if we're already trying to
+             * activate a new one. */
+            if (bridge != null) return;
+
             // System.err.printf("bridge destroyed for service %d%n",
             // id);
             /* Detect redundant calls. */
@@ -491,19 +534,39 @@ public class PersistentSwitch implements Switch {
             destroyed = true;
             // System.err.printf("marked inactive service %d%n", id);
 
-            if (intent == Intent.RELEASE) {
+            switch (intent) {
+            case RELEASE:
                 // System.err.printf("releasing service %d%n", id);
                 callOut(ServiceStatus.RELEASING);
                 synchronized (PersistentSwitch.this) {
                     services.remove(id);
                     if (handle != null) servicesByHandle.remove(handle);
                 }
+                active = false;
                 released = true;
                 callOut(ServiceStatus.RELEASED);
                 listeners.clear();
-            } else {
+                break;
+            case RESET:
+                // System.err.printf("resetting service %d%n", id);
+                callOut(ServiceStatus.RELEASING);
+                try (Connection conn = database()) {
+                    conn.setAutoCommit(false);
+                    updateIntent(conn, id, intent = Intent.INACTIVE);
+                    active = false;
+                    assert request == null;
+                    assert !released;
+                    conn.commit();
+                } catch (SQLException ex) {
+                    throw new ServiceException(control.name(), id, "reset",
+                                               ex);
+                }
+                callOut(ServiceStatus.DORMANT);
+                break;
+            default:
                 // System.err.printf("not to be released %d%n", id);
                 callOut(ServiceStatus.INACTIVE);
+                break;
             }
         }
 
@@ -547,6 +610,7 @@ public class PersistentSwitch implements Switch {
             this.intent = intent;
             if (intent == Intent.ACTIVE) {
                 this.bridge = fabric.bridge(self, mapCircuits(details));
+                destroyed = false;
                 this.bridge.start();
             }
         }
