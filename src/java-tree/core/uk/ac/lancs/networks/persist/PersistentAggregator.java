@@ -291,6 +291,7 @@ public class PersistentAggregator implements Aggregator {
                              * aborting, we have nothing else to do. */
                             return;
 
+                        case RESET:
                         case RELEASE:
                             /* If the user has already tried to release
                              * us, we have nothing else to do. */
@@ -335,7 +336,7 @@ public class PersistentAggregator implements Aggregator {
                             /* The user released the service while it
                              * was (trying to be) active. Initiate the
                              * release process. */
-                            startRelease(conn);
+                            startRelease(conn, intent);
                             break;
 
                         default:
@@ -345,13 +346,13 @@ public class PersistentAggregator implements Aggregator {
                         return;
                     }
 
-                    if (intent == Intent.RELEASE) {
+                    if (intent == Intent.RELEASE || intent == Intent.RESET) {
                         if (releasedChanged
                             && releasedCount == clients.size()) {
                             /* All subservices have been released, so we
                              * can regard ourselves as fully released
                              * now. */
-                            completeRelease(conn);
+                            completeRelease(conn, intent);
                             return;
                         }
                         return;
@@ -374,7 +375,8 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        private void completeRelease(Connection conn) throws SQLException {
+        private void completeRelease(Connection conn, Intent intent)
+            throws SQLException {
             assert Thread.holdsLock(this);
 
             /* Lose the references to all the subservices, and make sure
@@ -393,22 +395,35 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, id);
                 stmt.execute();
             }
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + handleTable + " WHERE service_id = ?;")) {
-                stmt.setInt(1, id);
-                stmt.execute();
-            }
-            try (PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + serviceTable + " WHERE service_id = ?;")) {
-                stmt.setInt(1, id);
-                stmt.execute();
-            }
+            if (intent == Intent.RELEASE) {
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM " + handleTable
+                        + " WHERE service_id = ?;")) {
+                    stmt.setInt(1, id);
+                    stmt.execute();
+                }
+                try (PreparedStatement stmt =
+                    conn.prepareStatement("DELETE FROM " + serviceTable
+                        + " WHERE service_id = ?;")) {
+                    stmt.setInt(1, id);
+                    stmt.execute();
+                }
 
-            /* Send our last report to all users. */
-            callOut(ServiceStatus.RELEASED);
-            listeners.clear();
+                /* Send our last report to all users. */
+                callOut(ServiceStatus.RELEASED);
+                listeners.clear();
 
-            serviceWatcher.discard(id);
+                serviceWatcher.discard(id);
+            } else {
+                /* Ensure all fields are reset. */
+                errors.clear();
+                inactiveCount = 0;
+                activeCount = 0;
+                failedCount = 0;
+                releasedCount = 0;
+                request = null;
+                callOut(ServiceStatus.DORMANT);
+            }
         }
 
         final int id;
@@ -653,7 +668,16 @@ public class PersistentAggregator implements Aggregator {
         }
 
         @Override
+        public synchronized void reset() {
+            releaseOrReset(false);
+        }
+
+        @Override
         public synchronized void release() {
+            releaseOrReset(true);
+        }
+
+        private void releaseOrReset(boolean release) {
             try (Connection conn = openDatabase()) {
                 conn.setAutoCommit(false);
 
@@ -662,12 +686,19 @@ public class PersistentAggregator implements Aggregator {
                  * user's intent to release the service. */
                 if (intent == Intent.RELEASE) return;
 
+                /* There's nothing to do if we're resetting and asked to
+                 * reset. */
+                if (intent == Intent.RESET && !release) return;
+
+                final Intent newIntent =
+                    release ? Intent.RELEASE : Intent.RESET;
+
                 /* If the current intent is to be active, trigger
                  * deactivation first. When it completes, and discovers
                  * the release intent, it will start the release
                  * process. Otherwise, we start it now. */
                 if (intent == Intent.ACTIVE) {
-                    setIntent(conn, id, Intent.RELEASE);
+                    setIntent(conn, id, newIntent);
                     if (activeCount > 0) {
                         /* Report start of deactivation. */
                         callOut(ServiceStatus.DEACTIVATING);
@@ -678,9 +709,9 @@ public class PersistentAggregator implements Aggregator {
                 } else {
                     /* Record the new intent and initiate the release
                      * process. */
-                    setIntent(conn, id, Intent.RELEASE);
+                    setIntent(conn, id, newIntent);
+                    startRelease(conn, newIntent);
                 }
-                startRelease(conn);
                 conn.commit();
             } catch (SQLException e) {
                 throw new RuntimeException("DB error" + " releasing service "
@@ -688,7 +719,8 @@ public class PersistentAggregator implements Aggregator {
             }
         }
 
-        private void startRelease(Connection conn) throws SQLException {
+        private void startRelease(Connection conn, Intent intent)
+            throws SQLException {
             assert Thread.holdsLock(this);
 
             /* Inform users that the release process has started. */
@@ -703,7 +735,7 @@ public class PersistentAggregator implements Aggregator {
             if (releasedCount == clients.size()) {
                 /* All subservices are already released. This only
                  * happens if we were still dormant when released. */
-                completeRelease(conn);
+                completeRelease(conn, intent);
             }
         }
 
@@ -800,10 +832,14 @@ public class PersistentAggregator implements Aggregator {
             }
 
             final Intent intent = getIntent(conn, id);
-            if (intent == Intent.RELEASE) {
-                if (releasedCount == clients.size()) {
-                    completeRelease(conn);
-                }
+            switch (intent) {
+            case RELEASE:
+            case RESET:
+                if (releasedCount == clients.size())
+                    completeRelease(conn, intent);
+                break;
+            default:
+                break;
             }
         }
 
@@ -2434,7 +2470,7 @@ public class PersistentAggregator implements Aggregator {
                             this::recoverTrunk, (t) -> {});
 
     private static enum Intent {
-        INACTIVE, ACTIVE, ABORT, RELEASE;
+        INACTIVE, ACTIVE, ABORT, RELEASE, RESET;
     }
 
     /**
