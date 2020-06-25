@@ -479,6 +479,11 @@ public final class Commander {
             return true;
         }
 
+        if ("reset".equals(arg)) {
+            if (service != null) service.reset();
+            return true;
+        }
+
         if ("set-delay".equals(arg)) {
             if (network == null) {
                 System.err.println("Network unspecified");
@@ -775,7 +780,7 @@ public final class Commander {
      * <dd>Set the ingress and egress quotas on a switch terminal.
      * <var>rate</var> can be a decimal to specify the rate,
      * <samp>off</samp> to disable the rate, or <samp>-</samp> not set a
-     * rate.  When two rates are specified, ingress comes first.
+     * rate. When two rates are specified, ingress comes first.
      * 
      * <dt><samp>list-trunks</samp>
      * 
@@ -850,9 +855,10 @@ public final class Commander {
      * 
      * <dt><samp>activate</samp>
      * <dt><samp>deactivate</samp>
+     * <dt><samp>reset</samp>
      * <dt><samp>release</samp>
      * 
-     * <dd>Activate, deactivate or release the current service.
+     * <dd>Activate, deactivate, reset or release the current service.
      * 
      * <dt><samp>dump</samp>
      * 
