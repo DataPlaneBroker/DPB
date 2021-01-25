@@ -88,16 +88,15 @@ public final class TableBandwidthFunction implements BandwidthFunction {
     }
 
     /**
-     * Create a table from a sequence of data. The length of the
-     * sequence must be 2<sup><var>n</var></sup>&minus;1, where
-     * <var>n</var> is the degree of the function. Adding one to the
-     * index of sequence gives the bit set of endpoint indices that form
-     * the 'from' set.
+     * Create a table-based function from a list. The size of the list
+     * must be 2<sup><var>n</var></sup>&minus;2, where <var>n</var> is
+     * the degree of the function. Adding one to the list index gives
+     * the bit set of endpoint indices that form the 'from' set.
      * 
      * @param data the data that will define the function
      * 
-     * @throws IllegalArgumentException if the sequence's length is not
-     * two less than a power of two
+     * @throws IllegalArgumentException if the list's size is not two
+     * less than a power of two
      */
     public TableBandwidthFunction(List<? extends BandwidthRange> data) {
         int degree = binlog(data.size() + 2);
@@ -106,6 +105,51 @@ public final class TableBandwidthFunction implements BandwidthFunction {
                 + " not 2 less than a power of 2");
         this.table = data.toArray(new BandwidthRange[data.size()]);
         this.degree = degree;
+    }
+
+    /**
+     * Create a table-based function from part of an array. The number
+     * of elements selected from the array must be
+     * 2<sup><var>n</var></sup>&minus;2, where <var>n</var> is the
+     * degree of the function. Adding one to the index within the
+     * selection gives the bit set of endpoint indices that form the
+     * 'from' set.
+     * 
+     * @param arr an array containing the data that will define the
+     * function
+     * 
+     * @param off the offset of the first element of the array that
+     * defines the function
+     * 
+     * @param len the number of array elements that define the function
+     * 
+     * @throws IllegalArgumentException if the specified length is not
+     * two less than a power of two
+     */
+    public TableBandwidthFunction(BandwidthRange[] arr, int off, int len) {
+        int degree = binlog(len + 2);
+        if ((1 << degree) - 2 != len)
+            throw new IllegalArgumentException("sequence length " + len
+                + " not 2 less than a power of 2");
+        this.table = Arrays.copyOfRange(arr, off, off + len);
+        this.degree = degree;
+    }
+
+    /**
+     * Create a table-based function from part of an array. The length
+     * of the array must be 2<sup><var>n</var></sup>&minus;2, where
+     * <var>n</var> is the degree of the function. Adding one to the
+     * array index gives the bit set of endpoint indices that form the
+     * 'from' set.
+     * 
+     * @param arr an array containing the data that will define the
+     * function
+     * 
+     * @throws IllegalArgumentException if the array length is not two
+     * less than a power of two
+     */
+    public TableBandwidthFunction(BandwidthRange[] arr) {
+        this(arr, 0, arr.length);
     }
 
     /**
