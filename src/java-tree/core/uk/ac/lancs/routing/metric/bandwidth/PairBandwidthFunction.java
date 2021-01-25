@@ -48,7 +48,7 @@ import java.util.stream.Collectors;
  * 
  * @author simpsons
  */
-public final class EndpointPairBandwidthFunction implements BandwidthFunction {
+public final class PairBandwidthFunction implements BandwidthFunction {
     private final BandwidthPair[] pairs;
 
     /**
@@ -57,7 +57,7 @@ public final class EndpointPairBandwidthFunction implements BandwidthFunction {
      * 
      * @param pairs the pairs for each endpoint
      */
-    public EndpointPairBandwidthFunction(BandwidthPair... pairs) {
+    public PairBandwidthFunction(BandwidthPair... pairs) {
         this.pairs = Arrays.copyOf(pairs, pairs.length);
     }
 
@@ -67,7 +67,7 @@ public final class EndpointPairBandwidthFunction implements BandwidthFunction {
      * 
      * @param pairs the pairs for each endpoint
      */
-    public EndpointPairBandwidthFunction(List<? extends BandwidthPair> pairs) {
+    public PairBandwidthFunction(List<? extends BandwidthPair> pairs) {
         this.pairs = pairs.toArray(new BandwidthPair[pairs.size()]);
     }
 

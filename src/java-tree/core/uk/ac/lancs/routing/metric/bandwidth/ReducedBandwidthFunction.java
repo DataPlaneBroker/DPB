@@ -65,6 +65,9 @@ public final class ReducedBandwidthFunction implements BandwidthFunction {
      * 
      * @param groups groups of endpoints that shall be treated as single
      * endpoints
+     * 
+     * @throws IllegalArgumentException if a proposed group contains
+     * more bits than indicated by the degree
      */
     public ReducedBandwidthFunction(BandwidthFunction base,
                                     Collection<? extends BitSet> groups) {
@@ -81,7 +84,8 @@ public final class ReducedBandwidthFunction implements BandwidthFunction {
             BitSet copy = remainder.get(0, base.degree());
             copy.or(g);
             if (!copy.equals(remainder))
-                throw new IllegalArgumentException("over-used bits: " + g);
+                throw new IllegalArgumentException("over-used bits " + g
+                    + " for degree " + base.degree());
 
             /* Account for these bits. */
             remainder.andNot(g);

@@ -38,6 +38,7 @@ package uk.ac.lancs.routing.metric.bandwidth;
 
 import java.math.BigInteger;
 import java.util.BitSet;
+import java.util.List;
 
 /**
  * Determines the bandwidth requirements of any edge in a tree, given
@@ -88,6 +89,30 @@ public interface BandwidthFunction {
             array[i] = array[array.length - 1 - i];
             array[array.length - 1 - i] = tmp;
         }
+    }
+
+    /**
+     * Reduce this function by grouping together endpoints.
+     * 
+     * @param groups the proposed set of endpoint groups
+     * 
+     * @return a new function whose endpoint indices correspond to
+     * groups of endpoints of this function
+     * 
+     * @throws IllegalArgumentException if a proposed group contains
+     * more bits than indicated by the degree
+     * 
+     * @default The default behaviour is to create a
+     * {@link ReducedBandwidthFunction} with the proposed groups using
+     * this function as the base. Then, if the new function has a
+     * sufficiently small degree, a {@link TableBandwidthFunction} is
+     * derived from it, and returned. Otherwise, the reduced function is
+     * returned.
+     */
+    default BandwidthFunction reduce(List<? extends BitSet> groups) {
+        BandwidthFunction result = new ReducedBandwidthFunction(this, groups);
+        if (result.degree() > 8) return result;
+        return new TableBandwidthFunction(result);
     }
 
     static BigInteger toBigInteger(BitSet set) {
