@@ -40,6 +40,7 @@ import java.math.BigInteger;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,7 +50,7 @@ import java.util.stream.Stream;
  * 
  * @author simpsons
  */
-public final class ReducedBandwidthFunction implements BandwidthFunction {
+final class ReducedBandwidthFunction implements BandwidthFunction {
     private final BandwidthFunction base;
 
     private final List<BitSet> groups;
@@ -116,15 +117,21 @@ public final class ReducedBandwidthFunction implements BandwidthFunction {
      * {@inheritDoc}
      * 
      * @default This implementation translates each of bits in the
-     * 'from' set into the configured groups, computed their union, and
-     * submits this union to the base function, whose result is then the
-     * result of this function.
+     * <cite>from</cite> set into the configured groups, computed their
+     * union, and submits this union to the base function, whose result
+     * is then the result of this function.
      */
     @Override
     public BandwidthRange apply(BitSet from) {
-        BitSet key = from.get(0, degree()).stream().mapToObj(i -> groups.get(i))
-            .reduce(this::orBase).get();
-        return base.apply(key);
+        try {
+            BitSet key = from.stream().mapToObj(i -> groups.get(i))
+                .reduce(this::orBase).get();
+            return base.apply(key);
+        } catch (NullPointerException | IndexOutOfBoundsException |
+                 NoSuchElementException ex) {
+            throw new IllegalArgumentException("invalid 'from' set " + from,
+                                               ex);
+        }
     }
 
     @Override

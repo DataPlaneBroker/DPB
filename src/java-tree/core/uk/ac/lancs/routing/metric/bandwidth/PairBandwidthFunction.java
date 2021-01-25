@@ -75,9 +75,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * {@inheritDoc}
      * 
      * @default In this implementation, all the ingress bandwidths of
-     * the 'from' set are summed, and all the egress bandwidths of the
-     * complement are summed. The minimum of these is chosen as the
-     * result.
+     * the <cite>from</cite> set are summed, and all the egress
+     * bandwidths of the complement are summed. The minimum of these is
+     * chosen as the result.
      */
     @Override
     public BandwidthRange apply(BitSet from) {

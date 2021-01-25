@@ -44,11 +44,11 @@ import java.util.stream.Collectors;
 
 /**
  * Expresses bandwidth requirements using an underlying table indexed by
- * a bit pattern representing the indices of the 'from' set.
+ * a bit pattern representing the indices of the <cite>from</cite> set.
  *
  * @author simpsons
  */
-public final class TableBandwidthFunction implements BandwidthFunction {
+final class TableBandwidthFunction implements BandwidthFunction {
     private final BandwidthRange[] table;
 
     private final int degree;
@@ -57,41 +57,20 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * Get the logarithm to base 2 of an integer, i.e., the number of
      * bits required to represent it.
      * 
-     * @see <a href=
-     * "https://stackoverflow.com/questions/3305059/how-do-you-calculate-log-base-2-in-java-for-integers#answer-3305710">an
-     * answer to <cite>How do you calculate log base 2 in Java for
-     * integers?</cite></a>
-     * 
      * @param value the value to be analysed
      * 
      * @return the number of bits required to represent the value
      */
-    private static int binlog(int value) {
-        int log = 0;
-        if ((value & 0xffff0000) != 0) {
-            value >>>= 16;
-            log = 16;
-        }
-        if (value >= 256) {
-            value >>>= 8;
-            log += 8;
-        }
-        if (value >= 16) {
-            value >>>= 4;
-            log += 4;
-        }
-        if (value >= 4) {
-            value >>>= 2;
-            log += 2;
-        }
-        return log + (value >>> 1);
+    private static int log2(int value) {
+        return Integer.SIZE - Integer.numberOfLeadingZeros(value);
     }
 
     /**
      * Create a table-based function from a list. The size of the list
      * must be 2<sup><var>n</var></sup>&minus;2, where <var>n</var> is
      * the degree of the function. Adding one to the list index gives
-     * the bit set of endpoint indices that form the 'from' set.
+     * the bit set of endpoint indices that form the <cite>from</cite>
+     * set.
      * 
      * @param data the data that will define the function
      * 
@@ -99,7 +78,7 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * less than a power of two
      */
     public TableBandwidthFunction(List<? extends BandwidthRange> data) {
-        int degree = binlog(data.size() + 2);
+        int degree = log2(data.size() + 2);
         if ((1 << degree) - 2 != data.size())
             throw new IllegalArgumentException("sequence length " + data.size()
                 + " not 2 less than a power of 2");
@@ -113,7 +92,7 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * 2<sup><var>n</var></sup>&minus;2, where <var>n</var> is the
      * degree of the function. Adding one to the index within the
      * selection gives the bit set of endpoint indices that form the
-     * 'from' set.
+     * <cite>from</cite> set.
      * 
      * @param arr an array containing the data that will define the
      * function
@@ -127,7 +106,7 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * two less than a power of two
      */
     public TableBandwidthFunction(BandwidthRange[] arr, int off, int len) {
-        int degree = binlog(len + 2);
+        int degree = log2(len + 2);
         if ((1 << degree) - 2 != len)
             throw new IllegalArgumentException("sequence length " + len
                 + " not 2 less than a power of 2");
@@ -140,7 +119,7 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * of the array must be 2<sup><var>n</var></sup>&minus;2, where
      * <var>n</var> is the degree of the function. Adding one to the
      * array index gives the bit set of endpoint indices that form the
-     * 'from' set.
+     * <cite>from</cite> set.
      * 
      * @param arr an array containing the data that will define the
      * function
@@ -158,14 +137,8 @@ public final class TableBandwidthFunction implements BandwidthFunction {
      * which will populate this function's table.
      * 
      * @param other the other function
-     * 
-     * @throws IllegalArgumentException if the other function's degree
-     * is too high
      */
-    public TableBandwidthFunction(BandwidthFunction other) {
-        if (other.degree() > 8)
-            throw new IllegalArgumentException("degree too great"
-                + " to represent as table");
+    private TableBandwidthFunction(BandwidthFunction other) {
         final int size = (1 << other.degree()) - 2;
         this.table = new BandwidthRange[size];
         long[] buf = new long[1];
@@ -177,11 +150,29 @@ public final class TableBandwidthFunction implements BandwidthFunction {
         this.degree = other.degree();
     }
 
+    /**
+     * Try to simplify a complex function by reducing it to a table. If
+     * the degree is too high, the original function will be returned.
+     * 
+     * @param other a function to simplify
+     * 
+     * @return either the original function, or one based on a table
+     */
+    public static BandwidthFunction tabulate(BandwidthFunction other) {
+        if (other.degree() > 8) return other;
+        return new TableBandwidthFunction(other);
+    }
+
     @Override
     public BandwidthRange apply(BitSet from) {
-        BigInteger value = BandwidthFunction.toBigInteger(from);
-        int index = value.subtract(BigInteger.ONE).intValueExact();
-        return table[index];
+        try {
+            BigInteger value = BandwidthFunction.toBigInteger(from);
+            int index = value.subtract(BigInteger.ONE).intValueExact();
+            return table[index];
+        } catch (ArrayIndexOutOfBoundsException | ArithmeticException ex) {
+            throw new IllegalArgumentException("invalid 'from' set " + from,
+                                               ex);
+        }
     }
 
     /**

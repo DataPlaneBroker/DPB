@@ -65,7 +65,7 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * {@inheritDoc}
      * 
      * @default This implementation simply returns the configured rate,
-     * and ignores the 'from' set.
+     * and ignores the <cite>from</cite> set.
      */
     @Override
     public BandwidthRange apply(BitSet from) {

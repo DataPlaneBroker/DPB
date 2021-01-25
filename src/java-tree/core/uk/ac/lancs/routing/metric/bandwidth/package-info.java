@@ -58,30 +58,5 @@
  * bandwidth expression, without using an inordinate amount of memory.
  * 
  * </ul>
- * 
- * <p>
- * The other implementations serve as transformations:
- * 
- * <ul>
- * 
- * <li>{@link JavaScriptBandwidthFunction} &mdash; All implementations
- * must be able to provide a self-contained JavaScript representation of
- * themselves (through {@link BandwidthFunction#asJavaScript()}), so
- * they can be transmitted and remotely evaluated. This class allows the
- * receiver of such a representation to reconstitute the function from
- * it.
- * 
- * <li>{@link TableBandwidthFunction} &mdash; For small degrees, a
- * function could be more simple represented as a table caching all its
- * results for all possible inputs.
- * 
- * <li>{@link ReducedBandwidthFunction} &mdash; An essential operation
- * for delegation is to reduce a function to a smaller degree. Each
- * endpoint in the reduced function corresponds to a distinct subset of
- * the endpoints in the original function. This class maintains such a
- * mapping, and embeds the original function's JavaScript representation
- * in its own.
- * 
- * </ul>
  */
 package uk.ac.lancs.routing.metric.bandwidth;

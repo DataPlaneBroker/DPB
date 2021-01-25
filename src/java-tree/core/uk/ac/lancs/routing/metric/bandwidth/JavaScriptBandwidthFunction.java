@@ -47,13 +47,13 @@ import javax.script.SimpleScriptContext;
  * Expresses bandwidth requirements specified by a JavaScript object.
  * The object must have a <samp>degree</samp> field specifying the
  * function's degree, and an <samp>apply</samp> function taking a single
- * integer argument representing the 'from' set as a bit set, and
- * returning a 2-array of the minimum and maximum rates (the latter of
- * which may be {@code null}).
+ * integer argument representing the <cite>from</cite> set as a bit set,
+ * and returning a 2-array of the minimum and maximum rates (the latter
+ * of which may be {@code null}).
  *
  * @author simpsons
  */
-public final class JavaScriptBandwidthFunction implements BandwidthFunction {
+final class JavaScriptBandwidthFunction implements BandwidthFunction {
     private final ScriptEngine engine;
 
     private final String text;
@@ -87,6 +87,10 @@ public final class JavaScriptBandwidthFunction implements BandwidthFunction {
                 BandwidthRange.between(result[0], result[1]);
         } catch (ScriptException ex) {
             throw new IllegalArgumentException(cmd, ex);
+        } catch (NullPointerException | ArrayIndexOutOfBoundsException |
+                 ClassCastException ex) {
+            throw new IllegalArgumentException("invalid 'from' set " + from,
+                                               ex);
         }
     }
 

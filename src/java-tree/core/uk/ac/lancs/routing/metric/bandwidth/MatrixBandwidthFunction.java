@@ -139,12 +139,12 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * {@inheritDoc}
      * 
      * @default This implementation iterates over all endpoints as
-     * potential sources, omitting those not in the 'from' set. For each
-     * one, it iterates over all endpoints as destinations, omitting
-     * those in the 'from' set, and skipping combinations where the
-     * source and destination are the same. The corresponding rates of
-     * the selected source-destination tuples are collected, and their
-     * sum is returned.
+     * potential sources, omitting those not in the <cite>from</cite>
+     * set. For each one, it iterates over all endpoints as
+     * destinations, omitting those in the <cite>from</cite> set, and
+     * skipping combinations where the source and destination are the
+     * same. The corresponding rates of the selected source-destination
+     * tuples are collected, and their sum is returned.
      */
     @Override
     public BandwidthRange apply(BitSet fromSet) {
