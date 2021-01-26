@@ -35,9 +35,48 @@
  */
 
 /**
- * Specifies ways to express bandwidth requirements of endpoints for
- * computing requirements of tree edges. The primary interface is
- * {@link BandwidthFunction}. Its primary implementations are:
+ * Specifies ways to express bandwidth requirements of endpoints, from
+ * which the requirements of any edge of a tree connecting those
+ * endpoints can be computed.
+ * 
+ * <p>
+ * A single bandwidth requirement is expressed as a
+ * {@link BandwidthRange}. It includes a minimum guaranteed bandwidth
+ * (which may be as low as zero), and a maximum permitted bandwidth
+ * (which may be infinite).
+ * 
+ * <p>
+ * An aggregate network consists of a graph of edges with inferior
+ * networks (some of which might also be aggregates) at the vertices,
+ * and the available capacities of the inferiors and the connecting
+ * edges are known to the aggregate. A user of the aggregate requests
+ * that a tree be formed from the graph edges such that it connects a
+ * set of at least two endpoints, and that sufficient bandwidth should
+ * be allocated on each edge so that the endpoints experience a certain
+ * minimum capacity. Regardless of the algorithm used by the aggregate
+ * to select a suitable tree, the algorithm needs to know what the
+ * demands on an individual edge are, given that a non-empty subset of
+ * endpoints will be reachable in one direction, and a non-empty
+ * complement of endpoints will be reachable in the other. The interface
+ * {@link BandwidthFunction} abstracts that computation, allowing the
+ * user to determine it without knowledge of the algorithm. The
+ * constraints imposed on implementations allow it:
+ * 
+ * <ul>
+ * 
+ * <li>to be transmitted as a self-contained script, so that the user
+ * who defines it and the network that uses it can be separate; and
+ * 
+ * <li>to be reduced, so that an aggregate that delegates connection
+ * establishment to an inferior network can derive a new function to
+ * submit to the inferior using endpoints that are meaningful to the
+ * inferior.
+ * 
+ * </ul>
+ * 
+ * <p>
+ * The following implementations of {@link BandwidthFunction} are
+ * available to the user:
  * 
  * <ul>
  * 
@@ -53,10 +92,14 @@
  * 
  * <li>{@link MatrixBandwidthFunction} &mdash; A matrix enumerates
  * bandwidth requirements between any pair of endpoints. An edge's
- * requirements is then the sum of all cells that are in the 'from' set
- * but not the 'to' set, and vice versa. This allows a much richer
- * bandwidth expression, without using an inordinate amount of memory.
+ * requirements is then the sum of all cells that are in the
+ * <cite>from</cite> set but not the <cite>to</cite> set, and vice
+ * versa. This allows a much richer bandwidth expression, without using
+ * an inordinate amount of memory.
  * 
  * </ul>
+ * 
+ * <p>
+ * A user can, of course, define their own.
  */
 package uk.ac.lancs.routing.metric.bandwidth;

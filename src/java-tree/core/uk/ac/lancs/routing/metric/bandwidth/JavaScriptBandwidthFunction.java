@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.routing.metric.bandwidth;
 
+import java.math.BigInteger;
 import java.util.BitSet;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
@@ -79,8 +80,7 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
 
     @Override
     public BandwidthRange apply(BitSet from) {
-        String cmd = "obj.apply("
-            + BandwidthFunction.toBigInteger(from.get(0, degree())) + ")";
+        String cmd = "obj.apply(" + toBigInteger(from.get(0, degree())) + ")";
         try {
             Double[] result = (Double[]) engine.eval(cmd);
             return result[1] == null ? BandwidthRange.from(result[0]) :
@@ -102,5 +102,19 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
     @Override
     public int degree() {
         return degree;
+    }
+
+    private static void reverse(byte[] array) {
+        for (int i = 0; i < array.length / 2; i++) {
+            byte tmp = array[i];
+            array[i] = array[array.length - 1 - i];
+            array[array.length - 1 - i] = tmp;
+        }
+    }
+
+    static BigInteger toBigInteger(BitSet set) {
+        byte[] bs = set.toByteArray();
+        reverse(bs);
+        return new BigInteger(bs);
     }
 }

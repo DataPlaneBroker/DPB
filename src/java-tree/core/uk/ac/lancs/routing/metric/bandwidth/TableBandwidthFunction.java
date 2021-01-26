@@ -166,7 +166,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
     @Override
     public BandwidthRange apply(BitSet from) {
         try {
-            BigInteger value = BandwidthFunction.toBigInteger(from);
+            BigInteger value = JavaScriptBandwidthFunction.toBigInteger(from);
             int index = value.subtract(BigInteger.ONE).intValueExact();
             return table[index];
         } catch (ArrayIndexOutOfBoundsException | ArithmeticException ex) {

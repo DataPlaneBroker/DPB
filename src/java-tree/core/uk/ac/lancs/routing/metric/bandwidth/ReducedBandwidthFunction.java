@@ -140,7 +140,7 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
             + "  degree : " + degree() + ",                             \n"
             + "  base : " + base.asJavaScript() + ",                    \n"
             + "  groups : [ "
-            + groups.stream().map(BandwidthFunction::toBigInteger)
+            + groups.stream().map(JavaScriptBandwidthFunction::toBigInteger)
                 .map(BigInteger::toString).collect(Collectors.joining(", "))
             + " ]\n"
             + "  apply : function(set) {                                \n"

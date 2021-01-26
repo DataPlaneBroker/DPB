@@ -43,8 +43,14 @@ package uk.ac.lancs.routing.metric.bandwidth;
  * @author simpsons
  */
 public final class BandwidthRange {
+    /**
+     * The minimum guaranteed bandwidth
+     */
     public final double min;
 
+    /**
+     * The maximum permitted bandwidth; {@code null} for unlimited
+     */
     public final Double max;
 
     private BandwidthRange(double min, Double max) {
