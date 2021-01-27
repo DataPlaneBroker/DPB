@@ -113,8 +113,8 @@ import javax.script.ScriptException;
  * Inferior endpoint 0 will reach superior endpoints 2, 4 and 5;
  * inferior 1 will reach superiors 1, 6, 7 and 8; and inferior 2 will
  * reach the remainder, superiors 0, 3 and 9. The superior network can
- * provide the sequence of sets &#9001; { 2, 4, 5 }, { 1, 6, 7, 8 }, {
- * 0, 3, 9 } &#9002; to {@link #reduce(List)} to yield a reduced
+ * provide the sequence of sets &#10216; { 2, 4, 5 }, { 1, 6, 7, 8 }, {
+ * 0, 3, 9 } &#10217; to {@link #reduce(List)} to yield a reduced
  * function to submit to the inferior. When asked to specify the
  * bandwidth requirement from the <cite>from</cite> set { 0, 1 }, the
  * new function will yield the same result as the original function with
