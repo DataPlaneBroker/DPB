@@ -151,8 +151,10 @@ final class TableBandwidthFunction implements BandwidthFunction {
     }
 
     /**
-     * Try to simplify a complex function by reducing it to a table. If
-     * the degree is too high, the original function will be returned.
+     * Try to simplify a complex function by reducing it to a table.
+     * 
+     * @default If the degree is too high, the original function will be
+     * returned.
      * 
      * @param other a function to simplify
      * 
