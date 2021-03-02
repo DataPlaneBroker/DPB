@@ -168,7 +168,7 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
                         fabricAgent.getService(Fabric.class, agentKey);
                     PersistentSwitch result =
                         new PersistentSwitch(switchName, executor, fabric,
-                                             blocker::isClear, dbConf);
+                                             blocker::isBlocked, dbConf);
                     return type.cast(result);
                 } catch (AgentException | SQLException ex) {
                     throw new ServiceCreationException(ex);
