@@ -39,7 +39,6 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.Executor;
-
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentContext;
 import uk.ac.lancs.agent.AgentCreationException;
@@ -92,6 +91,41 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
      * <p>
      * The agent presents its {@link PersistentSwitch} as the default
      * services {@link Switch} and {@link Network}.
+     * 
+     * <p>
+     * Configuration consists of the following fields:
+     * 
+     * <dl>
+     * 
+     * <dt><samp>name</samp></dt>
+     * 
+     * <dd>The name of the switch, used to form the fully qualified
+     * names of its terminals
+     * 
+     * <dt><samp>fabric.agent</samp></dt>
+     * <dt><samp>fabric.agent.key</samp></dt>
+     * 
+     * <dd>The name of an agent providing a {@link Fabric} service, and
+     * optionally a key within that agent
+     * 
+     * <dt><samp>fabric.<var>misc</var></samp></dt>
+     * 
+     * <dd>Other parameters used to configure the fabric
+     * 
+     * <dt><samp>db.service</samp></dt>
+     * 
+     * <dd>The URI of the database service
+     * 
+     * <dt><samp>db.<var>misc</var></samp></dt>
+     * 
+     * <dd>Fields to be passed when connecting to the database service,
+     * e.g., <samp>password</samp>
+     * 
+     * <p>
+     * These are passed as the <code>dbConfig</code> argument to
+     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, Configuration)}.
+     * 
+     * </dl>
      */
     @Override
     public Agent makeAgent(AgentContext ctxt, Configuration conf)
@@ -112,8 +146,7 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
             public <T> T findService(Class<T> type, String key)
                 throws ServiceCreationException {
                 if (key != null) return null;
-                if (type != Network.class && type != Switch.class)
-                    return null;
+                if (type != Network.class && type != Switch.class) return null;
                 try {
                     Agent system = ctxt.getAgent("system");
                     Executor sysExecutor = system.getService(Executor.class);

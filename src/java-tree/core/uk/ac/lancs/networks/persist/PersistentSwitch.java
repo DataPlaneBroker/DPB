@@ -59,7 +59,6 @@ import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
@@ -98,7 +97,9 @@ public class PersistentSwitch implements Switch {
 
     private class MyService implements Service, BridgeListener {
         final int id;
+
         final String handle;
+
         final Collection<ServiceListener> listeners = new HashSet<>();
 
         @Override
@@ -150,10 +151,13 @@ public class PersistentSwitch implements Switch {
             switch (intent) {
             case RESET:
                 throw new IllegalStateException("service resetting");
+
             case RELEASE:
                 throw new IllegalStateException("service disused");
+
             case ABORT:
                 throw new IllegalStateException("service aborted");
+
             default:
                 break;
             }
@@ -162,23 +166,19 @@ public class PersistentSwitch implements Switch {
 
             /* Check that all circuits belong to us. Also track the
              * bandwidth demand on each terminal. */
-            final Map<SwitchTerminal, TrafficFlow> additional =
-                new HashMap<>();
-            for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
-                .circuitFlows().entrySet()) {
+            final Map<SwitchTerminal, TrafficFlow> additional = new HashMap<>();
+            for (Map.Entry<? extends Circuit,
+                           ? extends TrafficFlow> entry : request.circuitFlows()
+                               .entrySet()) {
                 final Circuit ep = entry.getKey();
                 Terminal p = ep.getTerminal();
                 if (!(p instanceof SwitchTerminal))
-                    throw new InvalidServiceException(control.name(), id,
-                                                      "circuit " + ep
-                                                          + " not part of "
-                                                          + name);
+                    throw new InvalidServiceException(control
+                        .name(), id, "circuit " + ep + " not part of " + name);
                 SwitchTerminal mp = (SwitchTerminal) p;
                 if (mp.getNetwork() != getControl())
-                    throw new InvalidServiceException(control.name(), id,
-                                                      "circuit " + ep
-                                                          + " not part of "
-                                                          + name);
+                    throw new InvalidServiceException(control
+                        .name(), id, "circuit " + ep + " not part of " + name);
                 additional.put(mp,
                                additional
                                    .computeIfAbsent(mp,
@@ -213,8 +213,7 @@ public class PersistentSwitch implements Switch {
                         stmt.setString(pos++, t.name());
                     try (ResultSet rs = stmt.executeQuery()) {
                         while (rs.next()) {
-                            SwitchTerminal mp =
-                                terminals.get(rs.getString(1));
+                            SwitchTerminal mp = terminals.get(rs.getString(1));
                             double ingress = rs.getDouble(2);
                             double egress = rs.getDouble(3);
                             additional.put(mp, additional.get(mp)
@@ -233,12 +232,11 @@ public class PersistentSwitch implements Switch {
                         stmt.setString(pos++, t.name());
                     try (ResultSet rs = stmt.executeQuery()) {
                         while (rs.next()) {
-                            SwitchTerminal mp =
-                                terminals.get(rs.getString(1));
+                            SwitchTerminal mp = terminals.get(rs.getString(1));
                             TrafficFlow required = additional.get(mp);
                             double ingressLimit = rs.getDouble(2);
-                            if (!rs.wasNull()
-                                && required.ingress > ingressLimit)
+                            if (!rs.wasNull() &&
+                                required.ingress > ingressLimit)
                                 throw new NetworkResourceException(name,
                                                                    "service "
                                                                        + id
@@ -249,8 +247,7 @@ public class PersistentSwitch implements Switch {
                                                                        + " at "
                                                                        + mp.name());
                             double egressLimit = rs.getDouble(3);
-                            if (!rs.wasNull()
-                                && required.egress > egressLimit)
+                            if (!rs.wasNull() && required.egress > egressLimit)
                                 throw new NetworkResourceException(name,
                                                                    "service "
                                                                        + id
@@ -274,8 +271,9 @@ public class PersistentSwitch implements Switch {
                         + " label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
-                    for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : this.request
-                        .circuitFlows().entrySet()) {
+                    for (Map.Entry<? extends Circuit,
+                                   ? extends TrafficFlow> entry : this.request
+                                       .circuitFlows().entrySet()) {
                         Circuit circuit = entry.getKey();
                         SwitchTerminal terminal =
                             (SwitchTerminal) circuit.getTerminal();
@@ -319,12 +317,16 @@ public class PersistentSwitch implements Switch {
             switch (intent) {
             case RELEASE:
                 throw new IllegalStateException("service released");
+
             case RESET:
                 throw new IllegalStateException("service resetting");
+
             case ABORT:
                 throw new IllegalStateException("service aborted");
+
             case ACTIVE:
                 return;
+
             default:
                 break;
             }
@@ -362,6 +364,7 @@ public class PersistentSwitch implements Switch {
             case ABORT:
             case INACTIVE:
                 return;
+
             default:
                 break;
             }
@@ -384,8 +387,8 @@ public class PersistentSwitch implements Switch {
 
         @Override
         public synchronized ServiceStatus status() {
-            if (intent == Intent.RELEASE) return released
-                ? ServiceStatus.RELEASED : ServiceStatus.RELEASING;
+            if (intent == Intent.RELEASE) return released ?
+                ServiceStatus.RELEASED : ServiceStatus.RELEASING;
             if (intent == Intent.RESET) return ServiceStatus.RELEASING;
             if (intent == Intent.ABORT) return ServiceStatus.FAILED;
             if (intent == Intent.INACTIVE) {
@@ -422,8 +425,8 @@ public class PersistentSwitch implements Switch {
             /* Delete entries from the database. */
             try (Connection conn = database()) {
                 conn.setAutoCommit(false);
-                updateIntent(conn, id, intent =
-                    release ? Intent.RELEASE : Intent.RESET);
+                updateIntent(conn, id,
+                             intent = release ? Intent.RELEASE : Intent.RESET);
                 try (PreparedStatement stmt =
                     conn.prepareStatement("DELETE FROM " + circuitTable
                         + " WHERE service_id = ?;")) {
@@ -444,8 +447,9 @@ public class PersistentSwitch implements Switch {
                 }
                 conn.commit();
             } catch (SQLException ex) {
-                throw new ServiceException(control.name(), id, release
-                    ? "releasing" : "resetting", ex);
+                throw new ServiceException(control.name(), id,
+                                           release ? "releasing" : "resetting",
+                                           ex);
             }
 
             if (oldBridge != null) {
@@ -547,6 +551,7 @@ public class PersistentSwitch implements Switch {
                 callOut(ServiceStatus.RELEASED);
                 listeners.clear();
                 break;
+
             case RESET:
                 // System.err.printf("resetting service %d%n", id);
                 callOut(ServiceStatus.RELEASING);
@@ -558,11 +563,11 @@ public class PersistentSwitch implements Switch {
                     assert !released;
                     conn.commit();
                 } catch (SQLException ex) {
-                    throw new ServiceException(control.name(), id, "reset",
-                                               ex);
+                    throw new ServiceException(control.name(), id, "reset", ex);
                 }
                 callOut(ServiceStatus.DORMANT);
                 break;
+
             default:
                 // System.err.printf("not to be released %d%n", id);
                 callOut(ServiceStatus.INACTIVE);
@@ -574,8 +579,9 @@ public class PersistentSwitch implements Switch {
             out.printf("  %3d %-8s (intent=%-8s) %s", id, status(), intent,
                        handle);
             if (request != null) {
-                for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
-                    .circuitFlows().entrySet()) {
+                for (Map.Entry<? extends Circuit,
+                               ? extends TrafficFlow> entry : request
+                                   .circuitFlows().entrySet()) {
                     Circuit ep = entry.getKey();
                     TrafficFlow flow = entry.getValue();
                     out.printf("%n      %10s %6g %6g", ep, flow.ingress,
@@ -622,9 +628,13 @@ public class PersistentSwitch implements Switch {
     }
 
     private final Executor executor;
+
     private final String name;
+
     private final Map<String, SwitchTerminal> terminals = new HashMap<>();
+
     private final Map<Integer, MyService> services = new HashMap<>();
+
     private final Map<String, MyService> servicesByHandle = new HashMap<>();
 
     /**
@@ -650,42 +660,31 @@ public class PersistentSwitch implements Switch {
      * Recreate the internal service records mentioned in the tables.
      * Flush out any other bridges in the back-end.
      * 
-     * <p>
-     * Configuration consists of the following fields:
-     * 
-     * <dl>
-     * 
-     * <dt><samp>name</samp></dt>
-     * 
-     * <dd>The name of the switch, used to form the fully qualified
-     * names of its terminals
-     * 
-     * <dt><samp>fabric.agent</samp></dt>
-     * <dt><samp>fabric.agent.key</samp></dt>
-     * 
-     * <dd>The name of an agent providing a {@link Fabric} service, and
-     * optionally a key within that agent
-     * 
-     * <dt><samp>fabric.<var>misc</var></samp></dt>
-     * 
-     * <dd>Other parameters used to configure the fabric
-     * 
-     * <dt><samp>db.service</samp></dt>
-     * 
-     * <dd>The URI of the database service
-     * 
-     * <dt><samp>db.<var>misc</var></samp></dt>
-     * 
-     * <dd>Fields to be passed when connecting to the database service,
-     * e.g., <samp>password</samp>
-     * 
-     * </dl>
-     * 
      * @param executor used to invoke call-backs created by this network
      * and passed to the fabric
      * 
      * @param dbConfig the configuration describing access to the
      * database
+     * 
+     * <p>
+     * The following additional configuration may be specified:
+     * 
+     * <dl>
+     * 
+     * <dt><samp>end-points.table</samp> (default
+     * <samp>end_points</samp>)
+     * <dd>The name of the table listing the end points of each service
+     * 
+     * <dt><samp>terminals.table</samp> (default <samp>terminals</samp>)
+     * <dd>The name of the table listing the available terminals
+     * 
+     * <dt><samp>services.table</samp> (default <samp>services</samp>)
+     * <dd>The name of the table listing existing services
+     * 
+     * <dt><samp>handles.table</samp> (default <samp>handles</samp>)
+     * <dd>The name of the table mapping between service ids and handles
+     * 
+     * </dl>
      * 
      * @throws IllegalArgumentException if no factory recognizes the
      * back-end type
@@ -759,9 +758,9 @@ public class PersistentSwitch implements Switch {
 
             /* Recreate terminals from entries in our tables. */
             try (Statement stmt = conn.createStatement();
-                ResultSet rs =
-                    stmt.executeQuery("SELECT terminal_id, name, config"
-                        + " FROM " + terminalTable + ";")) {
+                 ResultSet rs =
+                     stmt.executeQuery("SELECT terminal_id, name, config"
+                         + " FROM " + terminalTable + ";")) {
                 while (rs.next()) {
                     final int id = rs.getInt(1);
                     final String tname = rs.getString(2);
@@ -777,12 +776,12 @@ public class PersistentSwitch implements Switch {
             /* Recreate empty services from entries in our tables. */
             Map<Integer, Intent> intents = new HashMap<>();
             try (Statement stmt = conn.createStatement();
-                ResultSet rs =
-                    stmt.executeQuery("SELECT st.service_id AS service_id,"
-                        + " st.intent AS intent," + " ht.handle AS handle"
-                        + " FROM " + serviceTable + " AS st LEFT JOIN "
-                        + handleTable + " AS ht"
-                        + " ON ht.service_id = st.service_id;")) {
+                 ResultSet rs =
+                     stmt.executeQuery("SELECT st.service_id AS service_id,"
+                         + " st.intent AS intent," + " ht.handle AS handle"
+                         + " FROM " + serviceTable + " AS st LEFT JOIN "
+                         + handleTable + " AS ht"
+                         + " ON ht.service_id = st.service_id;")) {
                 while (rs.next()) {
                     final int id = rs.getInt(1);
                     final Intent intent = Intent.values()[rs.getInt(2)];
@@ -798,25 +797,23 @@ public class PersistentSwitch implements Switch {
             Map<MyService, Map<Circuit, TrafficFlow>> enforcements =
                 new HashMap<>();
             try (Statement stmt = conn.createStatement();
-                ResultSet rs = stmt
-                    .executeQuery("SELECT" + " et.service_id AS service_id,"
-                        + " tt.name AS terminal_name," + " et.label AS label,"
-                        + " et.metering AS metering,"
-                        + " et.shaping AS shaping" + " FROM " + circuitTable
-                        + " AS et" + " LEFT JOIN " + terminalTable + " AS tt"
-                        + " ON tt.terminal_id = et.terminal_id;")) {
+                 ResultSet rs = stmt
+                     .executeQuery("SELECT" + " et.service_id AS service_id,"
+                         + " tt.name AS terminal_name," + " et.label AS label,"
+                         + " et.metering AS metering,"
+                         + " et.shaping AS shaping" + " FROM " + circuitTable
+                         + " AS et" + " LEFT JOIN " + terminalTable + " AS tt"
+                         + " ON tt.terminal_id = et.terminal_id;")) {
                 while (rs.next()) {
                     final MyService service = services.get(rs.getInt(1));
-                    final SwitchTerminal port =
-                        terminals.get(rs.getString(2));
+                    final SwitchTerminal port = terminals.get(rs.getString(2));
                     final int label = rs.getInt(3);
                     final double metering = rs.getDouble(4);
                     final double shaping = rs.getDouble(5);
 
                     final Circuit circuit = port.circuit(label);
                     final TrafficFlow enf = TrafficFlow.of(metering, shaping);
-                    enforcements
-                        .computeIfAbsent(service, k -> new HashMap<>())
+                    enforcements.computeIfAbsent(service, k -> new HashMap<>())
                         .put(circuit, enf);
                 }
             }
@@ -824,8 +821,9 @@ public class PersistentSwitch implements Switch {
             conn.commit();
 
             /* Apply the services' details to the service objects. */
-            for (Map.Entry<MyService, Map<Circuit, TrafficFlow>> entry : enforcements
-                .entrySet()) {
+            for (Map.Entry<MyService,
+                           Map<Circuit, TrafficFlow>> entry : enforcements
+                               .entrySet()) {
                 MyService srv = entry.getKey();
                 srv.recover(entry.getValue(), intents.get(srv.id));
             }
@@ -836,9 +834,10 @@ public class PersistentSwitch implements Switch {
         }
     }
 
-    private final String circuitTable, terminalTable, serviceTable,
-        handleTable;
+    private final String circuitTable, terminalTable, serviceTable, handleTable;
+
     private final String dbConnectionAddress;
+
     private final Properties dbConnectionConfig;
 
     /**
@@ -863,13 +862,12 @@ public class PersistentSwitch implements Switch {
     @Override
     public synchronized Terminal addTerminal(String name, String desc) {
         if (terminals.containsKey(name))
-            throw new IllegalArgumentException("terminal name in use: "
-                + name);
+            throw new IllegalArgumentException("terminal name in use: " + name);
         try (Connection conn = database();
-            PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO " + terminalTable
-                    + " (name, config)" + " VALUES (?, ?);",
-                                      Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt =
+                 conn.prepareStatement("INSERT INTO " + terminalTable
+                     + " (name, config)" + " VALUES (?, ?);",
+                                       Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, name);
             stmt.setString(2, desc);
             stmt.execute();
@@ -902,8 +900,8 @@ public class PersistentSwitch implements Switch {
         if (terminal == null)
             throw new IllegalArgumentException("no such terminal: " + name);
         try (Connection conn = database();
-            PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + terminalTable + " WHERE terminal_id = ?;")) {
+             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                 + terminalTable + " WHERE terminal_id = ?;")) {
             stmt.setInt(1, terminal.id());
             stmt.execute();
             terminals.remove(name);
@@ -1030,8 +1028,7 @@ public class PersistentSwitch implements Switch {
             }
             conn.commit();
         } catch (SQLException ex) {
-            throw new NetworkException(control.name(), "creating service",
-                                       ex);
+            throw new NetworkException(control.name(), "creating service", ex);
         }
         MyService srv = new MyService(id, handle);
         services.put(id, srv);
@@ -1111,8 +1108,8 @@ public class PersistentSwitch implements Switch {
                         } catch (Throwable e) {
                             throw new AssertionError("unreachable", e);
                         }
-                    } catch (IllegalAccessException
-                        | IllegalArgumentException e) {
+                    } catch (IllegalAccessException |
+                             IllegalArgumentException e) {
                         throw new AssertionError("unreachable", e);
                     }
                 });
@@ -1161,14 +1158,13 @@ public class PersistentSwitch implements Switch {
              * capacities. */
             final int tid;
             final Double totalIngress, totalEgress;
-            try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-                + " terminal_id, metering, shaping" + " FROM " + terminalTable
-                + " WHERE name = ? LIMIT 1;")) {
+            try (PreparedStatement stmt = conn
+                .prepareStatement("SELECT" + " terminal_id, metering, shaping"
+                    + " FROM " + terminalTable + " WHERE name = ? LIMIT 1;")) {
                 stmt.setString(1, terminalName);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new UnknownTerminalException(name,
-                                                           terminalName);
+                        throw new UnknownTerminalException(name, terminalName);
                     tid = rs.getInt(1);
                     final double metering = rs.getDouble(2);
                     totalIngress = rs.wasNull() ? null : metering;
@@ -1228,8 +1224,7 @@ public class PersistentSwitch implements Switch {
                 }
                 sep = ",";
             } else if (egress != null) {
-                egressVal =
-                    egress + (totalEgress == null ? 0.0 : totalEgress);
+                egressVal = egress + (totalEgress == null ? 0.0 : totalEgress);
                 if (egressVal < 0.0)
                     throw new IllegalArgumentException("-ve egress capacity "
                         + egressVal + " at " + terminalName + " on " + name);
