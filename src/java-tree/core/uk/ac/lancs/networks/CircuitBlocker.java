@@ -36,11 +36,13 @@
 
 package uk.ac.lancs.networks;
 
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Pattern;
 
 /**
  * Identifies circuits which should not be connected.
@@ -86,12 +88,16 @@ public final class CircuitBlocker {
         for (String key : props.stringPropertyNames()) {
             if (!key.startsWith(prefix)) continue;
             String vtxt = props.getProperty(key);
-            int value = Integer.valueOf(vtxt);
+            BitSet set = Arrays.asList(SEPS.split(vtxt)).stream()
+                .mapToInt(Integer::parseInt)
+                .collect(BitSet::new, BitSet::set, BitSet::or);
             key = key.substring(plen);
-            blocked.computeIfAbsent(key, k -> new BitSet()).set(value);
+            blocked.put(key, set);
         }
         this.blocked = Collections.unmodifiableMap(blocked);
     }
+
+    private static final Pattern SEPS = Pattern.compile("[\\s,]+");
 
     /**
      * Determine whether a circuit belongs to the set of blocked
