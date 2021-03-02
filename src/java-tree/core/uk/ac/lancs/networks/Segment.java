@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +59,36 @@ public interface Segment {
      * @return the traffic flows of each circuit of the service
      */
     Map<? extends Circuit, ? extends TrafficFlow> circuitFlows();
+
+    /**
+     * Create a new service descriptor by filtering circuits of this
+     * one.
+     * 
+     * @param pred a filter selecting segment elements by the circuit
+     * identifier
+     * 
+     * @return a new service descriptor containing only those elements
+     * whose circuits are selected by the filter
+     */
+    default Segment filterCircuits(Predicate<? super Circuit> pred) {
+        return filter(e -> pred.test(e.getKey()));
+    }
+
+    /**
+     * Create a new service descriptor by filtering the elements of this
+     * one.
+     * 
+     * @param pred a filter selecting segment elements
+     * 
+     * @return a new service descriptor containing only those elements
+     * selected by the filter
+     */
+    default Segment
+        filter(Predicate<? super Map.Entry<? extends Circuit,
+                                           ? extends TrafficFlow>> pred) {
+        return create(circuitFlows().entrySet().stream().filter(pred)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+    }
 
     /**
      * Create a description from a set of producers and consumers. The
@@ -108,8 +139,7 @@ public interface Segment {
      * 
      * @return the description view of the same map
      */
-    static Segment
-        create(Map<? extends Circuit, ? extends TrafficFlow> data) {
+    static Segment create(Map<? extends Circuit, ? extends TrafficFlow> data) {
         return new Segment() {
             @Override
             public Map<? extends Circuit, ? extends TrafficFlow>
@@ -211,8 +241,7 @@ public interface Segment {
          * 
          * @return this object
          */
-        public Builder add(Circuit circuit, double produced,
-                           double consumed) {
+        public Builder add(Circuit circuit, double produced, double consumed) {
             data.put(circuit, Arrays.asList(produced, consumed));
             return this;
         }
