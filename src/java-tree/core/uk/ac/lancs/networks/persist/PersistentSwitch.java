@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -191,6 +192,9 @@ public class PersistentSwitch implements Switch {
              * than a token amount, and that no circuit's egress rate is
              * greater than the sum of the others' ingress rates. */
             request = Segment.sanitize(request, 0.01);
+
+            /* Eliminate end points that are to be excluded. */
+            request = request.filterCircuits(blocker.negate());
 
             /* Add the details to the database. */
             try (Connection conn = database()) {
@@ -637,6 +641,8 @@ public class PersistentSwitch implements Switch {
 
     private final Map<String, MyService> servicesByHandle = new HashMap<>();
 
+    private final Predicate<? super Circuit> blocker;
+
     /**
      * Print out the status of all services and trunks of this switch.
      * 
@@ -666,6 +672,9 @@ public class PersistentSwitch implements Switch {
      * @param dbConfig the configuration describing access to the
      * database
      * 
+     * @param blocker a predicate identifying circuits that should not
+     * be connected
+     * 
      * <p>
      * The following additional configuration may be specified:
      * 
@@ -693,8 +702,11 @@ public class PersistentSwitch implements Switch {
      * database
      */
     public PersistentSwitch(String name, Executor executor, Fabric fabric,
+                            Predicate<? super Circuit> blocker,
                             Configuration dbConfig)
         throws SQLException {
+
+        this.blocker = blocker;
         this.executor = executor;
         this.name = name;
         this.fabric = fabric;

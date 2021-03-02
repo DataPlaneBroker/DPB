@@ -58,13 +58,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
 import uk.ac.lancs.config.Configuration;
 import uk.ac.lancs.networks.ChordMetrics;
 import uk.ac.lancs.networks.Circuit;
+import uk.ac.lancs.networks.CircuitBlocker;
 import uk.ac.lancs.networks.InvalidServiceException;
 import uk.ac.lancs.networks.NetworkControl;
 import uk.ac.lancs.networks.NetworkException;
@@ -171,8 +172,9 @@ public class PersistentAggregator implements Aggregator {
                 out.printf("%n      inferior %s:", subservice.status());
                 Segment request = subservice.getRequest();
                 if (request != null) {
-                    for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
-                        .circuitFlows().entrySet()) {
+                    for (Map.Entry<? extends Circuit,
+                                   ? extends TrafficFlow> entry : request
+                                       .circuitFlows().entrySet()) {
                         Circuit ep = entry.getKey();
                         TrafficFlow flow = entry.getValue();
                         out.printf("%n        %10s %6g %6g", ep, flow.ingress,
@@ -192,8 +194,7 @@ public class PersistentAggregator implements Aggregator {
          * objects.
          ***/
 
-        synchronized void newClientStatus(Client cli,
-                                          ServiceStatus newStatus) {
+        synchronized void newClientStatus(Client cli, ServiceStatus newStatus) {
             /* Ignore some non-sensical reports. */
             if (newStatus == ServiceStatus.DORMANT) return;
 
@@ -257,13 +258,13 @@ public class PersistentAggregator implements Aggregator {
             default:
                 break;
             }
-            logger.log(Level.INFO,
-                       String.format("I=%d%s A=%d%s F=%d%s R=%d%s",
-                                     inactiveCount,
-                                     inactiveChanged ? "!" : "", activeCount,
-                                     activeChanged ? "!" : "", failedCount,
-                                     failedChanged ? "!" : "", releasedCount,
-                                     releasedChanged ? "!" : ""));
+            logger
+                .log(Level.INFO,
+                     String.format("I=%d%s A=%d%s F=%d%s R=%d%s", inactiveCount,
+                                   inactiveChanged ? "!" : "", activeCount,
+                                   activeChanged ? "!" : "", failedCount,
+                                   failedChanged ? "!" : "", releasedCount,
+                                   releasedChanged ? "!" : ""));
 
             /* Record the last status and last stable status for this
              * subservice. */
@@ -328,8 +329,11 @@ public class PersistentAggregator implements Aggregator {
                             /* The clients must have been DORMANT, but
                              * the user prematurely activated us. */
                             callOut(ServiceStatus.ACTIVATING);
-                            clients.parallelStream()
-                                .forEach(Client::activate);
+                            if (activeCount == clients.size())
+                                callOut(ServiceStatus.ACTIVE);
+                            else
+                                clients.parallelStream()
+                                    .forEach(Client::activate);
                             break;
 
                         case RELEASE:
@@ -347,8 +351,8 @@ public class PersistentAggregator implements Aggregator {
                     }
 
                     if (intent == Intent.RELEASE || intent == Intent.RESET) {
-                        if (releasedChanged
-                            && releasedCount == clients.size()) {
+                        if (releasedChanged &&
+                            releasedCount == clients.size()) {
                             /* All subservices have been released, so we
                              * can regard ourselves as fully released
                              * now. */
@@ -427,7 +431,9 @@ public class PersistentAggregator implements Aggregator {
         }
 
         final int id;
+
         final Collection<ServiceListener> listeners = new HashSet<>();
+
         final List<Client> clients = new ArrayList<>();
 
         private void callOut(ServiceStatus status) {
@@ -457,11 +463,11 @@ public class PersistentAggregator implements Aggregator {
         public synchronized void define(Segment request)
             throws InvalidServiceException {
 
+            /* Eliminate end points that are to be excluded. */
+            request = request.filterCircuits(blocker.negate());
+
             /* Make sure the request is sane. */
             request = Segment.sanitize(request, 0.01);
-            if (request.circuitFlows().size() < 2)
-                throw new IllegalArgumentException("invalid service"
-                    + " description (fewer than" + " two circuits)");
 
             Collection<Service> redundantServices = new HashSet<>();
             boolean failed = true;
@@ -490,15 +496,15 @@ public class PersistentAggregator implements Aggregator {
                 /* Plot a spanning tree across this network, allocating
                  * tunnels. */
                 Collection<Segment> subrequests = new HashSet<>();
-                plotAsymmetricTree(id, conn, this, request, subrequests);
+                if (request.circuitFlows().size() >= 2)
+                    plotAsymmetricTree(id, conn, this, request, subrequests);
 
                 /* Create subservices for each inferior network, and a
                  * distinct reference of our own for each one. */
-                Map<Service, Segment> subcons =
-                    subrequests.stream()
-                        .collect(Collectors.toMap(r -> r.circuitFlows()
-                            .keySet().iterator().next().getTerminal()
-                            .getNetwork().newService(), r -> r));
+                Map<Service, Segment> subcons = subrequests.stream()
+                    .collect(Collectors
+                        .toMap(r -> r.circuitFlows().keySet().iterator().next()
+                            .getTerminal().getNetwork().newService(), r -> r));
 
                 /* If we fail, ensure we release all these resources. */
                 redundantServices.addAll(subcons.keySet());
@@ -537,8 +543,9 @@ public class PersistentAggregator implements Aggregator {
                         + " (service_id, terminal_id, label, metering, shaping)"
                         + " VALUES (?, ?, ?, ?, ?);")) {
                     stmt.setInt(1, this.id);
-                    for (Map.Entry<? extends Circuit, ? extends TrafficFlow> entry : request
-                        .circuitFlows().entrySet()) {
+                    for (Map.Entry<? extends Circuit,
+                                   ? extends TrafficFlow> entry : request
+                                       .circuitFlows().entrySet()) {
                         Circuit circuit = entry.getKey();
                         SuperiorTerminal term =
                             (SuperiorTerminal) circuit.getTerminal();
@@ -557,10 +564,8 @@ public class PersistentAggregator implements Aggregator {
                 redundantServices.clear();
                 failed = false;
             } catch (SQLException e) {
-                throw new ServiceException(control.name(), id,
-                                           "could not plot"
-                                               + " tree across network",
-                                           e);
+                throw new ServiceException(control.name(), id, "could not plot"
+                    + " tree across network", e);
             } finally {
                 redundantServices.forEach(Service::release);
                 if (failed) release();
@@ -575,8 +580,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, id);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new RuntimeException("service id missing: "
-                            + id);
+                        throw new RuntimeException("service id missing: " + id);
                     intent = rs.getInt(1);
                 }
             }
@@ -592,10 +596,10 @@ public class PersistentAggregator implements Aggregator {
             assert failedCount == 0;
             if (dormantCount > 0) return ServiceStatus.ESTABLISHING;
             if (intent == Intent.ACTIVE.ordinal())
-                return activeCount < clients.size() ? ServiceStatus.ACTIVATING
-                    : ServiceStatus.ACTIVE;
-            return activeCount > 0 ? ServiceStatus.DEACTIVATING
-                : ServiceStatus.INACTIVE;
+                return activeCount < clients.size() ? ServiceStatus.ACTIVATING :
+                    ServiceStatus.ACTIVE;
+            return activeCount > 0 ? ServiceStatus.DEACTIVATING :
+                ServiceStatus.INACTIVE;
         }
 
         @Override
@@ -644,7 +648,10 @@ public class PersistentAggregator implements Aggregator {
             if (!initiated) return;
 
             callOut(ServiceStatus.ACTIVATING);
-            clients.parallelStream().forEach(Client::activate);
+            if (activeCount == clients.size())
+                callOut(ServiceStatus.ACTIVE);
+            else
+                clients.parallelStream().forEach(Client::activate);
         }
 
         @Override
@@ -765,9 +772,9 @@ public class PersistentAggregator implements Aggregator {
 
             default:
                 Collection<Trunk> refs = new ArrayList<>();
-                for (Map.Entry<MyTrunk, Circuit> tunnel : getTunnels(conn, id,
-                                                                     refs)
-                                                                         .entrySet()) {
+                for (Map.Entry<MyTrunk,
+                               Circuit> tunnel : getTunnels(conn, id, refs)
+                                   .entrySet()) {
                     Circuit ep1 = tunnel.getValue();
                     Circuit ep2 = tunnel.getKey().getPeer(ep1);
                     out.printf("%n      %20s=%-20s", ep1, ep2);
@@ -790,11 +797,10 @@ public class PersistentAggregator implements Aggregator {
             return request;
         }
 
-        synchronized void
-            recover(Connection conn,
-                    Map<Circuit, ? extends TrafficFlow> circuits,
-                    Collection<? extends Service> subservices)
-                throws SQLException {
+        synchronized void recover(Connection conn,
+                                  Map<Circuit, ? extends TrafficFlow> circuits,
+                                  Collection<? extends Service> subservices)
+            throws SQLException {
             request = Segment.create(circuits);
 
             clients.clear();
@@ -813,19 +819,24 @@ public class PersistentAggregator implements Aggregator {
                 case DORMANT:
                     dormantCount++;
                     break;
+
                 case INACTIVE:
                     inactiveCount++;
                     break;
+
                 case ACTIVE:
                     activeCount++;
                     break;
+
                 case FAILED:
                     failedCount++;
                     errors.addAll(cli.subservice.errors());
                     break;
+
                 case RELEASED:
                     releasedCount++;
                     break;
+
                 default:
                     break;
                 }
@@ -838,6 +849,7 @@ public class PersistentAggregator implements Aggregator {
                 if (releasedCount == clients.size())
                     completeRelease(conn, intent);
                 break;
+
             default:
                 break;
             }
@@ -856,7 +868,9 @@ public class PersistentAggregator implements Aggregator {
      */
     final class MyTrunk implements Trunk {
         private final int dbid;
+
         private final Terminal start, end;
+
         private volatile boolean disabled;
 
         /**
@@ -876,16 +890,14 @@ public class PersistentAggregator implements Aggregator {
             disabled = true;
         }
 
-        double getBandwidth(Connection conn, String field)
-            throws SQLException {
+        double getBandwidth(Connection conn, String field) throws SQLException {
             try (PreparedStatement stmt =
-                conn.prepareStatement("SELECT " + field + " FROM "
-                    + trunkTable + " WHERE trunk_id = ? LIMIT 1;")) {
+                conn.prepareStatement("SELECT " + field + " FROM " + trunkTable
+                    + " WHERE trunk_id = ? LIMIT 1;")) {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new RuntimeException("missing trunk id: "
-                            + dbid);
+                        throw new RuntimeException("missing trunk id: " + dbid);
                     return rs.getDouble(1);
                 }
             }
@@ -977,9 +989,9 @@ public class PersistentAggregator implements Aggregator {
                     + " belong to trunk");
             }
             try (Connection conn = openDatabase();
-                PreparedStatement stmt = conn.prepareStatement("SELECT "
-                    + resultKey + " FROM " + labelTable
-                    + " WHERE trunk_id = ?" + " AND " + indexKey + " = ?;")) {
+                 PreparedStatement stmt = conn.prepareStatement("SELECT "
+                     + resultKey + " FROM " + labelTable + " WHERE trunk_id = ?"
+                     + " AND " + indexKey + " = ?;")) {
                 stmt.setInt(1, dbid);
                 stmt.setInt(2, p.getLabel());
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -1004,6 +1016,7 @@ public class PersistentAggregator implements Aggregator {
          * 
          * @return the circuit at the start of the tunnel, or
          * {@code null} if no further resource remains
+         * 
          * @throws SQLException
          */
         Circuit allocateTunnel(Connection conn, MyService service,
@@ -1025,8 +1038,7 @@ public class PersistentAggregator implements Aggregator {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
                     if (!rs.next())
-                        throw new RuntimeException("missing trunk id: "
-                            + dbid);
+                        throw new RuntimeException("missing trunk id: " + dbid);
                     if (upstreamBandwidth > rs.getDouble(1)) return null;
                     if (downstreamBandwidth > rs.getDouble(2)) return null;
                 }
@@ -1047,10 +1059,10 @@ public class PersistentAggregator implements Aggregator {
 
             /* Store the allocation for the label, marking it as being
              * used by the specified service. */
-            try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
-                + labelTable + " SET up_alloc = ?," + " down_alloc = ?"
-                + ", service_id = ? " + " WHERE trunk_id = ?"
-                + " AND start_label = ?;")) {
+            try (PreparedStatement stmt = conn
+                .prepareStatement("UPDATE " + labelTable + " SET up_alloc = ?,"
+                    + " down_alloc = ?" + ", service_id = ? "
+                    + " WHERE trunk_id = ?" + " AND start_label = ?;")) {
                 stmt.setDouble(1, upstreamBandwidth);
                 stmt.setDouble(2, downstreamBandwidth);
                 stmt.setInt(3, service.id);
@@ -1138,8 +1150,8 @@ public class PersistentAggregator implements Aggregator {
         }
 
         int getAvailableTunnelCount(Connection conn) throws SQLException {
-            try (PreparedStatement stmt = conn
-                .prepareStatement("SELECT COUNT(*)" + " FROM " + labelTable
+            try (PreparedStatement stmt =
+                conn.prepareStatement("SELECT COUNT(*)" + " FROM " + labelTable
                     + " WHERE trunk_id = ?" + " AND service_id IS NULL;")) {
                 stmt.setInt(1, dbid);
                 try (ResultSet rs = stmt.executeQuery()) {
@@ -1176,8 +1188,7 @@ public class PersistentAggregator implements Aggregator {
                 return getDelay(conn);
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1231,8 +1242,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1249,24 +1259,22 @@ public class PersistentAggregator implements Aggregator {
                 updateTrunkCapacity(conn, this.dbid, +upstream, +downstream);
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
         @Override
         public void setDelay(double delay) {
             try (Connection conn = openDatabase();
-                PreparedStatement stmt =
-                    conn.prepareStatement("UPDATE " + trunkTable
-                        + " SET metric = ?" + " WHERE trunk_id = ?;")) {
+                 PreparedStatement stmt =
+                     conn.prepareStatement("UPDATE " + trunkTable
+                         + " SET metric = ?" + " WHERE trunk_id = ?;")) {
                 stmt.setDouble(1, delay);
                 stmt.setInt(2, dbid);
                 stmt.execute();
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1315,8 +1323,7 @@ public class PersistentAggregator implements Aggregator {
                 revokeInternalRange("start_label", startBase, amount);
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1327,8 +1334,7 @@ public class PersistentAggregator implements Aggregator {
                 revokeInternalRange("end_label", endBase, amount);
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1385,8 +1391,7 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
-                                                   "unexpected DB failure",
-                                                   e);
+                                                   "unexpected DB failure", e);
             }
         }
 
@@ -1406,8 +1411,7 @@ public class PersistentAggregator implements Aggregator {
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure "
-                                                       + "setting trunk "
-                                                       + dbid
+                                                       + "setting trunk " + dbid
                                                        + " commissioned status",
                                                    e);
             }
@@ -1420,8 +1424,7 @@ public class PersistentAggregator implements Aggregator {
             } catch (SQLException e) {
                 throw new NetworkResourceException(PersistentAggregator.this.name,
                                                    "DB failure "
-                                                       + "setting trunk "
-                                                       + dbid
+                                                       + "setting trunk " + dbid
                                                        + " commissioned status",
                                                    e);
             }
@@ -1446,8 +1449,10 @@ public class PersistentAggregator implements Aggregator {
             switch (pos) {
             case 0:
                 return start;
+
             case 1:
                 return end;
+
             default:
                 throw new IllegalArgumentException("position meaningless: "
                     + pos);
@@ -1467,13 +1472,18 @@ public class PersistentAggregator implements Aggregator {
 
     private final Function<? super String, ? extends NetworkControl> inferiors;
 
-    private final String circuitTable, terminalTable, serviceTable,
-        handleTable, subserviceTable, trunkTable, labelTable;
+    private final String circuitTable, terminalTable, serviceTable, handleTable,
+        subserviceTable, trunkTable, labelTable;
+
     private final String dbConnectionAddress;
+
     private final Properties dbConnectionConfig;
 
     private final Executor executor;
+
     private final String name;
+
+    private final Predicate<? super Circuit> blocker;
 
     // private final Map<String, SuperiorTerminal> terminals = new
     // HashMap<>();
@@ -1512,8 +1522,7 @@ public class PersistentAggregator implements Aggregator {
             conn.commit();
         } catch (SQLException e) {
             throw new NetworkResourceException(PersistentAggregator.this.name,
-                                               "unable to dump network "
-                                                   + name,
+                                               "unable to dump network " + name,
                                                e);
         }
     }
@@ -1543,6 +1552,10 @@ public class PersistentAggregator implements Aggregator {
      * <dd>Fields to be passed when connecting to the database service,
      * e.g., <samp>password</samp>
      * 
+     * <dt><samp>block.<var>misc</var></samp></dt>
+     * 
+     * <dd>Fields used to create a {@link CircuitBlocker}
+     * 
      * </dl>
      * 
      * @param executor used to invoke call-backs created by this
@@ -1559,12 +1572,18 @@ public class PersistentAggregator implements Aggregator {
      * database
      */
     public PersistentAggregator(Executor executor,
-                                Function<? super String, ? extends NetworkControl> inferiors,
+                                Function<? super String,
+                                         ? extends NetworkControl> inferiors,
                                 Configuration config)
         throws SQLException {
         this.executor = executor;
         this.inferiors = inferiors;
         this.name = config.get("name");
+
+        /* Detect circuits not to be connected. */
+        final CircuitBlocker cb =
+            new CircuitBlocker(config.subview("block").toProperties());
+        this.blocker = cb::isBlocked;
 
         /* Record how we talk to the database. */
         Configuration dbConfig = config.subview("db");
@@ -1604,8 +1623,7 @@ public class PersistentAggregator implements Aggregator {
                     + " (trunk_id INTEGER PRIMARY KEY,"
                     + " start_network VARCHAR(20),"
                     + " start_terminal VARCHAR(20),"
-                    + " end_network VARCHAR(20),"
-                    + " end_terminal VARCHAR(20),"
+                    + " end_network VARCHAR(20)," + " end_terminal VARCHAR(20),"
                     + " up_cap DECIMAL(9,3) DEFAULT 0.0,"
                     + " down_cap DECIMAL(9,3) DEFAULT 0.0,"
                     + " metric DECIMAL(9,3) DEFAULT 0.1,"
@@ -1636,9 +1654,8 @@ public class PersistentAggregator implements Aggregator {
                     + " shaping DECIMAL(9,3),"
                     + " PRIMARY KEY(service_id, terminal_id, label),"
                     + " FOREIGN KEY(service_id) REFERENCES " + serviceTable
-                    + "(service_id),"
-                    + " FOREIGN KEY(terminal_id) REFERENCES " + terminalTable
-                    + "(terminal_id));");
+                    + "(service_id)," + " FOREIGN KEY(terminal_id) REFERENCES "
+                    + terminalTable + "(terminal_id));");
 
                 /* The subservice table relates each of our services to
                  * those in other networks. */
@@ -1699,11 +1716,11 @@ public class PersistentAggregator implements Aggregator {
         if (p1 == null || p2 == null)
             throw new NullPointerException("null terminal(s)");
         try (Connection conn = newDatabaseContext(false);
-            PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO " + trunkTable
-                    + " (start_network, start_terminal,"
-                    + " end_network, end_terminal)" + " VALUES (?, ?, ?, ?);",
-                                      Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt =
+                 conn.prepareStatement("INSERT INTO " + trunkTable
+                     + " (start_network, start_terminal,"
+                     + " end_network, end_terminal)" + " VALUES (?, ?, ?, ?);",
+                                       Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, p1.getNetwork().name());
             stmt.setString(2, p1.name());
             stmt.setString(3, p2.getNetwork().name());
@@ -1714,8 +1731,7 @@ public class PersistentAggregator implements Aggregator {
                     throw new NetworkResourceException(PersistentAggregator.this.name,
                                                        "failed to generate"
                                                            + " id for new trunk "
-                                                           + p1 + " to "
-                                                           + p2);
+                                                           + p1 + " to " + p2);
                 final int id = rs.getInt(1);
                 conn.commit();
                 return trunkWatcher.get(id);
@@ -1759,12 +1775,11 @@ public class PersistentAggregator implements Aggregator {
     @Override
     public Collection<List<TerminalId>> getTrunks() {
         try (Connection conn = newDatabaseContext(false);
-            Statement stmt = conn.createStatement()) {
+             Statement stmt = conn.createStatement()) {
             Collection<List<TerminalId>> result = new HashSet<>();
-            try (ResultSet rs =
-                stmt.executeQuery("SELECT " + "start_network, start_terminal,"
-                    + " end_network, end_terminal" + " FROM " + trunkTable
-                    + ";")) {
+            try (ResultSet rs = stmt.executeQuery("SELECT "
+                + "start_network, start_terminal,"
+                + " end_network, end_terminal" + " FROM " + trunkTable + ";")) {
                 while (rs.next()) {
                     String sn = rs.getString(1);
                     String st = rs.getString(2);
@@ -1804,7 +1819,7 @@ public class PersistentAggregator implements Aggregator {
     @Override
     public Map<Terminal, TerminalId> getTerminals() {
         try (Connection conn = openDatabase();
-            Statement stmt = conn.createStatement()) {
+             Statement stmt = conn.createStatement()) {
             try (ResultSet rs = stmt.executeQuery("SELECT"
                 + " terminal_id, name, subnetwork, subname" + " FROM "
                 + terminalTable + ";")) {
@@ -1814,12 +1829,11 @@ public class PersistentAggregator implements Aggregator {
                     String outerName = rs.getString(2);
                     String subnetworkName = rs.getString(3);
                     String subname = rs.getString(4);
-                    NetworkControl subnetwork =
-                        inferiors.apply(subnetworkName);
+                    NetworkControl subnetwork = inferiors.apply(subnetworkName);
                     Terminal innerPort = subnetwork.getTerminal(subname);
                     SuperiorTerminal outer =
-                        new SuperiorTerminal(getControl(), outerName,
-                                             innerPort, id);
+                        new SuperiorTerminal(getControl(), outerName, innerPort,
+                                             id);
                     TerminalId inner = TerminalId.of(subnetworkName, subname);
                     result.put(outer, inner);
                 }
@@ -1840,10 +1854,10 @@ public class PersistentAggregator implements Aggregator {
             TerminalExistsException {
         Terminal inner = getSubterminal(subterm);
         try (Connection conn = openDatabase();
-            PreparedStatement stmt =
-                conn.prepareStatement("INSERT INTO " + terminalTable
-                    + " (name, subnetwork, subname)" + " VALUES (?, ?, ?)",
-                                      Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt =
+                 conn.prepareStatement("INSERT INTO " + terminalTable
+                     + " (name, subnetwork, subname)" + " VALUES (?, ?, ?)",
+                                       Statement.RETURN_GENERATED_KEYS)) {
             stmt.setString(1, name);
             stmt.setString(2, inner.getNetwork().name());
             stmt.setString(3, inner.name());
@@ -1875,8 +1889,8 @@ public class PersistentAggregator implements Aggregator {
     @Override
     public void removeTerminal(String name) throws UnknownTerminalException {
         try (Connection conn = openDatabase();
-            PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
-                + terminalTable + " WHERE name = ?;")) {
+             PreparedStatement stmt = conn.prepareStatement("DELETE FROM "
+                 + terminalTable + " WHERE name = ?;")) {
             stmt.setString(1, name);
             int done = stmt.executeUpdate();
             if (done == 0)
@@ -2008,8 +2022,7 @@ public class PersistentAggregator implements Aggregator {
         Map<Edge<Terminal>, ChordMetrics> subnetworkEdgeMetrics = subnetworks
             .stream()
             .flatMap(sw -> sw.getModel(smallestBandwidth).entrySet().stream())
-            .collect(Collectors.toMap(Map.Entry::getKey,
-                                      Map.Entry::getValue));
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         Map<Edge<Terminal>, Double> subnetworkEdgeWeights =
             subnetworkEdgeMetrics.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> e.getValue().delay()));
@@ -2074,8 +2087,9 @@ public class PersistentAggregator implements Aggregator {
             routes.update();
             Edge<Terminal> worstEdge = null;
             double worstShortfall = 0.0;
-            for (Map.Entry<Edge<Terminal>, List<Map<Terminal, Double>>> entry : routes
-                .getEdgeLoads().entrySet()) {
+            for (Map.Entry<Edge<Terminal>,
+                           List<Map<Terminal, Double>>> entry : routes
+                               .getEdgeLoads().entrySet()) {
                 Edge<Terminal> edge = entry.getKey();
                 MyTrunk trunk = trunkEdges.get(edge);
                 if (trunk == null) continue;
@@ -2084,9 +2098,8 @@ public class PersistentAggregator implements Aggregator {
                 List<Double> thisEdgeBandwidths = Arrays.asList(0.0, 0.0);
                 edgeBandwidths.put(trunk, thisEdgeBandwidths);
                 for (int i = 0; i < 2; i++) {
-                    double consumed =
-                        entry.getValue().get(i).keySet().stream()
-                            .mapToDouble(p -> bandwidths.get(p).get(1)).sum();
+                    double consumed = entry.getValue().get(i).keySet().stream()
+                        .mapToDouble(p -> bandwidths.get(p).get(1)).sum();
                     double produced =
                         entry.getValue().get(1 - i).keySet().stream()
                             .mapToDouble(p -> bandwidths.get(p).get(0)).sum();
@@ -2164,6 +2177,7 @@ public class PersistentAggregator implements Aggregator {
      * @param innerTerminals the set of terminals to connect
      * 
      * @return a FIB for each terminal
+     * 
      * @throws SQLException
      */
     Map<Terminal, Map<Terminal, Way<Terminal>>>
@@ -2213,9 +2227,8 @@ public class PersistentAggregator implements Aggregator {
 
             /* Map the set of our circuits to the corresponding inner
              * terminals that our topology consists of. */
-            Collection<Terminal> innerTerminalPorts =
-                terminals.stream().map(SuperiorTerminal::subterminal)
-                    .collect(Collectors.toSet());
+            Collection<Terminal> innerTerminalPorts = terminals.stream()
+                .map(SuperiorTerminal::subterminal).collect(Collectors.toSet());
 
             /* Create routing tables for each terminal. */
             Map<Terminal, Map<Terminal, Way<Terminal>>> fibs =
@@ -2359,8 +2372,9 @@ public class PersistentAggregator implements Aggregator {
                 conn.commit();
                 return result;
             } catch (SQLException e) {
-                throw new NetworkException(control.name(), "unable to"
-                    + " create new service", e);
+                throw new NetworkException(control.name(),
+                                           "unable to" + " create new service",
+                                           e);
             }
         }
 
@@ -2404,8 +2418,8 @@ public class PersistentAggregator implements Aggregator {
                         } catch (Throwable e) {
                             throw new AssertionError("unreachable", e);
                         }
-                    } catch (IllegalAccessException
-                        | IllegalArgumentException e) {
+                    } catch (IllegalAccessException |
+                             IllegalArgumentException e) {
                         throw new AssertionError("unreachable", e);
                     }
                 });
@@ -2431,8 +2445,7 @@ public class PersistentAggregator implements Aggregator {
         ReferenceWatcher.on(Service.class, getClass().getClassLoader(),
                             this::recoverService, MyService::cleanUp);
 
-    private MyTrunk recoverTrunk(Connection conn, int id)
-        throws SQLException {
+    private MyTrunk recoverTrunk(Connection conn, int id) throws SQLException {
         try (PreparedStatement stmt =
             conn.prepareStatement("SELECT" + " start_network,"
                 + " start_terminal," + " end_network," + " end_terminal"
@@ -2460,8 +2473,8 @@ public class PersistentAggregator implements Aggregator {
             Connection conn = contextConnection.get();
             return recoverTrunk(conn, id);
         } catch (SQLException e) {
-            throw new RuntimeException("database failure"
-                + " recovering trunk " + id);
+            throw new RuntimeException("database failure" + " recovering trunk "
+                + id);
         }
     }
 
@@ -2548,8 +2561,8 @@ public class PersistentAggregator implements Aggregator {
         throws SQLException {
         Collection<Integer> result = new HashSet<>();
         try (Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT service_id FROM "
-                + serviceTable + ";")) {
+             ResultSet rs = stmt.executeQuery("SELECT service_id FROM "
+                 + serviceTable + ";")) {
             while (rs.next()) {
                 result.add(rs.getInt(1));
             }
@@ -2572,9 +2585,8 @@ public class PersistentAggregator implements Aggregator {
      */
     private MyService recoverService(Connection conn, Integer id)
         throws SQLException {
-        try (PreparedStatement stmt =
-            conn.prepareStatement("SELECT" + " intent" + " FROM "
-                + serviceTable + " WHERE service_id = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("SELECT" + " intent"
+            + " FROM " + serviceTable + " WHERE service_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) {
@@ -2604,8 +2616,7 @@ public class PersistentAggregator implements Aggregator {
                     final double metering = rs.getDouble(6);
                     final double shaping = rs.getDouble(7);
 
-                    NetworkControl subnetwork =
-                        inferiors.apply(subnetworkName);
+                    NetworkControl subnetwork = inferiors.apply(subnetworkName);
                     Terminal innerPort = subnetwork.getTerminal(subname);
                     SuperiorTerminal port =
                         new SuperiorTerminal(getControl(), name, innerPort,
@@ -2619,9 +2630,9 @@ public class PersistentAggregator implements Aggregator {
         }
 
         final Collection<Service> subservices = new ArrayList<>();
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-            + " subservice_id, " + " subnetwork_name" + " FROM "
-            + subserviceTable + " WHERE service_id = ?;")) {
+        try (PreparedStatement stmt = conn
+            .prepareStatement("SELECT" + " subservice_id, " + " subnetwork_name"
+                + " FROM " + subserviceTable + " WHERE service_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -2706,18 +2717,15 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    private void releaseTunnels(Connection conn, int sid)
-        throws SQLException {
+    private void releaseTunnels(Connection conn, int sid) throws SQLException {
         /* Restore available bandwidth from tunnels to the containing
          * trunks. */
-        try (
-            PreparedStatement trunkUpdateStmt =
-                conn.prepareStatement("UPDATE " + trunkTable
-                    + " SET up_cap = up_cap + ?," + " down_cap = down_cap + ?"
-                    + " WHERE trunk_id = ?;");
-            PreparedStatement readStmt = conn
-                .prepareStatement("SELECT" + " trunk_id, up_alloc, down_alloc"
-                    + " FROM " + labelTable + " WHERE service_id = ?;")) {
+        try (PreparedStatement trunkUpdateStmt = conn.prepareStatement("UPDATE "
+            + trunkTable + " SET up_cap = up_cap + ?,"
+            + " down_cap = down_cap + ?" + " WHERE trunk_id = ?;");
+             PreparedStatement readStmt = conn
+                 .prepareStatement("SELECT" + " trunk_id, up_alloc, down_alloc"
+                     + " FROM " + labelTable + " WHERE service_id = ?;")) {
             readStmt.setInt(1, sid);
             try (ResultSet rs = readStmt.executeQuery()) {
                 while (rs.next()) {
@@ -2799,8 +2807,7 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    private boolean testInitiated(Connection conn, int id)
-        throws SQLException {
+    private boolean testInitiated(Connection conn, int id) throws SQLException {
         try (PreparedStatement stmt = conn.prepareStatement("SELECT * FROM "
             + circuitTable + " WHERE service_id = ?" + " LIMIT 1;")) {
             stmt.setInt(1, id);
@@ -2825,20 +2832,19 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    private Map<MyTrunk, Circuit>
-        getTunnels(Connection conn, int id,
-                   Collection<? super Trunk> refCache)
-            throws SQLException {
+    private Map<MyTrunk, Circuit> getTunnels(Connection conn, int id,
+                                             Collection<? super Trunk> refCache)
+        throws SQLException {
         Map<MyTrunk, Circuit> tunnels = new HashMap<>();
         try (ConnectionContext ctxt = setContext(conn);
-            PreparedStatement stmt =
-                conn.prepareStatement("SELECT" + " lt.trunk_id AS trunk_id,"
-                    + " lt.start_label AS start_label,"
-                    + " tt.start_network AS start_network,"
-                    + " tt.start_terminal AS start_terminal" + " FROM "
-                    + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
-                    + " AS tt" + " ON tt.trunk_id = lt.trunk_id"
-                    + " WHERE lt.service_id = ?;")) {
+             PreparedStatement stmt =
+                 conn.prepareStatement("SELECT" + " lt.trunk_id AS trunk_id,"
+                     + " lt.start_label AS start_label,"
+                     + " tt.start_network AS start_network,"
+                     + " tt.start_terminal AS start_terminal" + " FROM "
+                     + labelTable + " AS lt" + " LEFT JOIN " + trunkTable
+                     + " AS tt" + " ON tt.trunk_id = lt.trunk_id"
+                     + " WHERE lt.service_id = ?;")) {
             stmt.setInt(1, id);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
@@ -2870,12 +2876,12 @@ public class PersistentAggregator implements Aggregator {
      * 
      * @throws SQLException if there was an error accessing the database
      */
-    private Collection<MyTrunk>
-        getAllTrunks(Connection conn, Collection<? super Trunk> refCache)
-            throws SQLException {
+    private Collection<MyTrunk> getAllTrunks(Connection conn,
+                                             Collection<? super Trunk> refCache)
+        throws SQLException {
         Collection<MyTrunk> result = new HashSet<>();
         try (ConnectionContext ctxt = setContext(conn);
-            Statement stmt = conn.createStatement()) {
+             Statement stmt = conn.createStatement()) {
 
             try (ResultSet rs = stmt.executeQuery("SELECT trunk_id" + " FROM "
                 + trunkTable + ";")) {
@@ -2911,13 +2917,13 @@ public class PersistentAggregator implements Aggregator {
             throws SQLException {
         Collection<MyTrunk> result = new HashSet<>();
         try (ConnectionContext ctxt = setContext(conn);
-            PreparedStatement stmt =
-                conn.prepareStatement("SELECT DISTINCT tt.trunk_id" + " FROM "
-                    + trunkTable + " AS tt" + " LEFT JOIN " + labelTable
-                    + " AS lt" + " ON lt.trunk_id = tt.trunk_id"
-                    + " WHERE (tt.up_cap >= ? AND tt.down_cap >= ?"
-                    + " AND tt.commissioned > 0)"
-                    + " AND lt.service_id IS NULL;")) {
+             PreparedStatement stmt =
+                 conn.prepareStatement("SELECT DISTINCT tt.trunk_id" + " FROM "
+                     + trunkTable + " AS tt" + " LEFT JOIN " + labelTable
+                     + " AS lt" + " ON lt.trunk_id = tt.trunk_id"
+                     + " WHERE (tt.up_cap >= ? AND tt.down_cap >= ?"
+                     + " AND tt.commissioned > 0)"
+                     + " AND lt.service_id IS NULL;")) {
             stmt.setDouble(1, bandwidth);
             stmt.setDouble(2, bandwidth);
             try (ResultSet rs = stmt.executeQuery()) {
@@ -2934,9 +2940,9 @@ public class PersistentAggregator implements Aggregator {
 
     private SuperiorTerminal getTerminal(Connection conn, String name)
         throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement("SELECT"
-            + " terminal_id," + " subnetwork," + " subname" + " FROM "
-            + terminalTable + " WHERE name = ?;")) {
+        try (PreparedStatement stmt =
+            conn.prepareStatement("SELECT" + " terminal_id," + " subnetwork,"
+                + " subname" + " FROM " + terminalTable + " WHERE name = ?;")) {
             stmt.setString(1, name);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next()) return null;
@@ -2957,8 +2963,8 @@ public class PersistentAggregator implements Aggregator {
         throws SQLException {
         Map<String, SuperiorTerminal> terminals = new HashMap<>();
         try (Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT terminal_id, name,"
-                + " subnetwork, subname" + " FROM " + terminalTable + ";")) {
+             ResultSet rs = stmt.executeQuery("SELECT terminal_id, name,"
+                 + " subnetwork, subname" + " FROM " + terminalTable + ";")) {
             while (rs.next()) {
                 final int id = rs.getInt(1);
                 final String name = rs.getString(2);
@@ -2978,8 +2984,8 @@ public class PersistentAggregator implements Aggregator {
     private boolean getTrunkCommissioned(Connection conn, int tid)
         throws SQLException {
         try (PreparedStatement stmt =
-            conn.prepareStatement("SELECT commissioned" + " FROM "
-                + trunkTable + " WHERE trunk_id = ?" + " LIMIT 1;")) {
+            conn.prepareStatement("SELECT commissioned" + " FROM " + trunkTable
+                + " WHERE trunk_id = ?" + " LIMIT 1;")) {
             stmt.setInt(1, tid);
             try (ResultSet rs = stmt.executeQuery()) {
                 if (!rs.next())
@@ -2991,9 +2997,8 @@ public class PersistentAggregator implements Aggregator {
 
     private void commissionTrunk(Connection conn, int tid, boolean status)
         throws SQLException {
-        try (PreparedStatement stmt =
-            conn.prepareStatement("UPDATE " + trunkTable
-                + " SET commissioned = ?" + " WHERE trunk_id = ?;")) {
+        try (PreparedStatement stmt = conn.prepareStatement("UPDATE "
+            + trunkTable + " SET commissioned = ?" + " WHERE trunk_id = ?;")) {
             stmt.setInt(1, tid);
             int done = stmt.executeUpdate();
             if (done == 0)

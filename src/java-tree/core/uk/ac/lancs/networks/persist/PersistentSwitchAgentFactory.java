@@ -47,6 +47,7 @@ import uk.ac.lancs.agent.AgentFactory;
 import uk.ac.lancs.agent.CacheAgent;
 import uk.ac.lancs.agent.ServiceCreationException;
 import uk.ac.lancs.config.Configuration;
+import uk.ac.lancs.networks.CircuitBlocker;
 import uk.ac.lancs.networks.fabric.Fabric;
 import uk.ac.lancs.networks.mgmt.Network;
 import uk.ac.lancs.networks.mgmt.Switch;
@@ -125,6 +126,12 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
      * These are passed as the <code>dbConfig</code> argument to
      * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, Configuration)}.
      * 
+     * <dt><samp>block.<var>misc</var></samp></dt>
+     * 
+     * <dd>Fields used to create a {@link CircuitBlocker}, passed as the
+     * <samp>blocker</samp> argument to
+     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, Predicate, Configuration)}
+     * 
      * </dl>
      */
     @Override
@@ -132,6 +139,8 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
         throws AgentCreationException {
         final String switchName = conf.get("name");
         final Configuration dbConf = conf.subview("db");
+        final CircuitBlocker blocker =
+            new CircuitBlocker(conf.subview("block").toProperties());
         final String agent = conf.get("fabric.agent");
         final String agentKey = conf.get("fabric.agent.key");
         return new CacheAgent(new Agent() {
@@ -159,7 +168,7 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
                         fabricAgent.getService(Fabric.class, agentKey);
                     PersistentSwitch result =
                         new PersistentSwitch(switchName, executor, fabric,
-                                             dbConf);
+                                             blocker::isClear, dbConf);
                     return type.cast(result);
                 } catch (AgentException | SQLException ex) {
                     throw new ServiceCreationException(ex);
