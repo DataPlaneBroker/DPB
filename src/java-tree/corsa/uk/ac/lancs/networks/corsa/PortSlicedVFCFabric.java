@@ -57,7 +57,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-
 import uk.ac.lancs.networks.TrafficFlow;
 import uk.ac.lancs.networks.corsa.rest.BridgeDesc;
 import uk.ac.lancs.networks.corsa.rest.ControllerConfig;
@@ -88,18 +87,27 @@ import uk.ac.lancs.rest.client.RESTResponse;
  */
 public final class PortSlicedVFCFabric implements Fabric {
     private final InetSocketAddress controller;
+
     private final InterfaceManager interfaces;
 
     private final String netns;
+
     private final String subtype;
+
     private final int resources;
+
     private final CorsaREST rest;
+
     private String bridgeId;
+
     private long dpid;
 
     private final SliceControllerREST sliceRest;
+
     private final String partialDesc;
+
     private final String fullDesc;
+
     private final String descPrefix;
 
     private final boolean withMetering;
@@ -298,8 +306,8 @@ public final class PortSlicedVFCFabric implements Fabric {
              * our database. This only make sense if start with a clean
              * VFC, so we must remove all existing tunnels. */
             for (int ofport : rest.getTunnels(bridgeId).message.keySet()) {
-                System.err.printf("Detaching ofport %d of bridge %s%n",
-                                  ofport, bridgeId);
+                System.err.printf("Detaching ofport %d of bridge %s%n", ofport,
+                                  bridgeId);
                 rest.detachTunnel(bridgeId, ofport);
             }
         }
@@ -312,6 +320,7 @@ public final class PortSlicedVFCFabric implements Fabric {
 
     private class BridgeSlice {
         private final Map<Channel, TrafficFlow> service;
+
         private final Map<Channel, Integer> statuses = new HashMap<>();
 
         /**
@@ -340,7 +349,8 @@ public final class PortSlicedVFCFabric implements Fabric {
         void stop() {
             assert Thread.holdsLock(PortSlicedVFCFabric.this);
 
-            ExecutorService es = Executors.newFixedThreadPool(service.size());
+            ExecutorService es = Executors
+                .newFixedThreadPool(service.isEmpty() ? 1 : service.size());
             try {
                 CompletionService<Void> cs =
                     new ExecutorCompletionService<>(es);
@@ -411,7 +421,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                 /* Now establish the circuits. */
                 if (!failed) {
                     ExecutorService es =
-                        Executors.newFixedThreadPool(service.size());
+                        Executors.newFixedThreadPool(service.isEmpty() ? 1 :
+                            service.size());
                     try {
                         CompletionService<Map.Entry<Channel, Integer>> cs =
                             new ExecutorCompletionService<>(es);
@@ -420,8 +431,9 @@ public final class PortSlicedVFCFabric implements Fabric {
                         /* Allocate each circuit to an OF port, attach
                          * them, and set the QoS. */
                         BitSet ofPorts = new BitSet();
-                        for (Map.Entry<? extends Channel, ? extends TrafficFlow> entry : service
-                            .entrySet()) {
+                        for (Map.Entry<? extends Channel,
+                                       ? extends TrafficFlow> entry : service
+                                           .entrySet()) {
                             TrafficFlow flow = entry.getValue();
                             final Channel circuit = entry.getKey();
 
@@ -451,27 +463,23 @@ public final class PortSlicedVFCFabric implements Fabric {
                             cs.submit(() -> {
                                 final RESTResponse<Void> rsp;
                                 {
-                                    final long t0 =
-                                        System.currentTimeMillis();
+                                    final long t0 = System.currentTimeMillis();
                                     rsp = rest.attachTunnel(bridgeId, desc);
-                                    final long t1 =
-                                        System.currentTimeMillis();
+                                    final long t1 = System.currentTimeMillis();
                                     System.err.printf("Port %d time: %gs%n",
                                                       ofport,
                                                       (t1 - t0) / 1000.0);
                                 }
 
                                 if (rsp.code == 201 && withMetering) {
-                                    final long t0 =
-                                        System.currentTimeMillis();
+                                    final long t0 = System.currentTimeMillis();
                                     /* Set the incoming QoS of the
                                      * tunnel. */
                                     rest.patchTunnel(bridgeId, ofport,
                                                      Meter.cir(flow.ingress
                                                          * 1024.0),
                                                      Meter.cbs(10));
-                                    final long t1 =
-                                        System.currentTimeMillis();
+                                    final long t1 = System.currentTimeMillis();
                                     System.err
                                         .printf("Port %d metering time: %gs%n",
                                                 ofport, (t1 - t0) / 1000.0);
@@ -502,8 +510,8 @@ public final class PortSlicedVFCFabric implements Fabric {
                                 csGot--;
                                 if (rsp.getValue() != 201) failed = true;
                                 statuses.put(rsp.getKey(), rsp.getValue());
-                            } catch (InterruptedException
-                                | ExecutionException e) {
+                            } catch (InterruptedException |
+                                     ExecutionException e) {
                                 // Shouldn't happen.
                                 throw new AssertionError("unreachable",
                                                          e.getCause());
@@ -555,8 +563,7 @@ public final class PortSlicedVFCFabric implements Fabric {
                 System.err.printf("%s -> code %d\n", circuit, code);
             }
             if (failed) {
-                for (Map.Entry<Channel, Integer> entry : statuses
-                    .entrySet()) {
+                for (Map.Entry<Channel, Integer> entry : statuses.entrySet()) {
                     final int code = entry.getValue();
                     if (code == 201) continue;
                     final Throwable t = new RuntimeException("tunnel "
@@ -642,8 +649,8 @@ public final class PortSlicedVFCFabric implements Fabric {
          * Identify the OF ports that are no longer needed, and detach
          * them. This will trigger the OF controller to revise its
          * rules. */
-        for (Iterator<Channel> iter = portToCircuit.values().iterator(); iter
-            .hasNext();) {
+        for (Iterator<Channel> iter = portToCircuit.values().iterator();
+             iter.hasNext();) {
             Channel circuit = iter.next();
             assert circuit != null;
             if (retainedCircuits.contains(circuit)) continue;
@@ -687,8 +694,7 @@ public final class PortSlicedVFCFabric implements Fabric {
     private void loadMapping() throws IOException {
         circuitToPort.clear();
         portToCircuit.clear();
-        RESTResponse<Map<Integer, TunnelDesc>> tinf =
-            rest.getTunnels(bridgeId);
+        RESTResponse<Map<Integer, TunnelDesc>> tinf = rest.getTunnels(bridgeId);
         for (Map.Entry<Integer, TunnelDesc> entry : tinf.message.entrySet()) {
             Channel circuit = interfaces.getCircuit(entry.getValue());
             int port = entry.getKey();
@@ -755,11 +761,9 @@ public final class PortSlicedVFCFabric implements Fabric {
 
         /* Set the VFC's controller. */
         {
-            RESTResponse<Void> ctrlRsp =
-                rest.attachController(bridgeId,
-                                      new ControllerConfig().id("learner")
-                                          .host(controller.getAddress())
-                                          .port(controller.getPort()));
+            RESTResponse<Void> ctrlRsp = rest
+                .attachController(bridgeId, new ControllerConfig().id("learner")
+                    .host(controller.getAddress()).port(controller.getPort()));
             if (ctrlRsp.code != 201)
                 throw new RuntimeException("bridge controller failure: "
                     + ctrlRsp.code);
