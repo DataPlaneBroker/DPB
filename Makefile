@@ -74,6 +74,7 @@ scripts += dpb-ssh-agent
 
 
 DOC_PKGS += uk.ac.lancs.routing.metric
+DOC_PKGS += uk.ac.lancs.routing.metric.bandwidth
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.apps
