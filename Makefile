@@ -13,6 +13,10 @@ jars += $(COMMON_JARS)
 jars += $(SERVER_JARS)
 jars += $(TEST_JARS)
 
+COMMON_JARS += initiate-dpb-ifaces
+trees_initiate-dpb-ifaces += ifaces
+roots_ifaces=$(found_ifaces)
+
 COMMON_JARS += initiate-dpb-core
 trees_initiate-dpb-core += core
 deps_core += util

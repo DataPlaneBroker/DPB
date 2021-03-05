@@ -1,0 +1,67 @@
+type label-id 0..16777215;
+
+type network-bandwidth .3;
+
+type service-id uuid;
+
+type terminal-id string;
+
+type network-edge {
+  term-from, term-to : terminal-id;
+};
+
+type edge-metrics {
+  from, to : network-bandwidth;
+};
+
+type end-point-id {
+  terminal : terminal-id;
+  label : label-id;
+};
+
+type service-specification {
+  end-points : *end-point-id;
+  bandwidth-function : string;
+};
+
+type end-point-judgement <in-use invalid-label invalid-terminal>;
+
+type network-service [
+  call get-id => okay { id : service-id };
+
+  call define { spec : service-specification }
+    => okay
+    => bad-definition { errors : end-point-id -> end-point-judgement };
+
+  call commit;
+
+  call roll-back;
+
+  call get-commitment
+    => okay { spec : service-specification };
+
+  call get-definition
+    => okay { spec : service-specification };
+
+  call await-stability
+    => unmet { detail : string }
+    => ready
+    => active;
+
+  call release;
+];
+
+type network-controller [
+  call get-service { id : service-id }
+    => okay { service-ref : network-service }
+    => none;
+
+  call enumerate-services
+    => okay { ids : &service-id };
+
+  call allocate-service
+    => okay { service-ref : network-service };
+
+  call get-model { min-bandwidth : network-bandwidth }
+    => okay { edges : network-edge -> edge-metrics };
+];

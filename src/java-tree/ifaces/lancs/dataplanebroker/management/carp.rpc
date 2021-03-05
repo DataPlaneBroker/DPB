@@ -1,0 +1,129 @@
+import lancs.dataplanebroker.network-controller;
+import lancs.dataplanebroker.service-id;
+import lancs.dataplanebroker.service-specification;
+import lancs.dataplanebroker.network-bandwidth;
+import lancs.dataplanebroker.terminal-id;
+import lancs.dataplanebroker.label-id;
+
+type terminal-direction <ingress egress>;
+
+type bandwidth-adjustment {
+  amount?, value? : network-bandwidth;
+};
+
+type network-terminal [
+  call identify => okay { name : terminal-id };
+
+  call get-label-range => okay { min, max : label-id };
+
+  call get-bandwidth
+    => okay { status : terminal-direction -> network-bandwidth };
+
+  call adjust-bandwidth {
+    action : terminal-direction -> bandwidth-adjustment;
+  };
+];
+
+type network-dump {
+  allocations : terminal-id -> label-id -> service-id;
+  service-specs : service-id -> service-specification;
+};
+
+type network-manager [
+  call get-controller => okay { controller : network-controller };
+
+  call dump
+    => okay { dump : network-dump };
+
+  call remove-terminal { name : terminal-id }
+    => okay
+    => unknown
+    => in-use;
+
+  call get-terminal { name : terminal-id }
+    => okay { terminal : network-terminal }
+    => unknown;
+];
+
+type terminal-specification string;
+
+type network-switch [
+  inherit network-manager;
+
+  call add-terminal {
+    name : terminal-id;
+    spec : terminal-specification;
+  } => okay
+    => name-in-use
+    => invalid-specification { detail : string };
+
+  call get-terminal-map { names : &terminal-id }
+    => okay { specs : terminal-id -> terminal-specification }
+    => unknown;
+];
+
+type trunk-specification {
+  from, to : network-terminal;
+};
+
+type trunk-metric .3;
+
+type network-trunk [
+  call get-inverse => okay { trunk : network-trunk };
+
+  call get-terminals => okay { start, end : inferior-terminal-id };
+
+  call get-metric => okay { metric : trunk-metric };
+
+  call set-metric { metric : trunk-metric }
+    => okay
+    => invalid-metric;
+
+  call get-bandwidths
+    => okay { upstream, downstream : network-bandwidth };
+
+  call set-bandwidths { upstream?, downstream? : bandwidth-adjustment }
+    => okay
+    => invalid { upstream?, downstream? : network-bandwidth };
+
+  call open-tunnels { start-base, end-base? : label-id; amount? : 0... }
+    => okay;
+
+  call close-tunnels { start-base, end-base? : label-id; amount? : 0... }
+    => okay;
+
+  call get-tunnels { at-start? : &label-id }
+    => okay { map : label-id -> label-id };
+
+  call set-commission { status : boolean } => okay;
+
+  call get-commission => okay { status : boolean };
+];
+
+type inferior-terminal-id {
+  name : terminal-id;
+  ctrl : network-controller;
+};
+
+type aggregator [
+  inherit network-manager;
+
+  call add-terminal {
+    name : terminal-id;
+    inferior : network-terminal;
+  } => okay
+    => name-in-use;
+
+  call add-trunk { from, to : inferior-terminal-id }
+    => okay { trunk : network-trunk }
+    => in-use { conflicts : &inferior-terminal-id };
+
+  call get-trunk { from : inferior-terminal-id }
+    => okay { trunk : network-trunk }
+    => unknown;
+
+  call remove-trunk { either : inferior-terminal-id }
+    => okay
+    => in-use
+    => unknown;
+];
