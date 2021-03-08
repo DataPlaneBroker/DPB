@@ -26,6 +26,12 @@ type service-specification {
 
 type end-point-judgement <in-use invalid-label invalid-terminal>;
 
+type service-status <meeting met activating active in-jeopardy gone>;
+
+type service-observer [
+  call update-status { status : service-status };
+];
+
 type network-service [
   call get-id => okay { id : service-id };
 
@@ -47,6 +53,10 @@ type network-service [
     => unmet { detail : string }
     => ready
     => active;
+
+  call inform-observer { observer : service-observer };
+
+  call ignore-observer { observer : service-observer };
 
   call release;
 ];
