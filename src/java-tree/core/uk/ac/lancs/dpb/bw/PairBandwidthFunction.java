@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
 
 import java.util.Arrays;
 import java.util.BitSet;
@@ -102,9 +102,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
             + "  degree : " + degree() + ",                          \n"
             + "  data : [ "
             + Arrays.asList(pairs).stream()
-                .map(r -> "    [ [" + r.ingress.min + ", " + r.ingress.max
-                    + "],\n" + "      [" + r.egress.min + ", " + r.egress.max
-                    + "] ]")
+                .map(r -> "    [ [" + r.ingress.min() + ", " + r.ingress.max()
+                    + "],\n" + "      [" + r.egress.min() + ", "
+                    + r.egress.max() + "] ]")
                 .collect(Collectors.joining(",\n"))
             + " ],                                                   \n"
             + "  add_ranges : function(a, b) {                       \n"

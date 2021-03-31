@@ -34,66 +34,56 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
+
+import java.util.BitSet;
 
 /**
- * Specifies ingress and egress bandwidths at an endpoint.
- *
+ * Expresses bandwidth requirements as a single range applying at all
+ * edges.
+ * 
  * @author simpsons
  */
-public final class BandwidthPair {
-    /**
-     * The ingress bandwidth
-     */
-    public final BandwidthRange ingress;
+public final class FlatBandwidthFunction implements BandwidthFunction {
+    private final int degree;
+
+    private final BandwidthRange rate;
 
     /**
-     * The egress bandwidth
+     * Create a flat bandwidth function.
+     * 
+     * @param degree the function's degree
+     * 
+     * @param rate the rate common to all edges
      */
-    public final BandwidthRange egress;
-
-    private BandwidthPair(BandwidthRange ingress, BandwidthRange egress) {
-        this.ingress = ingress;
-        this.egress = egress;
+    public FlatBandwidthFunction(int degree, BandwidthRange rate) {
+        this.degree = degree;
+        this.rate = rate;
     }
 
     /**
-     * Create a bandwidth pair with equal ingress and egress rates.
+     * {@inheritDoc}
      * 
-     * @param value the common rate
-     * 
-     * @return the requested pair
-     * 
-     * @constructor
+     * @default This implementation simply returns the configured rate,
+     * and ignores the <cite>from</cite> set.
      */
-    public static BandwidthPair of(BandwidthRange value) {
-        return new BandwidthPair(value, value);
+    @Override
+    public BandwidthRange apply(BitSet from) {
+        return rate;
     }
 
-    /**
-     * Create a bandwidth pair.
-     * 
-     * @param ingress the ingress rate
-     * 
-     * @param egress the egress rate
-     * 
-     * @return the requested pair
-     * 
-     * @constructor
-     */
-    public static BandwidthPair of(BandwidthRange ingress,
-                                   BandwidthRange egress) {
-        return new BandwidthPair(ingress, egress);
+    @Override
+    public String asJavaScript() {
+        return "{                                                  \n"
+            + "  degree : " + degree + ",                          \n"
+            + "  apply : function(bits) {                          \n"
+            + "    return [ " + rate.min() + ", " + rate.max() + " ],  \n"
+            + "  },                                                \n"
+            + "}                                                   \n";
     }
 
-    /**
-     * Create a bandwidth pair which is the inverse of this pair.
-     * 
-     * @return a bandwidth pair with ingress and egress rates swapped
-     * 
-     * @constructor
-     */
-    public BandwidthPair invert() {
-        return new BandwidthPair(egress, ingress);
+    @Override
+    public int degree() {
+        return degree;
     }
 }

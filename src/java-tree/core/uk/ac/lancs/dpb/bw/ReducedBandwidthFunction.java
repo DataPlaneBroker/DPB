@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
 
 import java.math.BigInteger;
 import java.util.BitSet;

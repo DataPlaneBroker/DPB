@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
 
 /**
  * Specifies a bandwidth requirement as a guaranteed minimum rate and a
@@ -43,17 +43,39 @@ package uk.ac.lancs.routing.metric.bandwidth;
  * @author simpsons
  */
 public final class BandwidthRange {
-    /**
-     * The minimum guaranteed bandwidth
-     */
-    public final double min;
+    private final double min, max;
 
     /**
-     * The maximum permitted bandwidth; {@code null} for unlimited
+     * Get the minimum guaranteed bandwidth.
+     * 
+     * @return the minimum bandwidth
      */
-    public final Double max;
+    public double min() {
+        return min;
+    }
 
-    private BandwidthRange(double min, Double max) {
+    /**
+     * Get the maximum permitted bandwidth. This is
+     * {@link Double#POSITIVE_INFINITY} for unlimited bandwidth.
+     * 
+     * @return the maximum bandwidth
+     */
+    public double max() {
+        return max;
+    }
+
+    /**
+     * Get the excess bandwidth. This is the maximum minus the minimum.
+     * 
+     * @return the excess
+     */
+    public double excess() {
+        return max - min;
+    }
+
+    private BandwidthRange(double min, double max) {
+        if (min < 0) throw new IllegalArgumentException("-ve min: " + min);
+        assert max >= min;
         this.min = min;
         this.max = max;
     }
@@ -102,14 +124,30 @@ public final class BandwidthRange {
      * @constructor
      */
     public static BandwidthRange from(double min) {
-        return new BandwidthRange(min, null);
+        return new BandwidthRange(min, Double.POSITIVE_INFINITY);
+    }
+
+    /**
+     * Express a bandwidth requirement as a minimum rate and an excess.
+     * 
+     * @param guarantee the minimum guaranteed rate
+     * 
+     * @param excess the excess rate
+     * 
+     * @return the requested range
+     * 
+     * @constructor
+     */
+    public static BandwidthRange base(double guarantee, double excess) {
+        if (excess < 0.0)
+            throw new IllegalArgumentException("-ve excess: " + excess);
+        return new BandwidthRange(guarantee, guarantee + excess);
     }
 
     /**
      * Create a range which is this range plus another.
      * 
-     * @see #add(uk.ac.lancs.routing.metric.bandwidth.BandwidthRange,
-     * uk.ac.lancs.routing.metric.bandwidth.BandwidthRange)
+     * @see #add(BandwidthRange,BandwidthRange)
      * 
      * @param other the other range
      * 
@@ -137,13 +175,7 @@ public final class BandwidthRange {
      */
     public static BandwidthRange min(BandwidthRange a, BandwidthRange b) {
         final double min = Math.min(a.min, b.min);
-        final Double max;
-        if (b.max == null)
-            max = a.max;
-        else if (a.max == null)
-            max = b.max;
-        else
-            max = Math.min(a.max, b.max);
+        final double max = Math.min(a.max, b.max);
         return new BandwidthRange(min, max);
     }
 
@@ -166,13 +198,7 @@ public final class BandwidthRange {
         if (a == null) return b;
         if (b == null) return a;
         final double min = a.min + b.min;
-        final Double max;
-        if (b.max == null)
-            max = a.max;
-        else if (a.max == null)
-            max = b.max;
-        else
-            max = a.max + b.max;
+        final double max = a.max + b.max;
         return new BandwidthRange(min, max);
     }
 }

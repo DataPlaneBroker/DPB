@@ -102,4 +102,4 @@
  * <p>
  * A user can, of course, define their own.
  */
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;

@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -189,7 +189,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
             + "  degree : " + degree + ",                                \n"
             + "  data : [ "
             + Arrays.asList(table).stream()
-                .map(e -> "[" + e.min + ", " + e.max + "]")
+                .map(e -> "[" + e.min() + ", " + e.max() + "]")
                 .collect(Collectors.joining(", "))
             + "],                                                        \n"
             + "  apply : function(bits) {                                \n"

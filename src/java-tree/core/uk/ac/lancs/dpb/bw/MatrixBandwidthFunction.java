@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.routing.metric.bandwidth;
+package uk.ac.lancs.dpb.bw;
 
 import java.util.BitSet;
 import java.util.HashMap;
@@ -167,7 +167,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
             + "  data : [ "
             + IntStream.range(0, array.length)
                 .mapToObj(i -> array[i] == null ? "    null" :
-                    "    [ " + array[i].min + ", " + array[i].max + " ]")
+                    "    [ " + array[i].min() + ", " + array[i].max() + " ]")
                 .collect(Collectors.joining(",\n"))
             + " ],                                                         \n"
             + "  add_ranges : function(a, b) {                             \n"
