@@ -2,13 +2,14 @@ import lancs.dataplanebroker.network-controller;
 import lancs.dataplanebroker.service-id;
 import lancs.dataplanebroker.service-specification;
 import lancs.dataplanebroker.network-bandwidth;
+import lancs.dataplanebroker.bandwidth-range;
 import lancs.dataplanebroker.terminal-id;
 import lancs.dataplanebroker.label-id;
 
 type terminal-direction <ingress egress>;
 
 type bandwidth-adjustment {
-  amount?, value? : network-bandwidth;
+  amount?, value? : bandwidth-range;
 };
 
 type network-terminal [
@@ -17,7 +18,7 @@ type network-terminal [
   call get-label-range => okay { min, max : label-id };
 
   call get-bandwidth
-    => okay { status : terminal-direction -> network-bandwidth };
+    => okay { status : terminal-direction -> bandwidth-range };
 
   call adjust-bandwidth {
     action : terminal-direction -> bandwidth-adjustment;
@@ -80,11 +81,11 @@ type network-trunk [
     => invalid-metric;
 
   call get-bandwidths
-    => okay { upstream, downstream : network-bandwidth };
+    => okay { upstream, downstream : bandwidth-range };
 
   call set-bandwidths { upstream?, downstream? : bandwidth-adjustment }
     => okay
-    => invalid { upstream?, downstream? : network-bandwidth };
+    => invalid { upstream?, downstream? : bandwidth-range };
 
   call open-tunnels { start-base, end-base? : label-id; amount? : 0... }
     => okay;

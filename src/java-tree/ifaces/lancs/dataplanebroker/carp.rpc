@@ -2,6 +2,10 @@ type label-id 0..16777215;
 
 type network-bandwidth .3;
 
+type bandwidth-range {
+  guarantee, excess : network-bandwidth;
+};
+
 type service-id uuid;
 
 type terminal-id string;
@@ -11,7 +15,7 @@ type network-edge {
 };
 
 type edge-metrics {
-  from, to : network-bandwidth;
+  forward, reverse : bandwidth-range;
 };
 
 type end-point-id {
