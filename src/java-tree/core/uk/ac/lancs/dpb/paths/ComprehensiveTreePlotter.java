@@ -186,13 +186,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                  * the edge. Skip this mode if it exceeds the edge
                  * ingress capacity. */
                 BitSet fwd = modeCache.get(mode - 1);
-                BandwidthRange forwardDemand = bwreq.apply(fwd);
+                BandwidthRange forwardDemand = bwreq.get(fwd);
                 if (forwardDemand.min() > edge.metrics.ingress.min()) continue;
 
                 /* Work out the bandwidth in the reverse direction of
                  * the edge egress capacity. */
                 BitSet rev = modeCache.get(modes - mode - 1);
-                BandwidthRange inverseDemand = bwreq.apply(rev);
+                BandwidthRange inverseDemand = bwreq.get(rev);
                 if (inverseDemand.min() > edge.metrics.egress.min()) continue;
 
                 /* The edge can be used in this mode. Retain this fact,

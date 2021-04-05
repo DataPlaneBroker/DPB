@@ -44,7 +44,7 @@ import javax.script.ScriptException;
  * Determines the bandwidth requirements of any edge in a tree, given
  * the endpoints reachable from one end of that edge. Each endpoint is a
  * distinct leaf of the tree. Given a direction of traffic along the
- * edge, the endpoints able to supply that traffic form the
+ * edge, the endpoints able to supply that traffic from the
  * <dfn>from</dfn> set; the remaining endpoints form the <dfn>to</dfn>
  * set. Neither set is permitted to be empty (or there would be no
  * traffic). A bandwidth function computes the bandwidth requirements of
@@ -68,7 +68,7 @@ import javax.script.ScriptException;
  * <var>A</var> to <var>B</var>. When supplied with a <cite>from</cite>
  * set of { 2, 3 }, it will yield the requirement from <var>B</var> to
  * <var>A</var>. This is the purpose of the
- * {@link #apply(java.util.BitSet)} method.
+ * {@link #get(java.util.BitSet)} method.
  * 
  * <p>
  * An implementation is required to have a self-contained JavaScript
@@ -79,8 +79,8 @@ import javax.script.ScriptException;
  * <pre>
  * {
  *   degree : <var>degree</var>,
- *   apply : function(value) {
- *     <var>algorithm</var>
+   get : function(value) {
+     <var>algorithm</var>
  *   },
  * }
  * </pre>
@@ -154,23 +154,36 @@ public interface BandwidthFunction {
      * contains members outside the range defined by {@link #degree()},
      * it contains all such members, or it is empty
      */
-    BandwidthRange apply(BitSet from);
+    BandwidthRange get(BitSet from);
 
     /**
      * Get a JavaScript representation of the function. The string must
      * be an object declaration with two fields. One is
-     * <samp>degree</samp>, giving the function degree. The other must
-     * be a function called <samp>apply</samp>, taking a single
-     * argument, a bit set, to be interpreted as the set of upstream
-     * endpoints, and return a map of two numbers, the minimum and
-     * maximum upstream bandwidth of the edge.
+     * {@value #JAVASCRIPT_DEGREE_NAME}, giving the function degree. The
+     * other must be a function called
+     * {@value #JAVASCRIPT_FUNCTION_NAME}, taking a single argument, a
+     * bit set, to be interpreted as the set of upstream endpoints, and
+     * return a map of two numbers, the minimum and maximum upstream
+     * bandwidth of the edge.
      * 
      * @return the JavaScript representation
      */
     String asJavaScript();
 
     /**
-     * Get the function's degree. The argument to {@link #apply(BitSet)}
+     * The name of the function embedded in the output of
+     * {@link #asJavaScript()}
+     */
+    String JAVASCRIPT_FUNCTION_NAME = "get";
+
+    /**
+     * The name of the field embedded in the output of
+     * {@link #asJavaScript()} giving the function's degree
+     */
+    String JAVASCRIPT_DEGREE_NAME = "degree";
+
+    /**
+     * Get the function's degree. The argument to {@link #get(BitSet)}
      * must only contain set bits in positions zero to one less than the
      * degree.
      * 

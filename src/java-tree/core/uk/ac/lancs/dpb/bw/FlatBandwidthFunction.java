@@ -68,15 +68,16 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * and ignores the <cite>from</cite> set.
      */
     @Override
-    public BandwidthRange apply(BitSet from) {
+    public BandwidthRange get(BitSet from) {
         return rate;
     }
 
     @Override
     public String asJavaScript() {
-        return "{                                                  \n"
-            + "  degree : " + degree + ",                          \n"
-            + "  apply : function(bits) {                          \n"
+        return "{                                                  \n" + "  "
+            + JAVASCRIPT_DEGREE_NAME + " : " + degree
+            + ",                          \n" + "  " + JAVASCRIPT_FUNCTION_NAME
+            + " : function(bits) {                          \n"
             + "    return [ " + rate.min() + ", " + rate.max() + " ],  \n"
             + "  },                                                \n"
             + "}                                                   \n";

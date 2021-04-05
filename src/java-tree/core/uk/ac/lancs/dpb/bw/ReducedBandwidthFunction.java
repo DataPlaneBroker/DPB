@@ -122,11 +122,11 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
      * is then the result of this function.
      */
     @Override
-    public BandwidthRange apply(BitSet from) {
+    public BandwidthRange get(BitSet from) {
         try {
             BitSet key = from.stream().mapToObj(i -> groups.get(i))
                 .reduce(this::orBase).get();
-            return base.apply(key);
+            return base.get(key);
         } catch (NullPointerException | IndexOutOfBoundsException |
                  NoSuchElementException ex) {
             throw new IllegalArgumentException("invalid 'from' set " + from,
@@ -137,13 +137,14 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
     @Override
     public String asJavaScript() {
         return "{                                                       \n"
-            + "  degree : " + degree() + ",                             \n"
-            + "  base : " + base.asJavaScript() + ",                    \n"
-            + "  groups : [ "
+            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree()
+            + ",                             \n" + "  base : "
+            + base.asJavaScript() + ",                    \n" + "  groups : [ "
             + groups.stream().map(JavaScriptBandwidthFunction::toBigInteger)
                 .map(BigInteger::toString).collect(Collectors.joining(", "))
-            + " ]\n"
-            + "  apply : function(set) {                                \n"
+            + " ]                                                       \n"
+            + "  " + JAVASCRIPT_FUNCTION_NAME
+            + " : function(set) {                                \n"
             + "    bset = [];                                           \n"
             + "    for (var e = 0; e < " + degree() + "; e++)           \n"
             + "      if (set & (1 << e))                                \n"

@@ -46,11 +46,13 @@ import javax.script.SimpleScriptContext;
 
 /**
  * Expresses bandwidth requirements specified by a JavaScript object.
- * The object must have a <samp>degree</samp> field specifying the
- * function's degree, and an <samp>apply</samp> function taking a single
- * integer argument representing the <cite>from</cite> set as a bit set,
- * and returning a 2-array of the minimum and maximum rates (the latter
- * of which may be {@code null}).
+ * The object must have a
+ * {@value BandwidthFunction#JAVASCRIPT_DEGREE_NAME} field specifying
+ * the function's degree, and a
+ * {@value BandwidthFunction#JAVASCRIPT_FUNCTION_NAME} function taking a
+ * single integer argument representing the <cite>from</cite> set as a
+ * bit set, and returning a 2-array of the minimum and maximum rates
+ * (the latter of which may be {@code null}).
  *
  * @author simpsons
  */
@@ -79,8 +81,9 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public BandwidthRange apply(BitSet from) {
-        String cmd = "obj.apply(" + toBigInteger(from.get(0, degree())) + ")";
+    public BandwidthRange get(BitSet from) {
+        String cmd = "obj." + JAVASCRIPT_FUNCTION_NAME + "("
+            + toBigInteger(from.get(0, degree())) + ")";
         try {
             Double[] result = (Double[]) engine.eval(cmd);
             return result[1] == null ? BandwidthRange.from(result[0]) :

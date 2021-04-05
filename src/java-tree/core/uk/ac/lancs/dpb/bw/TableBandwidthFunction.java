@@ -145,7 +145,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
         for (int i = 0; i < this.table.length; i++) {
             buf[0] = i + 1;
             BitSet set = BitSet.valueOf(buf);
-            this.table[i] = other.apply(set);
+            this.table[i] = other.get(set);
         }
         this.degree = other.degree();
     }
@@ -166,7 +166,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public BandwidthRange apply(BitSet from) {
+    public BandwidthRange get(BitSet from) {
         try {
             BigInteger value = JavaScriptBandwidthFunction.toBigInteger(from);
             int index = value.subtract(BigInteger.ONE).intValueExact();
@@ -186,13 +186,14 @@ final class TableBandwidthFunction implements BandwidthFunction {
     @Override
     public String asJavaScript() {
         return "{                                                        \n"
-            + "  degree : " + degree + ",                                \n"
-            + "  data : [ "
+            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree
+            + ",                                \n" + "  data : [ "
             + Arrays.asList(table).stream()
                 .map(e -> "[" + e.min() + ", " + e.max() + "]")
                 .collect(Collectors.joining(", "))
             + "],                                                        \n"
-            + "  apply : function(bits) {                                \n"
+            + "  " + JAVASCRIPT_FUNCTION_NAME
+            + " : function(bits) {                                \n"
             + "    return this.data[bits - 1];                           \n"
             + "  },                                                      \n"
             + "}\n";

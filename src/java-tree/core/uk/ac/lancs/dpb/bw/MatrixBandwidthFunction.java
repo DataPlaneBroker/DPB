@@ -147,7 +147,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * tuples are collected, and their sum is returned.
      */
     @Override
-    public BandwidthRange apply(BitSet fromSet) {
+    public BandwidthRange get(BitSet fromSet) {
         BandwidthRange sum = null;
         for (int from = 0; from < degree; from++) {
             if (!fromSet.get(from)) continue;
@@ -163,8 +163,8 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
     @Override
     public String asJavaScript() {
         return "{                                                          \n"
-            + "  degree : " + degree() + ",                                \n"
-            + "  data : [ "
+            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree()
+            + ",                                \n" + "  data : [ "
             + IntStream.range(0, array.length)
                 .mapToObj(i -> array[i] == null ? "    null" :
                     "    [ " + array[i].min() + ", " + array[i].max() + " ]")
@@ -182,7 +182,8 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
             + "  index : function(from, to) {                              \n"
             + "    return from * " + (degree() - 1) + " + to - (to > from);\n"
             + "  },                                                        \n"
-            + "  apply : function(set) {                                   \n"
+            + "  " + JAVASCRIPT_FUNCTION_NAME
+            + " : function(set) {                                   \n"
             + "    var sum = null;                                         \n"
             + "    for (var from = 0; from < " + degree() + "; from++) {   \n"
             + "      if ((set & (1 << from)) == 0) continue;               \n"

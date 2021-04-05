@@ -80,7 +80,7 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * chosen as the result.
      */
     @Override
-    public BandwidthRange apply(BitSet from) {
+    public BandwidthRange get(BitSet from) {
         // [0] is ingress bandwidth; [1] is egress
         final BandwidthRange[] sum = new BandwidthRange[2];
         for (int i = 0; i < pairs.length; i++) {
@@ -98,9 +98,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
 
     @Override
     public String asJavaScript() {
-        return "{                                                    \n"
-            + "  degree : " + degree() + ",                          \n"
-            + "  data : [ "
+        return "{                                                    \n" + "  "
+            + JAVASCRIPT_DEGREE_NAME + " : " + degree()
+            + ",                          \n" + "  data : [ "
             + Arrays.asList(pairs).stream()
                 .map(r -> "    [ [" + r.ingress.min() + ", " + r.ingress.max()
                     + "],\n" + "      [" + r.egress.min() + ", "
@@ -115,8 +115,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
             + "                b[1] == null ? null :                 \n"
             + "                 (a[1] + b[1]);                       \n"
             + "      return [ min, max ];                            \n"
-            + "  },                                                  \n"
-            + "  apply : function(bits) {                            \n"
+            + "  },                                                  \n" + "  "
+            + JAVASCRIPT_FUNCTION_NAME
+            + " : function(bits) {                            \n"
             + "    var sum = [ null, null ];                         \n"
             + "    for (var i = 0; i < " + degree() + "; i++) {      \n"
             + "      let isRecv = (bits & (1 << i)) != 0;            \n"
