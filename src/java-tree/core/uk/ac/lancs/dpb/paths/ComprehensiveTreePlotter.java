@@ -37,7 +37,6 @@
 package uk.ac.lancs.dpb.paths;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
@@ -49,8 +48,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.IntFunction;
-import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -202,7 +201,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     .put(fwd, BandwidthPair.of(forwardDemand, inverseDemand));
             }
         }
-        return Map.copyOf(tmp);
+
+        /* Store a deep immutable map. */
+        return tmp.entrySet().stream().collect(Collectors
+            .toMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
     }
 
     /**
@@ -248,8 +250,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                      Map<? super V,
                          ? extends Collection<? extends Edge<V>>> inwards,
                      Map<? super V,
-                         ? extends Collection<? extends Edge<V>>> outwards,
-                     ToIntFunction<? super Edge<V>> modeCount) {
+                         ? extends Collection<? extends Edge<V>>> outwards) {
         Collection<Edge<V>> reachOrder = new LinkedHashSet<>();
         Collection<V> reachables = new HashSet<>();
         Collection<V> newReachables = new LinkedHashSet<>();
@@ -287,49 +288,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * least. */
         List<Edge<V>> edgeOrder = new ArrayList<>(reachOrder);
         Collections.reverse(edgeOrder);
-        return List.copyOf(edgeOrder);
+
+        return edgeOrder;
     }
 
-    private static class Constraint {
-        final int[] edges;
-
-        final int[] allowed;
-
-        Constraint(int[] edges, int[] allowed) {
-            this.edges = edges;
-            this.allowed = allowed;
-            assert allowed.length % edges.length == 0;
-        }
-
-        boolean check(int[] digits) {
-            next_combo: for (int c = 0; c < allowed.length; c += edges.length) {
-                /* All edges must have the correspond mode specified at
-                 * allowed[c]..., or we must try another combination. */
-                for (int i = 0; i < edges.length; i++)
-                    if (digits[edges[i]] != allowed[c + i]) continue next_combo;
-                /* At least one combination matches the current
-                 * situation. */
-                return true;
-            }
-
-            /* No combinations matched. */
-            return false;
-        }
-    }
-
-    private static class Status {
-        final int edge;
-
-        final int mode;
-
-        Status(int edgeNumber, int mode) {
-            this.edge = edgeNumber;
-            this.mode = mode;
-        }
-
-        boolean passes(int[] digits) {
-            return digits[edge] == mode;
-        }
+    private interface Constraint {
+        boolean check(int[] digits);
     }
 
     @Override
@@ -337,84 +301,388 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
         plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
              Collection<? extends Edge<V>> edges) {
-        goalOrder.get(0);
-
-        /* Compute the number of modes each edge can be used in. This is
-         * a bit pattern where the position of each bit identifies a
-         * goal vertex. If the bit is set, the goal is reachable by
-         * exiting an edge through its finish; if clear, through its
-         * start. The mode with all bits set is not used, as it places
-         * all goals at one end. The zero mode is similarly useless;
-         * however, we co-opt it to indicate an edge that isn't used. */
-        final int modes = (1 << goalOrder.size()) - 1;
+        /* Compute the number of modes each edge can be used in. Each
+         * mode is a bit pattern where the position of each bit
+         * identifies a goal vertex in the goalOrder list. If the bit is
+         * set, the goal is reachable by exiting an edge through its
+         * finish; if clear, through its start. The mode with all bits
+         * set is not used, as it places all goals at one end. The zero
+         * mode is similarly useless; however, we co-opt it to indicate
+         * an edge that isn't used. This number is always 1 less than a
+         * power of 2. */
+        final int modeCount = (1 << goalOrder.size()) - 1;
 
         /* Create an index from mode number to BitSet, so that we can
          * call the bandwidth function. Remember that index 0 of this
          * list corresponds to mode 1. */
-        final List<BitSet> modeCache = IntStream.rangeClosed(1, modes)
+        final List<BitSet> modeCache = IntStream.rangeClosed(1, modeCount)
             .mapToObj(ComprehensiveTreePlotter::of)
             .collect(Collectors.toList());
 
-        /* Find out which modes each edge can cope with. Edges that
-         * can't cope with the requirement in any mode will not be
-         * included in the map. */
+        /* Record which modes each edge can cope with, and how much
+         * bandwidth they will use in that mode. Edges that can't cope
+         * with the requirement in any mode will not be included in the
+         * map. The map for a given edge will not include modes it has
+         * insufficient capacity for. */
         final Map<Edge<V>, Map<BitSet, BandwidthPair>> edgeCaps =
             getEdgeModes(modeCache, bwreq, edges);
 
-        /* Map each goal vertex to its zero-based goal index. */
-        final Index<V> goalIndex = Index.of(goalOrder);
+        /* Assign each goal an integer. */
+        final Index<V> goalIndex = Index.copyOf(goalOrder);
 
-        /* Identify all vertices implied by edges. For each vertex,
-         * identify all incoming edges and all outgoing edges. */
-        Map<V, Collection<Edge<V>>> inwards = new IdentityHashMap<>();
-        Map<V, Collection<Edge<V>>> outwards = new IdentityHashMap<>();
-        final List<V> vertexOrder;
+        /* Discover all vertices, and find out which edges connect each
+         * vertex. */
+        final Map<V, Collection<Edge<V>>> inwards;
+        final Map<V, Collection<Edge<V>>> outwards;
+        final Index<V> vertexOrder;
         {
+            /* Start identifying all vertices implied by edges by
+             * including the goals. */
             Collection<V> tmp = new LinkedHashSet<>(goalOrder);
+
+            /* Also keep track of the edges of each vertex. */
+            Map<V, Collection<Edge<V>>> ins = new IdentityHashMap<>();
+            Map<V, Collection<Edge<V>>> outs = new IdentityHashMap<>();
+
+            /* For every edge, record which vertices it connects to. */
             for (Edge<V> edge : edgeCaps.keySet()) {
                 tmp.add(edge.start);
-                outwards.computeIfAbsent(edge.start, k -> new HashSet<>())
+                outs.computeIfAbsent(edge.start, k -> new HashSet<>())
                     .add(edge);
                 tmp.add(edge.finish);
-                inwards.computeIfAbsent(edge.finish, k -> new HashSet<>())
+                ins.computeIfAbsent(edge.finish, k -> new HashSet<>())
                     .add(edge);
             }
-            vertexOrder = List.copyOf(tmp);
+
+            /* Get deep immutable copies of these structures. */
+            inwards = ins.entrySet().stream().collect(Collectors
+                .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
+            outwards = outs.entrySet().stream().collect(Collectors
+                .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
+            vertexOrder = Index.copyOf(tmp);
         }
 
-        /* Assign each edge to a digit in a multi-base number. Index 0
-         * will be the least significant digit. */
+        /* Assign each edge's mode to a digit in a multi-base number.
+         * Index 0 will be the least significant digit. Edges that are
+         * most reachable will correspond to the most significant
+         * digits. */
         final Index<Edge<V>> edgeIndex =
-            Index.of(getEdgeOrder(goalOrder, inwards, outwards,
-                                  e -> edgeCaps.get(e).size()));
-
-        /* Identify which vertices are goals, indexed by our assigned
-         * vertex number. */
-        BitSet goalIndices = new BitSet();
-        for (int i = 0; i < vertexOrder.size(); i++)
-            if (goalIndex.encode().containsKey(vertexOrder.get(i)))
-                goalIndices.set(i);
-
-        /* In a perhaps vain attempt at optimization, convert the data
-         * into arrays that the iterator will access. */
-
-        @SuppressWarnings("unchecked")
-        final V[] goals = goalOrder.toArray(n -> (V[]) new Object[n]);
+            Index.copyOf(getEdgeOrder(goalIndex, inwards, outwards));
 
         /* Create a mapping from mode index to mode pattern for each
-         * edge that has at least one valid non-zero mode. */
-        final BitSet[][] modeMap = new BitSet[edgeIndex.size()][];
-        edgeIndex.stream()
-            .map(e -> edgeCaps.get(e).keySet().toArray(n -> new BitSet[n]))
-            .toArray(n -> new BitSet[n][]);
+         * edge that has at least one valid non-zero mode. The first
+         * index is the edge number. The second index is the mode index.
+         * The third is either zero or one, giving the from set or the
+         * to set. */
+        assert edgeCaps.keySet().containsAll(edgeIndex);
+        final BitSet[][][] modeMap = edgeIndex.stream()
+            .map(e -> edgeCaps.get(e).keySet().stream().map(fs -> {
+                BitSet[] r = new BitSet[2];
+                r[0] = fs;
+                r[1] = new BitSet();
+                r[1].or(r[0]);
+                r[1].flip(0, goalIndex.size());
+                return r;
+            }).toArray(n -> new BitSet[n][])).toArray(n -> new BitSet[n][][]);
 
-        /* Indices: primary edge number; primary edge mode */
-        Constraint[][] constraints = new Constraint[edgeIndex.size()][];
-        /* TODO: Identify combinations of edges in specific modes that
-         * are required. Store them in 'constraints'. Out of any set of
-         * requirements, only the lowest number in the edge order will
-         * have conditions, and only based on edges with higher
-         * numbers. */
+        /**
+         * Checks that an edge has a valid external set with respect to
+         * other edges. It is assumed that all edges are connected to
+         * the same vertex.
+         */
+        class OneExternalPerGoal implements Constraint {
+            final int[] edges;
+
+            final BitSet invs = new BitSet();
+
+            /**
+             * Create a constraint requiring that the external sets of
+             * some edges do not have overlapping goals.
+             * 
+             * @param edges a list of edge codes. Inward edges are
+             * represented by their indices. Outward edges are
+             * represented by subtracting their indices from {@code -1}.
+             */
+            OneExternalPerGoal(List<? extends Integer> edges) {
+                assert edges.size() >= 2;
+                this.edges = new int[edges.size()];
+                for (int i = 0; i < this.edges.length; i++) {
+                    int en = edges.get(i);
+                    if (en < 0) {
+                        invs.set(i);
+                        en = -1 - en;
+                    }
+                    this.edges[i] = en;
+                }
+            }
+
+            @Override
+            public boolean check(int[] digits) {
+                /* Get the primary edge. */
+                final int pen = edges[0];
+
+                /* Get the primary edge's mode index. */
+                final int pmi = digits[pen];
+
+                /* If the primary isn't used, its external set can't
+                 * conflict with anything else. */
+                if (pmi == 0) return true;
+
+                /* The primary is in use, so get its external set. */
+                BitSet ppat = modeMap[pen][pmi - 1][invs.get(0) ? 1 : 0];
+
+                /* Get the external sets of the other edges. Abort if
+                 * they include the same goals. */
+                for (int i = 1; i < edges.length; i++) {
+                    // The other peer
+                    final int oen = edges[i];
+                    // The other peer's mode index
+                    final int omi = digits[oen];
+
+                    /* If the edge is unused, its external set doesn't
+                     * conflict with the primary's. */
+                    if (omi == 0) continue;
+
+                    final boolean inv = invs.get(i);
+                    BitSet opat = modeMap[oen][omi][inv ? 1 : 0];
+                    if (opat.intersects(ppat)) return false;
+                }
+
+                /* There were no conflicts. */
+                return true;
+            }
+        }
+
+        class CompleteExternalUnion implements Constraint {
+            final int[] edges;
+
+            final BitSet invs = new BitSet();
+
+            CompleteExternalUnion(List<? extends Integer> edges) {
+                this.edges = new int[edges.size()];
+                for (int i = 0; i < this.edges.length; i++) {
+                    int en = edges.get(i);
+                    if (en < 0) {
+                        invs.set(i);
+                        en = -1 - en;
+                    }
+                    this.edges[i] = en;
+                }
+            }
+
+            @Override
+            public boolean check(int[] digits) {
+                /* Create a set of all goals, in preparation to
+                 * eliminate them. */
+                BitSet base = new BitSet();
+                base.or(modeCache.get(modeCount - 1));
+                assert base.cardinality() == goalOrder.size();
+
+                /* Do any special elimination. */
+                augment(base);
+
+                /* Eliminate each edge's external set. */
+                for (int i = 0; i < edges.length; i++) {
+                    final int en = edges[i];
+                    final int mi = digits[en];
+
+                    /* An unused edge contributes nothing. */
+                    if (mi == 0) continue;
+                    final boolean inv = invs.get(i);
+                    BitSet pat = modeMap[en][mi][inv ? 1 : 0];
+                    base.andNot(pat);
+                }
+
+                return base.isEmpty();
+            }
+
+            public void augment(BitSet base) {}
+        }
+
+        class CompleteExternalUnionExceptGoal extends CompleteExternalUnion {
+            final int goal;
+
+            CompleteExternalUnionExceptGoal(int goal,
+                                            List<? extends Integer> edges) {
+                super(edges);
+                this.goal = goal;
+            }
+
+            @Override
+            public void augment(BitSet base) {
+                base.clear(goal);
+            }
+        }
+
+        /**
+         * Checks that at least on of a set of edges is in use. This
+         * should be used on the edges of a goal, as it must have a
+         * connecting edge.
+         */
+        class GoalConnected implements Constraint {
+            final int goal;
+
+            final int[] edges;
+
+            /**
+             * Create a constraint requiring that at least one edge
+             * connecting to a goal vertex is in use.
+             * 
+             * @param goal the goal number
+             * 
+             * @param edges a list of edge codes. Inward edges are
+             * represented by their indices. Outward edges are
+             * represented by subtracting their indices from {@code -1}.
+             * Whether an edge is inward or outward is ignored.
+             */
+            GoalConnected(int goal, List<? extends Integer> edges) {
+                this.goal = goal;
+                this.edges = new int[edges.size()];
+                for (int i = 0; i < this.edges.length; i++) {
+                    int en = edges.get(i);
+                    if (en < 0) en = -1 - en;
+                    this.edges[i] = en;
+                }
+            }
+
+            @Override
+            public boolean check(int[] digits) {
+                for (int i = 0; i < edges.length; i++) {
+                    final int en = edges[i];
+                    final int mi = digits[en];
+
+                    /* Ignore this edge if it isn't used. */
+                    if (mi == 0) continue;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+        /**
+         * Checks that an edge's internal set includes a goal. This
+         * should be used when a vertex has been identified as a goal.
+         */
+        class InternalSetIncludesGoal implements Constraint {
+            final int goal;
+
+            final int edge;
+
+            final int invert;
+
+            /**
+             * Create a constraint requiring that an edge's internal set
+             * includes a specific goal.
+             * 
+             * @param goal the goal index, as defined by
+             * {@code vertexOrder}
+             * 
+             * @param edge the edge index if it is an inward edge;
+             * {@code -1} minus the edge index if it is an outward edge
+             */
+            InternalSetIncludesGoal(int goal, int edge) {
+                this.goal = goal;
+                if (edge < 0) {
+                    /* This is an outward edge. Its internal set is its
+                     * from set. */
+                    this.edge = -1 - edge;
+                    this.invert = 0;
+                } else {
+                    /* This is an inward edge. Its internal set is its
+                     * to set. */
+                    this.edge = edge;
+                    this.invert = 1;
+                }
+            }
+
+            @Override
+            public boolean check(int[] digits) {
+                final int mi = digits[edge];
+                if (mi == 0) return true;
+                final BitSet mode = modeMap[edge][mi][invert];
+                return mode.get(goal);
+            }
+        }
+
+        final Map<Integer, Collection<Constraint>> checkers = new HashMap<>();
+
+        /* Identify constraints. */
+        for (V vertex : vertexOrder) {
+            /* Get the vertex's inward edges' indices, and the two's
+             * complements of its outward egdes' indices. Sort the edges
+             * by index. */
+            Collection<Edge<V>> outs = outwards.get(vertex);
+            Collection<Edge<V>> ins = inwards.get(vertex);
+            List<Integer> ecs =
+                IntStream
+                    .concat(ins.stream().mapToInt(edgeIndex::getAsInt),
+                            outs.stream()
+                                .mapToInt(e -> -1 - edgeIndex.getAsInt(e)))
+                    .boxed().collect(Collectors.toList());
+            Collections.sort(ecs, (a, b) -> {
+                int ai = a, bi = b;
+                if (ai < 0) ai = -1 - ai;
+                if (bi < 0) bi = -1 - bi;
+                return Integer.compare(ai, bi);
+            });
+
+            /* Identify constraints on external sets of these edges.
+             * There are none if the vertex has fewer than 2 edges. */
+            if (ecs.size() >= 2) {
+                /* Define a constraint for every tail of the sequence.
+                 * No edge's external set may overlap with another's. */
+                for (int i = 0; i < ecs.size() - 2; i++) {
+                    List<Integer> sub = ecs.subList(i, ecs.size());
+                    Constraint constraint = new OneExternalPerGoal(sub);
+                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                        .add(constraint);
+                }
+            }
+
+            final int goalNumber = vertexOrder.getAsInt(vertex);
+            assert goalNumber >= 0;
+            if (goalNumber < goalOrder.size()) {
+                assert goalOrder.get(goalNumber) == vertex;
+
+                /* No edge connected to a goal may include the goal in
+                 * its external set. */
+                for (int i : ecs) {
+                    Constraint constraint =
+                        new InternalSetIncludesGoal(goalNumber, i);
+                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                        .add(constraint);
+                }
+
+                /* Every goal vertex must have at least one edge in use
+                 * connected to it. */
+                {
+                    Constraint constraint = new GoalConnected(goalNumber, ecs);
+                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                        .add(constraint);
+                }
+
+                /* The union of the external sets and this goal must be
+                 * the complete set of goals. */
+                {
+                    Constraint constraint =
+                        new CompleteExternalUnionExceptGoal(goalNumber, ecs);
+                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                        .add(constraint);
+                }
+            } else {
+                /* The union of the external sets must be the complete
+                 * set of goals. */
+                Constraint constraint = new CompleteExternalUnion(ecs);
+                checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                    .add(constraint);
+            }
+        }
+
+        /* Convert the constraints to arrays (for speed?). */
+        final Constraint[][] constraints = new Constraint[edgeCaps.size()][];
+        for (int i = 0; i < edgeCaps.size(); i++)
+            constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
+                .toArray(n -> new Constraint[n]);
 
         return () -> new Iterator<Map<? extends Edge<V>,
                                       ? extends BandwidthPair>>() {
@@ -423,12 +691,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * to an edge, and is the index into the array of
              * {@code modeMap}. Since each edge can have a different
              * number of valid modes, this array represents a multi-base
-             * number.
-             * 
-             * <p>
-             * We have arranged for digits of base 1 to be at the end of
-             * the array. Other than that, digits of lower bases appear
-             * earlier.
+             * number. The value of an element of this array is a mode
+             * index, either 0 (meaning the edge is not currently in
+             * use), or 1 plus the index into second dimension of
+             * {@code modeMap}.
              */
             private final int[] digits = new int[edgeIndex.size()];
 
@@ -437,12 +703,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             private boolean found = false;
 
             private boolean increment() {
-                /* All digits below power must be reset. */
-                Arrays.fill(digits, 0, invalidated, 0);
-
                 /* Increase each counter until we don't have to
                  * carry. */
-                for (; invalidated < digits.length; invalidated++) {
+                while (invalidated < digits.length) {
                     int i = invalidated++;
                     if (++digits[i] < modeMap[i].length) {
                         /* We didn't have to carry. */
@@ -461,26 +724,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 return false;
             }
 
-            private boolean requireAll(Status[][][] operands) {
-                for (var item : operands)
-                    if (!requireAny(item)) return false;
-                return true;
-            }
-
-            private boolean requireAny(Status[][] operands) {
-                for (var item : operands)
-                    if (requireAll(item)) return true;
-                return false;
-            }
-
-            private boolean requireAll(Status[] operands) {
-                for (var item : operands)
-                    if (!item.passes(digits)) return false;
-                return true;
-            }
-
             private boolean ensure() {
-                /* Have we already got a solution to delivered by
+                /* Have we already got a solution to be delivered by
                  * next()? */
                 if (found) return true;
                 /* We must find the next solution. */
@@ -496,23 +741,18 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                      * the edge in its current mode belongs to an
                      * illegal combination. */
                     while (invalidated > 0) {
-                        int en = --invalidated;
+                        final int en = --invalidated;
 
                         /* Check edge against all higher-numbered edges
                          * for conflicts. All requirements must be met.
                          * There will usually only be two, one for each
                          * end of the edge. */
-                        if (!constraints[en][digits[en]].check(digits))
-                            continue next_combination;
+                        for (Constraint c : constraints[en])
+                            if (!c.check(digits)) continue next_combination;
                         /* All requirements were met, so this edge is
                          * validated with respect to all higher-numbered
                          * edges. */
                     }
-
-                    /* TODO: Ensure that all goals have a connecting
-                     * edge in non-zero mode. This might be redundant,
-                     * if we properly take account of goal vertices in
-                     * deriving edge constraints. */
                 } while (increment());
                 return false;
             }
@@ -537,7 +777,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     .collect(Collectors
                         .toMap(en -> edgeIndex.get(en),
                                en -> edgeCaps.get(edgeIndex.get(en))
-                                   .get(modeMap[en][digits[en]])));
+                                   .get(modeMap[en][digits[en]][0])));
             }
         };
     }
