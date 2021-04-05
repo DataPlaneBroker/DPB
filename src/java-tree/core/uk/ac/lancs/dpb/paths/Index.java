@@ -75,7 +75,7 @@ class Index<E> extends AbstractList<E> {
      * 
      * @return an index of the provided elements
      */
-    public static <E> Index<E> of(Collection<? extends E> input) {
+    public static <E> Index<E> copyOf(Collection<? extends E> input) {
         List<E> order = List.copyOf(new LinkedHashSet<>(input));
         Map<E, Integer> map = IntStream.range(0, order.size()).boxed()
             .collect(Collectors.toMap(order::get, i -> i));
@@ -90,14 +90,11 @@ class Index<E> extends AbstractList<E> {
      * 
      * @param elem the element whose position is sought
      * 
-     * @return the element's position
-     * 
-     * @throws NoSuchElementException if the element is not in the index
+     * @return the element's position; or {@code -1} if not present
      */
     public int getAsInt(E elem) {
         Integer r = map.get(elem);
-        if (r == null) throw new NoSuchElementException(elem.toString());
-        return r;
+        return r == null ? -1 : r;
     }
 
     private final Set<E> elements = new AbstractSet<E>() {
@@ -156,6 +153,14 @@ class Index<E> extends AbstractList<E> {
 
     public Map<E, Integer> encode() {
         return elemToIndex;
+    }
+
+    public boolean containsElement(E elem) {
+        return map.containsKey(elem);
+    }
+
+    public boolean containsIndex(int index) {
+        return index >= 0 && index < array.length;
     }
 
     private final Map<E, Integer> elemToIndex = new AbstractMap<E, Integer>() {
@@ -334,18 +339,12 @@ class Index<E> extends AbstractList<E> {
      * 
      * @param index the position in the index
      * 
-     * @return the indexed element
-     * 
-     * @throws IndexOutOfBoundsException if the position is not in the
-     * index
+     * @return the indexed element; or {@code null} if an invalid index
      */
     @Override
     public E get(int index) {
-        try {
-            return array[index];
-        } catch (ArrayIndexOutOfBoundsException ex) {
-            throw new IndexOutOfBoundsException(index);
-        }
+        if (index >= 0 && index < array.length) return array[index];
+        return null;
     }
 
     @Override
