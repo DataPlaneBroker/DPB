@@ -39,16 +39,29 @@ package uk.ac.lancs.dpb.paths;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 
 /**
- * Connects two vertices.
+ * Connects two vertices. This actually represents a pair of directed
+ * edges in opposite directions, and each has a distinct capacity.
+ * However, they both have the same over-all cost.
  * 
  * @param <V> the vertex type
  *
  * @author simpsons
  */
 public final class Edge<V> {
-    final V start, finish;
+    /**
+     * The start vertex
+     */
+    public final V start;
 
-    final double cost;
+    /**
+     * The finish vertex
+     */
+    public final V finish;
+
+    /**
+     * The cumulative cost metric
+     */
+    public final double cost;
 
     final BandwidthPair metrics;
 
