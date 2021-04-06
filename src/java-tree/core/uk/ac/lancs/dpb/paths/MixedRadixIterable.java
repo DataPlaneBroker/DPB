@@ -117,12 +117,23 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
              * otherwise
              */
             private boolean increment() {
+                if (false) try {
+                    Thread.sleep(60);
+                } catch (InterruptedException ex) {
+
+                }
                 /* Increase each counter until we don't have to
                  * carry. */
                 while (invalidated < digits.length) {
                     int i = invalidated++;
                     if (++digits[i] < radixes.applyAsInt(i)) {
                         /* We didn't have to carry. */
+                        if (false) System.err
+                            .printf("%2d/%2d: %s%n", invalidated, magnitude,
+                                    IntStream.of(digits)
+                                        .mapToObj(mi -> String.format("%2d",
+                                                                      mi))
+                                        .collect(Collectors.joining(" ")));
                         return true;
                     }
                     /* We have incremented a digit beyond its maximum
@@ -134,6 +145,11 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
 
                     /* Reset this digit. */
                     digits[i] = 0;
+                    if (false) System.err
+                        .printf("%2d/%2d: %s%n", invalidated, magnitude,
+                                IntStream.of(digits)
+                                    .mapToObj(mi -> String.format("%2d", mi))
+                                    .collect(Collectors.joining(" ")));
                 }
                 return false;
             }

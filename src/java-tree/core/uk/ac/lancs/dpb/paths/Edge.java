@@ -86,4 +86,15 @@ public final class Edge<V> {
         this.metrics = metrics;
         this.cost = cost;
     }
+
+    /**
+     * Get a string representation of this edge.
+     * 
+     * @return the string representations of the vertices, joined by a
+     * hyphen-minus
+     */
+    @Override
+    public String toString() {
+        return start + "-" + finish;
+    }
 }

@@ -36,6 +36,8 @@
 
 package uk.ac.lancs.dpb.paths;
 
+import java.io.File;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -43,9 +45,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
@@ -54,6 +58,7 @@ import java.util.stream.IntStream;
 import uk.ac.lancs.dpb.bw.BandwidthFunction;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 import uk.ac.lancs.dpb.bw.BandwidthRange;
+import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
 
 /**
  * Enumerates over all possible trees that meet the bandwidth
@@ -100,7 +105,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         final int modes = modeCache.size();
         Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new IdentityHashMap<>();
         for (var edge : edges) {
-            for (int mode = 1; mode <= modes; mode++) {
+            for (int mode = 1; mode < modes; mode++) {
                 /* Work out the bandwidth in the forward direction of
                  * the edge. Skip this mode if it exceeds the edge
                  * ingress capacity. */
@@ -125,6 +130,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* Store a deep immutable map. */
         return tmp.entrySet().stream().collect(Collectors
             .toMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
+    }
+
+    private static <E> E removeOne(Collection<? extends E> coll) {
+        Iterator<? extends E> iter = coll.iterator();
+        E result = iter.next();
+        iter.remove();
+        return result;
     }
 
     /**
@@ -176,18 +188,20 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         Collection<V> newReachables = new LinkedHashSet<>();
         newReachables.addAll(goals);
         while (!newReachables.isEmpty()) {
-            /* Pick a vertex that we haven't handled yet, and mark it
-             * has handled. */
-            V vertex = newReachables.iterator().next();
+            /* Pick a vertex that we haven't handled yet, and mark it as
+             * handled. */
+            V vertex = removeOne(newReachables);
             assert !reachables.contains(vertex);
             reachables.add(vertex);
 
             /* Find all neighbours of the vertex. */
             Collection<V> cands = new HashSet<>();
             Collection<? extends Edge<V>> inEdges = inwards.get(vertex);
+            assert inEdges != null;
             cands.addAll(inEdges.stream().map(e -> e.start)
                 .collect(Collectors.toSet()));
             Collection<? extends Edge<V>> outEdges = outwards.get(vertex);
+            assert outEdges != null;
             cands.addAll(outEdges.stream().map(e -> e.finish)
                 .collect(Collectors.toSet()));
 
@@ -214,6 +228,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
     private interface Constraint {
         boolean check(IntUnaryOperator digits);
+
+        void verify(int baseEdge);
+    }
+
+    private static <V> String setString(BitSet pat, Index<V> goalIndex) {
+        return "{" + pat.stream().mapToObj(goalIndex::get).map(Object::toString)
+            .collect(Collectors.joining("+")) + "}";
     }
 
     @Override
@@ -274,6 +295,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     .add(edge);
             }
 
+            /* Make sure the vertices also have sets for the opposite
+             * direction. */
+            for (V v : tmp) {
+                outs.computeIfAbsent(v, k -> new HashSet<>());
+                ins.computeIfAbsent(v, k -> new HashSet<>());
+            }
+
             /* Get deep immutable copies of these structures. */
             inwards = ins.entrySet().stream().collect(Collectors
                 .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
@@ -282,12 +310,22 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             vertexOrder = Index.copyOf(tmp);
         }
 
+        /* Ensure that every goal has an edge. */
+        for (V v : goalOrder) {
+            Collection<Edge<V>> ins = inwards.get(v);
+            Collection<Edge<V>> outs = outwards.get(v);
+            assert ins != null;
+            assert outs != null;
+            if (ins.isEmpty() && outs.isEmpty()) return Collections.emptyList();
+        }
+
         /* Assign each edge's mode to a digit in a multi-base number.
          * Index 0 will be the least significant digit. Edges that are
          * most reachable will correspond to the most significant
          * digits. */
         final Index<Edge<V>> edgeIndex =
             Index.copyOf(getEdgeOrder(goalIndex, inwards, outwards));
+        assert edgeIndex.size() == edgeCaps.size();
 
         /* Create a mapping from mode index to mode pattern for each
          * edge that has at least one valid non-zero mode. The first
@@ -313,6 +351,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         class OneExternalPerGoal implements Constraint {
             final int[] edges;
 
+            /**
+             * Identifies outward edges, whose external sets are their
+             * to sets.
+             */
             final BitSet invs = new BitSet();
 
             /**
@@ -329,11 +371,33 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 for (int i = 0; i < this.edges.length; i++) {
                     int en = edges.get(i);
                     if (en < 0) {
+                        // an outward edge; external is to
                         invs.set(i);
                         en = -1 - en;
+                    } else {
+                        // an inward edge; external is from
                     }
                     this.edges[i] = en;
                 }
+            }
+
+            @Override
+            public String toString() {
+                List<String> parts =
+                    IntStream.range(0, edges.length).mapToObj(i -> {
+                        int en = edges[i];
+                        Edge<V> e = edgeIndex.get(en);
+                        return String.format(" %d%s.%s", en, e,
+                                             invs.get(i) ? "to" : "from");
+                    }).collect(Collectors.toList());
+                return String.format("edge%s not intersect%s", parts.get(0),
+                                     parts.subList(1, parts.size()).stream()
+                                         .collect(Collectors.joining()));
+            }
+
+            @Override
+            public void verify(int baseEdge) {
+                assert edges[0] == baseEdge;
             }
 
             @Override
@@ -364,7 +428,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     if (omi == 0) continue;
 
                     final boolean inv = invs.get(i);
-                    BitSet opat = modeMap[oen][omi][inv ? 1 : 0];
+                    BitSet opat = modeMap[oen][omi - 1][inv ? 1 : 0];
                     if (opat.intersects(ppat)) return false;
                 }
 
@@ -383,40 +447,62 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 for (int i = 0; i < this.edges.length; i++) {
                     int en = edges.get(i);
                     if (en < 0) {
+                        // an outward edge; external set is to set
                         invs.set(i);
                         en = -1 - en;
+                    } else {
+                        // an inward edge; external set is from set
                     }
                     this.edges[i] = en;
                 }
             }
 
             @Override
+            public String toString() {
+                return "complete union of"
+                    + IntStream.range(0, edges.length).mapToObj(i -> {
+                        int en = edges[i];
+                        Edge<V> e = edgeIndex.get(en);
+                        return String.format(" %d%s.%s", en, e,
+                                             invs.get(i) ? "to" : "from");
+                    }).collect(Collectors.joining());
+            }
+
+            @Override
             public boolean check(IntUnaryOperator digits) {
                 /* Create a set of all goals, in preparation to
-                 * eliminate them. */
+                 * eliminate them. We fail if there are any left, unless
+                 * none of the edges are in use at all. */
                 BitSet base = new BitSet();
-                base.or(modeCache.get(modeCount - 1));
+                base.set(0, goalIndex.size());
                 assert base.cardinality() == goalOrder.size();
 
                 /* Do any special elimination. */
                 augment(base);
 
                 /* Eliminate each edge's external set. */
+                boolean inUse = false;
                 for (int i = 0; i < edges.length; i++) {
                     final int en = edges[i];
                     final int mi = digits.applyAsInt(en);
 
                     /* An unused edge contributes nothing. */
                     if (mi == 0) continue;
+                    inUse = true;
                     final boolean inv = invs.get(i);
-                    BitSet pat = modeMap[en][mi][inv ? 1 : 0];
+                    BitSet pat = modeMap[en][mi - 1][inv ? 1 : 0];
                     base.andNot(pat);
                 }
 
-                return base.isEmpty();
+                return base.isEmpty() || !inUse;
             }
 
             public void augment(BitSet base) {}
+
+            @Override
+            public void verify(int baseEdge) {
+                assert edges[0] == baseEdge;
+            }
         }
 
         class CompleteExternalUnionExceptGoal extends CompleteExternalUnion {
@@ -426,6 +512,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                                             List<? extends Integer> edges) {
                 super(edges);
                 this.goal = goal;
+            }
+
+            @Override
+            public String toString() {
+                return String.format("except goal %d%s %s", goal,
+                                     edgeIndex.get(goal), super.toString());
             }
 
             @Override
@@ -440,8 +532,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * connecting edge.
          */
         class GoalConnected implements Constraint {
-            final int goal;
-
             final int[] edges;
 
             /**
@@ -455,8 +545,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * represented by subtracting their indices from {@code -1}.
              * Whether an edge is inward or outward is ignored.
              */
-            GoalConnected(int goal, List<? extends Integer> edges) {
-                this.goal = goal;
+            GoalConnected(List<? extends Integer> edges) {
                 this.edges = new int[edges.size()];
                 for (int i = 0; i < this.edges.length; i++) {
                     int en = edges.get(i);
@@ -466,16 +555,30 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
+            public String toString() {
+                return String
+                    .format("active in {%s }",
+                            IntStream.range(0, edges.length).mapToObj(i -> {
+                                return String.format(" %d%s", edges[i],
+                                                     edgeIndex.get(edges[i]));
+                            }).collect(Collectors.joining()));
+            }
+
+            @Override
             public boolean check(IntUnaryOperator digits) {
                 for (int i = 0; i < edges.length; i++) {
                     final int en = edges[i];
                     final int mi = digits.applyAsInt(en);
 
                     /* Ignore this edge if it isn't used. */
-                    if (mi == 0) continue;
-                    return true;
+                    if (mi != 0) return true;
                 }
                 return false;
+            }
+
+            @Override
+            public void verify(int baseEdge) {
+                assert edges[0] == baseEdge;
             }
         }
 
@@ -488,7 +591,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
             final int edge;
 
-            final int invert;
+            final boolean inv;
+
+            final BitSet goodModeIndexes = new BitSet();
 
             /**
              * Create a constraint requiring that an edge's internal set
@@ -502,25 +607,44 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              */
             InternalSetIncludesGoal(int goal, int edge) {
                 this.goal = goal;
+                final int invert;
                 if (edge < 0) {
                     /* This is an outward edge. Its internal set is its
                      * from set. */
                     this.edge = -1 - edge;
-                    this.invert = 0;
+                    invert = 0;
+                    this.inv = false;
                 } else {
                     /* This is an inward edge. Its internal set is its
                      * to set. */
                     this.edge = edge;
-                    this.invert = 1;
+                    invert = 1;
+                    this.inv = true;
                 }
+
+                goodModeIndexes.set(0);
+                for (int mi = 1; mi < modeMap[this.edge].length; mi++) {
+                    final BitSet mode = modeMap[this.edge][mi - 1][invert];
+                    if (mode.get(goal)) goodModeIndexes.set(mi);
+                }
+            }
+
+            @Override
+            public String toString() {
+                return String.format("goal %d%s in %d%s.%s", goal,
+                                     vertexOrder.get(goal), edge,
+                                     edgeIndex.get(edge), inv ? "to" : "from");
             }
 
             @Override
             public boolean check(IntUnaryOperator digits) {
                 final int mi = digits.applyAsInt(edge);
-                if (mi == 0) return true;
-                final BitSet mode = modeMap[edge][mi][invert];
-                return mode.get(goal);
+                return goodModeIndexes.get(mi);
+            }
+
+            @Override
+            public void verify(int baseEdge) {
+                assert edge == baseEdge;
             }
         }
 
@@ -533,6 +657,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * by index. */
             Collection<Edge<V>> outs = outwards.get(vertex);
             Collection<Edge<V>> ins = inwards.get(vertex);
+            assert outs.size() + ins.size() > 0;
             List<Integer> ecs =
                 IntStream
                     .concat(ins.stream().mapToInt(edgeIndex::getAsInt),
@@ -545,17 +670,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (bi < 0) bi = -1 - bi;
                 return Integer.compare(ai, bi);
             });
+            assert !ecs.isEmpty();
 
             /* Identify constraints on external sets of these edges.
              * There are none if the vertex has fewer than 2 edges. */
             if (ecs.size() >= 2) {
                 /* Define a constraint for every tail of the sequence.
                  * No edge's external set may overlap with another's. */
-                for (int i = 0; i < ecs.size() - 2; i++) {
+                for (int i = 0; i < ecs.size() - 1; i++) {
                     List<Integer> sub = ecs.subList(i, ecs.size());
+                    assert sub.size() >= 2;
+                    int first = sub.get(0);
+                    if (first < 0) first = -1 - first;
                     Constraint constraint = new OneExternalPerGoal(sub);
-                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
+                    if (false) {
+                        System.err.printf("%d%s -> %s%n", first,
+                                          edgeIndex.get(first), constraint);
+                        constraint.verify(first);
+                    }
                 }
             }
 
@@ -569,16 +703,29 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 for (int i : ecs) {
                     Constraint constraint =
                         new InternalSetIncludesGoal(goalNumber, i);
-                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                    int first = i < 0 ? -1 - i : i;
+                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
+                    if (false) {
+                        System.err.printf("%d%s -> %s%n", first,
+                                          edgeIndex.get(first), constraint);
+                        constraint.verify(first);
+                    }
                 }
 
                 /* Every goal vertex must have at least one edge in use
                  * connected to it. */
                 {
-                    Constraint constraint = new GoalConnected(goalNumber, ecs);
-                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                    Constraint constraint = new GoalConnected(ecs);
+                    int first = ecs.get(0);
+                    if (first < 0) first = -1 - first;
+                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
+                    if (false) {
+                        System.err.printf("%d%s -> %s%n", first,
+                                          edgeIndex.get(first), constraint);
+                        constraint.verify(first);
+                    }
                 }
 
                 /* The union of the external sets and this goal must be
@@ -586,36 +733,59 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 {
                     Constraint constraint =
                         new CompleteExternalUnionExceptGoal(goalNumber, ecs);
-                    checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                    int first = ecs.get(0);
+                    if (first < 0) first = -1 - first;
+                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
+                    if (false) {
+                        System.err.printf("%d%s -> %s%n", first,
+                                          edgeIndex.get(first), constraint);
+                        constraint.verify(first);
+                    }
                 }
             } else {
                 /* The union of the external sets must be the complete
                  * set of goals. */
                 Constraint constraint = new CompleteExternalUnion(ecs);
-                checkers.computeIfAbsent(ecs.get(0), k -> new ArrayList<>())
+                int first = ecs.get(0);
+                if (first < 0) first = -1 - first;
+                checkers.computeIfAbsent(first, k -> new ArrayList<>())
                     .add(constraint);
+                if (false) {
+                    System.err.printf("%d%s -> %s%n", first,
+                                      edgeIndex.get(first), constraint);
+                    constraint.verify(first);
+                }
             }
         }
 
         /* Convert the constraints to arrays (for speed?). */
         final Constraint[][] constraints = new Constraint[edgeCaps.size()][];
-        for (int i = 0; i < edgeCaps.size(); i++)
+        for (int i = 0; i < edgeIndex.size(); i++)
             constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
                 .toArray(n -> new Constraint[n]);
+
+        for (int i = constraints.length - 1; i >= 0; i--) {
+            Constraint[] ccs = constraints[i];
+            for (int j = 0; j < ccs.length; j++) {
+                System.err.printf("%d%s[%d]: %s%n", i, edgeIndex.get(i), j,
+                                  ccs[j]);
+                ccs[j].verify(i);
+            }
+        }
 
         /* Prepare to iterate over the edge modes while checking
          * constraints. */
         IntUnaryOperator bases = i -> modeMap[i].length;
         assert modeMap.length == edgeIndex.size();
+        assert modeMap.length == edgeCaps.size();
         Function<IntUnaryOperator,
-                 Map<? extends Edge<V>, ? extends BandwidthPair>> translator =
-                     digits -> IntStream.range(0, edgeIndex.size())
-                         .filter(en -> digits.applyAsInt(en) != 0).boxed()
-                         .collect(Collectors
-                             .toMap(en -> edgeIndex.get(en), en -> edgeCaps
-                                 .get(edgeIndex.get(en))
-                                 .get(modeMap[en][digits.applyAsInt(en)][0])));
+                 Map<Edge<V>, BandwidthPair>> translator = digits -> IntStream
+                     .range(0, edgeIndex.size())
+                     .filter(en -> digits.applyAsInt(en) != 0).boxed()
+                     .collect(Collectors.toMap(edgeIndex::get, en -> edgeCaps
+                         .get(edgeIndex.get(en))
+                         .get(modeMap[en][digits.applyAsInt(en)][0])));
         MixedRadixValidator validator = (en, digits) -> {
             for (Constraint c : constraints[en])
                 if (!c.check(digits)) return false;
@@ -623,5 +793,419 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         };
         return MixedRadixIterable.to(translator).over(modeMap.length, bases)
             .constrainedBy(validator).build();
+    }
+
+    private static class Vertex {
+        final double x, y;
+
+        Vertex(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+
+        public Vertex minus(Vertex other) {
+            return new Vertex(x - other.x, y - other.y);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("(%.0f,%.0f)", x, y);
+        }
+    }
+
+    private static double distance(Vertex v0, Vertex v1) {
+        double dx = v1.x - v0.x;
+        double dy = v1.y - v0.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    private static class Circle extends Vertex {
+        public final double radius;
+
+        public Circle(double x, double y, double radius) {
+            super(x, y);
+            this.radius = radius;
+        }
+
+        public boolean contains(Vertex other) {
+            return distance(this, other) < radius;
+        }
+
+        @Override
+        public String toString() {
+            return super.toString() + radius;
+        }
+    }
+
+    private static Circle circumcircle(Vertex a, Vertex b, Vertex c) {
+        Vertex bp = b.minus(a);
+        Vertex cp = c.minus(a);
+        final double bp2 = bp.x * bp.x + bp.y * bp.y;
+        final double cp2 = cp.x * cp.x + cp.y * cp.y;
+        final double dp = 2.0 * (bp.x * cp.y - bp.y * cp.x);
+        final double upx = (cp.y * bp2 - bp.y * cp2) / dp;
+        final double upy = (bp.x * cp2 - cp.x * bp2) / dp;
+        final double r = Math.hypot(upx, upy);
+        return new Circle(upx + a.x, upy + a.y, r);
+    }
+
+    private static boolean edgesCross(Vertex v1, Vertex v2, Vertex v3,
+                                      Vertex v4) {
+        if (v1 == v3 || v1 == v4 || v2 == v3 || v2 == v4) return false;
+        final double deter =
+            (v1.x - v2.x) * (v3.y - v4.y) - (v1.y - v2.y) * (v3.x - v4.x);
+        final double x1y2my1x2 = v1.x * v2.y - v1.y * v2.x;
+        final double x3y4my3x4 = v3.x * v4.y - v3.y * v4.x;
+        final double x3mx4 = v3.x - v4.x;
+        final double x1mx2 = v1.x - v2.x;
+        final double y3my4 = v3.y - v4.y;
+        final double y1my2 = v1.y - v2.y;
+        final double px = (x1y2my1x2 * x3mx4 - x1mx2 * x3y4my3x4) / deter;
+        final double py = (x1y2my1x2 * y3my4 - y1my2 * x3y4my3x4) / deter;
+        if (px < v1.x && px < v2.x) return false;
+        if (px < v3.x && px < v4.x) return false;
+        if (px > v1.x && px > v2.x) return false;
+        if (px > v3.x && px > v4.x) return false;
+        if (py < v1.y && py < v2.y) return false;
+        if (py < v3.y && py < v4.y) return false;
+        if (py > v1.y && py > v2.y) return false;
+        if (py > v3.y && py > v4.y) return false;
+        return true;
+    }
+
+    private static boolean cross(Edge<Vertex> e0, Edge<Vertex> e1) {
+        return edgesCross(e0.start, e0.finish, e1.start, e1.finish);
+    }
+
+    private static double length(Edge<Vertex> e) {
+        return distance(e.start, e.finish);
+    }
+
+    private static boolean abut(Edge<Vertex> e0, Edge<Vertex> e1) {
+        if (e0 == e1) return false;
+        if (e0.start == e1.start) return true;
+        if (e0.start == e1.finish) return true;
+        if (e0.finish == e1.start) return true;
+        if (e0.finish == e1.finish) return true;
+        return false;
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) throws Exception {
+
+        final int width = 20;
+        final int height = 15;
+        final int population = width * height * 8 / 100;
+        final int goalCount = 4;
+        final double goalRadius = 0.3;
+        final double vertexRadius = 0.2;
+        final double stretch = 0.8;
+
+        /* Create vertices dotted around a grid. */
+        List<Vertex> vertexes = new ArrayList<>();
+        List<Vertex> goals = new ArrayList<>();
+        Random rng = new Random(1);
+        {
+            int req = population, rem = width * height;
+            int greq = goalCount;
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++, rem--) {
+                    if (rng.nextInt(rem) < req) {
+                        /* Create a new vertex. */
+                        Vertex v = new Vertex(x, y);
+                        vertexes.add(v);
+
+                        /* Decide whether to make this a goal. */
+                        if (rng.nextInt(req) < greq) {
+                            goals.add(v);
+                            greq--;
+                        }
+
+                        /* Reduce the odds of making subsequent
+                         * vertices. */
+                        req--;
+                    }
+                }
+            }
+        }
+
+        List<Edge<Vertex>> edges = new ArrayList<>();
+        {
+            /* Create edges between every pair of vertices. */
+            for (int i = 0; i < vertexes.size() - 1; i++) {
+                Vertex v0 = vertexes.get(i);
+                for (int j = i + 1; j < vertexes.size(); j++) {
+                    Vertex v1 = vertexes.get(j);
+                    double cost = distance(v0, v1);
+                    BandwidthPair cap = BandwidthPair
+                        .of(BandwidthRange.at(2.0 + rng.nextDouble() * 8.0),
+                            BandwidthRange.at(2.0 + rng.nextDouble() * 8.0));
+                    Edge<Vertex> e = new Edge<>(v0, v1, cap, cost);
+                    edges.add(e);
+                }
+            }
+
+            /* Prune longer edges that cross others. */
+            outer: for (int i = 0; i < edges.size() - 1; i++) {
+                Edge<Vertex> e0 = edges.get(i);
+                double s0 = length(e0);
+                for (int j = i + 1; j < edges.size(); j++) {
+                    Edge<Vertex> e1 = edges.get(j);
+                    if (!cross(e0, e1)) continue;
+                    double s1 = length(e1);
+                    if (s1 >= s0) {
+                        edges.remove(j--);
+                    } else {
+                        edges.remove(i--);
+                        continue outer;
+                    }
+                }
+            }
+
+            /* Find edges that form a triangle. */
+            outer0: for (int i0 = 0; i0 < edges.size() - 2; i0++) {
+                final Edge<Vertex> e0 = edges.get(i0);
+                final double s0 = length(e0);
+                outer1: for (int i1 = i0 + 1; i1 < edges.size() - 1; i1++) {
+                    final Edge<Vertex> e1 = edges.get(i1);
+                    if (!abut(e0, e1)) continue;
+
+                    final double s1 = length(e1);
+                    outer2: for (int i2 = i1 + 1; i2 < edges.size(); i2++) {
+                        final Edge<Vertex> e2 = edges.get(i2);
+                        if (!abut(e2, e1)) continue;
+                        if (!abut(e2, e0)) continue;
+
+                        /* Identify the corners and compute the
+                         * circumcircle. */
+                        final Collection<Vertex> set = new HashSet<>();
+                        set.add(e0.start);
+                        set.add(e0.finish);
+                        set.add(e1.start);
+                        set.add(e1.finish);
+                        set.add(e2.start);
+                        set.add(e2.finish);
+                        /* If we don't have exactly 3 corners, we've
+                         * probably just picked three edges of the same
+                         * vertex. */
+                        if (set.size() != 3) continue;
+
+                        /* Now we have a triangle. */
+                        final List<Vertex> corners = List.copyOf(set);
+                        assert corners.size() == 3;
+                        final double s2 = length(e2);
+
+                        if (false)
+                            System.out.printf("%s-%s-%s%n", corners.get(0),
+                                              corners.get(1), corners.get(2));
+
+                        /* Very flat triangles will have the longest
+                         * edge being only slightly shorter than the sum
+                         * of the others. Remove the longest edge in
+                         * these cases. */
+                        if (s2 > stretch * (s1 + s0) ||
+                            s1 > stretch * (s2 + s0) ||
+                            s0 > stretch * (s2 + s1)) {
+                            /* This triangle is very squished. Remove
+                             * the longest edge. */
+                            if (s2 > s1 && s2 > s0) {
+                                if (false) System.out
+                                    .printf("  removing 3rd %s%n", e2);
+                                edges.remove(i2--);
+                                continue;
+                            }
+
+                            if (s1 > s2 && s1 > s0) {
+                                if (false) System.out
+                                    .printf("  removing 2nd %s%n", e1);
+                                edges.remove(i1--);
+                                continue outer1;
+                            }
+
+                            if (false)
+                                System.out.printf("  removing 1st %s%n", e0);
+                            edges.remove(i0--);
+                            continue outer0;
+                        }
+
+                        /* See if there's a vertex within the
+                         * circumcircle. */
+                        final Circle circum =
+                            circumcircle(corners.get(0), corners.get(1),
+                                         corners.get(2));
+                        for (Vertex v : vertexes) {
+                            /* Exclude vertices that form this
+                             * triangle. */
+                            if (corners.contains(v)) continue;
+
+                            /* Exclude vertices that are not in the
+                             * circumcircle. */
+                            if (!circum.contains(v)) continue;
+
+                            if (false) System.out.printf("  contains %s%n", v);
+
+                            /* Remove the longest edge. */
+                            if (s2 > s1 && s2 > s0) {
+                                if (false) System.out
+                                    .printf("  removing 3rd %s%n", e2);
+                                edges.remove(i2--);
+                                continue outer2;
+                            }
+
+                            if (s1 > s2 && s1 > s0) {
+                                if (false) System.out
+                                    .printf("  removing 2nd %s%n", e1);
+                                edges.remove(i1--);
+                                continue outer1;
+                            }
+
+                            if (false)
+                                System.out.printf("  removing 1st %s%n", e0);
+                            edges.remove(i0--);
+                            continue outer0;
+                        }
+                    }
+                }
+            }
+        }
+
+        /* Find the largest edge capacity. */
+        final double maxCap;
+        {
+            double best = 0.0;
+            for (var e : edges) {
+                best = Math.max(best, e.metrics.ingress.min());
+                best = Math.max(best, e.metrics.egress.min());
+            }
+            maxCap = best;
+        }
+
+        /* Choose a tree. */
+        final Map<Edge<Vertex>, BandwidthPair> tree;
+        if (true) {
+            TreePlotter plotter = new ComprehensiveTreePlotter();
+            BandwidthFunction bwreq =
+                new FlatBandwidthFunction(goals.size(), BandwidthRange.at(1.0));
+            // new PairBandwidthFunction(IntStream.range(0,
+            // goals.size())
+            // .mapToObj(i ->
+            // BandwidthPair.of(BandwidthRange.at(0.1),
+            // BandwidthRange.at(0.2)))
+            // .collect(Collectors.toList()));
+            Map<? extends Edge<Vertex>, ? extends BandwidthPair> best = null;
+            double bestScore = Double.MAX_VALUE;
+            assert bwreq.degree() == goals.size();
+            for (var cand : plotter.plot(goals, bwreq, edges)) {
+                double score = 0.0;
+                for (var entry : cand.entrySet()) {
+                    Edge<Vertex> key = entry.getKey();
+                    BandwidthPair val = entry.getValue();
+                    score += key.cost * (val.ingress.min() + val.egress.min());
+                }
+                if (best == null || score < bestScore) {
+                    best = cand;
+                    bestScore = score;
+                    System.err.printf("acc %g: %s%n", bestScore, best.keySet());
+                }
+            }
+            tree = best == null ? Collections.emptyMap() : Map.copyOf(best);
+        } else {
+            tree = Collections.emptyMap();
+        }
+
+        /* Draw out the result. */
+        try (PrintWriter out =
+            new PrintWriter(new File("scratch/treeplot.svg"))) {
+            out.println("<?xml version=\"1.0\" " + "standalone=\"no\"?>\n");
+            out.println("<!DOCTYPE svg PUBLIC");
+            out.println(" \"-//W3C//DTD SVG 20000303 Stylable//EN\"");
+            out.println(" \"http://www.w3.org/TR/2000/03/"
+                + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
+            out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
+            out.println(" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
+            out.printf(" viewBox='%g %g %g %g' width='8in' height='%gin'>%n",
+                       -0.5, -0.5, width + 0.0, height + 0.0,
+                       8.0 * height / width);
+
+            /* Create the background. */
+            out.printf("<rect fill='white' stroke='red' stroke-width='0.2'"
+                + " x='%g' y='%g' width='%g' height='%g'/>%n", -0.5, -0.5,
+                       width + 0.0, height + 0.0);
+
+            /* Create the grid. */
+            out.printf("<g fill='none' stroke='#ccc' stroke-width='0.03'>%n");
+            for (int i = 0; i < width; i++)
+                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", i + 0.0,
+                           -0.5, i + 0.0, height + 0.0);
+            for (int i = 0; i < height; i++)
+                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", -0.5,
+                           i + 0.0, width + 0.0, i + 0.0);
+            out.println("</g>");
+
+            /* Highlight the goals. */
+            out.printf("<g fill='red' stroke='none'>%n");
+            for (Vertex g : goals) {
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x, g.y,
+                           goalRadius);
+            }
+            out.println("</g>");
+
+            /* Draw out the edge capacities. */
+            out.printf("<g fill='#aaa' stroke='none'>%n");
+            for (Edge<Vertex> e : edges) {
+                final double len = length(e);
+                final double dx = e.finish.x - e.start.x;
+                final double dy = e.finish.y - e.start.y;
+                final double startFrac =
+                    e.metrics.ingress.min() / maxCap * vertexRadius;
+                final double endFrac =
+                    e.metrics.egress.min() / maxCap * vertexRadius;
+                out.printf("<path d='M%g %g L%g %g L%g %g L%g %g z' />%n",
+                           e.start.x - startFrac * dy / len,
+                           e.start.y + startFrac * dx / len,
+                           e.finish.x - endFrac * dy / len,
+                           e.finish.y + endFrac * dx / len,
+                           e.finish.x + endFrac * dy / len,
+                           e.finish.y - endFrac * dx / len,
+                           e.start.x + startFrac * dy / len,
+                           e.start.y - startFrac * dx / len);
+            }
+            out.println("</g>");
+
+            /* Draw out the tree. */
+            out.printf("<g fill='black' stroke='none'>%n");
+            for (var entry : tree.entrySet()) {
+                Edge<Vertex> e = entry.getKey();
+                BandwidthPair bw = entry.getValue();
+                final double len = length(e);
+                final double dx = e.finish.x - e.start.x;
+                final double dy = e.finish.y - e.start.y;
+                final double startFrac =
+                    bw.ingress.min() / maxCap * vertexRadius;
+                final double endFrac = bw.egress.min() / maxCap * vertexRadius;
+                out.printf("<path d='M%g %g L%g %g L%g %g L%g %g z' />%n",
+                           e.start.x - startFrac * dy / len,
+                           e.start.y + startFrac * dx / len,
+                           e.finish.x - endFrac * dy / len,
+                           e.finish.y + endFrac * dx / len,
+                           e.finish.x + endFrac * dy / len,
+                           e.finish.y - endFrac * dx / len,
+                           e.start.x + startFrac * dy / len,
+                           e.start.y - startFrac * dx / len);
+            }
+            out.println("</g>");
+
+            /* Draw the vertices. */
+            out.printf("<g fill='black' stroke='none'>%n");
+            for (Vertex g : vertexes) {
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x, g.y,
+                           vertexRadius);
+            }
+            out.println("</g>");
+
+            out.println("</svg>");
+        }
     }
 }
