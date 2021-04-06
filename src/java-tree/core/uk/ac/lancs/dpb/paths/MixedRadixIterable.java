@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -297,12 +298,45 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
          * Set the radices of the digits.
          * 
          * @param radixes the radices of each digit, least significant
-         * first. The elements must not be modified.
+         * first. The elements must not be modified while the iterable
+         * is in use.
          * 
          * @return this object
          */
         public Builder<E> over(int[] radixes) {
+            Objects.requireNonNull(radixes, "radixes");
             return over(radixes.length, i -> radixes[i]);
+        }
+
+        /**
+         * Set the radices of the digits from part of an array.
+         * 
+         * @param radixes an array with a portion that defines the
+         * radices of each digit, least significant first. The elements
+         * must not be modified while the iterable is in use.
+         * 
+         * @param off the offset into the array of the radix of the
+         * least significant digit
+         * 
+         * @param len the number of digits
+         * 
+         * @return this object
+         * 
+         * @throws IllegalArgumentException if the offset or length are
+         * negative
+         * 
+         * @throws ArrayIndexOutOfBoundsException if the offset plus the
+         * length exceed the length of the array
+         */
+        public Builder<E> over(int[] radixes, int off, int len) {
+            Objects.requireNonNull(radixes, "radixes");
+            if (off < 0)
+                throw new IllegalArgumentException("-ve offset: " + off);
+            if (len < 0)
+                throw new IllegalArgumentException("-ve length: " + len);
+            if (off + len > radixes.length)
+                throw new ArrayIndexOutOfBoundsException(off + len - 1);
+            return over(len, i -> radixes[i + off]);
         }
 
         /**
