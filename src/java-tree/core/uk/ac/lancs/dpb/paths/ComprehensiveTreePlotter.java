@@ -43,120 +43,40 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.function.IntFunction;
+import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 import uk.ac.lancs.dpb.bw.BandwidthFunction;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 import uk.ac.lancs.dpb.bw.BandwidthRange;
 
 /**
+ * Enumerates over all possible trees that meet the bandwidth
+ * constraints. This works by maintaining an array of 'digits', one per
+ * edge, and each specifying the mode in which an edge is being used.
+ * For each edge, modes that would incur a use of bandwidth greater than
+ * the edge's capacity are eliminated, so the number of modes in each
+ * digit may vary. Additionally, combinations of modes of edges
+ * surrounding a vertex have constraints placed upon them. These
+ * constraints are tested as soon as an edge adopts a new mode. Failure
+ * results in the edge mode being incremented, and modes of less
+ * significant edges being reset.
+ * 
+ * <p>
+ * This class does not use the cost metric of an edge.
+ * 
  * @param <V> the vertex type
  *
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
-    private static <E> IntFunction<E[]> newArray() {
-        @SuppressWarnings("unchecked")
-        IntFunction<E[]> result = size -> (E[]) new Object[size];
-        return result;
-    }
-
-    private static <E> Iterable<Map.Entry<E, Integer>>
-        over(Iterable<? extends E> base) {
-        return () -> new Iterator<Map.Entry<E, Integer>>() {
-            private final Iterator<? extends E> innerBase = base.iterator();
-
-            private int i = 0;
-
-            @Override
-            public boolean hasNext() {
-                return innerBase.hasNext();
-            }
-
-            @Override
-            public Map.Entry<E, Integer> next() {
-                final E next = innerBase.next();
-                final int cur = i++;
-                return new Map.Entry<>() {
-                    @Override
-                    public E getKey() {
-                        return next;
-                    }
-
-                    @Override
-                    public Integer getValue() {
-                        return cur;
-                    }
-
-                    @Override
-                    public Integer setValue(Integer value) {
-                        throw new UnsupportedOperationException("unimplemented");
-                    }
-                };
-            }
-        };
-    }
-
-    private static <E> Stream<Map.Entry<E, Integer>>
-        indexedStream(Iterable<E> base) {
-        return StreamSupport.stream(over(base).spliterator(), false);
-    }
-
-    private static <E> Iterable<Map.Entry<E, Integer>> over(E[] arr) {
-        return () -> new Iterator<Map.Entry<E, Integer>>() {
-            int i = 0;
-
-            @Override
-            public boolean hasNext() {
-                return i < arr.length;
-            }
-
-            @Override
-            public Map.Entry<E, Integer> next() {
-                int cur = i++;
-                return new Map.Entry<E, Integer>() {
-                    @Override
-                    public E getKey() {
-                        return arr[cur];
-                    }
-
-                    @Override
-                    public Integer getValue() {
-                        return cur;
-                    }
-
-                    @Override
-                    public Integer setValue(Integer value) {
-                        throw new UnsupportedOperationException("unimplemented");
-                    }
-
-                };
-            }
-        };
-    }
-
-    private static <E> Stream<Map.Entry<E, Integer>> indexedStream(E[] arr) {
-        return StreamSupport.stream(over(arr).spliterator(), false);
-    }
-
     private static BitSet of(int pattern) {
         return BitSet.valueOf(new long[] { pattern });
-    }
-
-    private static BitSet xor(BitSet a, BitSet b) {
-        BitSet result = new BitSet();
-        result.or(a);
-        result.xor(b);
-        return result;
     }
 
     /**
@@ -293,7 +213,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     }
 
     private interface Constraint {
-        boolean check(int[] digits);
+        boolean check(IntUnaryOperator digits);
     }
 
     @Override
@@ -417,12 +337,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
-            public boolean check(int[] digits) {
+            public boolean check(IntUnaryOperator digits) {
                 /* Get the primary edge. */
                 final int pen = edges[0];
 
                 /* Get the primary edge's mode index. */
-                final int pmi = digits[pen];
+                final int pmi = digits.applyAsInt(pen);
 
                 /* If the primary isn't used, its external set can't
                  * conflict with anything else. */
@@ -437,7 +357,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     // The other peer
                     final int oen = edges[i];
                     // The other peer's mode index
-                    final int omi = digits[oen];
+                    final int omi = digits.applyAsInt(oen);
 
                     /* If the edge is unused, its external set doesn't
                      * conflict with the primary's. */
@@ -471,7 +391,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
-            public boolean check(int[] digits) {
+            public boolean check(IntUnaryOperator digits) {
                 /* Create a set of all goals, in preparation to
                  * eliminate them. */
                 BitSet base = new BitSet();
@@ -484,7 +404,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Eliminate each edge's external set. */
                 for (int i = 0; i < edges.length; i++) {
                     final int en = edges[i];
-                    final int mi = digits[en];
+                    final int mi = digits.applyAsInt(en);
 
                     /* An unused edge contributes nothing. */
                     if (mi == 0) continue;
@@ -546,10 +466,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
-            public boolean check(int[] digits) {
+            public boolean check(IntUnaryOperator digits) {
                 for (int i = 0; i < edges.length; i++) {
                     final int en = edges[i];
-                    final int mi = digits[en];
+                    final int mi = digits.applyAsInt(en);
 
                     /* Ignore this edge if it isn't used. */
                     if (mi == 0) continue;
@@ -596,8 +516,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
-            public boolean check(int[] digits) {
-                final int mi = digits[edge];
+            public boolean check(IntUnaryOperator digits) {
+                final int mi = digits.applyAsInt(edge);
                 if (mi == 0) return true;
                 final BitSet mode = modeMap[edge][mi][invert];
                 return mode.get(goal);
@@ -684,102 +604,24 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
                 .toArray(n -> new Constraint[n]);
 
-        return () -> new Iterator<Map<? extends Edge<V>,
-                                      ? extends BandwidthPair>>() {
-            /**
-             * Holds the next state to be tried. Each entry corresponds
-             * to an edge, and is the index into the array of
-             * {@code modeMap}. Since each edge can have a different
-             * number of valid modes, this array represents a multi-base
-             * number. The value of an element of this array is a mode
-             * index, either 0 (meaning the edge is not currently in
-             * use), or 1 plus the index into second dimension of
-             * {@code modeMap}.
-             */
-            private final int[] digits = new int[edgeIndex.size()];
-
-            private int invalidated = digits.length;
-
-            private boolean found = false;
-
-            private boolean increment() {
-                /* Increase each counter until we don't have to
-                 * carry. */
-                while (invalidated < digits.length) {
-                    int i = invalidated++;
-                    if (++digits[i] < modeMap[i].length) {
-                        /* We didn't have to carry. */
-                        return true;
-                    }
-                    /* We have incremented a digit beyond its maximum
-                     * value. */
-
-                    /* Abort if we have overflowed the most significant
-                     * digit. */
-                    if (i + 1 == digits.length) break;
-
-                    /* Reset this digit. */
-                    digits[i] = 0;
-                }
-                return false;
-            }
-
-            private boolean ensure() {
-                /* Have we already got a solution to be delivered by
-                 * next()? */
-                if (found) return true;
-                /* We must find the next solution. */
-
-                /* If the most slowly increasing counter has exceeded
-                 * its limit, we are done. */
-                if (digits[digits.length - 1]
-                    >= modeMap[digits.length - 1].length) return false;
-
-                /* Keep looking for a valid combination. */
-                next_combination: do {
-                    /* For the edges whose modes have changed, skip if
-                     * the edge in its current mode belongs to an
-                     * illegal combination. */
-                    while (invalidated > 0) {
-                        final int en = --invalidated;
-
-                        /* Check edge against all higher-numbered edges
-                         * for conflicts. All requirements must be met.
-                         * There will usually only be two, one for each
-                         * end of the edge. */
-                        for (Constraint c : constraints[en])
-                            if (!c.check(digits)) continue next_combination;
-                        /* All requirements were met, so this edge is
-                         * validated with respect to all higher-numbered
-                         * edges. */
-                    }
-                } while (increment());
-                return false;
-            }
-
-            @Override
-            public boolean hasNext() {
-                return ensure();
-            }
-
-            @Override
-            public Map<? extends Edge<V>, ? extends BandwidthPair> next() {
-                if (!ensure()) throw new NoSuchElementException();
-
-                /* Make sure we look for a new solution after this. */
-                found = false;
-
-                /* Convert each of the non-zero edge digits into a mode,
-                 * and map it to the computed bandwidth pair for that
-                 * edge in that mode. */
-                return IntStream.range(0, digits.length)
-                    .filter(en -> digits[en] != 0).boxed()
-                    .collect(Collectors
-                        .toMap(en -> edgeIndex.get(en),
-                               en -> edgeCaps.get(edgeIndex.get(en))
-                                   .get(modeMap[en][digits[en]][0])));
-            }
+        /* Prepare to iterate over the edge modes while checking
+         * constraints. */
+        IntUnaryOperator bases = i -> modeMap[i].length;
+        assert modeMap.length == edgeIndex.size();
+        Function<IntUnaryOperator,
+                 Map<? extends Edge<V>, ? extends BandwidthPair>> translator =
+                     digits -> IntStream.range(0, edgeIndex.size())
+                         .filter(en -> digits.applyAsInt(en) != 0).boxed()
+                         .collect(Collectors
+                             .toMap(en -> edgeIndex.get(en), en -> edgeCaps
+                                 .get(edgeIndex.get(en))
+                                 .get(modeMap[en][digits.applyAsInt(en)][0])));
+        MixedRadixValidator validator = (en, digits) -> {
+            for (Constraint c : constraints[en])
+                if (!c.check(digits)) return false;
+            return true;
         };
+        return MixedRadixIterable.to(translator).over(modeMap.length, bases)
+            .constrainedBy(validator).build();
     }
-
 }
