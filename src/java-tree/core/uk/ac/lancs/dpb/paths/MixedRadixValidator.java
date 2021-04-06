@@ -55,4 +55,52 @@ public interface MixedRadixValidator {
      * otherwise
      */
     boolean test(int min, IntUnaryOperator digits);
+
+    /**
+     * Get a validator that is the logical negation of this validator.
+     * 
+     * @return a validator that is the logical negation of this
+     * validator
+     */
+    default MixedRadixValidator negate() {
+        return new NegatedMixedRadixValidator(this);
+    }
+
+    /**
+     * Get a validator that is the short-circuiting logical OR of this
+     * validator and another.
+     * 
+     * @param other the other validator
+     * 
+     * @return a validator that is the logical OR of this validator and
+     * the argument
+     */
+    default MixedRadixValidator or(MixedRadixValidator other) {
+        return new LogicalOrMixedRadixValidator(this, other);
+    }
+
+    /**
+     * Get a validator that is the short-circuiting logical AND of this
+     * validator and another.
+     * 
+     * @param other the other validator
+     * 
+     * @return a validator that is the logical AND of this validator and
+     * the argument
+     */
+    default MixedRadixValidator and(MixedRadixValidator other) {
+        return new LogicalAndMixedRadixValidator(this, other);
+    }
+
+    /**
+     * Get the negation of a validator. This method simply calls
+     * {@link #negate()} on the argument, and returns the result.
+     * 
+     * @param target the validator to negate
+     * 
+     * @return the negated validator
+     */
+    static MixedRadixValidator not(MixedRadixValidator target) {
+        return target.negate();
+    }
 }
