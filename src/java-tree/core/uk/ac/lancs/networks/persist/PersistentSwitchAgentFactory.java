@@ -124,13 +124,13 @@ public class PersistentSwitchAgentFactory implements AgentFactory {
      * 
      * <p>
      * These are passed as the <code>dbConfig</code> argument to
-     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, Configuration)}.
+     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, java.util.function.Predicate, Configuration)}.
      * 
      * <dt><samp>block.<var>misc</var></samp></dt>
      * 
      * <dd>Fields used to create a {@link CircuitBlocker}, passed as the
      * <samp>blocker</samp> argument to
-     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, Predicate, Configuration)}
+     * {@link PersistentSwitch#PersistentSwitch(String, Executor, Fabric, java.util.function.Predicate, Configuration)}
      * 
      * </dl>
      */
