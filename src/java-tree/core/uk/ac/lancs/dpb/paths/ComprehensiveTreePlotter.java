@@ -119,6 +119,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 BandwidthRange inverseDemand = bwreq.get(rev);
                 if (inverseDemand.min() > edge.metrics.egress.min()) continue;
 
+                /* If the edge has a goal as its start, its from set
+                 * must include that goal. */
+                {
+                    int goal = goalIndex.getAsInt(edge.start);
+                    if (goal >= 0) {
+                        assert goal < goalIndex.size();
+                        if (!fwd.get(goal)) continue;
+                    }
+                }
+
+                /* If the edge has a goal as its finish, its to set must
+                 * include that goal. */
+                {
+                    int goal = goalIndex.getAsInt(edge.finish);
+                    if (goal >= 0) {
+                        assert goal < goalIndex.size();
+                        if (!rev.get(goal)) continue;
+                    }
+                }
+
                 /* The edge can be used in this mode. Retain this fact,
                  * and cache the amount of bandwidth it would use in
                  * that mode. */
@@ -587,72 +607,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
         }
 
-        /**
-         * Checks that an edge's internal set includes a goal. This
-         * should be used when a vertex has been identified as a goal.
-         */
-        class InternalSetIncludesGoal implements Constraint {
-            final int goal;
-
-            final int edge;
-
-            final boolean inv;
-
-            final BitSet goodModeIndexes = new BitSet();
-
-            /**
-             * Create a constraint requiring that an edge's internal set
-             * includes a specific goal.
-             * 
-             * @param goal the goal index, as defined by
-             * {@code vertexOrder}
-             * 
-             * @param edge the edge index if it is an inward edge;
-             * {@code -1} minus the edge index if it is an outward edge
-             */
-            InternalSetIncludesGoal(int goal, int edge) {
-                this.goal = goal;
-                final int invert;
-                if (edge < 0) {
-                    /* This is an outward edge. Its internal set is its
-                     * from set. */
-                    this.edge = -1 - edge;
-                    invert = 0;
-                    this.inv = false;
-                } else {
-                    /* This is an inward edge. Its internal set is its
-                     * to set. */
-                    this.edge = edge;
-                    invert = 1;
-                    this.inv = true;
-                }
-
-                goodModeIndexes.set(0);
-                for (int mi = 1; mi < modeMap[this.edge].length; mi++) {
-                    final BitSet mode = modeMap[this.edge][mi - 1][invert];
-                    if (mode.get(goal)) goodModeIndexes.set(mi);
-                }
-            }
-
-            @Override
-            public String toString() {
-                return String.format("goal %d%s in %s.%s", goal,
-                                     vertexOrder.get(goal), edgeIndex.get(edge),
-                                     inv ? "to" : "from");
-            }
-
-            @Override
-            public boolean check(IntUnaryOperator digits) {
-                final int mi = digits.applyAsInt(edge);
-                return goodModeIndexes.get(mi);
-            }
-
-            @Override
-            public void verify(int baseEdge) {
-                assert edge == baseEdge;
-            }
-        }
-
         final Map<Integer, Collection<Constraint>> checkers = new HashMap<>();
 
         /* Identify constraints. */
@@ -701,21 +655,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             final int goalNumber = goalIndex.getAsInt(vertex);
             if (goalNumber >= 0) {
                 assert goalOrder.get(goalNumber) == vertex;
-
-                /* No edge connected to a goal may include the goal in
-                 * its external set. */
-                for (int i : ecs) {
-                    Constraint constraint =
-                        new InternalSetIncludesGoal(goalNumber, i);
-                    int first = i < 0 ? -1 - i : i;
-                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
-                        .add(constraint);
-                    if (false) {
-                        System.err.printf("%d%s -> %s%n", first,
-                                          edgeIndex.get(first), constraint);
-                        constraint.verify(first);
-                    }
-                }
 
                 /* Every goal vertex must have at least one edge in use
                  * connected to it. */
