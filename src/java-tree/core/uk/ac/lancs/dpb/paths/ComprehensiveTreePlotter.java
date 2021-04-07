@@ -376,6 +376,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         class OneExternalPerGoal implements Constraint {
             final int[] edges;
 
+            final BitSet[][] accept;
+
             /**
              * Identifies outward edges, whose external sets are their
              * to sets.
@@ -403,6 +405,51 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         // an inward edge; external is from
                     }
                     this.edges[i] = en;
+                }
+
+                /* We need a bit-set array for each mode the primary
+                 * edge can have. */
+                final int pen = this.edges[0];
+                final int oenc = this.edges.length - 1;
+                accept = new BitSet[modeMap[pen].length + 1][];
+                for (int pmi = 0; pmi < accept.length; pmi++) {
+                    accept[pmi] = new BitSet[oenc];
+                    BitSet ppat = pmi == 0 ? null :
+                        modeMap[pen][pmi - 1][invs.get(0) ? 1 : 0];
+
+                    /* In this mode, there must be a bit set per other
+                     * edge. */
+                    for (int oeni = 0; oeni < oenc; oeni++) {
+                        BitSet cur = accept[pmi][oeni] = new BitSet();
+
+                        /* Identify the other edge. */
+                        final int oen = this.edges[oeni + 1];
+
+                        /* If the primary edge is not in use, it is
+                         * compatible with all other edges in all
+                         * modes. */
+                        if (pmi == 0) {
+                            cur.set(0, modeMap[oen].length);
+                            continue;
+                        }
+
+                        /* It's always okay if the other edge is not in
+                         * use (mode index 0). */
+                        cur.set(0);
+
+                        /* Go over all mode indices supported by the
+                         * other edge. */
+                        for (int omi = 1; omi < modeMap[oen].length; omi++) {
+                            final boolean inv = invs.get(oeni + 1);
+                            BitSet opat = modeMap[oen][omi - 1][inv ? 1 : 0];
+
+                            if (opat.intersects(ppat)) continue;
+                            /* This mode 'omi' in this edge 'oen' is
+                             * compatible with our primary edge 'pen' in
+                             * its current mode 'pmi'. */
+                            cur.set(omi);
+                        }
+                    }
                 }
             }
 
@@ -433,28 +480,16 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Get the primary edge's mode index. */
                 final int pmi = digits.applyAsInt(pen);
 
-                /* If the primary isn't used, its external set can't
-                 * conflict with anything else. */
-                if (pmi == 0) return true;
-
-                /* The primary is in use, so get its external set. */
-                BitSet ppat = modeMap[pen][pmi - 1][invs.get(0) ? 1 : 0];
-
-                /* Get the external sets of the other edges. Abort if
-                 * they include the same goals. */
-                for (int i = 1; i < edges.length; i++) {
-                    // The other peer
-                    final int oen = edges[i];
-                    // The other peer's mode index
+                /* See if the cached check says we're okay. */
+                for (int oeni = 1; oeni < edges.length; oeni++) {
+                    // The other edge
+                    final int oen = edges[oeni];
+                    // The other edge's mode index
                     final int omi = digits.applyAsInt(oen);
 
-                    /* If the edge is unused, its external set doesn't
-                     * conflict with the primary's. */
-                    if (omi == 0) continue;
-
-                    final boolean inv = invs.get(i);
-                    BitSet opat = modeMap[oen][omi - 1][inv ? 1 : 0];
-                    if (opat.intersects(ppat)) return false;
+                    /* Detect incompatibility between the primary's mode
+                     * and this other edge's mode. */
+                    if (!accept[pmi][oeni - 1].get(omi)) return false;
                 }
 
                 /* There were no conflicts. */
