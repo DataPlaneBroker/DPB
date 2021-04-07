@@ -101,7 +101,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
      */
     private static <V> Map<Edge<V>, Map<BitSet, BandwidthPair>>
         getEdgeModes(List<? extends BitSet> modeCache, BandwidthFunction bwreq,
-                     Collection<? extends Edge<V>> edges) {
+                     Collection<? extends Edge<V>> edges, Index<V> goalIndex) {
         final int modes = modeCache.size();
         Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new IdentityHashMap<>();
         for (var edge : edges) {
@@ -260,16 +260,16 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             .mapToObj(ComprehensiveTreePlotter::of)
             .collect(Collectors.toList());
 
+        /* Assign each goal an integer. */
+        final Index<V> goalIndex = Index.copyOf(goalOrder);
+
         /* Record which modes each edge can cope with, and how much
          * bandwidth they will use in that mode. Edges that can't cope
          * with the requirement in any mode will not be included in the
          * map. The map for a given edge will not include modes it has
          * insufficient capacity for. */
         final Map<Edge<V>, Map<BitSet, BandwidthPair>> edgeCaps =
-            getEdgeModes(modeCache, bwreq, edges);
-
-        /* Assign each goal an integer. */
-        final Index<V> goalIndex = Index.copyOf(goalOrder);
+            getEdgeModes(modeCache, bwreq, edges, goalIndex);
 
         /* Discover all vertices, and find out which edges connect each
          * vertex. */
@@ -309,6 +309,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
             vertexOrder = Index.copyOf(tmp);
         }
+
+        /* The goal order should be a subsequence of the vertex
+         * order. */
+        for (var entry : goalIndex.decode().entrySet())
+            assert vertexOrder.get(entry.getKey()) == entry.getValue();
 
         /* Ensure that every goal has an edge. */
         for (V v : goalOrder) {
