@@ -901,7 +901,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         final int width = 20;
         final int height = 15;
-        final int population = width * height * 8 / 100;
+        final int population = width * height * 6 / 100;
         final int goalCount = 4;
         final double goalRadius = 0.3;
         final double vertexRadius = 0.2;
