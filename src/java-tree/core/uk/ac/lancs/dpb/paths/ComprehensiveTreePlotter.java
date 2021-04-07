@@ -698,9 +698,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 }
             }
 
-            final int goalNumber = vertexOrder.getAsInt(vertex);
-            assert goalNumber >= 0;
-            if (goalNumber < goalOrder.size()) {
+            final int goalNumber = goalIndex.getAsInt(vertex);
+            if (goalNumber >= 0) {
                 assert goalOrder.get(goalNumber) == vertex;
 
                 /* No edge connected to a goal may include the goal in
