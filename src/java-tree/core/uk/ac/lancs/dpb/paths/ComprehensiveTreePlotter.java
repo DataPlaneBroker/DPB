@@ -503,6 +503,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             final BitSet invs = new BitSet();
 
             CompleteExternalUnion(List<? extends Integer> edges) {
+                assert !edges.isEmpty();
                 this.edges = new int[edges.size()];
                 for (int i = 0; i < this.edges.length; i++) {
                     int en = edges.get(i);
@@ -552,9 +553,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     final boolean inv = invs.get(i);
                     BitSet pat = modeMap[en][mi - 1][inv ? 1 : 0];
                     base.andNot(pat);
+                    if (base.isEmpty()) return true;
                 }
 
-                return base.isEmpty() || !inUse;
+                return !inUse;
             }
 
             public void augment(BitSet base) {}
