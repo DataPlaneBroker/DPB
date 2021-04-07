@@ -78,7 +78,6 @@ scripts += dpb-ssh-agent
 
 
 DOC_PKGS += uk.ac.lancs.routing.metric
-DOC_PKGS += uk.ac.lancs.routing.metric.bandwidth
 DOC_PKGS += uk.ac.lancs.routing.span
 DOC_PKGS += uk.ac.lancs.networks
 DOC_PKGS += uk.ac.lancs.networks.apps
@@ -94,6 +93,10 @@ DOC_PKGS += uk.ac.lancs.networks.corsa
 DOC_PKGS += uk.ac.lancs.networks.corsa.rest
 DOC_PKGS += uk.ac.lancs.config
 DOC_PKGS += uk.ac.lancs.agent
+DOC_PKGS += uk.ac.lancs.dpb
+DOC_PKGS += uk.ac.lancs.dpb.mgmt
+DOC_PKGS += uk.ac.lancs.dpb.bw
+DOC_PKGS += uk.ac.lancs.dpb.paths
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)
