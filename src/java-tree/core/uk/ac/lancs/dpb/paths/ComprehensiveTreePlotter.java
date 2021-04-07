@@ -542,21 +542,30 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 augment(base);
 
                 /* Eliminate each edge's external set. */
-                boolean inUse = false;
+                boolean disused = true;
                 for (int i = 0; i < edges.length; i++) {
                     final int en = edges[i];
                     final int mi = digits.applyAsInt(en);
 
                     /* An unused edge contributes nothing. */
                     if (mi == 0) continue;
-                    inUse = true;
+                    disused = false;
+
+                    /* Get the external set for this edge, and account
+                     * for its members. */
                     final boolean inv = invs.get(i);
                     BitSet pat = modeMap[en][mi - 1][inv ? 1 : 0];
                     base.andNot(pat);
+
+                    /* We're okay if we've accounted for all of the
+                     * goals. */
                     if (base.isEmpty()) return true;
                 }
 
-                return !inUse;
+                /* We didn't account for any of the goals. We're okay
+                 * only if all edges are disused (so we accounted for no
+                 * goals). */
+                return disused;
             }
 
             public void augment(BitSet base) {}
