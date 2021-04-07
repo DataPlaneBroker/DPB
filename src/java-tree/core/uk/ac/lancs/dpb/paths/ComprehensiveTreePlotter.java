@@ -392,7 +392,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     IntStream.range(0, edges.length).mapToObj(i -> {
                         int en = edges[i];
                         Edge<V> e = edgeIndex.get(en);
-                        return String.format(" %d%s.%s", en, e,
+                        return String.format(" %s.%s", e,
                                              invs.get(i) ? "to" : "from");
                     }).collect(Collectors.toList());
                 return String.format("edge%s not intersect%s", parts.get(0),
@@ -468,7 +468,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     + IntStream.range(0, edges.length).mapToObj(i -> {
                         int en = edges[i];
                         Edge<V> e = edgeIndex.get(en);
-                        return String.format(" %d%s.%s", en, e,
+                        return String.format(" %s.%s", e,
                                              invs.get(i) ? "to" : "from");
                     }).collect(Collectors.joining());
             }
@@ -564,7 +564,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 return String
                     .format("active in {%s }",
                             IntStream.range(0, edges.length).mapToObj(i -> {
-                                return String.format(" %d%s", edges[i],
+                                return String.format(" %s",
                                                      edgeIndex.get(edges[i]));
                             }).collect(Collectors.joining()));
             }
@@ -636,9 +636,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
             @Override
             public String toString() {
-                return String.format("goal %d%s in %d%s.%s", goal,
-                                     vertexOrder.get(goal), edge,
-                                     edgeIndex.get(edge), inv ? "to" : "from");
+                return String.format("goal %d%s in %s.%s", goal,
+                                     vertexOrder.get(goal), edgeIndex.get(edge),
+                                     inv ? "to" : "from");
             }
 
             @Override
@@ -773,8 +773,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         for (int i = constraints.length - 1; i >= 0; i--) {
             Constraint[] ccs = constraints[i];
             for (int j = 0; j < ccs.length; j++) {
-                System.err.printf("%d%s[%d]: %s%n", i, edgeIndex.get(i), j,
-                                  ccs[j]);
+                System.err.printf("%s: %s%n", edgeIndex.get(i), ccs[j]);
                 ccs[j].verify(i);
             }
         }
