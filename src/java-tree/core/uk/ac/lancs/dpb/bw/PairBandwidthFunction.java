@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.dpb.bw;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -166,5 +167,31 @@ public final class PairBandwidthFunction implements BandwidthFunction {
             + "    return [ min, max ];                              \n"
             + "  }                                                   \n"
             + "}\n";
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) {
+        List<BandwidthPair> pairs = new ArrayList<>();
+        pairs.add(BandwidthPair.of(BandwidthRange.at(4.0),
+                                   BandwidthRange.at(1.0)));
+        pairs.add(BandwidthPair.of(BandwidthRange.at(2.0),
+                                   BandwidthRange.at(2.0)));
+        pairs.add(BandwidthPair.of(BandwidthRange.at(3.0),
+                                   BandwidthRange.at(5.0)));
+        pairs.add(BandwidthPair.of(BandwidthRange.at(5.0),
+                                   BandwidthRange.at(2.0)));
+        BandwidthFunction func = new PairBandwidthFunction(pairs);
+
+        BitSet fwd = new BitSet();
+        fwd.set(0);
+        fwd.set(1);
+        BitSet rev = new BitSet();
+        rev.set(0, func.degree());
+        rev.xor(fwd);
+        System.out.printf("%s -> %s%n", fwd, func.get(fwd));
+        System.out.printf("%s <- %s%n", fwd, func.get(rev));
+        System.out.printf("%s = %s%n", fwd, func.getPair(fwd));
     }
 }
