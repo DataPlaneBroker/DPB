@@ -83,6 +83,7 @@ public final class PairBandwidthFunction implements BandwidthFunction {
     public BandwidthRange get(BitSet from) {
         // [0] is ingress bandwidth; [1] is egress
         final BandwidthRange[] sum = new BandwidthRange[2];
+        Arrays.fill(sum, BandwidthRange.at(0.0));
         for (int i = 0; i < pairs.length; i++) {
             boolean isSender = from.get(i);
             BandwidthRange.add(sum[isSender ? 0 : 1],
