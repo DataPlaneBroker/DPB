@@ -37,7 +37,7 @@
 package uk.ac.lancs.dpb.bw;
 
 /**
- * Specifies ingress and egress bandwidths at an endpoint.
+ * Specifies ingress and egress bandwidth requirements at an endpoint.
  *
  * @author simpsons
  */
@@ -55,6 +55,18 @@ public final class BandwidthPair {
     private BandwidthPair(BandwidthRange ingress, BandwidthRange egress) {
         this.ingress = ingress;
         this.egress = egress;
+    }
+
+    /**
+     * Get a string representation of this pair of bandwidth ranges.
+     * This is the forward/ingress range, an arrow <samp>-&gt;</samp>
+     * and the reverse/egress range.
+     * 
+     * @return a string representation
+     */
+    @Override
+    public String toString() {
+        return String.format("%s->%s", ingress, egress);
     }
 
     /**

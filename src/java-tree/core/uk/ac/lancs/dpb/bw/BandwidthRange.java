@@ -65,6 +65,18 @@ public final class BandwidthRange {
     }
 
     /**
+     * Get a string representation of this bandwidth range. This is the
+     * minimum value, a comma and the maximum value, all in square
+     * brackets.
+     * 
+     * @return the string representation
+     */
+    @Override
+    public String toString() {
+        return String.format("[ %g, %g ]", min, max);
+    }
+
+    /**
      * Get the excess bandwidth. This is the maximum minus the minimum.
      * 
      * @return the excess
