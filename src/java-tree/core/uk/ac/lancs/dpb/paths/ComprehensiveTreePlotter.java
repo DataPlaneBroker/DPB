@@ -106,18 +106,18 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new IdentityHashMap<>();
         for (var edge : edges) {
             for (int mode = 1; mode < modes; mode++) {
-                /* Work out the bandwidth in the forward direction of
-                 * the edge. Skip this mode if it exceeds the edge
-                 * ingress capacity. */
+                /* Work out the bandwidth in the forward (ingress) and
+                 * reverse (egrees) directions of the edge. */
                 BitSet fwd = modeCache.get(mode - 1);
-                BandwidthRange forwardDemand = bwreq.get(fwd);
-                if (forwardDemand.min() > edge.metrics.ingress.min()) continue;
+                BandwidthPair req = bwreq.getPair(fwd);
 
-                /* Work out the bandwidth in the reverse direction of
-                 * the edge egress capacity. */
-                BitSet rev = modeCache.get(modes - mode - 1);
-                BandwidthRange inverseDemand = bwreq.get(rev);
-                if (inverseDemand.min() > edge.metrics.egress.min()) continue;
+                /* Skip this mode if the ingress demand exceeds the edge
+                 * forward capacity. */
+                if (req.ingress.min() > edge.metrics.ingress.min()) continue;
+
+                /* Skip this mode if the egress demand exceeds the edge
+                 * reverse capacity. */
+                if (req.egress.min() > edge.metrics.egress.min()) continue;
 
                 /* If the edge has a goal as its start, its from set
                  * must include that goal. */
@@ -135,15 +135,14 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     int goal = goalIndex.getAsInt(edge.finish);
                     if (goal >= 0) {
                         assert goal < goalIndex.size();
-                        if (!rev.get(goal)) continue;
+                        if (fwd.get(goal)) continue;
                     }
                 }
 
                 /* The edge can be used in this mode. Retain this fact,
                  * and cache the amount of bandwidth it would use in
                  * that mode. */
-                tmp.computeIfAbsent(edge, e -> new HashMap<>())
-                    .put(fwd, BandwidthPair.of(forwardDemand, inverseDemand));
+                tmp.computeIfAbsent(edge, e -> new HashMap<>()).put(fwd, req);
             }
         }
 
