@@ -85,9 +85,10 @@ public final class PairBandwidthFunction implements BandwidthFunction {
         final BandwidthRange[] sum = new BandwidthRange[2];
         Arrays.fill(sum, BandwidthRange.at(0.0));
         for (int i = 0; i < pairs.length; i++) {
-            boolean isSender = from.get(i);
-            BandwidthRange.add(sum[isSender ? 0 : 1],
-                               isSender ? pairs[i].ingress : pairs[i].egress);
+            final boolean isSender = from.get(i);
+            sum[isSender ? 0 : 1] = BandwidthRange
+                .add(sum[isSender ? 0 : 1],
+                     isSender ? pairs[i].ingress : pairs[i].egress);
         }
         return BandwidthRange.min(sum[0], sum[1]);
     }
