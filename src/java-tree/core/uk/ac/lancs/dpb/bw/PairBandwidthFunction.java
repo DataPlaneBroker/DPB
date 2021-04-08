@@ -82,7 +82,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      */
     @Override
     public BandwidthRange get(BitSet from) {
-        // [0] is ingress bandwidth; [1] is egress
+        /* [0] is generated bandwidth on 'from' side; [1] is accepted
+         * bandwidth on 'to' side. The result will be the minimum of
+         * these. */
         final BandwidthRange[] sum = new BandwidthRange[2];
         Arrays.fill(sum, BandwidthRange.at(0.0));
         for (int i = 0; i < pairs.length; i++) {
@@ -102,8 +104,9 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      */
     @Override
     public BandwidthPair getPair(BitSet from) {
-        /* [0][x] is forward; [1][x] is reverse */
-        /* [x][0] is generated rate; [x][1] is accepted rate */
+        /* [0][x] is forward; [1][x] is reverse. [x][0] is generated
+         * rate; [x][1] is accepted rate. The result will be the minimum
+         * of these. */
         final BandwidthRange[][] sum = new BandwidthRange[2][2];
         for (int i = 0; i < sum.length; i++)
             for (int j = 0; j < sum.length; j++)

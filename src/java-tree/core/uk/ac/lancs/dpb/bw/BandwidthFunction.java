@@ -139,7 +139,8 @@ import javax.script.ScriptException;
  */
 public interface BandwidthFunction {
     /**
-     * Get the bandwidth requirement for an edge.
+     * Get the bandwidth requirement for the forward direction of an
+     * edge.
      * 
      * <p>
      * Given the same argument, this method must return the same result

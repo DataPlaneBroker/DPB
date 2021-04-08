@@ -37,7 +37,10 @@
 package uk.ac.lancs.dpb.bw;
 
 /**
- * Specifies ingress and egress bandwidth requirements at an endpoint.
+ * Specifies ingress and egress bandwidth requirements at an endpoint,
+ * or bidirectional requirements of an edge. In the case of an edge, the
+ * forward bandwidth (with respect to the 'from' and 'to' vertices) is
+ * synonymous with the ingress, and the reverse with the egress.
  *
  * @author simpsons
  */
