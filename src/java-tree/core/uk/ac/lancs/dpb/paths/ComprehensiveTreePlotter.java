@@ -877,6 +877,40 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return false;
     }
 
+    private static double
+        minSum(Map<? extends Edge<Vertex>, ? extends BandwidthPair> cand) {
+        return cand.entrySet().parallelStream().mapToDouble(entry -> {
+            Edge<Vertex> key = entry.getKey();
+            BandwidthPair val = entry.getValue();
+            return key.cost * (val.ingress.min() + val.egress.min());
+        }).sum();
+    }
+
+    private static double postScaledMinSum(Map<? extends Edge<Vertex>,
+                                               ? extends BandwidthPair> cand) {
+        return cand.entrySet().parallelStream().mapToDouble(entry -> {
+            Edge<Vertex> key = entry.getKey();
+            BandwidthPair val = entry.getValue();
+            double edgeScore = val.ingress.min() + val.egress.min();
+            edgeScore /= val.egress.max() / key.metrics.egress.max();
+            edgeScore /= val.ingress.max() / key.metrics.ingress.max();
+            return key.cost * edgeScore;
+        }).sum();
+    }
+
+    private static double preScaledMinSum(Map<? extends Edge<Vertex>,
+                                              ? extends BandwidthPair> cand) {
+        return cand.entrySet().parallelStream().mapToDouble(entry -> {
+            Edge<Vertex> key = entry.getKey();
+            BandwidthPair val = entry.getValue();
+            double edgeScore = val.ingress.min() * val.ingress.max()
+                / key.metrics.ingress.max();
+            edgeScore +=
+                val.egress.min() * val.egress.max() / key.metrics.egress.max();
+            return key.cost * edgeScore;
+        }).sum();
+    }
+
     /**
      * @undocumented
      */
