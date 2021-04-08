@@ -93,6 +93,34 @@ public final class PairBandwidthFunction implements BandwidthFunction {
         return BandwidthRange.min(sum[0], sum[1]);
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation adds both forward and reverse
+     * requirements in the same loop.
+     */
+    @Override
+    public BandwidthPair getPair(BitSet from) {
+        /* [0][x] is forward; [1][x] is reverse */
+        /* [x][0] is generated rate; [x][1] is accepted rate */
+        final BandwidthRange[][] sum = new BandwidthRange[2][2];
+        for (int i = 0; i < sum.length; i++)
+            for (int j = 0; j < sum.length; j++)
+                sum[i][j] = BandwidthRange.at(0.0);
+
+        for (int i = 0; i < pairs.length; i++) {
+            final boolean isSender = from.get(i);
+            sum[0][isSender ? 0 : 1] = BandwidthRange
+                .add(sum[0][isSender ? 0 : 1],
+                     isSender ? pairs[i].ingress : pairs[i].egress);
+            sum[1][isSender ? 1 : 0] = BandwidthRange
+                .add(sum[1][isSender ? 1 : 0],
+                     isSender ? pairs[i].ingress : pairs[i].egress);
+        }
+        return BandwidthPair.of(BandwidthRange.min(sum[0][0], sum[0][1]),
+                                BandwidthRange.min(sum[1][0], sum[1][1]));
+    }
+
     @Override
     public int degree() {
         return pairs.length;

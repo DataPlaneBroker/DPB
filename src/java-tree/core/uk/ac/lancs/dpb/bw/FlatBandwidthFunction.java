@@ -72,6 +72,17 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
         return rate;
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation returns a pair with the forward and
+     * reverse rate set to the configured rate.
+     */
+    @Override
+    public BandwidthPair getPair(BitSet from) {
+        return BandwidthPair.of(rate);
+    }
+
     @Override
     public String asJavaScript() {
         return "{                                                  \n" + "  "

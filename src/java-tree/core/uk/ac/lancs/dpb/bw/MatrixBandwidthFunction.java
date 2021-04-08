@@ -160,6 +160,37 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
         return sum;
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This method sums up the forward and reverse requirements
+     * in a single loop.
+     */
+    @Override
+    public BandwidthPair getPair(BitSet fromSet) {
+        BandwidthRange fwdSum = BandwidthRange.at(0.0),
+            revSum = BandwidthRange.at(0.0);
+        for (int from = 0; from < degree; from++) {
+            if (fromSet.get(from)) {
+                for (int to = 0; to < degree; to++) {
+                    if (to == from) continue;
+                    if (fromSet.get(to)) continue;
+                    fwdSum = BandwidthRange.add(fwdSum,
+                                                array[index(degree, from, to)]);
+                }
+            } else {
+                for (int to = 0; to < degree; to++) {
+                    if (to == from) continue;
+                    if (!fromSet.get(to)) continue;
+                    revSum = BandwidthRange.add(revSum,
+                                                array[index(degree, from, to)]);
+                }
+            }
+        }
+        BandwidthPair result = BandwidthPair.of(fwdSum, revSum);
+        return result;
+    }
+
     @Override
     public String asJavaScript() {
         return "{                                                          \n"

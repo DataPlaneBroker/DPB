@@ -157,6 +157,32 @@ public interface BandwidthFunction {
     BandwidthRange get(BitSet from);
 
     /**
+     * Get the bandwidth requirements of both directions of an edge.
+     * 
+     * @default {@link #get(BitSet)} is called with the argument to get
+     * the forward requirement. The 'to' set is computed by calling
+     * {@link #degree()}, and is then passed to {@link #get(BitSet)} to
+     * get the reverse requirement.
+     * 
+     * @param from the set of endpoints connected to the
+     * forward-transmitting vertex of the edge
+     * 
+     * @return the bandwidth requirement
+     * 
+     * @throws IllegalArgumentException if the set is invalid, e.g., it
+     * contains members outside the range defined by {@link #degree()},
+     * it contains all such members, or it is empty
+     */
+    default BandwidthPair getPair(BitSet from) {
+        BandwidthRange fwd = get(from);
+        BitSet to = new BitSet();
+        to.set(0, degree());
+        to.xor(from);
+        BandwidthRange rev = get(to);
+        return BandwidthPair.of(fwd, rev);
+    }
+
+    /**
      * Get a JavaScript representation of the function. The string must
      * be an object declaration with two fields. One is
      * {@value #JAVASCRIPT_DEGREE_NAME}, giving the function degree. The
