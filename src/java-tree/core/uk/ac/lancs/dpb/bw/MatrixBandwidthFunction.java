@@ -148,7 +148,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      */
     @Override
     public BandwidthRange get(BitSet fromSet) {
-        BandwidthRange sum = null;
+        BandwidthRange sum = BandwidthRange.at(0.0);
         for (int from = 0; from < degree; from++) {
             if (!fromSet.get(from)) continue;
             for (int to = 0; to < degree; to++) {
