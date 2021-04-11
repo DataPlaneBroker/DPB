@@ -587,7 +587,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             @Override
             public String toString() {
                 return String.format("except goal %d%s %s", goal,
-                                     edgeIndex.get(goal), super.toString());
+                                     goalIndex.get(goal), super.toString());
             }
 
             @Override
