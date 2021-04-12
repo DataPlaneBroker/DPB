@@ -42,6 +42,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.Spliterator;
 import java.util.function.IntConsumer;
+import java.util.function.LongBinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -54,7 +55,7 @@ import java.util.stream.StreamSupport;
  * 
  * @author simpsons
  */
-public class GoalSet {
+class GoalSet {
     static final int WORD_SIZE = Long.SIZE;
 
     final long[] words;
@@ -312,6 +313,107 @@ public class GoalSet {
             result.append(prev).append('-').append(last);
         }
         return result.append('}').toString();
+    }
+
+    static long[] binInternal(GoalSet a, GoalSet b, LongBinaryOperator op) {
+        if (a.degree() != b.degree())
+            throw new IllegalArgumentException("degree mismatch: " + a.degree()
+                + " != " + b.degree());
+        long[] words = ofInternal(a.degree());
+        for (int w = 0; w < words.length; w++)
+            words[w] = op.applyAsLong(a.word(w), b.word(w));
+        return words;
+    }
+
+    /**
+     * Create a goal set containing all the members of two other sets.
+     * 
+     * @param a one of the sets
+     * 
+     * @param b the other set
+     * 
+     * @return the union of the two sets
+     * 
+     * @throws IllegalArgumentException if the goals have different
+     * degrees
+     */
+    public static GoalSet or(GoalSet a, GoalSet b) {
+        return new GoalSet(a.degree(), binInternal(a, b, (x, y) -> x | y));
+    }
+
+    /**
+     * Create a goal set containing only members present in both of two
+     * other sets.
+     * 
+     * @param a one of the sets
+     * 
+     * @param b the other set
+     * 
+     * @return the intersection of the two sets
+     * 
+     * @throws IllegalArgumentException if the goals have different
+     * degrees
+     */
+    public static GoalSet and(GoalSet a, GoalSet b) {
+        return new GoalSet(a.degree(), binInternal(a, b, (x, y) -> x & y));
+    }
+
+    /**
+     * Determine whether this set is a loose superset of another.
+     * 
+     * @param other the other set
+     * 
+     * @return {@code true} if this set contains all the members of the
+     * other set; {@code false} otherwise
+     * 
+     * @throws IllegalArgumentException if the goals have different
+     * degrees
+     */
+    public boolean containsAll(GoalSet other) {
+        if (degree() != other.degree())
+            throw new IllegalArgumentException("degree mismatch: " + degree()
+                + " != " + other.degree());
+        for (int w = 0; w < words.length; w++) {
+            long a = word(w);
+            long b = other.word(w);
+            if ((a & b) != b) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Determine whether the intersection of this set and another is
+     * non-empty.
+     * 
+     * @param other the other set
+     * 
+     * @return {@code false} if the intersection is empty; {@code true}
+     * otherwise
+     * 
+     * @throws IllegalArgumentException if the goals have different
+     * degrees
+     */
+    public boolean intersects(GoalSet other) {
+        if (degree() != other.degree())
+            throw new IllegalArgumentException("degree mismatch: " + degree()
+                + " != " + other.degree());
+        for (int w = 0; w < words.length; w++) {
+            long a = word(w);
+            long b = other.word(w);
+            if ((a & b) != 0) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Determine whether the set is empty.
+     * 
+     * @return {@code true} if the set is empty; {@code false} otherwise
+     */
+    public boolean isEmpty() {
+        for (long w : words)
+            if (w != 0) return false;
+        return true;
     }
 
     static long[] ofInternal(int degree, BigInteger value) {

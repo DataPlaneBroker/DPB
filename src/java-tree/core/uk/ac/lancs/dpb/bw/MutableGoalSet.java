@@ -46,7 +46,7 @@ import java.util.Collection;
  *
  * @author simpsons
  */
-public class MutableGoalSet extends GoalSet {
+class MutableGoalSet extends GoalSet {
     MutableGoalSet(int degree, long[] words) {
         super(degree, words);
     }
