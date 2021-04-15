@@ -37,10 +37,14 @@
 package uk.ac.lancs.dpb.paths;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
@@ -456,16 +460,140 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
-        int[] bases = Arrays.stream(args).mapToInt(Integer::parseInt).toArray();
-        Iterable<String> iterable = MixedRadixIterable
-            .to(digits -> IntStream.range(0, bases.length).map(digits)
-                .mapToObj(Integer::toString).collect(Collectors.joining(", ")))
-            .over(bases.length, i -> bases[i]).constrainedBy((i, digits) -> {
-                if (i == bases.length - 1) return true;
-                return digits.applyAsInt(i) != digits.applyAsInt(i + 1);
-            }).build();
-        for (String s : iterable) {
-            System.out.println(s);
+        if (false) {
+            int[] bases =
+                Arrays.stream(args).mapToInt(Integer::parseInt).toArray();
+            Iterable<String> iterable = MixedRadixIterable
+                .to(digits -> IntStream.range(0, bases.length).map(digits)
+                    .mapToObj(Integer::toString)
+                    .collect(Collectors.joining(", ")))
+                .over(bases.length, i -> bases[i])
+                .constrainedBy((i, digits) -> {
+                    if (i == bases.length - 1) return true;
+                    return digits.applyAsInt(i) != digits.applyAsInt(i + 1);
+                }).build();
+            for (String s : iterable) {
+                System.out.println(s);
+            }
         }
+
+        Random rng = new Random(1);
+
+        for (int csi = 0; csi < 1000; csi++) {
+            /* Define a mixed-radix counting system. */
+            int[] bases = new int[2 + rng.nextInt(5)];
+            for (int i = 0; i < bases.length; i++)
+                bases[i] = 2 + rng.nextInt(5);
+
+            /* Choose an arbitrary constraint on two digits. */
+            final int b0 = rng.nextInt(rng.nextInt(bases.length - 1) + 1);
+            final int b1 = rng.nextInt(bases.length - b0 - 1) + b0 + 1;
+            assert b0 < bases.length;
+            assert b1 < bases.length;
+            assert b0 < b1;
+            final int v0 = rng.nextInt(bases[b0]);
+            final int v1 = rng.nextInt(bases[b1]);
+
+            System.out.printf("Original: %s%n",
+                              testConstraintToString(bases, b0, b1, v0, v1));
+
+            /* Get a set of the original members. */
+            final Collection<List<Integer>> origMembers;
+            {
+                final MixedRadixValidator val = (min, digits) -> {
+                    if (min != b0) return true;
+                    if (digits.applyAsInt(b0) == v0 &&
+                        digits.applyAsInt(b1) == v1) return false;
+                    return true;
+                };
+
+                origMembers = StreamSupport
+                    .stream(MixedRadixIterable.toIntList().over(bases)
+                        .constrainedBy(val).build().spliterator(), false)
+                    .collect(Collectors.toSet());
+            }
+
+            for (int ci = 0; ci < 100; ci++) {
+                /* Randomize the radices. */
+                final int[] swaps; // from new indices to original
+                final int[] invSwaps; // from original indices to new
+                final int[] altBases;
+                final int altB0, altB1;
+                {
+                    final List<Integer> boxedSwaps =
+                        IntStream.range(0, bases.length).boxed()
+                            .collect(Collectors.toList());
+                    Collections.shuffle(boxedSwaps, rng);
+                    swaps = boxedSwaps.stream().mapToInt(Integer::intValue)
+                        .toArray();
+                    assert swaps.length == bases.length;
+
+                    invSwaps = new int[swaps.length];
+                    for (int i = 0; i < swaps.length; i++)
+                        invSwaps[swaps[i]] = i;
+
+                    altBases = IntStream.range(0, bases.length)
+                        .map(i -> bases[swaps[i]]).toArray();
+                    assert altBases.length == bases.length;
+                    altB0 = invSwaps[b0];
+                    altB1 = invSwaps[b1];
+                    assert altB0 != altB1;
+                    assert altB0 >= 0;
+                    assert altB1 >= 0;
+                    assert altB0 < altBases.length;
+                    assert altB1 < altBases.length;
+                }
+
+                /* Express the constraint, taking account of the
+                 * mapping. */
+                final int lower = Math.min(altB0, altB1);
+                final MixedRadixValidator val = (min, digits) -> {
+                    if (min != lower) return true;
+                    if (digits.applyAsInt(altB0) == v0 &&
+                        digits.applyAsInt(altB1) == v1) return false;
+                    return true;
+                };
+
+                final Collection<List<Integer>> members = StreamSupport
+                    .stream(MixedRadixIterable.toIntList().over(altBases)
+                        .constrainedBy(val).build().spliterator(), false)
+                    .map(l -> mapBack(invSwaps, l)).collect(Collectors.toSet());
+                final long entries = members.size();
+                if (!origMembers.equals(members)) {
+                    Collection<List<Integer>> origUnique =
+                        new HashSet<>(origMembers);
+                    Collection<List<Integer>> unique = new HashSet<>(members);
+                    origUnique.removeAll(members);
+                    unique.removeAll(origMembers);
+                    System.out.printf("  Got: %d  Expected: %d%n", entries,
+                                      origMembers.size());
+                    System.out.printf("original unique: %s%n", origUnique);
+                    System.out.printf("test unique: %s%n", unique);
+                    System.out.printf("Failure: %s%n",
+                                      testConstraintToString(altBases, altB0,
+                                                             altB1, v0, v1));
+                    System.out
+                        .printf("Original: %s%n",
+                                testConstraintToString(bases, b0, b1, v0, v1));
+                    System.exit(1);
+                }
+            }
+            System.out.printf("  Count: %d%n", origMembers.size());
+        }
+    }
+
+    private static List<Integer> mapBack(int[] mapping, List<Integer> digits) {
+        return IntStream.range(0, mapping.length).map(i -> mapping[i])
+            .mapToObj(digits::get).collect(Collectors.toList());
+    }
+
+    private static String testConstraintToString(int[] bases, int b0, int b1,
+                                                 int v0, int v1) {
+        return IntStream.range(0, bases.length).mapToObj(i -> {
+            String r = Integer.toString(bases[i]);
+            if (i == b0) return r + "(" + v0 + ")";
+            if (i == b1) return r + "(" + v1 + ")";
+            return r;
+        }).collect(Collectors.joining(", "));
     }
 }
