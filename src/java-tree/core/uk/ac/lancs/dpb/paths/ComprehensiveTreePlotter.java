@@ -38,6 +38,7 @@ package uk.ac.lancs.dpb.paths;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -80,6 +81,35 @@ import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
+    private static BigInteger toBigInteger(BitSet bs) {
+        byte[] bytes = bs.toByteArray();
+        final int lim = bytes.length / 2;
+        for (int i = 0; i < lim; i++) {
+            byte tmp = bytes[i];
+            bytes[i] = bytes[bytes.length - i - 1];
+            bytes[bytes.length - i - 1] = tmp;
+        }
+
+        /* The top bit of the first byte is interpreted by BigInteger as
+         * a sign bit, so ensure it is clear by inserting an extra zero
+         * byte at the start. */
+        if (bytes.length > 0 && (bytes[0] & 0x80) == 0x80) {
+            byte[] tmp = new byte[bytes.length + 1];
+            System.arraycopy(bytes, 0, tmp, 1, bytes.length);
+            bytes = tmp;
+        }
+
+        return new BigInteger(bytes);
+    }
+
+    private static <V> int compare(Edge<V> a, Edge<V> b) {
+        return a.toString().compareTo(b.toString());
+    }
+
+    private static int compare(BitSet a, BitSet b) {
+        return toBigInteger(a).compareTo(toBigInteger(b));
+    }
+
     private static BitSet of(int pattern) {
         return BitSet.valueOf(new long[] { pattern });
     }
@@ -733,11 +763,24 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
                 .toArray(n -> new Constraint[n]);
 
-        for (int i = constraints.length - 1; i >= 0; i--) {
-            Constraint[] ccs = constraints[i];
-            for (int j = 0; j < ccs.length; j++) {
-                System.err.printf("%s: %s%n", edgeIndex.get(i), ccs[j]);
-                ccs[j].verify(i);
+        {
+            /* Display all edge modes. */
+            List<Edge<V>> eo = new ArrayList<>(edgeIndex);
+            Collections.sort(eo, ComprehensiveTreePlotter::compare);
+            for (Edge<V> e : eo) {
+                Map<BitSet, BandwidthPair> x = edgeCaps.get(e);
+                List<BitSet> modes = new ArrayList<>(x.keySet());
+                Collections.sort(modes, ComprehensiveTreePlotter::compare);
+                System.err.printf("%s: %s%n", e, modes);
+            }
+
+            /* Display all constraints. */
+            for (int i = constraints.length - 1; i >= 0; i--) {
+                Constraint[] ccs = constraints[i];
+                for (int j = 0; j < ccs.length; j++) {
+                    System.err.printf("%s: %s%n", edgeIndex.get(i), ccs[j]);
+                    ccs[j].verify(i);
+                }
             }
         }
 
