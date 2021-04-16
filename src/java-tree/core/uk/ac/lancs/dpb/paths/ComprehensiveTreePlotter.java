@@ -1114,6 +1114,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     }
                 }
             }
+
+            /* The order in which we supply the edges to the plotter
+             * should not matter, but we need an ordering that triggers
+             * the wrong result. */
+            Collections.shuffle(edges, new Random(4));
         }
 
         /* Find the largest edge capacity. */
