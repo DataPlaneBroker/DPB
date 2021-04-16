@@ -449,6 +449,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* In this mode, there must be a bit set per other
                      * edge. */
                     for (int oeni = 0; oeni < oenc; oeni++) {
+                        /* oeni is the other edge's index in this.edges
+                         * minus 1. */
                         BitSet cur = accept[pmi][oeni] = new BitSet();
 
                         /* Identify the other edge. */
