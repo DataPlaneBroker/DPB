@@ -668,8 +668,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
             @Override
             public boolean check(IntUnaryOperator digits) {
-                for (int i = 0; i < edges.length; i++) {
-                    final int en = edges[i];
+                for (final int en : edges) {
                     final int mi = digits.applyAsInt(en);
 
                     /* Ignore this edge if it isn't used. */
