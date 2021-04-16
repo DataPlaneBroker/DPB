@@ -689,11 +689,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     Constraint constraint = new OneExternalPerGoal(sub);
                     checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
-                    if (false) {
-                        System.err.printf("%d%s -> %s%n", first,
-                                          edgeIndex.get(first), constraint);
-                        constraint.verify(first);
-                    }
                 }
             }
 
@@ -709,11 +704,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     if (first < 0) first = -1 - first;
                     checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
-                    if (false) {
-                        System.err.printf("%d%s -> %s%n", first,
-                                          edgeIndex.get(first), constraint);
-                        constraint.verify(first);
-                    }
                 }
 
                 /* The union of the external sets and this goal must be
@@ -725,11 +715,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     if (first < 0) first = -1 - first;
                     checkers.computeIfAbsent(first, k -> new ArrayList<>())
                         .add(constraint);
-                    if (false) {
-                        System.err.printf("%d%s -> %s%n", first,
-                                          edgeIndex.get(first), constraint);
-                        constraint.verify(first);
-                    }
                 }
             } else {
                 /* The union of the external sets must be the complete
@@ -739,11 +724,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (first < 0) first = -1 - first;
                 checkers.computeIfAbsent(first, k -> new ArrayList<>())
                     .add(constraint);
-                if (false) {
-                    System.err.printf("%d%s -> %s%n", first,
-                                      edgeIndex.get(first), constraint);
-                    constraint.verify(first);
-                }
             }
         }
 
