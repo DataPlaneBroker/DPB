@@ -47,13 +47,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import uk.ac.lancs.dpb.bw.BandwidthFunction;
@@ -81,6 +82,14 @@ import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
+    private static <K, V> Map<K, V> deepCopy(Map<K, V> input,
+                                             UnaryOperator<V> op) {
+        Map<K, V> output = new LinkedHashMap<>(input);
+        for (var entry : output.entrySet())
+            entry.setValue(op.apply(entry.getValue()));
+        return Collections.unmodifiableMap(output);
+    }
+
     private static BigInteger toBigInteger(BitSet bs) {
         byte[] bytes = bs.toByteArray();
         final int lim = bytes.length / 2;
@@ -133,7 +142,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         getEdgeModes(List<? extends BitSet> modeCache, BandwidthFunction bwreq,
                      Collection<? extends Edge<V>> edges, Index<V> goalIndex) {
         final int modes = modeCache.size();
-        Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new IdentityHashMap<>();
+        /* TODO: An identity hash map should suffice, but introduces
+         * perturbations making fault diagnosis difficult. */
+        Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new LinkedHashMap<>();
         for (var edge : edges) {
             for (int mode = 1; mode < modes; mode++) {
                 /* Work out the bandwidth in the forward (ingress) and
@@ -171,14 +182,22 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
                 /* The edge can be used in this mode. Retain this fact,
                  * and cache the amount of bandwidth it would use in
-                 * that mode. */
-                tmp.computeIfAbsent(edge, e -> new HashMap<>()).put(fwd, req);
+                 * that mode. TODO: A plain hash map should suffice, but
+                 * introduces perturbations making fault diagnosis
+                 * difficult. */
+                var old = tmp.computeIfAbsent(edge, e -> new LinkedHashMap<>())
+                    .put(fwd, req);
+                assert old == null;
             }
         }
 
-        /* Store a deep immutable map. */
-        return tmp.entrySet().stream().collect(Collectors
-            .toMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
+        /* Store a deep immutable map. TODO: Collectors.toMap and
+         * Map.copyOf should suffice, but they introduce perturbations
+         * making fault diagnosis difficult. */
+        return deepCopy(tmp, Collections::unmodifiableMap);
+
+        // return tmp.entrySet().stream().collect(Collectors
+        // .toMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
     }
 
     private static <E> E removeOne(Collection<? extends E> coll) {
@@ -351,11 +370,18 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 ins.computeIfAbsent(v, k -> new HashSet<>());
             }
 
-            /* Get deep immutable copies of these structures. */
-            inwards = ins.entrySet().stream().collect(Collectors
-                .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
-            outwards = outs.entrySet().stream().collect(Collectors
-                .toMap(Map.Entry::getKey, e -> Set.copyOf(e.getValue())));
+            /* Get deep immutable copies of these structures. TODO:
+             * Collectors.toMap and Set.copyOf should suffice, but they
+             * cause perturbations that make fault diagnosis
+             * difficult. */
+            inwards = deepCopy(ins, Collections::unmodifiableCollection);
+            outwards = deepCopy(outs, Collections::unmodifiableCollection);
+            // inwards = ins.entrySet().stream().collect(Collectors
+            // .toMap(Map.Entry::getKey, e ->
+            // Set.copyOf(e.getValue())));
+            // outwards = outs.entrySet().stream().collect(Collectors
+            // .toMap(Map.Entry::getKey, e ->
+            // Set.copyOf(e.getValue())));
             vertexOrder = Index.copyOf(tmp);
         }
 
@@ -822,6 +848,30 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         public String toString() {
             return String.format("(%.0f,%.0f)", x, y);
         }
+
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 37 * hash + (int) (Double.doubleToLongBits(this.x) ^
+                (Double.doubleToLongBits(this.x) >>> 32));
+            hash = 37 * hash + (int) (Double.doubleToLongBits(this.y) ^
+                (Double.doubleToLongBits(this.y) >>> 32));
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            final Vertex other = (Vertex) obj;
+            if (Double.doubleToLongBits(this.x)
+                != Double.doubleToLongBits(other.x)) return false;
+            if (Double.doubleToLongBits(this.y)
+                != Double.doubleToLongBits(other.y)) return false;
+            return true;
+        }
+
     }
 
     private static double distance(Vertex v0, Vertex v1) {
