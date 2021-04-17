@@ -669,6 +669,18 @@ class GoalSet {
     }
 
     /**
+     * Get an immutable copy of this goal set.
+     * 
+     * @return an immutable copy of this goal set
+     * 
+     * @default As this class implements an immutable goal set already,
+     * this method just returns this object.
+     */
+    public GoalSet freeze() {
+        return this;
+    }
+
+    /**
      * Get a big integer whose bits correspond to this goal set.
      * 
      * @return an equivalent big integer

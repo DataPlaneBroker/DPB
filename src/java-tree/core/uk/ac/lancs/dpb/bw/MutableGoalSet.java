@@ -59,6 +59,7 @@ class MutableGoalSet extends GoalSet {
      * 
      * @constructor
      */
+    @Override
     public GoalSet freeze() {
         return new GoalSet(degree, Arrays.copyOf(words, words.length));
     }
