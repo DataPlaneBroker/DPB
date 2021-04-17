@@ -82,6 +82,21 @@ import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
+    /**
+     * Create a deep immutable copy of a map, preserving iteration
+     * order.
+     * 
+     * @param <K> the key type
+     * 
+     * @param <V> the value type
+     * 
+     * @param input the map to copy
+     * 
+     * @param op a means to create immutable values
+     * 
+     * @return an unmodifiable map with the same contents as the input
+     * map, but with each value passed through the operator
+     */
     private static <K, V> Map<K, V> deepCopy(Map<K, V> input,
                                              UnaryOperator<V> op) {
         Map<K, V> output = new LinkedHashMap<>(input);
@@ -90,6 +105,15 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return Collections.unmodifiableMap(output);
     }
 
+    /**
+     * Convert a bit set to a big integer.
+     * 
+     * @param bs the bit set
+     * 
+     * @return an equivalent big integer whose
+     * {@link BigInteger#testBit(int)} yields the same as the input's
+     * {@link BitSet#get(int)}
+     */
     private static BigInteger toBigInteger(BitSet bs) {
         byte[] bytes = bs.toByteArray();
         final int lim = bytes.length / 2;
