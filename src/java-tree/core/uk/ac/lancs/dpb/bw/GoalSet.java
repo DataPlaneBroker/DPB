@@ -698,6 +698,37 @@ class GoalSet {
     }
 
     /**
+     * Get the {@code long} representation of this set.
+     * 
+     * @return the bottom 63 bits of this set as a {@code long}
+     * 
+     * @throws ArithmeticException if any bit beyond 62 is set
+     */
+    public long longValueExact() {
+        long result = word(0);
+        if (result < 0) throw new ArithmeticException("bit 63+ set");
+        for (int i = 1; i < words.length; i++)
+            if (word(i) != 0) throw new ArithmeticException("bit 63+ set");
+        return result;
+    }
+
+    /**
+     * Get the {@code int} representation of this set.
+     * 
+     * @return the bottom 31 bits of this set as a {@code int}
+     * 
+     * @throws ArithmeticException if any bit beyond 30 is set
+     */
+    public int intValueExact() {
+        long result = word(0);
+        if (result < 0 || result > Integer.MAX_VALUE)
+            throw new ArithmeticException("bit 31+ set");
+        for (int i = 1; i < words.length; i++)
+            if (word(i) != 0) throw new ArithmeticException("bit 31+ set");
+        return (int) (result & Integer.MAX_VALUE);
+    }
+
+    /**
      * @undocumented
      */
     public static void main(String[] args) {
