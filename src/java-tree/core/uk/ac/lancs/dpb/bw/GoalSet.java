@@ -37,9 +37,13 @@
 package uk.ac.lancs.dpb.bw;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Iterator;
+import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.function.IntConsumer;
 import java.util.function.LongBinaryOperator;
@@ -509,6 +513,71 @@ class GoalSet {
      */
     public static GoalSet of(int degree, BitSet value) {
         return new GoalSet(degree, ofInternal(degree, value));
+    }
+
+    /**
+     * Get an iteration over all possible values of a goal set, except
+     * <var>none</var> and <var>all</var>.
+     * 
+     * @param degree the degree of each set
+     * 
+     * @return the requested iteration
+     */
+    public static Iterable<GoalSet> allValidSets(int degree) {
+        return () -> {
+            return new Iterator<GoalSet>() {
+                private final long[] words = ofInternal(degree);
+
+                private final long[] lims = new long[words.length];
+
+                private final int last = words.length - 1;
+
+                {
+                    for (int i = 0; i < last; i++)
+                        lims[i] = 0xffffffffffffffffL;
+                    if (words.length > 0) {
+                        words[0] = 1;
+                        lims[last] = tailMask(degree);
+                    }
+                }
+
+                @Override
+                public boolean hasNext() {
+                    return Arrays.compare(words, lims) != 0;
+                }
+
+                @Override
+                public GoalSet next() {
+                    if (!hasNext()) throw new NoSuchElementException();
+                    GoalSet result =
+                        new GoalSet(degree, Arrays.copyOf(words, words.length));
+                    for (int i = 0; i < words.length; i++) {
+                        if (words[i] < lims[i]) {
+                            words[i]++;
+                            break;
+                        }
+                        words[i] = 0;
+                    }
+                    return result;
+                }
+            };
+        };
+    }
+
+    /**
+     * Get an immutable list of all values of a goal set of a given
+     * degree, except <var>none</var> and <var>all</var>.
+     * 
+     * @param degree the degree of all sets
+     * 
+     * @return the requested list
+     */
+    public static List<GoalSet> listOfValidSets(int degree) {
+        List<GoalSet> result = new ArrayList<>((1 << degree) - 2);
+        for (GoalSet s : allValidSets(degree))
+            result.add(s);
+        assert result.size() == (1 << degree) - 2;
+        return List.copyOf(result);
     }
 
     /**
