@@ -314,7 +314,7 @@ class GoalSet {
         } else if (last == prev + 1) {
             result.append(prev).append(',').append(last);
         } else if (last == prev) {
-            result.append(prev).append(',');
+            result.append(prev);
         } else {
             result.append(prev).append('-').append(last);
         }
