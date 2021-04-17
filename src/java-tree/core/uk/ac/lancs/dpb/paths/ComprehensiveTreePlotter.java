@@ -135,10 +135,40 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return new BigInteger(bytes);
     }
 
+    /**
+     * Compare two edges' string representations.
+     * {@link Object#toString()} is invoked on each argument, and then
+     * {@link String#compareTo(String)} is invoked on the result of the
+     * first, with the result of the second as its argument.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param a one of the edges
+     * 
+     * @param b the other edge
+     * 
+     * @return 0 if the edges have no ordering; positive if the first
+     * argument comes later than the second; negative otherwise
+     */
     private static <V> int compare(Edge<V> a, Edge<V> b) {
         return a.toString().compareTo(b.toString());
     }
 
+    /**
+     * Compare two bit sets by comparing their {@link BigInteger}
+     * representations. Each set is converted to a {@link BigInteger}
+     * using {@link #toBigInteger(BitSet)}, and then
+     * {@link BigInteger#compareTo(BigInteger)} is invoked on the result
+     * of the first, with the result of the second as its argument.
+     * 
+     * @param a one of the bit sets
+     * 
+     * @param b the other bit set
+     * 
+     * @return 0 if the bit sets are identical; positive if the first
+     * argument's integer representation is greater than the second's;
+     * negative otherwise
+     */
     private static int compare(BitSet a, BitSet b) {
         return toBigInteger(a).compareTo(toBigInteger(b));
     }
