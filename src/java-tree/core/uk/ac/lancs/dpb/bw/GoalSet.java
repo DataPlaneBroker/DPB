@@ -53,6 +53,12 @@ import java.util.stream.StreamSupport;
  * [0,<var>n</var>). A mutable copy can be obtained with
  * {@link #mutate()}.
  * 
+ * <p>
+ * Goal sets are not intrinsically considered comparable, so this class
+ * does not implement {@link Comparable}. However, a static comparison
+ * method {@link #compare(GoalSet, GoalSet)} is defined, to help where
+ * (say) a canonical ordering is required.
+ * 
  * @author simpsons
  */
 class GoalSet {
@@ -757,5 +763,30 @@ class GoalSet {
                 }
             }
         }
+    }
+
+    /**
+     * Compare two goal sets. A set of higher degree is considered
+     * greater than one of lower degree, regardless of membership. For
+     * sets with the same degree, the highest bit that differs is
+     * identified, and the set whose bit is set is considered
+     * &lsquo;greater than&rsquo; the other.
+     * 
+     * @param a one of the sets
+     * 
+     * @param b the other set
+     * 
+     * @return positive if the the first set is considered greater than
+     * the second set; negative if less than; zero otherwise
+     */
+    public static int compare(GoalSet a, GoalSet b) {
+        int dc = Integer.compare(a.degree, b.degree);
+        if (dc != 0) return dc;
+        for (int i = a.words.length; i > 0;) {
+            i--;
+            dc = Long.compareUnsigned(a.word(i), b.word(i));
+            if (dc != 0) return dc;
+        }
+        return 0;
     }
 }
