@@ -42,7 +42,8 @@ import java.util.BitSet;
 import java.util.Collection;
 
 /**
- * Holds a modifiable set of goals.
+ * Holds a modifiable set of goals. An immutable set can be created from
+ * one with {@link #freeze()}.
  *
  * @author simpsons
  */
@@ -55,6 +56,8 @@ class MutableGoalSet extends GoalSet {
      * Create an immutable copy of this goal set.
      * 
      * @return an immutable copy of this goal set
+     * 
+     * @constructor
      */
     public GoalSet freeze() {
         return new GoalSet(degree, Arrays.copyOf(words, words.length));
