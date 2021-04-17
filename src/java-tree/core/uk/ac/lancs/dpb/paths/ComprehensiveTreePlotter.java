@@ -173,6 +173,31 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return toBigInteger(a).compareTo(toBigInteger(b));
     }
 
+    /**
+     * Compare two bit sets by comparing their highest bits. The highest
+     * set bits of each argument are identified. If they have the same
+     * position, the next highest bits are identified, and their
+     * positions are compared; and so on.
+     * 
+     * @param a one of the bit sets
+     * 
+     * @param b the other bit set
+     * 
+     * @return 0 if the bit sets are identical; positive if the first
+     * argument's highest non-identical bit to the second's is set;
+     * negative otherwise
+     */
+    private static int fastCompare(BitSet a, BitSet b) {
+        int ac = a.cardinality() - 1;
+        int bc = b.cardinality() - 1;
+        do {
+            if (ac > bc) return +1;
+            if (bc < ac) return -1;
+            ac = a.previousSetBit(ac - 1);
+            bc = a.previousSetBit(ac - 1);
+        } while (true);
+    }
+
     private static BitSet of(int pattern) {
         return BitSet.valueOf(new long[] { pattern });
     }
