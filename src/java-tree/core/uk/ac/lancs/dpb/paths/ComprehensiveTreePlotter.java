@@ -224,7 +224,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* TODO: An identity hash map should suffice, but introduces
          * perturbations making fault diagnosis difficult. */
         Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new LinkedHashMap<>();
-        for (int mode = 1; mode < modes; mode++) {
+        for (int mode = 1; mode <= modes; mode++) {
             /* Work out the bandwidth in the forward (ingress) and
              * reverse (egrees) directions of the edge. */
             BitSet fwd = modeCache.get(mode - 1);
@@ -403,9 +403,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* Create an index from mode number to BitSet, so that we can
          * call the bandwidth function. Remember that index 0 of this
          * list corresponds to mode 1. */
-        final List<BitSet> modeCache = IntStream.rangeClosed(1, modeCount)
-            .mapToObj(ComprehensiveTreePlotter::of)
-            .collect(Collectors.toList());
+        final List<BitSet> modeCache =
+            IntStream.range(1, modeCount).mapToObj(ComprehensiveTreePlotter::of)
+                .collect(Collectors.toList());
 
         /* Assign each goal an integer. */
         final Index<V> goalIndex = Index.copyOf(goalOrder);
