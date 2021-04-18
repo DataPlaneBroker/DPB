@@ -135,23 +135,20 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public String asJavaScript() {
-        return "{                                                       \n"
-            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree()
-            + ",                             \n" + "  base : "
-            + base.asJavaScript() + ",                    \n" + "  groups : [ "
-            + groups.stream().map(JavaScriptBandwidthFunction::toBigInteger)
+    public String asScript() {
+        return DEGREE_FIELD_NAME + " = " + degree() + "                 \n"
+            + "class Base:                                              \n"
+            + ScriptBandwidthFunction.indent(base.asScript()) + "groups = ["
+            + groups.stream().map(ScriptBandwidthFunction::toBigInteger)
                 .map(BigInteger::toString).collect(Collectors.joining(", "))
-            + " ]                                                       \n"
-            + "  " + JAVASCRIPT_FUNCTION_NAME
-            + " : function(set) {                                \n"
-            + "    bset = [];                                           \n"
-            + "    for (var e = 0; e < " + degree() + "; e++)           \n"
-            + "      if (set & (1 << e))                                \n"
-            + "        bset |= this.groups[e];                          \n"
-            + "    return this.base.apply(bset);                        \n"
-            + "  },                                                     \n"
-            + "}\n";
+            + "]                                                        \n"
+            + "@classmethod                                             \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, goals):               \n"
+            + "    bgoals = 0                                           \n"
+            + "    for e in range(0, " + degree() + "):                 \n"
+            + "        if goals & (1 << e):                             \n"
+            + "            bgoals |= cls.groups[e]                      \n"
+            + "    return cls.Base." + GET_FUNCTION_NAME + "(bgoals)\n";
     }
 
     @Override

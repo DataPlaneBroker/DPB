@@ -132,45 +132,31 @@ public final class PairBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public String asJavaScript() {
-        return "{                                                    \n" + "  "
-            + JAVASCRIPT_DEGREE_NAME + " : " + degree()
-            + ",                          \n" + "  data : [ "
+    public String asScript() {
+        return DEGREE_FIELD_NAME + " = " + degree() + "                  \n"
+            + "data = [                                                  \n"
             + Arrays.asList(pairs).stream()
                 .map(r -> "    [ [" + r.ingress.min() + ", " + r.ingress.max()
                     + "],\n" + "      [" + r.egress.min() + ", "
                     + r.egress.max() + "] ]")
                 .collect(Collectors.joining(",\n"))
-            + " ],                                                   \n"
-            + "  add_ranges : function(a, b) {                       \n"
-            + "      if (a == null) return b;                        \n"
-            + "      if (b == null) return a;                        \n"
-            + "      let min = a[0] + b[0];                          \n"
-            + "      let max = a[1] == null ? null :                 \n"
-            + "                b[1] == null ? null :                 \n"
-            + "                 (a[1] + b[1]);                       \n"
-            + "      return [ min, max ];                            \n"
-            + "  },                                                  \n" + "  "
-            + JAVASCRIPT_FUNCTION_NAME
-            + " : function(bits) {                            \n"
-            + "    var sum = [ null, null ];                         \n"
-            + "    for (var i = 0; i < " + degree() + "; i++) {      \n"
-            + "      let isRecv = (bits & (1 << i)) != 0;            \n"
-            + "      sum[isRecv] =                                   \n"
-            + "        this.add_ranges(sum[isRecv],                  \n"
-            + "                        this.data[i][isRecv]);        \n"
-            + "    }                                                 \n"
-            + "    if (sum[0] == null) return [ 0, 0 ];              \n"
-            + "    if (sum[1] == null) return [ 0, 0 ];              \n"
-            + "    let min = sum[1][0] < sum[0][0] ?                 \n"
-            + "      sum[1][0] : sum[0][0];                          \n"
-            + "    if (sum[0][1] == null) return [ min, null ];      \n"
-            + "    if (sum[1][1] == null) return [ min, null ];      \n"
-            + "    let max = sum[1][1] < sum[0][1] ?                 \n"
-            + "      sum[1][1] : sum[0][1];                          \n"
-            + "    return [ min, max ];                              \n"
-            + "  }                                                   \n"
-            + "}\n";
+            + " ]                                                        \n"
+            + "@staticmethod                                             \n"
+            + "def add_ranges(a, b):                                     \n"
+            + "    minv = a[0] + b[0]                                    \n"
+            + "    maxv = a[1] + b[1]                                    \n"
+            + "    return [ minv, maxv ]                                 \n"
+            + "@classmethod                                              \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, bits):                 \n"
+            + "    sm = [ [ 0, 0 ], [ 0, 0 ] ]                           \n"
+            + "    for i in range(0, " + degree() + "):                  \n"
+            + "        isRecv = 1 if (bits & (1 << i)) != 0 else 0       \n"
+            + "        sm[isRecv] =                                    \\\n"
+            + "          cls.add_ranges(sm[isRecv],                      \n"
+            + "                         cls.data[i][isRecv]);            \n"
+            + "    minv = min(sm[1][0], sm[0][0])                        \n"
+            + "    maxv = min(sm[1][1], sm[0][1])                        \n"
+            + "    return [ minv, maxv ]                                 \n";
     }
 
     /**
@@ -197,5 +183,7 @@ public final class PairBandwidthFunction implements BandwidthFunction {
         System.out.printf("%s -> %s%n", fwd, func.get(fwd));
         System.out.printf("%s <- %s%n", fwd, func.get(rev));
         System.out.printf("%s = %s%n", fwd, func.getPair(fwd));
+        System.out.printf("Func:%n%s",
+                          ScriptBandwidthFunction.indent(func.asScript()));
     }
 }

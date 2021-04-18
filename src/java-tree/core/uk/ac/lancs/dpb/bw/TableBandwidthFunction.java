@@ -168,7 +168,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
     @Override
     public BandwidthRange get(BitSet from) {
         try {
-            BigInteger value = JavaScriptBandwidthFunction.toBigInteger(from);
+            BigInteger value = ScriptBandwidthFunction.toBigInteger(from);
             int index = value.subtract(BigInteger.ONE).intValueExact();
             return table[index];
         } catch (ArrayIndexOutOfBoundsException | ArithmeticException ex) {
@@ -184,19 +184,16 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * looked up by subtracting one from the bit pattern.
      */
     @Override
-    public String asJavaScript() {
-        return "{                                                        \n"
-            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree
-            + ",                                \n" + "  data : [ "
+    public String asScript() {
+        return DEGREE_FIELD_NAME + " = " + degree + "                    \n"
+            + "data = [                                                  \n"
             + Arrays.asList(table).stream()
-                .map(e -> "[" + e.min() + ", " + e.max() + "]")
-                .collect(Collectors.joining(", "))
-            + "],                                                        \n"
-            + "  " + JAVASCRIPT_FUNCTION_NAME
-            + " : function(bits) {                                \n"
-            + "    return this.data[bits - 1];                           \n"
-            + "  },                                                      \n"
-            + "}\n";
+                .map(e -> "  [" + e.min() + ", " + e.max() + "]")
+                .collect(Collectors.joining(",\n"))
+            + " ]                                                        \n"
+            + "@classmethod                                              \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, bits):                 \n"
+            + "    return cls.data[bits - 1]";
     }
 
     @Override

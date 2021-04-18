@@ -38,25 +38,28 @@ package uk.ac.lancs.dpb.bw;
 
 import java.math.BigInteger;
 import java.util.BitSet;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.script.ScriptContext;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import javax.script.SimpleScriptContext;
+import org.python.core.PyList;
 
 /**
- * Expresses bandwidth requirements specified by a JavaScript object.
- * The object must have a
- * {@value BandwidthFunction#JAVASCRIPT_DEGREE_NAME} field specifying
- * the function's degree, and a
- * {@value BandwidthFunction#JAVASCRIPT_FUNCTION_NAME} function taking a
- * single integer argument representing the <cite>from</cite> set as a
- * bit set, and returning a 2-array of the minimum and maximum rates
- * (the latter of which may be {@code null}).
+ * Expresses bandwidth requirements specified by the body of a Python
+ * class definition. The definition must have a
+ * {@value BandwidthFunction#DEGREE_FIELD_NAME} field specifying the
+ * function's degree, and a {@value BandwidthFunction#GET_FUNCTION_NAME}
+ * class method taking the enclosing class and a single integer argument
+ * representing the <cite>from</cite> set as a bit set, and returning a
+ * 2-array of the minimum and maximum rates.
  *
  * @author simpsons
  */
-final class JavaScriptBandwidthFunction implements BandwidthFunction {
+final class ScriptBandwidthFunction implements BandwidthFunction {
     private final ScriptEngine engine;
 
     private final String text;
@@ -70,24 +73,34 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
      * 
      * @throws ScriptException if there is an error parsing the script
      */
-    public JavaScriptBandwidthFunction(String text) throws ScriptException {
+    public ScriptBandwidthFunction(String text) throws ScriptException {
         this.text = text;
         ScriptEngineManager manager = new ScriptEngineManager();
-        engine = manager.getEngineByName("javascript");
+        engine = manager.getEngineByName("jython");
+        assert engine != null : "no python script engine";
         ScriptContext ctxt = new SimpleScriptContext();
         engine.setContext(ctxt);
-        engine.eval("var obj = " + text + ";");
-        degree = (Integer) engine.eval("obj.degree");
+        engine.eval("class Foo:\n" + indent(text));
+        degree = (Integer) engine.eval("Foo." + DEGREE_FIELD_NAME);
+    }
+
+    static final Pattern LINESEP = Pattern.compile("\n");
+
+    static String indent(String text) {
+        return Stream.of(LINESEP.split(text))
+            .map(s -> "    " + s.stripTrailing() + "\n")
+            .collect(Collectors.joining());
     }
 
     @Override
     public BandwidthRange get(BitSet from) {
-        String cmd = "obj." + JAVASCRIPT_FUNCTION_NAME + "("
+        String cmd = "Foo." + GET_FUNCTION_NAME + "("
             + toBigInteger(from.get(0, degree())) + ")";
         try {
-            Double[] result = (Double[]) engine.eval(cmd);
-            return result[1] == null ? BandwidthRange.from(result[0]) :
-                BandwidthRange.between(result[0], result[1]);
+            PyList r = (PyList) engine.eval(cmd);
+            double min = ((Number) r.get(0)).doubleValue();
+            double max = ((Number) r.get(1)).doubleValue();
+            return BandwidthRange.between(min, max);
         } catch (ScriptException ex) {
             throw new IllegalArgumentException(cmd, ex);
         } catch (NullPointerException | ArrayIndexOutOfBoundsException |
@@ -98,7 +111,7 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public String asJavaScript() {
+    public String asScript() {
         return text;
     }
 

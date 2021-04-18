@@ -100,6 +100,21 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
         }
 
         /**
+         * Ensure a minimum degree. If any entries previously or yet to
+         * be added by {@link #add(int, int, BandwidthRange)} refer to
+         * endpoints outside the range &#91;0, <var>n</var>&#41;, this
+         * call will have no effect.
+         * 
+         * @param n the degree
+         * 
+         * @return this object
+         */
+        public Builder degree(int n) {
+            this.biggestIndex = Integer.max(biggestIndex, n - 1);
+            return this;
+        }
+
+        /**
          * Create a matrix from the current settings.
          * 
          * @return a new bandwidth function based on the current matrix
@@ -192,46 +207,58 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public String asJavaScript() {
-        return "{                                                          \n"
-            + "  " + JAVASCRIPT_DEGREE_NAME + " : " + degree()
-            + ",                                \n" + "  data : [ "
+    public String asScript() {
+        return DEGREE_FIELD_NAME + " = " + degree() + "                    \n"
+            + "data = [                                                    \n"
             + IntStream.range(0, array.length)
-                .mapToObj(i -> array[i] == null ? "    null" :
+                .mapToObj(i -> array[i] == null ? "    None" :
                     "    [ " + array[i].min() + ", " + array[i].max() + " ]")
                 .collect(Collectors.joining(",\n"))
-            + " ],                                                         \n"
-            + "  add_ranges : function(a, b) {                             \n"
-            + "      if (a == null) return b;                              \n"
-            + "      if (b == null) return a;                              \n"
-            + "      let min = a[0] + b[0];                                \n"
-            + "      let max = a[1] == null ? null :                       \n"
-            + "                b[1] == null ? null :                       \n"
-            + "                 (a[1] + b[1]);                             \n"
-            + "      return [ min, max ];                                  \n"
-            + "  },                                                        \n"
-            + "  index : function(from, to) {                              \n"
-            + "    return from * " + (degree() - 1) + " + to - (to > from);\n"
-            + "  },                                                        \n"
-            + "  " + JAVASCRIPT_FUNCTION_NAME
-            + " : function(set) {                                   \n"
-            + "    var sum = null;                                         \n"
-            + "    for (var from = 0; from < " + degree() + "; from++) {   \n"
-            + "      if ((set & (1 << from)) == 0) continue;               \n"
-            + "      for (var to = 0; to < " + degree() + "; to++) {       \n"
-            + "        if (to == from) continue;                           \n"
-            + "        if (set & (1 << to)) continue;                      \n"
-            + "        sum = this.add_ranges(sum,                          \n"
-            + "                              data[this.index(from, to)]);  \n"
-            + "      }                                                     \n"
-            + "    }                                                       \n"
-            + "    return sum;                                             \n"
-            + "  },                                                        \n"
-            + "}\n";
+            + " ]                                                          \n"
+            + "@staticmethod                                               \n"
+            + "def add_ranges(a, b):                                       \n"
+            + "    if a is None:                                           \n"
+            + "        return b                                            \n"
+            + "    if b is None:                                           \n"
+            + "        return a                                            \n"
+            + "    minv = a[0] + b[0]                                      \n"
+            + "    maxv = None if a[1] is None else                      \\\n"
+            + "      None if b[1] is None else (a[1] + b[1])               \n"
+            + "    return [ minv, maxv ]                                   \n"
+            + "@staticmethod                                               \n"
+            + "def index(frm, to):                                         \n"
+            + "    step = 1 if to > frm else 0                             \n"
+            + "    return frm * " + (degree() - 1) + " + step              \n"
+            + "@classmethod                                                \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, bits):                   \n"
+            + "    sm = [ 0, 0 ]                                           \n"
+            + "    for frm in range(0, " + degree() + "):                  \n"
+            + "        if (bits & (1 << frm)) == 0:                        \n"
+            + "            continue                                        \n"
+            + "        for to in range(0, " + degree() + "):               \n"
+            + "            if (to == frm):                                 \n"
+            + "                continue                                    \n"
+            + "            if (bits & (1 << to)) != 0:                     \n"
+            + "                continue                                    \n"
+            + "            extra = cls.data[cls.index(frm, to)]            \n"
+            + "            sm = cls.add_ranges(sm, extra)                  \n"
+            + "    return sm                                               \n";
     }
 
     @Override
     public int degree() {
         return degree;
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) {
+        BandwidthFunction bw = MatrixBandwidthFunction.start().degree(4)
+            .add(0, 1, BandwidthRange.between(1, 2))
+            .add(0, 2, BandwidthRange.between(1, 2))
+            .add(0, 3, BandwidthRange.between(1, 2)).build();
+        System.out.printf("Func:%n%s",
+                          ScriptBandwidthFunction.indent(bw.asScript()));
     }
 }

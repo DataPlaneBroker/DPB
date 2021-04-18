@@ -37,6 +37,7 @@
 package uk.ac.lancs.dpb.bw;
 
 import java.util.BitSet;
+import java.util.List;
 
 /**
  * Expresses bandwidth requirements as a single range applying at all
@@ -84,18 +85,40 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public String asJavaScript() {
-        return "{                                                  \n" + "  "
-            + JAVASCRIPT_DEGREE_NAME + " : " + degree
-            + ",                          \n" + "  " + JAVASCRIPT_FUNCTION_NAME
-            + " : function(bits) {                          \n"
-            + "    return [ " + rate.min() + ", " + rate.max() + " ],  \n"
-            + "  },                                                \n"
-            + "}                                                   \n";
+    public String asScript() {
+        return DEGREE_FIELD_NAME + " = " + degree + "                 \n"
+            + "@classmethod                                                \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, bits):            \n"
+            + "    return [ " + rate.min() + ", " + rate.max() + " ]       \n";
     }
 
     @Override
     public int degree() {
         return degree;
+    }
+
+    private static BitSet of(int... membs) {
+        BitSet r = new BitSet();
+        for (int i : membs)
+            r.set(i);
+        return r;
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) throws Exception {
+        BandwidthFunction bw =
+            new FlatBandwidthFunction(3, BandwidthRange.between(2, 7));
+        System.out.printf("Func:%n%s",
+                          ScriptBandwidthFunction.indent(bw.asScript()));
+
+        BandwidthFunction sbw = BandwidthFunction.fromScript(bw.asScript());
+        System.out.printf("Func:%n%s",
+                          ScriptBandwidthFunction.indent(sbw.asScript()));
+
+        BandwidthFunction rbw = bw.reduce(List.of(of(1, 2), of(0)));
+        System.out.printf("Func:%n%s",
+                          ScriptBandwidthFunction.indent(rbw.asScript()));
     }
 }

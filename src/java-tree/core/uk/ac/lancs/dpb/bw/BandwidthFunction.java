@@ -89,7 +89,7 @@ import javax.script.ScriptException;
  * the first <var>n</var> bits identifies the <cite>from</cite> set.
  * 
  * <p>
- * A bandwidth function is <dfn>reducable</dfn>. That is, its endpoints
+ * A bandwidth function is <dfn>reducible</dfn>. That is, its endpoints
  * can be arbitrarily partitioned into
  * <var>n</var>&prime;&lt;<var>n</var> groups, yielding a new function
  * of degree <var>n</var>&prime;. Each of the reduced function's
@@ -97,11 +97,11 @@ import javax.script.ScriptException;
  * implemented by converting a supplied <cite>from</cite> set in its own
  * domain into the domain of the original function, and invoking the
  * original function with the converted <cite>from</cite> set. A reduced
- * function's JavaScript representation can be formed by embedding the
+ * function's Python representation can be formed by embedding the
  * original function's representation, and similarly transforming its
  * argument into the original domain before invoking the embedded
  * representation. This is why a bandwidth function must have a
- * <em>self-contained</em> JavaScript representation. The
+ * <em>self-contained</em> Python representation. The
  * {@link #reduce(List)} method yields a reduced function.
  * 
  * <p>
@@ -126,7 +126,7 @@ import javax.script.ScriptException;
  * the same result given the same input, it could be implemented as a
  * table of cached results. A reduced function could benefit from such
  * an implementation, as there is no need to retain the original
- * function, nor to embed its JavaScript representation in that of the
+ * function, nor to embed its Python representation in that of the
  * reduced function. However, for high-degree functions, a table incurs
  * a considerable memory overhead, but a reduced function will
  * necessarily have a smaller degree than its origin. The method
@@ -184,30 +184,46 @@ public interface BandwidthFunction {
     }
 
     /**
-     * Get a JavaScript representation of the function. The string must
-     * be an object declaration with two fields. One is
-     * {@value #JAVASCRIPT_DEGREE_NAME}, giving the function degree. The
-     * other must be a function called
-     * {@value #JAVASCRIPT_FUNCTION_NAME}, taking a single argument, a
-     * bit set, to be interpreted as the set of upstream endpoints, and
-     * return a map of two numbers, the minimum and maximum upstream
-     * bandwidth of the edge.
+     * Get a Python representation of the function. The string must be
+     * the body of a Python class definition with no indentation. A
+     * field called {@value #DEGREE_FIELD_NAME} must give the function
+     * degree. A class method called {@value #GET_FUNCTION_NAME} takes a
+     * class reference and an integer to be interpreted as the set of
+     * upstream endpoints, and return an array of two numbers, the
+     * minimum and maximum upstream bandwidth of the edge. For example:
      * 
-     * @return the JavaScript representation
+     * <pre>
+     * degree = 6
+     * 
+     * &#64;classmethod
+     * def get(cls, bs):
+     *     <var>...</var>
+     * </pre>
+     * 
+     * <p>
+     * The rest of the definition may be used to hold other static data
+     * required to implement {@value #GET_FUNCTION_NAME}.
+     * 
+     * <p>
+     * The script will be invoked by indenting all lines, prefixing with
+     * a <code>class Foo:</code> line (or similar), and executing
+     * <code>Foo.get(bs)</code>.
+     * 
+     * @return the Python representation
      */
-    String asJavaScript();
+    String asScript();
 
     /**
      * The name of the function embedded in the output of
-     * {@link #asJavaScript()}
+     * {@link #asScript()}
      */
-    String JAVASCRIPT_FUNCTION_NAME = "get";
+    String GET_FUNCTION_NAME = "get";
 
     /**
      * The name of the field embedded in the output of
-     * {@link #asJavaScript()} giving the function's degree
+     * {@link #asScript()} giving the function's degree
      */
-    String JAVASCRIPT_DEGREE_NAME = "degree";
+    String DEGREE_FIELD_NAME = "degree";
 
     /**
      * Get the function's degree. The argument to {@link #get(BitSet)}
@@ -233,8 +249,8 @@ public interface BandwidthFunction {
      * more bits than indicated by the degree
      * 
      * @default The default behaviour is to create a new function that
-     * references the original, and whose JavaScript representation
-     * embeds the original's representation, and then to apply
+     * references the original, and whose Python representation embeds
+     * the original's representation, and then to apply
      * {@link #tabulate()} and return the result.
      */
     default BandwidthFunction reduce(List<? extends BitSet> groups) {
@@ -244,8 +260,10 @@ public interface BandwidthFunction {
     /**
      * Attempt to simplify the implementation of this function by
      * enumerating the outputs for all possible inputs, and storing in a
-     * table. If the table would be too big, this function is returned
-     * unchanged. The goal of this method is to simplify the JavaScript
+     * table.
+     * 
+     * @default If the table would be too big, this function is returned
+     * unchanged. The goal of this method is to simplify the Python
      * representation after undergoing several reductions.
      * 
      * @return an identical function, possibly with a simpler
@@ -256,20 +274,20 @@ public interface BandwidthFunction {
     }
 
     /**
-     * Create a bandwidth function from JavaScript. The text must be an
-     * object declaration with at least two members.
+     * Create a bandwidth function from Python. See {@link #asScript()}
+     * for the required format.
      * 
-     * @param text the JavaScript source code
+     * @param text the Python source code
      * 
      * @return a function that yields the same results as the supplied
-     * JavaScript
+     * Python
      * 
      * @throws ScriptException if there is a problem parsing the script
      * 
      * @constructor
      */
-    public static BandwidthFunction fromJavaScript(String text)
+    public static BandwidthFunction fromScript(String text)
         throws ScriptException {
-        return new JavaScriptBandwidthFunction(text).tabulate();
+        return new ScriptBandwidthFunction(text).tabulate();
     }
 }
