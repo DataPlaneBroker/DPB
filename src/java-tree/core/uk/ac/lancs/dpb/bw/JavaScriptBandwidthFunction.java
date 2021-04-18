@@ -118,6 +118,12 @@ final class JavaScriptBandwidthFunction implements BandwidthFunction {
     static BigInteger toBigInteger(BitSet set) {
         byte[] bs = set.toByteArray();
         reverse(bs);
+        if (bs.length > 0 && bs[0] < 0) {
+            /* The first byte defines the sign of big integer. We don't
+             * want a negative, so we insert an extra zero byte. */
+            byte[] tmp = new byte[bs.length + 1];
+            System.arraycopy(bs, 0, tmp, 1, bs.length);
+        }
         return new BigInteger(bs);
     }
 }
