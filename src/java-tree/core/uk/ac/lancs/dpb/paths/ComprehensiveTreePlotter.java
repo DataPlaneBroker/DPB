@@ -224,13 +224,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* TODO: An identity hash map should suffice, but introduces
          * perturbations making fault diagnosis difficult. */
         Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new LinkedHashMap<>();
-        for (var edge : edges) {
-            for (int mode = 1; mode < modes; mode++) {
-                /* Work out the bandwidth in the forward (ingress) and
-                 * reverse (egrees) directions of the edge. */
-                BitSet fwd = modeCache.get(mode - 1);
-                BandwidthPair req = bwreq.getPair(fwd);
+        for (int mode = 1; mode < modes; mode++) {
+            /* Work out the bandwidth in the forward (ingress) and
+             * reverse (egrees) directions of the edge. */
+            BitSet fwd = modeCache.get(mode - 1);
+            BandwidthPair req = bwreq.getPair(fwd);
 
+            for (var edge : edges) {
                 /* Skip this mode if the ingress demand exceeds the edge
                  * forward capacity. */
                 if (req.ingress.min() > edge.metrics.ingress.min()) continue;
