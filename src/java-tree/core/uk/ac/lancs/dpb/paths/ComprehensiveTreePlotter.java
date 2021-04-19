@@ -202,83 +202,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return BitSet.valueOf(new long[] { pattern });
     }
 
-    /**
-     * Get the modes that each edge has enough capacity to support.
-     * 
-     * @param <V> the vertex type
-     * 
-     * @param modeCache a mapping from mode minus 1 to goal set
-     * 
-     * @param bwreq an expression of bandwidth load on an edge given the
-     * set of goals reachable from one end
-     * 
-     * @param edges the set of edges
-     * 
-     * @return a map from edge to goal set to bandwidth load. Only edges
-     * with at least one viable mode are included.
-     */
-    private static <V> Map<Edge<V>, Map<BitSet, BandwidthPair>>
-        getEdgeModes(List<? extends BitSet> modeCache, BandwidthFunction bwreq,
-                     Collection<? extends Edge<V>> edges, Index<V> goalIndex) {
-        final int modes = modeCache.size();
-        /* TODO: An identity hash map should suffice, but introduces
-         * perturbations making fault diagnosis difficult. */
-        Map<Edge<V>, Map<BitSet, BandwidthPair>> tmp = new LinkedHashMap<>();
-        for (int mode = 1; mode <= modes; mode++) {
-            /* Work out the bandwidth in the forward (ingress) and
-             * reverse (egrees) directions of the edge. */
-            BitSet fwd = modeCache.get(mode - 1);
-            BandwidthPair req = bwreq.getPair(fwd);
-
-            for (var edge : edges) {
-                /* Skip this mode if the ingress demand exceeds the edge
-                 * forward capacity. */
-                if (req.ingress.min() > edge.metrics.ingress.min()) continue;
-
-                /* Skip this mode if the egress demand exceeds the edge
-                 * reverse capacity. */
-                if (req.egress.min() > edge.metrics.egress.min()) continue;
-
-                /* If the edge has a goal as its start, its from set
-                 * must include that goal. */
-                {
-                    int goal = goalIndex.getAsInt(edge.start);
-                    if (goal >= 0) {
-                        assert goal < goalIndex.size();
-                        if (!fwd.get(goal)) continue;
-                    }
-                }
-
-                /* If the edge has a goal as its finish, its to set must
-                 * include that goal. */
-                {
-                    int goal = goalIndex.getAsInt(edge.finish);
-                    if (goal >= 0) {
-                        assert goal < goalIndex.size();
-                        if (fwd.get(goal)) continue;
-                    }
-                }
-
-                /* The edge can be used in this mode. Retain this fact,
-                 * and cache the amount of bandwidth it would use in
-                 * that mode. TODO: A plain hash map should suffice, but
-                 * introduces perturbations making fault diagnosis
-                 * difficult. */
-                var old = tmp.computeIfAbsent(edge, e -> new LinkedHashMap<>())
-                    .put(fwd, req);
-                assert old == null;
-            }
-        }
-
-        /* Store a deep immutable map. TODO: Collectors.toMap and
-         * Map.copyOf should suffice, but they introduce perturbations
-         * making fault diagnosis difficult. */
-        return deepCopy(tmp, Collections::unmodifiableMap);
-
-        // return tmp.entrySet().stream().collect(Collectors
-        // .toMap(Map.Entry::getKey, e -> Map.copyOf(e.getValue())));
-    }
-
     private static <E> E removeOne(Collection<? extends E> coll) {
         Iterator<? extends E> iter = coll.iterator();
         E result = iter.next();
@@ -389,6 +312,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
         plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
              Collection<? extends Edge<V>> edges) {
+        /* Assign each goal an integer. */
+        final Index<V> goalIndex = Index.copyOf(goalOrder);
+
         /* Compute the number of modes each edge can be used in. Each
          * mode is a bit pattern where the position of each bit
          * identifies a goal vertex in the goalOrder list. If the bit is
@@ -398,25 +324,80 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * mode is similarly useless; however, we co-opt it to indicate
          * an edge that isn't used. This number is always 1 less than a
          * power of 2. */
-        final int modeCount = (1 << goalOrder.size()) - 1;
+        final int modeCount = (1 << goalIndex.size()) - 1;
 
-        /* Create an index from mode number to BitSet, so that we can
-         * call the bandwidth function. Remember that index 0 of this
-         * list corresponds to mode 1. */
-        final List<BitSet> modeCache =
-            IntStream.range(1, modeCount).mapToObj(ComprehensiveTreePlotter::of)
-                .collect(Collectors.toList());
+        class Routing {
+            private final Map<Edge<V>, Collection<BitSet>> edgeCaps =
+                new LinkedHashMap<>();
 
-        /* Assign each goal an integer. */
-        final Index<V> goalIndex = Index.copyOf(goalOrder);
+            /**
+             * Work out how much bandwidth each mode requires, and
+             * compare it with each edge, selecting only modes for which
+             * the edge has sufficient capacity. Also store the required
+             * bandwidth for each edge.
+             */
+            void eliminateIncapaciousEdgeModes() {
+                for (int mode = 1; mode < modeCount; mode++) {
+                    /* Work out the bandwidth in the forward (ingress)
+                     * and reverse (egrees) directions of the edge. */
+                    BitSet fwd = of(mode);
+                    BandwidthPair req = bwreq.getPair(fwd);
 
-        /* Record which modes each edge can cope with, and how much
-         * bandwidth they will use in that mode. Edges that can't cope
-         * with the requirement in any mode will not be included in the
-         * map. The map for a given edge will not include modes it has
-         * insufficient capacity for. */
-        final Map<Edge<V>, Map<BitSet, BandwidthPair>> edgeCaps =
-            getEdgeModes(modeCache, bwreq, edges, goalIndex);
+                    for (var edge : edges) {
+                        /* Skip this mode if the ingress demand exceeds
+                         * the edge's forward capacity. */
+                        if (req.ingress.min() > edge.metrics.ingress.min())
+                            continue;
+
+                        /* Skip this mode if the egress demand exceeds
+                         * the edge's reverse capacity. */
+                        if (req.egress.min() > edge.metrics.egress.min())
+                            continue;
+
+                        /* If the edge has a goal as its start, its from
+                         * set must include that goal. */
+                        {
+                            int goal = goalIndex.getAsInt(edge.start);
+                            if (goal >= 0) {
+                                assert goal < goalIndex.size();
+                                if (!fwd.get(goal)) continue;
+                            }
+                        }
+
+                        /* If the edge has a goal as its finish, its to
+                         * set must include that goal. */
+                        {
+                            int goal = goalIndex.getAsInt(edge.finish);
+                            if (goal >= 0) {
+                                assert goal < goalIndex.size();
+                                if (fwd.get(goal)) continue;
+                            }
+                        }
+
+                        /* The edge can be used in this mode. Retain
+                         * this fact. TODO: A plain hash map should
+                         * suffice, but introduces perturbations making
+                         * fault diagnosis difficult. */
+                        edgeCaps
+                            .computeIfAbsent(edge, e -> new LinkedHashSet<>())
+                            .add(fwd);
+                    }
+                }
+            }
+
+            Map<Edge<V>, Collection<BitSet>> getEdgeModes() {
+                return deepCopy(edgeCaps, Collections::unmodifiableCollection);
+                // return
+                // edgeCaps.entrySet().stream().collect(Collectors
+                // .toMap(Map.Entry::getKey, e ->
+                // Map.copyOf(e.getValue())));
+            }
+        }
+
+        final Routing routing = new Routing();
+        routing.eliminateIncapaciousEdgeModes();
+        final Map<Edge<V>, Collection<BitSet>> edgeCaps =
+            routing.getEdgeModes();
 
         /* Discover all vertices, and find out which edges connect each
          * vertex. */
@@ -492,8 +473,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * The third is either zero or one, giving the from set or the
          * to set. */
         assert edgeCaps.keySet().containsAll(edgeIndex);
-        final BitSet[][][] modeMap = edgeIndex.stream()
-            .map(e -> edgeCaps.get(e).keySet().stream().map(fs -> {
+        final BitSet[][][] modeMap =
+            edgeIndex.stream().map(e -> edgeCaps.get(e).stream().map(fs -> {
                 BitSet[] r = new BitSet[2];
                 r[0] = fs;
                 r[1] = new BitSet();
@@ -874,8 +855,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             List<Edge<V>> eo = new ArrayList<>(edgeIndex);
             Collections.sort(eo, ComprehensiveTreePlotter::compare);
             for (Edge<V> e : eo) {
-                Map<BitSet, BandwidthPair> x = edgeCaps.get(e);
-                List<BitSet> modes = new ArrayList<>(x.keySet());
+                List<BitSet> modes = new ArrayList<>(edgeCaps.get(e));
                 Collections.sort(modes, ComprehensiveTreePlotter::compare);
                 System.err.printf("%s: %s%n", e, modes);
             }
@@ -895,13 +875,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         IntUnaryOperator bases = i -> modeMap[i].length;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length == edgeCaps.size();
-        Function<IntUnaryOperator,
-                 Map<Edge<V>, BandwidthPair>> translator = digits -> IntStream
-                     .range(0, edgeIndex.size())
-                     .filter(en -> digits.applyAsInt(en) != 0).boxed()
-                     .collect(Collectors.toMap(edgeIndex::get, en -> edgeCaps
-                         .get(edgeIndex.get(en))
-                         .get(modeMap[en][digits.applyAsInt(en)][0])));
+        Function<IntUnaryOperator, Map<Edge<V>, BandwidthPair>> translator =
+            digits -> IntStream.range(0, edgeIndex.size())
+                .filter(en -> digits.applyAsInt(en) != 0).boxed()
+                .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
+                    .getPair(modeMap[en][digits.applyAsInt(en)][0])));
         MixedRadixValidator validator = (en, digits) -> {
             for (Constraint c : constraints[en])
                 if (!c.check(digits)) return false;
