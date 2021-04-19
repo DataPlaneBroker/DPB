@@ -385,12 +385,100 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 }
             }
 
+            /**
+             * Get a deep immutable copy of the selected edges. Call
+             * {@link #eliminateIncapaciousEdgeModes()} first.
+             */
             Map<Edge<V>, Collection<BitSet>> getEdgeModes() {
                 return deepCopy(edgeCaps, Collections::unmodifiableCollection);
                 // return
                 // edgeCaps.entrySet().stream().collect(Collectors
                 // .toMap(Map.Entry::getKey, e ->
                 // Map.copyOf(e.getValue())));
+            }
+
+            /**
+             * Identifies for each vertex the set of edges that finish
+             * at that edge. {@link #reachEdges()} must be called to
+             * populate this.
+             */
+            private final Map<V, Collection<Edge<V>>> inwards =
+                new IdentityHashMap<>();
+
+            /**
+             * Identifies for each vertex the set of edges that start at
+             * that edge. {@link #reachEdges()} must be called to
+             * populate this.
+             */
+            private final Map<V, Collection<Edge<V>>> outwards =
+                new IdentityHashMap<>();
+
+            /**
+             * Holds all reachable vertices, in order of reachability.
+             * {@link #reachEdges()} must be called to populate this.
+             */
+            private final Collection<V> vertexes =
+                new LinkedHashSet<>(goalOrder);
+
+            /**
+             * Determine the reachability of all vertices through edges.
+             */
+            void reachEdges() {
+                /* For every edge, record which vertices it connects
+                 * to. */
+                for (Edge<V> edge : edgeCaps.keySet()) {
+                    vertexes.add(edge.start);
+                    outwards.computeIfAbsent(edge.start, k -> new HashSet<>())
+                        .add(edge);
+                    vertexes.add(edge.finish);
+                    inwards.computeIfAbsent(edge.finish, k -> new HashSet<>())
+                        .add(edge);
+                }
+
+                /* Some vertices might have only inward edges, and some
+                 * only outward, meaning that there might be holes in
+                 * the key sets of our maps. Make sure the vertices also
+                 * have sets for the opposite direction. */
+                for (V v : vertexes) {
+                    outwards.computeIfAbsent(v, k -> new HashSet<>());
+                    inwards.computeIfAbsent(v, k -> new HashSet<>());
+                }
+            }
+
+            /**
+             * Get a deep immutable copy of the edges that finish at
+             * each vertex.
+             */
+            Map<V, Collection<Edge<V>>> getInwardEdges() {
+                /* TODO: Collectors.toMap and Set.copyOf should suffice,
+                 * but they cause perturbations that make fault
+                 * diagnosis difficult. */
+                return deepCopy(inwards, Collections::unmodifiableCollection);
+                // return inwards.entrySet().stream().collect(Collectors
+                // .toMap(Map.Entry::getKey, e ->
+                // Set.copyOf(e.getValue())));
+            }
+
+            /**
+             * Get a deep immutable copy of the edges that start at each
+             * vertex.
+             */
+            Map<V, Collection<Edge<V>>> getOutwardEdges() {
+                /* TODO: Collectors.toMap and Set.copyOf should suffice,
+                 * but they cause perturbations that make fault
+                 * diagnosis difficult. */
+                return deepCopy(outwards, Collections::unmodifiableCollection);
+                // return
+                // outwards.entrySet().stream().collect(Collectors
+                // .toMap(Map.Entry::getKey, e ->
+                // Set.copyOf(e.getValue())));
+            }
+
+            /**
+             * Get an index of vertices by reachability.
+             */
+            Index<V> getVertexOrder() {
+                return Index.copyOf(vertexes);
             }
         }
 
@@ -401,49 +489,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         /* Discover all vertices, and find out which edges connect each
          * vertex. */
-        final Map<V, Collection<Edge<V>>> inwards;
-        final Map<V, Collection<Edge<V>>> outwards;
-        final Index<V> vertexOrder;
-        {
-            /* Start identifying all vertices implied by edges by
-             * including the goals. */
-            Collection<V> tmp = new LinkedHashSet<>(goalOrder);
-
-            /* Also keep track of the edges of each vertex. */
-            Map<V, Collection<Edge<V>>> ins = new IdentityHashMap<>();
-            Map<V, Collection<Edge<V>>> outs = new IdentityHashMap<>();
-
-            /* For every edge, record which vertices it connects to. */
-            for (Edge<V> edge : edgeCaps.keySet()) {
-                tmp.add(edge.start);
-                outs.computeIfAbsent(edge.start, k -> new HashSet<>())
-                    .add(edge);
-                tmp.add(edge.finish);
-                ins.computeIfAbsent(edge.finish, k -> new HashSet<>())
-                    .add(edge);
-            }
-
-            /* Make sure the vertices also have sets for the opposite
-             * direction. */
-            for (V v : tmp) {
-                outs.computeIfAbsent(v, k -> new HashSet<>());
-                ins.computeIfAbsent(v, k -> new HashSet<>());
-            }
-
-            /* Get deep immutable copies of these structures. TODO:
-             * Collectors.toMap and Set.copyOf should suffice, but they
-             * cause perturbations that make fault diagnosis
-             * difficult. */
-            inwards = deepCopy(ins, Collections::unmodifiableCollection);
-            outwards = deepCopy(outs, Collections::unmodifiableCollection);
-            // inwards = ins.entrySet().stream().collect(Collectors
-            // .toMap(Map.Entry::getKey, e ->
-            // Set.copyOf(e.getValue())));
-            // outwards = outs.entrySet().stream().collect(Collectors
-            // .toMap(Map.Entry::getKey, e ->
-            // Set.copyOf(e.getValue())));
-            vertexOrder = Index.copyOf(tmp);
-        }
+        routing.reachEdges();
+        final Map<V, Collection<Edge<V>>> inwards = routing.getInwardEdges();
+        final Map<V, Collection<Edge<V>>> outwards = routing.getOutwardEdges();
+        final Index<V> vertexOrder = routing.getVertexOrder();
 
         /* The goal order should be a subsequence of the vertex
          * order. */
