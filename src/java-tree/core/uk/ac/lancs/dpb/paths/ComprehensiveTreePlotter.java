@@ -1331,30 +1331,35 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
             out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
             out.println(" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
-            out.printf(" viewBox='%g %g %g %g' width='8in' height='%gin'>%n",
-                       -0.5, -0.5, width + 0.0, height + 0.0,
-                       8.0 * height / width);
+            out.printf(" viewBox='%g %g %g %g' width='100%%' height='%g%%'>%n",
+                       0.0, 0.0, width + 0.0, height + 0.0,
+                       100.0 * height / width);
 
             /* Create the background. */
-            out.printf("<rect fill='white' stroke='red' stroke-width='0.2'"
-                + " x='%g' y='%g' width='%g' height='%g'/>%n", -0.5, -0.5,
+            out.printf("<rect fill='white' stroke='none'"
+                + " x='%g' y='%g' width='%g' height='%g'/>%n", 0.0, 0.0,
                        width + 0.0, height + 0.0);
 
             /* Create the grid. */
             out.printf("<g fill='none' stroke='#ccc' stroke-width='0.03'>%n");
             for (int i = 0; i < width; i++)
-                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", i + 0.0,
-                           -0.5, i + 0.0, height + 0.0);
+                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", i + 0.5,
+                           0.0, i + 0.5, height + 0.0);
             for (int i = 0; i < height; i++)
-                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", -0.5,
-                           i + 0.0, width + 0.0, i + 0.0);
+                out.printf("<line x1='%g' y1='%g' x2='%g' y2='%g'/>%n", 0.0,
+                           i + 0.5, width + 0.0, i + 0.5);
             out.println("</g>");
+
+            /* Create the border. */
+            out.printf("<rect fill='none' stroke='red' stroke-width='0.2'"
+                + " x='%g' y='%g' width='%g' height='%g'/>%n", 0.0, 0.0,
+                       width + 0.0, height + 0.0);
 
             /* Highlight the goals. */
             out.printf("<g fill='red' stroke='none'>%n");
             for (Vertex g : goals) {
-                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x, g.y,
-                           goalRadius);
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x + 0.5,
+                           g.y + 0.5, goalRadius);
             }
             out.println("</g>");
 
@@ -1369,14 +1374,14 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 final double endFrac =
                     e.metrics.egress.min() / maxCap * vertexRadius;
                 out.printf("<path d='M%g %g L%g %g L%g %g L%g %g z' />%n",
-                           e.start.x - startFrac * dy / len,
-                           e.start.y + startFrac * dx / len,
-                           e.finish.x - endFrac * dy / len,
-                           e.finish.y + endFrac * dx / len,
-                           e.finish.x + endFrac * dy / len,
-                           e.finish.y - endFrac * dx / len,
-                           e.start.x + startFrac * dy / len,
-                           e.start.y - startFrac * dx / len);
+                           e.start.x - startFrac * dy / len + 0.5,
+                           e.start.y + startFrac * dx / len + 0.5,
+                           e.finish.x - endFrac * dy / len + 0.5,
+                           e.finish.y + endFrac * dx / len + 0.5,
+                           e.finish.x + endFrac * dy / len + 0.5,
+                           e.finish.y - endFrac * dx / len + 0.5,
+                           e.start.x + startFrac * dy / len + 0.5,
+                           e.start.y - startFrac * dx / len + 0.5);
             }
             out.println("</g>");
 
@@ -1392,22 +1397,22 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     bw.ingress.min() / maxCap * vertexRadius;
                 final double endFrac = bw.egress.min() / maxCap * vertexRadius;
                 out.printf("<path d='M%g %g L%g %g L%g %g L%g %g z' />%n",
-                           e.start.x - startFrac * dy / len,
-                           e.start.y + startFrac * dx / len,
-                           e.finish.x - endFrac * dy / len,
-                           e.finish.y + endFrac * dx / len,
-                           e.finish.x + endFrac * dy / len,
-                           e.finish.y - endFrac * dx / len,
-                           e.start.x + startFrac * dy / len,
-                           e.start.y - startFrac * dx / len);
+                           e.start.x - startFrac * dy / len + 0.5,
+                           e.start.y + startFrac * dx / len + 0.5,
+                           e.finish.x - endFrac * dy / len + 0.5,
+                           e.finish.y + endFrac * dx / len + 0.5,
+                           e.finish.x + endFrac * dy / len + 0.5,
+                           e.finish.y - endFrac * dx / len + 0.5,
+                           e.start.x + startFrac * dy / len + 0.5,
+                           e.start.y - startFrac * dx / len + 0.5);
             }
             out.println("</g>");
 
             /* Draw the vertices. */
             out.printf("<g fill='black' stroke='none'>%n");
             for (Vertex g : vertexes) {
-                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x, g.y,
-                           vertexRadius);
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x + 0.5,
+                           g.y + 0.5, vertexRadius);
             }
             out.println("</g>");
 
