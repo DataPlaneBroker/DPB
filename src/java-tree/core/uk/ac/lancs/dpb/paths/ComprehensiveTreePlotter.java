@@ -209,93 +209,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return result;
     }
 
-    /**
-     * Get the order of edges that indexes an array of those edges'
-     * modes. Each element of the array will iterate from zero to the
-     * number of modes supported by its corresponding edge. The whole
-     * array forms a multi-base number, with its first element being the
-     * least significant digit. Although any order will do, we should be
-     * able to improve performance in two ways:
-     * 
-     * <ol>
-     * 
-     * <li>Edges attached to the same vertex should be as close together
-     * in the array order as possible. These edges will have mutual
-     * constraints on their modes, so if one changes and the constraints
-     * have to be checked again, you should get round to checking the
-     * constraints as soon as possible.
-     * 
-     * <li>Edges nearer (by hops) to the goals should be represented by
-     * more significant digits than those further. These edges are going
-     * to have fewer options, so you want to iterate over them as few
-     * times as possible.
-     * 
-     * </ol>
-     * 
-     * @param <V> the vertex type
-     * 
-     * @param goals the set of vertices that must be connected
-     * 
-     * @param inwards the set of edges whose finishing point is a given
-     * vertex
-     * 
-     * @param outwards the set of edges whose starting point is a given
-     * vertex
-     * 
-     * @param modeCount the number of modes that an edge supports
-     * 
-     * @return an optimized order of edges for iterating over all
-     * combinations of modes
-     */
-    private static <V> List<Edge<V>>
-        getEdgeOrder(Collection<? extends V> goals,
-                     Map<? super V,
-                         ? extends Collection<? extends Edge<V>>> inwards,
-                     Map<? super V,
-                         ? extends Collection<? extends Edge<V>>> outwards) {
-        Collection<Edge<V>> reachOrder = new LinkedHashSet<>();
-        Collection<V> reachables = new HashSet<>();
-        Collection<V> newReachables = new LinkedHashSet<>();
-        newReachables.addAll(goals);
-        while (!newReachables.isEmpty()) {
-            /* Pick a vertex that we haven't handled yet, and mark it as
-             * handled. */
-            V vertex = removeOne(newReachables);
-            assert !reachables.contains(vertex);
-            reachables.add(vertex);
-
-            /* Find all neighbours of the vertex. */
-            Collection<V> cands = new HashSet<>();
-            Collection<? extends Edge<V>> inEdges = inwards.get(vertex);
-            assert inEdges != null;
-            cands.addAll(inEdges.stream().map(e -> e.start)
-                .collect(Collectors.toSet()));
-            Collection<? extends Edge<V>> outEdges = outwards.get(vertex);
-            assert outEdges != null;
-            cands.addAll(outEdges.stream().map(e -> e.finish)
-                .collect(Collectors.toSet()));
-
-            /* Ensure the edges are accounted for. */
-            reachOrder.addAll(inEdges);
-            reachOrder.addAll(outEdges);
-
-            /* Exclude neighbours that have already been handled. */
-            cands.removeAll(reachables);
-
-            /* Add the remaining neighbours to the set yet to be
-             * handled. */
-            newReachables.addAll(cands);
-        }
-
-        /* Extract the order in which edges were added. Reverse it, so
-         * that the ones nearest the goals are going to change the
-         * least. */
-        List<Edge<V>> edgeOrder = new ArrayList<>(reachOrder);
-        Collections.reverse(edgeOrder);
-
-        return edgeOrder;
-    }
-
     private interface Constraint {
         boolean check(IntUnaryOperator digits);
 
@@ -421,9 +334,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 new LinkedHashSet<>(goalOrder);
 
             /**
-             * Determine the reachability of all vertices through edges.
+             * Identify all vertices, and how to walk from a vertex to
+             * an edge.
              */
-            void reachEdges() {
+            void deriveVertexes() {
                 /* For every edge, record which vertices it connects
                  * to. */
                 for (Edge<V> edge : edgeCaps.keySet()) {
@@ -475,10 +389,63 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             /**
-             * Get an index of vertices by reachability.
+             * Get an almost arbitrary index of vertices. The only
+             * guaranteed ordering is that the initial vertices are also
+             * the goals, in the originally specified order.
              */
             Index<V> getVertexOrder() {
                 return Index.copyOf(vertexes);
+            }
+
+            /**
+             * Determine the reachability of all vertices through edges.
+             * {@link #deriveVertexes()} must be called before this
+             * method.
+             */
+            Index<Edge<V>> getEdgeOrder() {
+                Collection<Edge<V>> reachOrder = new LinkedHashSet<>();
+                Collection<V> reachables = new HashSet<>();
+                Collection<V> newReachables = new LinkedHashSet<>();
+                newReachables.addAll(goalIndex);
+                while (!newReachables.isEmpty()) {
+                    /* Pick a vertex that we haven't handled yet, and
+                     * mark it as handled. */
+                    V vertex = removeOne(newReachables);
+                    assert !reachables.contains(vertex);
+                    reachables.add(vertex);
+
+                    /* Find all neighbours of the vertex. */
+                    Collection<V> cands = new HashSet<>();
+                    Collection<? extends Edge<V>> inEdges = inwards.get(vertex);
+                    assert inEdges != null;
+                    cands.addAll(inEdges.stream().map(e -> e.start)
+                        .collect(Collectors.toSet()));
+                    Collection<? extends Edge<V>> outEdges =
+                        outwards.get(vertex);
+                    assert outEdges != null;
+                    cands.addAll(outEdges.stream().map(e -> e.finish)
+                        .collect(Collectors.toSet()));
+
+                    /* Ensure the edges are accounted for. */
+                    reachOrder.addAll(outEdges);
+                    reachOrder.addAll(inEdges);
+
+                    /* Exclude neighbours that have already been
+                     * handled. */
+                    cands.removeAll(reachables);
+
+                    /* Add the remaining neighbours to the set yet to be
+                     * handled. */
+                    newReachables.addAll(cands);
+                }
+
+                /* Extract the order in which edges were added. Reverse
+                 * it, so that the ones nearest the edges are going to
+                 * change the least, and get validated first. */
+                List<Edge<V>> edgeOrder = new ArrayList<>(reachOrder);
+                Collections.reverse(edgeOrder);
+
+                return Index.copyOf(edgeOrder);
             }
         }
 
@@ -489,7 +456,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         /* Discover all vertices, and find out which edges connect each
          * vertex. */
-        routing.reachEdges();
+        routing.deriveVertexes();
         final Map<V, Collection<Edge<V>>> inwards = routing.getInwardEdges();
         final Map<V, Collection<Edge<V>>> outwards = routing.getOutwardEdges();
         final Index<V> vertexOrder = routing.getVertexOrder();
@@ -512,8 +479,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * Index 0 will be the least significant digit. Edges that are
          * most reachable will correspond to the most significant
          * digits. */
-        final Index<Edge<V>> edgeIndex =
-            Index.copyOf(getEdgeOrder(goalIndex, inwards, outwards));
+        final Index<Edge<V>> edgeIndex = routing.getEdgeOrder();
         assert edgeIndex.size() == edgeCaps.size();
 
         /* Create a mapping from mode index to mode pattern for each
