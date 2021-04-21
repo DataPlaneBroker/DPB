@@ -240,8 +240,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         final int modeCount = (1 << goalIndex.size()) - 1;
 
         class Routing {
-            private final Map<Edge<V>, Collection<BitSet>> edgeCaps =
-                new LinkedHashMap<>();
+            private final Map<Edge<V>, BitSet> edgeCaps = new LinkedHashMap<>();
 
             /**
              * Work out how much bandwidth each mode requires, and
@@ -291,9 +290,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                          * this fact. TODO: A plain hash map should
                          * suffice, but introduces perturbations making
                          * fault diagnosis difficult. */
-                        edgeCaps
-                            .computeIfAbsent(edge, e -> new LinkedHashSet<>())
-                            .add(fwd);
+                        edgeCaps.computeIfAbsent(edge, e -> new BitSet())
+                            .set(mode);
                     }
                 }
             }
@@ -302,8 +300,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Get a deep immutable copy of the selected edges. Call
              * {@link #eliminateIncapaciousEdgeModes()} first.
              */
-            Map<Edge<V>, Collection<BitSet>> getEdgeModes() {
-                return deepCopy(edgeCaps, Collections::unmodifiableCollection);
+            Map<Edge<V>, BitSet> getEdgeModes() {
+                return deepCopy(edgeCaps, i -> i);
                 // return
                 // edgeCaps.entrySet().stream().collect(Collectors
                 // .toMap(Map.Entry::getKey, e ->
@@ -451,8 +449,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         final Routing routing = new Routing();
         routing.eliminateIncapaciousEdgeModes();
-        final Map<Edge<V>, Collection<BitSet>> edgeCaps =
-            routing.getEdgeModes();
+        final Map<Edge<V>, BitSet> edgeCaps = routing.getEdgeModes();
 
         /* Discover all vertices, and find out which edges connect each
          * vertex. */
@@ -488,15 +485,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * The third is either zero or one, giving the from set or the
          * to set. */
         assert edgeCaps.keySet().containsAll(edgeIndex);
-        final BitSet[][][] modeMap =
-            edgeIndex.stream().map(e -> edgeCaps.get(e).stream().map(fs -> {
-                BitSet[] r = new BitSet[2];
-                r[0] = fs;
-                r[1] = new BitSet();
-                r[1].or(r[0]);
-                r[1].flip(0, goalIndex.size());
-                return r;
-            }).toArray(n -> new BitSet[n][])).toArray(n -> new BitSet[n][][]);
+        final int[][][] modeMap = edgeIndex.stream()
+            .map(e -> edgeCaps.get(e).stream().mapToObj(m -> new int[]
+            { m, m ^ modeCount }).toArray(n -> new int[n][]))
+            .toArray(n -> new int[n][][]);
 
         /**
          * Checks that an edge has a valid external set with respect to
@@ -544,7 +536,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 accept = new BitSet[modeMap[pen].length + 1][];
                 for (int pmi = 0; pmi < accept.length; pmi++) {
                     accept[pmi] = new BitSet[oenc];
-                    BitSet ppat = pmi == 0 ? null :
+                    final int ppat = pmi == 0 ? 0 :
                         modeMap[pen][pmi - 1][invs.get(0) ? 1 : 0];
 
                     /* In this mode, there must be a bit set per other
@@ -564,6 +556,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                             cur.set(0, modeMap[oen].length);
                             continue;
                         }
+                        assert ppat != 0;
 
                         /* It's always okay if the other edge is not in
                          * use (mode index 0). */
@@ -573,9 +566,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                          * other edge. */
                         for (int omi = 1; omi < modeMap[oen].length; omi++) {
                             final boolean inv = invs.get(oeni + 1);
-                            BitSet opat = modeMap[oen][omi - 1][inv ? 1 : 0];
+                            final int opat = modeMap[oen][omi - 1][inv ? 1 : 0];
 
-                            if (opat.intersects(ppat)) continue;
+                            if ((opat & ppat) != 0) continue;
                             /* This mode 'omi' in this edge 'oen' is
                              * compatible with our primary edge 'pen' in
                              * its current mode 'pmi'. */
@@ -666,12 +659,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Create a set of all goals, in preparation to
                  * eliminate them. We fail if there are any left, unless
                  * none of the edges are in use at all. */
-                BitSet base = new BitSet();
-                base.set(0, goalIndex.size());
-                assert base.cardinality() == goalOrder.size();
+                int base = modeCount;
 
                 /* Do any special elimination. */
-                augment(base);
+                base = augment(base);
 
                 /* Eliminate each edge's external set. */
                 boolean disused = true;
@@ -686,12 +677,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* Get the external set for this edge, and account
                      * for its members. */
                     final boolean inv = invs.get(i);
-                    BitSet pat = modeMap[en][mi - 1][inv ? 1 : 0];
-                    base.andNot(pat);
+                    int pat = modeMap[en][mi - 1][inv ? 1 : 0];
+                    base &= ~pat;
 
                     /* We're okay if we've accounted for all of the
                      * goals. */
-                    if (base.isEmpty()) return true;
+                    if (base == 0) return true;
                 }
 
                 /* We didn't account for any of the goals. We're okay
@@ -700,7 +691,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 return disused;
             }
 
-            public void augment(BitSet base) {}
+            public int augment(int base) {
+                return base;
+            }
 
             @Override
             public void verify(int baseEdge) {
@@ -711,10 +704,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         class CompleteExternalUnionExceptGoal extends CompleteExternalUnion {
             final int goal;
 
+            final int mask;
+
             CompleteExternalUnionExceptGoal(int goal,
                                             List<? extends Integer> edges) {
                 super(edges);
                 this.goal = goal;
+                this.mask = ~(1 << goal);
             }
 
             @Override
@@ -724,8 +720,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             @Override
-            public void augment(BitSet base) {
-                base.clear(goal);
+            public int augment(int base) {
+                return base & mask;
             }
         }
 
@@ -870,8 +866,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             List<Edge<V>> eo = new ArrayList<>(edgeIndex);
             Collections.sort(eo, ComprehensiveTreePlotter::compare);
             for (Edge<V> e : eo) {
-                List<BitSet> modes = new ArrayList<>(edgeCaps.get(e));
-                Collections.sort(modes, ComprehensiveTreePlotter::compare);
+                List<BitSet> modes = edgeCaps.get(e).stream()
+                    .mapToObj(ComprehensiveTreePlotter::of)
+                    .collect(Collectors.toList());
                 System.err.printf("%s: %s%n", e, modes);
             }
 
@@ -890,11 +887,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         IntUnaryOperator bases = i -> modeMap[i].length;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length == edgeCaps.size();
-        Function<IntUnaryOperator, Map<Edge<V>, BandwidthPair>> translator =
-            digits -> IntStream.range(0, edgeIndex.size())
-                .filter(en -> digits.applyAsInt(en) != 0).boxed()
-                .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
-                    .getPair(modeMap[en][digits.applyAsInt(en)][0])));
+        Function<IntUnaryOperator,
+                 Map<Edge<V>, BandwidthPair>> translator = digits -> IntStream
+                     .range(0, edgeIndex.size())
+                     .filter(en -> digits.applyAsInt(en) != 0).boxed()
+                     .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
+                         .getPair(of(modeMap[en][digits.applyAsInt(en)][0]))));
         MixedRadixValidator validator = (en, digits) -> {
             for (Constraint c : constraints[en])
                 if (!c.check(digits)) return false;
