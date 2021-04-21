@@ -622,13 +622,17 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
         }
 
-        class CompleteExternalUnion implements Constraint {
+        abstract class CompleteExternalUnionBase implements Constraint {
+            final boolean disusedOkay;
+
             final int[] edges;
 
             final BitSet invs = new BitSet();
 
-            CompleteExternalUnion(List<? extends Integer> edges) {
+            CompleteExternalUnionBase(boolean disusedOkay,
+                                      List<? extends Integer> edges) {
                 assert !edges.isEmpty();
+                this.disusedOkay = disusedOkay;
                 this.edges = new int[edges.size()];
                 for (int i = 0; i < this.edges.length; i++) {
                     int en = edges.get(i);
@@ -688,12 +692,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* We didn't account for any of the goals. We're okay
                  * only if all edges are disused (so we accounted for no
                  * goals). */
-                return disused;
+                return disusedOkay && disused;
             }
 
-            public int augment(int base) {
-                return base;
-            }
+            public abstract int augment(int base);
 
             @Override
             public void verify(int baseEdge) {
@@ -701,14 +703,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
         }
 
-        class CompleteExternalUnionExceptGoal extends CompleteExternalUnion {
+        class CompleteExternalUnion extends CompleteExternalUnionBase {
+            public CompleteExternalUnion(List<? extends Integer> edges) {
+                super(true, edges);
+            }
+
+            @Override
+            public int augment(int base) {
+                return base;
+            }
+        }
+
+        class CompleteExternalUnionExceptGoal
+            extends CompleteExternalUnionBase {
             final int goal;
 
             final int mask;
 
             CompleteExternalUnionExceptGoal(int goal,
                                             List<? extends Integer> edges) {
-                super(edges);
+                super(false, edges);
                 this.goal = goal;
                 this.mask = ~(1 << goal);
             }
@@ -722,61 +736,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             @Override
             public int augment(int base) {
                 return base & mask;
-            }
-        }
-
-        /**
-         * Checks that at least on of a set of edges is in use. This
-         * should be used on the edges of a goal, as it must have a
-         * connecting edge.
-         */
-        class GoalConnected implements Constraint {
-            final int[] edges;
-
-            /**
-             * Create a constraint requiring that at least one edge
-             * connecting to a goal vertex is in use.
-             * 
-             * @param goal the goal number
-             * 
-             * @param edges a list of edge codes. Inward edges are
-             * represented by their indices. Outward edges are
-             * represented by subtracting their indices from {@code -1}.
-             * Whether an edge is inward or outward is ignored.
-             */
-            GoalConnected(List<? extends Integer> edges) {
-                this.edges = new int[edges.size()];
-                for (int i = 0; i < this.edges.length; i++) {
-                    int en = edges.get(i);
-                    if (en < 0) en = -1 - en;
-                    this.edges[i] = en;
-                }
-            }
-
-            @Override
-            public String toString() {
-                return String
-                    .format("active in {%s }",
-                            IntStream.range(0, edges.length).mapToObj(i -> {
-                                return String.format(" %s",
-                                                     edgeIndex.get(edges[i]));
-                            }).collect(Collectors.joining()));
-            }
-
-            @Override
-            public boolean check(IntUnaryOperator digits) {
-                for (final int en : edges) {
-                    final int mi = digits.applyAsInt(en);
-
-                    /* Ignore this edge if it isn't used. */
-                    if (mi != 0) return true;
-                }
-                return false;
-            }
-
-            @Override
-            public void verify(int baseEdge) {
-                assert edges[0] == baseEdge;
             }
         }
 
@@ -824,26 +783,15 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             if (goalNumber >= 0) {
                 assert goalOrder.get(goalNumber) == vertex;
 
-                /* Every goal vertex must have at least one edge in use
-                 * connected to it. */
-                {
-                    Constraint constraint = new GoalConnected(ecs);
-                    int first = ecs.get(0);
-                    if (first < 0) first = -1 - first;
-                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
-                        .add(constraint);
-                }
-
                 /* The union of the external sets and this goal must be
-                 * the complete set of goals. */
-                {
-                    Constraint constraint =
-                        new CompleteExternalUnionExceptGoal(goalNumber, ecs);
-                    int first = ecs.get(0);
-                    if (first < 0) first = -1 - first;
-                    checkers.computeIfAbsent(first, k -> new ArrayList<>())
-                        .add(constraint);
-                }
+                 * the complete set of goals, and at least one edge must
+                 * be in use. */
+                Constraint constraint =
+                    new CompleteExternalUnionExceptGoal(goalNumber, ecs);
+                int first = ecs.get(0);
+                if (first < 0) first = -1 - first;
+                checkers.computeIfAbsent(first, k -> new ArrayList<>())
+                    .add(constraint);
             } else {
                 /* The union of the external sets must be the complete
                  * set of goals. */
