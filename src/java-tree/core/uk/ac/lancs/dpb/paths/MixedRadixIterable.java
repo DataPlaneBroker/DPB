@@ -110,108 +110,6 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
             private int invalidated = magnitude;
 
             /**
-             * Increment the least significant valid digit. If it
-             * reaches its base, reset it, and increment the next, and
-             * so on, until a digit increments without reaching its
-             * base, or the maximum value of the number has been
-             * exceeded.
-             * 
-             * @return {@code true} if an increment took place without
-             * exceeding the maximum value of the number; {@code false}
-             * otherwise
-             */
-            private boolean increment() {
-                if (false) try {
-                    Thread.sleep(60);
-                } catch (InterruptedException ex) {
-
-                }
-                /* Increase each counter until we don't have to
-                 * carry. */
-                while (invalidated < digits.length) {
-                    int i = invalidated++;
-                    if (++digits[i] < radixes.applyAsInt(i)) {
-                        /* We didn't have to carry. */
-                        if (false) System.err
-                            .printf("%2d/%2d: %s%n", invalidated, magnitude,
-                                    IntStream.of(digits)
-                                        .mapToObj(mi -> String.format("%2d",
-                                                                      mi))
-                                        .collect(Collectors.joining(" ")));
-                        return true;
-                    }
-                    /* We have incremented a digit beyond its maximum
-                     * value. */
-
-                    /* Abort if we have overflowed the most significant
-                     * digit. */
-                    if (i + 1 == digits.length) break;
-
-                    /* Reset this digit. */
-                    digits[i] = 0;
-                    if (false) System.err
-                        .printf("%2d/%2d: %s%n", invalidated, magnitude,
-                                IntStream.of(digits)
-                                    .mapToObj(mi -> String.format("%2d", mi))
-                                    .collect(Collectors.joining(" ")));
-                }
-                return false;
-            }
-
-            /**
-             * Ensure that a valid number not yet yielded to the user
-             * has been reached. First, if the {@link #found} flag is
-             * set, a number is already available, and nothing more is
-             * done. Second, if the most significant digit has already
-             * reached its limit, the iterator is exhausted. Finally, an
-             * attempt to validate all remaining invalidated digits is
-             * made. Each time this fails, an increment occurs, and the
-             * attempt is made again.
-             * 
-             * @return {@code true} if a valid number has been reached;
-             * {@code false} otherwise
-             */
-            private boolean ensure() {
-                if (digits.length == 0) return false;
-
-                /* Have we already got a solution to be delivered by
-                 * next()? */
-                if (invalidated == 0) return true;
-                /* We must find the next solution. */
-
-                /* If the most slowly increasing counter has exceeded
-                 * its limit, we are done. */
-                if (digits[digits.length - 1]
-                    >= radixes.applyAsInt(digits.length - 1)) return false;
-
-                /* Keep looking for a valid combination. */
-                next_combination: do {
-                    /* For the digits that have changed, skip if the
-                     * digit with its current value belongs to an
-                     * illegal combination. */
-                    while (invalidated > 0) {
-                        final int en = --invalidated;
-
-                        /* Check this digit against all more significant
-                         * (and currently valid) digits for
-                         * conflicts. */
-                        if (!validator.test(en, getter)) {
-                            Arrays.fill(digits, 0, en, 0);
-                            continue next_combination;
-                        }
-                        /* All requirements were met, so this digit is
-                         * validated with respect to all more
-                         * significant digits. */
-                    }
-
-                    /* The current combination has all digits
-                     * validated. */
-                    break;
-                } while (increment());
-                return invalidated == 0;
-            }
-
-            /**
              * Determine whether there are more valid combinations.
              * 
              * @return {@code true} if at least one more valid
@@ -219,7 +117,41 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
              */
             @Override
             public boolean hasNext() {
-                return ensure();
+                /* Stop now if we already have a result. */
+                if (invalidated == 0) return true;
+
+                outer: while (true) {
+                    assert invalidated > 0;
+                    invalidated--;
+                    while (true) {
+                        if (digits[invalidated]
+                            == radixes.applyAsInt(invalidated)) {
+                            assert invalidated < magnitude;
+                            invalidated++;
+                            if (invalidated == magnitude) return false;
+                        } else if (validator.test(invalidated, getter)) {
+                            if (invalidated > 0) {
+                                digits[invalidated - 1] = 0;
+                                continue outer;
+                            }
+                            if (false) System.err
+                                .printf("%2d/%2d: %s%n", invalidated, magnitude,
+                                        IntStream.of(digits)
+                                            .mapToObj(mi -> String.format("%2d",
+                                                                          mi))
+                                            .collect(Collectors.joining(" ")));
+                            return true;
+                        }
+                        increment();
+                    }
+                }
+            }
+
+            private void increment() {
+                if (false) try {
+                    Thread.sleep(60);
+                } catch (InterruptedException ex) {}
+                digits[invalidated]++;
             }
 
             /**
@@ -234,13 +166,15 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
              */
             @Override
             public E next() {
-                if (!ensure()) throw new NoSuchElementException();
+                if (!hasNext()) throw new NoSuchElementException();
 
                 /* Get a result based on the current status. */
                 E result = translator.apply(getter);
 
                 /* Make sure we look for a new solution after this. */
+                assert invalidated == 0;
                 increment();
+                invalidated++;
 
                 return result;
             }
