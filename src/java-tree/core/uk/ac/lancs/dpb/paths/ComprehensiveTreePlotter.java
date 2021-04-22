@@ -832,7 +832,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         /* Prepare to iterate over the edge modes while checking
          * constraints. */
-        IntUnaryOperator bases = i -> modeMap[i].length;
+        IntUnaryOperator bases = i -> modeMap[i].length + 1;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length == edgeCaps.size();
         Function<IntUnaryOperator,
