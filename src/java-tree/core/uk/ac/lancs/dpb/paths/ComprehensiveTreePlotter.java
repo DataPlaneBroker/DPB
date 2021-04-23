@@ -553,7 +553,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                          * compatible with all other edges in all
                          * modes. */
                         if (pmi == 0) {
-                            cur.set(0, modeMap[oen].length);
+                            cur.set(0, modeMap[oen].length + 1);
                             continue;
                         }
                         assert ppat != 0;
@@ -564,7 +564,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
                         /* Go over all mode indices supported by the
                          * other edge. */
-                        for (int omi = 1; omi < modeMap[oen].length; omi++) {
+                        for (int omi = 1; omi <= modeMap[oen].length; omi++) {
                             final boolean inv = invs.get(oeni + 1);
                             final int opat = modeMap[oen][omi - 1][inv ? 1 : 0];
 
