@@ -82,6 +82,51 @@ import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
+    private static final double biasThreshold = 0.99;
+
+    private static class Pair<V1, V2> {
+        public final V1 item1;
+
+        public final V2 item2;
+
+        public Pair(V1 item1, V2 item2) {
+            this.item1 = item1;
+            this.item2 = item2;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 37 * hash + System.identityHashCode(item1);
+            hash = 37 * hash + System.identityHashCode(item2);
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            final Pair<?, ?> other = (Pair<?, ?>) obj;
+            if (this.item1 != other.item1) return false;
+            return this.item2 == other.item2;
+        }
+    }
+
+    private static <E> Iterable<E> remainingIn(Collection<? extends E> coll) {
+        return () -> new Iterator<E>() {
+            @Override
+            public boolean hasNext() {
+                return !coll.isEmpty();
+            }
+
+            @Override
+            public E next() {
+                return removeOne(coll);
+            }
+        };
+    }
+
     /**
      * Create a deep immutable copy of a map, preserving iteration
      * order.
@@ -332,14 +377,18 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Holds all reachable vertices, in order of reachability.
              * {@link #reachEdges()} must be called to populate this.
              */
-            private final Collection<V> vertexes =
-                new LinkedHashSet<>(goalOrder);
+            private final Collection<V> vertexes = new LinkedHashSet<>();
 
             /**
              * Identify all vertices, and how to walk from a vertex to
              * an edge.
              */
             void deriveVertexes() {
+                vertexes.clear();
+                vertexes.addAll(goalOrder);
+                outwards.clear();
+                inwards.clear();
+
                 /* For every edge, record which vertices it connects
                  * to. */
                 for (Edge<V> edge : edgeCaps.keySet()) {
@@ -359,6 +408,212 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     outwards.computeIfAbsent(v, k -> new HashSet<>());
                     inwards.computeIfAbsent(v, k -> new HashSet<>());
                 }
+            }
+
+            /**
+             * Holds a routing table per vertex, per goal.
+             */
+            final Map<V, Map<V, Double>> distances = new IdentityHashMap<>();
+
+            double getDistance(V vertex, V goal) {
+                Map<V, Double> dists = distances.get(vertex);
+                if (dists == null) return Double.POSITIVE_INFINITY;
+                return dists.getOrDefault(goal, Double.POSITIVE_INFINITY);
+            }
+
+            /**
+             * Keeps track of which goals in which vertices' routing
+             * tables we need to update.
+             */
+            final Collection<Pair<V, V>> invalidGoals = new LinkedHashSet<>();
+
+            /**
+             * Keeps track of goals across edges that might be out of
+             * date.
+             */
+            final Collection<Pair<Edge<V>, V>> invalidEdges =
+                new LinkedHashSet<>();
+
+            /**
+             * Invalidate an entry for a goal in the distance table of a
+             * vertex.
+             * 
+             * @return {@code true} if a change was made
+             */
+            boolean invalidateDistance(V vertex, V goal) {
+                return invalidGoals.add(new Pair<>(vertex, goal));
+            }
+
+            /**
+             * Invalidate an edge's bidirectional suitability for a
+             * goal.
+             * 
+             * @return {@code true} if a change was made
+             */
+            boolean invalidateEdgeGoal(Edge<V> edge, V goal) {
+                return invalidEdges.add(new Pair<>(edge, goal));
+            }
+
+            void updateDistance(V vertex, V goal) {
+                /* We never compute the distance to ourselves. */
+                if (vertex == goal) return;
+
+                final int gn = goalIndex.getAsInt(goal);
+                final int bit = 1 << gn;
+                double best = Double.POSITIVE_INFINITY;
+
+                /* Go over all the inward edges, getting the best
+                 * distance. Only use an edge if at least one of the
+                 * 'from' sets of its remaining modes includes the
+                 * goal. */
+                for (Edge<V> edge : inwards.get(vertex)) {
+                    /* Route over this edge only if the goal is in the
+                     * 'from' set. */
+                    BitSet modes = edgeCaps.get(edge);
+                    if (modes.stream().noneMatch(m -> (m & bit) != 0)) continue;
+
+                    /* Compute the distance, and retain the best. */
+                    assert edge.finish == vertex;
+                    V other = edge.start;
+                    double dist = getDistance(other, goal) + edge.cost;
+                    if (dist > best) continue;
+                    best = dist;
+                }
+
+                /* Try to improve the distance with the outward edges.
+                 * Only use an edge if at least one of the 'to' sets of
+                 * its remaining modes includes the goal. */
+                for (Edge<V> edge : outwards.get(vertex)) {
+                    /* Route over this edge only if the goal is in the
+                     * 'from' set. */
+                    BitSet modes = edgeCaps.get(edge);
+                    if (modes.stream().noneMatch(m -> (m & bit) == 0)) continue;
+
+                    /* Compute the distance, and retain the best. */
+                    assert edge.start == vertex;
+                    V other = edge.finish;
+                    double dist = getDistance(other, goal) + edge.cost;
+                    if (dist > best) continue;
+                    best = dist;
+                }
+
+                setDistance(vertex, goal, best);
+            }
+
+            void setDistance(V vertex, V goal, double distance) {
+                /* Store the new distance, and see if we have changed
+                 * it. */
+                Double old = distances
+                    .computeIfAbsent(vertex, k -> new IdentityHashMap<>())
+                    .put(goal, distance);
+                if (old != null && old == distance) return;
+                if (false) System.err.printf("%s -> %s takes %.3f%n", vertex,
+                                             goal, distance);
+
+                /* The distance has changed, so invalidate the tables in
+                 * the neighbours. */
+                invalidateNeighbours(vertex, goal);
+            }
+
+            void invalidateNeighbours(V vertex, V goal) {
+                for (Edge<V> edge : inwards.get(vertex)) {
+                    assert edge.finish == vertex;
+                    V other = edge.start;
+                    invalidateDistance(other, goal);
+                    invalidateEdgeGoal(edge, goal);
+                }
+                for (Edge<V> edge : outwards.get(vertex)) {
+                    assert edge.start == vertex;
+                    V other = edge.finish;
+                    invalidateDistance(other, goal);
+                    invalidateEdgeGoal(edge, goal);
+                }
+            }
+
+            boolean updateEdge(Edge<V> edge, V goal) {
+                double startDistance = getDistance(edge.start, goal);
+                double finishDistance = getDistance(edge.finish, goal);
+                double unsuitability =
+                    (startDistance - finishDistance) / edge.cost;
+                boolean changed = false;
+                if (unsuitability > biasThreshold) {
+                    /* The finish is significantly more distant from the
+                     * goal than the start is. Remove modes from this
+                     * edge where the 'from' set includes the goal. */
+                    final int gn = goalIndex.getAsInt(goal);
+                    final int bit = 1 << gn;
+                    BitSet modes = edgeCaps.get(edge);
+                    for (int mode = modes.nextSetBit(0); mode >= 0;
+                         mode = modes.nextSetBit(mode + 1)) {
+                        if ((mode & bit) != 0) {
+                            modes.clear(mode);
+                            if (false) System.err
+                                .printf("  removed %s for having goal %d%n",
+                                        of(mode), gn);
+                            changed = true;
+                        }
+                    }
+                } else if (unsuitability < -biasThreshold) {
+                    /* The start is significantly more distant from the
+                     * goal than the finish is. Remove modes from this
+                     * edge where the 'from' set excludes the goal. */
+                    final int gn = goalIndex.getAsInt(goal);
+                    final int bit = 1 << gn;
+                    BitSet modes = edgeCaps.get(edge);
+                    for (int mode = modes.nextSetBit(0); mode >= 0;
+                         mode = modes.nextSetBit(mode + 1)) {
+                        if ((mode & bit) == 0) {
+                            modes.clear(mode);
+                            if (false) System.err
+                                .printf("  removed %s for not having goal %d%n",
+                                        of(mode), gn);
+                            changed = true;
+                        }
+                    }
+                }
+                if (changed) {
+                    if (false)
+                        System.err.printf("%s -> %s: %g (%.3f - %.3f / %.3f)%n",
+                                          edge, goal, unsuitability,
+                                          startDistance, finishDistance,
+                                          edge.cost);
+                    invalidateDistance(edge.start, goal);
+                    invalidateDistance(edge.finish, goal);
+                }
+
+                return changed;
+            }
+
+            void route() {
+                System.err.printf("Routing...%n");
+                /* Record each goal as zero distance from itself, and
+                 * invalidate its neighbours. */
+                for (V goal : goalIndex)
+                    setDistance(goal, goal, 0.0);
+
+                while (!invalidGoals.isEmpty()) {
+                    /* Get the routing tables up-to-date. */
+                    for (Pair<V, V> pair : remainingIn(invalidGoals)) {
+                        updateDistance(pair.item1, pair.item2);
+                    }
+
+                    /* Look for edge modes to eliminate. */
+                    int rem = Integer.MAX_VALUE;
+                    for (Pair<Edge<V>, V> pair : remainingIn(invalidEdges)) {
+                        if (updateEdge(pair.item1, pair.item2) && rem-- == 0)
+                            break;
+                    }
+                    // break;
+                }
+
+                /* Clear out edges that have no in-use modes
+                 * remaining. */
+                for (var iter = edgeCaps.entrySet().iterator();
+                     iter.hasNext();) {
+                    var item = iter.next();
+                    if (item.getValue().isEmpty()) iter.remove();
+                }
+                System.err.printf("Routing complete%n");
             }
 
             /**
@@ -453,11 +708,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         final Routing routing = new Routing();
         routing.eliminateIncapaciousEdgeModes();
-        final Map<Edge<V>, BitSet> edgeCaps = routing.getEdgeModes();
-
-        /* Discover all vertices, and find out which edges connect each
-         * vertex. */
         routing.deriveVertexes();
+        routing.route();
+
+        routing.deriveVertexes();
+        final Map<Edge<V>, BitSet> edgeCaps = routing.getEdgeModes();
+        System.err.printf("caps: %s%n", edgeCaps);
+
         final Map<V, Collection<Edge<V>>> inwards = routing.getInwardEdges();
         final Map<V, Collection<Edge<V>>> outwards = routing.getOutwardEdges();
         final Index<V> vertexOrder = routing.getVertexOrder();
@@ -481,7 +738,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * most reachable will correspond to the most significant
          * digits. */
         final Index<Edge<V>> edgeIndex = routing.getEdgeOrder();
-        assert edgeIndex.size() == edgeCaps.size();
+        assert edgeIndex.size() <= edgeCaps.size();
 
         /* Create a mapping from mode index to mode pattern for each
          * edge that has at least one valid non-zero mode. The first
@@ -830,7 +1087,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         }
 
         /* Convert the constraints to arrays (for speed?). */
-        final Constraint[][] constraints = new Constraint[edgeCaps.size()][];
+        final Constraint[][] constraints = new Constraint[edgeIndex.size()][];
         for (int i = 0; i < edgeIndex.size(); i++)
             constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
                 .toArray(n -> new Constraint[n]);
@@ -860,7 +1117,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * constraints. */
         IntUnaryOperator bases = i -> modeMap[i].length + 1;
         assert modeMap.length == edgeIndex.size();
-        assert modeMap.length == edgeCaps.size();
+        assert modeMap.length <= edgeCaps.size();
         Function<IntUnaryOperator, Map<Edge<V>, BandwidthPair>> translator =
             digits -> IntStream.range(0, edgeIndex.size())
                 .filter(en -> digits.applyAsInt(en) != 0).boxed()
