@@ -1549,7 +1549,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         if (true) {
             TreePlotter plotter = new ComprehensiveTreePlotter();
             BandwidthFunction bwreq =
-                new FlatBandwidthFunction(goals.size(), BandwidthRange.at(1.0));
+                new FlatBandwidthFunction(goals.size(), BandwidthRange.at(3.0));
             // new PairBandwidthFunction(IntStream.range(0,
             // goals.size())
             // .mapToObj(i ->
