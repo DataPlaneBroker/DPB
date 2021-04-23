@@ -1250,7 +1250,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (best == null || score < bestScore) {
                     best = cand;
                     bestScore = score;
-                    System.err.printf("acc %g: %s%n", bestScore, best.keySet());
+                    System.err.printf("acc %g: %s%n", bestScore,
+                                      best.entrySet().stream()
+                                          .map(e -> e.getKey().toString())
+                                          .collect(Collectors.joining(", ")));
                 }
             }
             tree = best == null ? Collections.emptyMap() : Map.copyOf(best);
