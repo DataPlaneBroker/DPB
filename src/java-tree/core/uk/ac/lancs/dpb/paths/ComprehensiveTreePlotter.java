@@ -84,6 +84,52 @@ import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
 public class ComprehensiveTreePlotter implements TreePlotter {
     private static final double biasThreshold = 0.99;
 
+    private static class Path<V> {
+        final double distance;
+
+        final V vertex;
+
+        final Path<V> previous;
+
+        Path(double distance, V vertex, Path<V> previous) {
+            this.distance = distance;
+            this.vertex = vertex;
+            this.previous = previous;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%.3f %s%s", distance, vertex,
+                                 previous == null ? "" : ("; " + previous));
+        }
+
+        static <V> boolean sameAs(Path<V> a, Path<V> b) {
+            if (a == null) return b == null;
+            if (b == null) return false;
+            if (a.vertex != b.vertex) return false;
+            if (a.distance != b.distance) return false;
+            return sameAs(a.previous, b.previous);
+        }
+
+        static <V> Path<V> root(V root) {
+            return new Path<>(0.0, root, null);
+        }
+
+        boolean contains(V self) {
+            return vertex == self ||
+                (previous != null && previous.contains(self));
+        }
+
+        static <V> Path<V> append(Path<V> prev, double extension, V self,
+                                  Path<V> best) {
+            if (prev == null) return null;
+            if (prev.contains(self)) return null;
+            final double newDist = prev.distance + extension;
+            if (best != null && newDist >= best.distance) return null;
+            return new Path<>(newDist, self, prev);
+        }
+    }
+
     private static class Pair<V1, V2> {
         public final V1 item1;
 
@@ -413,12 +459,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             /**
              * Holds a routing table per vertex, per goal.
              */
-            final Map<V, Map<V, Double>> distances = new IdentityHashMap<>();
+            final Map<V, Map<V, Path<V>>> distances = new IdentityHashMap<>();
 
-            double getDistance(V vertex, V goal) {
-                Map<V, Double> dists = distances.get(vertex);
-                if (dists == null) return Double.POSITIVE_INFINITY;
-                return dists.getOrDefault(goal, Double.POSITIVE_INFINITY);
+            Path<V> getDistance(V vertex, V goal) {
+                Map<V, Path<V>> dists = distances.get(vertex);
+                if (dists == null) return null;
+                return dists.get(goal);
             }
 
             /**
@@ -460,7 +506,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
                 final int gn = goalIndex.getAsInt(goal);
                 final int bit = 1 << gn;
-                double best = Double.POSITIVE_INFINITY;
+                Path<V> best = null;
 
                 /* Go over all the inward edges, getting the best
                  * distance. Only use an edge if at least one of the
@@ -475,9 +521,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* Compute the distance, and retain the best. */
                     assert edge.finish == vertex;
                     V other = edge.start;
-                    double dist = getDistance(other, goal) + edge.cost;
-                    if (dist > best) continue;
-                    best = dist;
+                    Path<V> newPath = Path.append(getDistance(other, goal),
+                                                  edge.cost, vertex, best);
+                    if (newPath != null) best = newPath;
                 }
 
                 /* Try to improve the distance with the outward edges.
@@ -492,23 +538,32 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* Compute the distance, and retain the best. */
                     assert edge.start == vertex;
                     V other = edge.finish;
-                    double dist = getDistance(other, goal) + edge.cost;
-                    if (dist > best) continue;
-                    best = dist;
+                    Path<V> newPath = Path.append(getDistance(other, goal),
+                                                  edge.cost, vertex, best);
+                    if (newPath != null) best = newPath;
                 }
 
                 setDistance(vertex, goal, best);
             }
 
-            void setDistance(V vertex, V goal, double distance) {
+            void setDistance(V vertex, V goal, Path<V> path) {
+                if (path == null) {
+                    Path<V> old =
+                        distances.getOrDefault(vertex, Collections.emptyMap())
+                            .remove(goal);
+                    if (old != null) invalidateNeighbours(vertex, goal);
+                    if (false) System.err.printf("%s -> %s unreachable%n",
+                                                 vertex, goal);
+                    return;
+                }
                 /* Store the new distance, and see if we have changed
                  * it. */
-                Double old = distances
+                Path<V> old = distances
                     .computeIfAbsent(vertex, k -> new IdentityHashMap<>())
-                    .put(goal, distance);
-                if (old != null && old == distance) return;
-                if (false) System.err.printf("%s -> %s takes %.3f%n", vertex,
-                                             goal, distance);
+                    .put(goal, path);
+                if (Path.sameAs(old, path)) return;
+                if (false) System.err.printf("%s -> %s takes %s%n", vertex,
+                                             goal, path);
 
                 /* The distance has changed, so invalidate the tables in
                  * the neighbours. */
@@ -531,11 +586,21 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             boolean updateEdge(Edge<V> edge, V goal) {
-                double startDistance = getDistance(edge.start, goal);
-                double finishDistance = getDistance(edge.finish, goal);
+                boolean changed = false;
+                Path<V> startPath = getDistance(edge.start, goal);
+                Path<V> finishPath = getDistance(edge.finish, goal);
+                if (startPath == null || finishPath == null) {
+                    final int gn = goalIndex.getAsInt(goal);
+                    BitSet modes = edgeCaps.get(edge);
+                    modes.clear();
+                    if (false) System.err
+                        .printf("  removed for no route to goal %d%n", gn);
+                    return true;
+                }
+                double startDistance = startPath.distance;
+                double finishDistance = finishPath.distance;
                 double unsuitability =
                     (startDistance - finishDistance) / edge.cost;
-                boolean changed = false;
                 if (unsuitability > biasThreshold) {
                     /* The finish is significantly more distant from the
                      * goal than the start is. Remove modes from this
@@ -589,7 +654,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Record each goal as zero distance from itself, and
                  * invalidate its neighbours. */
                 for (V goal : goalIndex)
-                    setDistance(goal, goal, 0.0);
+                    setDistance(goal, goal, Path.root(goal));
 
                 while (!invalidGoals.isEmpty()) {
                     /* Get the routing tables up-to-date. */
