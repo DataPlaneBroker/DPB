@@ -1590,9 +1590,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 + "WD-SVG-20000303/DTD/svg-20000303-stylable.dtd\">");
             out.println("<svg xmlns=\"http://www.w3.org/2000/svg\"");
             out.println(" xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
-            out.printf(" viewBox='%g %g %g %g' width='100%%' height='%g%%'>%n",
-                       0.0, 0.0, width + 0.0, height + 0.0,
-                       100.0 * height / width);
+            out.printf(" viewBox='%g %g %g %g'>%n", 0.0, 0.0, width + 0.0,
+                       height + 0.0);
 
             /* Create the background. */
             out.printf("<rect fill='white' stroke='none'"
@@ -1610,9 +1609,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             out.println("</g>");
 
             /* Create the border. */
-            out.printf("<rect fill='none' stroke='red' stroke-width='0.2'"
-                + " x='%g' y='%g' width='%g' height='%g'/>%n", 0.0, 0.0,
-                       width + 0.0, height + 0.0);
+            if (false)
+                out.printf("<rect fill='none' stroke='red' stroke-width='0.2'"
+                    + " x='%g' y='%g' width='%g' height='%g'/>%n", 0.0, 0.0,
+                           width + 0.0, height + 0.0);
 
             /* Highlight the goals. */
             out.printf("<g fill='red' stroke='none'>%n");
@@ -1623,7 +1623,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             out.println("</g>");
 
             /* Draw out the edge capacities. */
-            out.printf("<g fill='#aaa' stroke='none'>%n");
+            out.printf("<g fill='#ccc' stroke='none'>%n");
             for (Edge<Vertex> e : edges) {
                 final double len = length(e);
                 final double dx = e.finish.x - e.start.x;
