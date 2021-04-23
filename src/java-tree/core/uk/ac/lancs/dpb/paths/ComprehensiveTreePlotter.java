@@ -598,12 +598,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     }
 
                     /* Look for edge modes to eliminate. */
-                    int rem = Integer.MAX_VALUE;
                     for (Pair<Edge<V>, V> pair : remainingIn(invalidEdges)) {
-                        if (updateEdge(pair.item1, pair.item2) && rem-- == 0)
-                            break;
+                        updateEdge(pair.item1, pair.item2);
                     }
-                    // break;
                 }
 
                 /* Clear out edges that have no in-use modes
