@@ -316,10 +316,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     }
 
     @Override
-    public <V>
-        Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
+    public <P, V>
+        Iterable<? extends Map<? extends Edge<P>, ? extends BandwidthPair>>
         plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
-             Collection<? extends Edge<V>> edges) {
+             Function<? super P, ? extends V> portMap,
+             Collection<? extends Edge<P>> edges) {
         /* Assign each goal an integer. */
         final Index<V> goalIndex = Index.copyOf(goalOrder);
 
@@ -335,7 +336,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         final int modeCount = (1 << goalIndex.size()) - 1;
 
         class Routing {
-            private final Map<Edge<V>, BitSet> edgeCaps = new LinkedHashMap<>();
+            private final Map<Edge<P>, BitSet> edgeCaps = new LinkedHashMap<>();
 
             /**
              * Work out how much bandwidth each mode requires, and
@@ -364,7 +365,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         /* If the edge has a goal as its start, its from
                          * set must include that goal. */
                         {
-                            int goal = goalIndex.getAsInt(edge.start);
+                            int goal =
+                                goalIndex.getAsInt(portMap.apply(edge.start));
                             if (goal >= 0) {
                                 assert goal < goalIndex.size();
                                 if (!fwd.get(goal)) continue;
@@ -374,7 +376,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         /* If the edge has a goal as its finish, its to
                          * set must include that goal. */
                         {
-                            int goal = goalIndex.getAsInt(edge.finish);
+                            int goal =
+                                goalIndex.getAsInt(portMap.apply(edge.finish));
                             if (goal >= 0) {
                                 assert goal < goalIndex.size();
                                 if (fwd.get(goal)) continue;
@@ -395,7 +398,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Get a deep immutable copy of the selected edges. Call
              * {@link #eliminateIncapaciousEdgeModes()} first.
              */
-            Map<Edge<V>, BitSet> getEdgeModes() {
+            Map<Edge<P>, BitSet> getEdgeModes() {
                 return deepCopy(edgeCaps, i -> i);
                 // return
                 // edgeCaps.entrySet().stream().collect(Collectors
@@ -405,18 +408,18 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
             /**
              * Identifies for each vertex the set of edges that finish
-             * at that edge. {@link #reachEdges()} must be called to
+             * at that vertex. {@link #reachEdges()} must be called to
              * populate this.
              */
-            private final Map<V, Collection<Edge<V>>> inwards =
+            private final Map<V, Collection<Edge<P>>> inwards =
                 new IdentityHashMap<>();
 
             /**
              * Identifies for each vertex the set of edges that start at
-             * that edge. {@link #reachEdges()} must be called to
+             * that vertex. {@link #reachEdges()} must be called to
              * populate this.
              */
-            private final Map<V, Collection<Edge<V>>> outwards =
+            private final Map<V, Collection<Edge<P>>> outwards =
                 new IdentityHashMap<>();
 
             /**
@@ -437,12 +440,14 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
                 /* For every edge, record which vertices it connects
                  * to. */
-                for (Edge<V> edge : edgeCaps.keySet()) {
-                    vertexes.add(edge.start);
-                    outwards.computeIfAbsent(edge.start, k -> new HashSet<>())
+                for (Edge<P> edge : edgeCaps.keySet()) {
+                    V start = portMap.apply(edge.start);
+                    vertexes.add(start);
+                    outwards.computeIfAbsent(start, k -> new HashSet<>())
                         .add(edge);
-                    vertexes.add(edge.finish);
-                    inwards.computeIfAbsent(edge.finish, k -> new HashSet<>())
+                    V finish = portMap.apply(edge.finish);
+                    vertexes.add(finish);
+                    inwards.computeIfAbsent(finish, k -> new HashSet<>())
                         .add(edge);
                 }
 
@@ -477,7 +482,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Keeps track of goals across edges that might be out of
              * date.
              */
-            final Collection<Pair<Edge<V>, V>> invalidEdges =
+            final Collection<Pair<Edge<P>, V>> invalidEdges =
                 new LinkedHashSet<>();
 
             /**
@@ -496,7 +501,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * 
              * @return {@code true} if a change was made
              */
-            boolean invalidateEdgeGoal(Edge<V> edge, V goal) {
+            boolean invalidateEdgeGoal(Edge<P> edge, V goal) {
                 return invalidEdges.add(new Pair<>(edge, goal));
             }
 
@@ -512,15 +517,15 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                  * distance. Only use an edge if at least one of the
                  * 'from' sets of its remaining modes includes the
                  * goal. */
-                for (Edge<V> edge : inwards.get(vertex)) {
+                for (Edge<P> edge : inwards.get(vertex)) {
                     /* Route over this edge only if the goal is in the
                      * 'from' set. */
                     BitSet modes = edgeCaps.get(edge);
                     if (modes.stream().noneMatch(m -> (m & bit) != 0)) continue;
 
                     /* Compute the distance, and retain the best. */
-                    assert edge.finish == vertex;
-                    V other = edge.start;
+                    assert portMap.apply(edge.finish) == vertex;
+                    V other = portMap.apply(edge.start);
                     Path<V> newPath = Path.append(getDistance(other, goal),
                                                   edge.cost, vertex, best);
                     if (newPath != null) best = newPath;
@@ -529,15 +534,15 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Try to improve the distance with the outward edges.
                  * Only use an edge if at least one of the 'to' sets of
                  * its remaining modes includes the goal. */
-                for (Edge<V> edge : outwards.get(vertex)) {
+                for (Edge<P> edge : outwards.get(vertex)) {
                     /* Route over this edge only if the goal is in the
                      * 'from' set. */
                     BitSet modes = edgeCaps.get(edge);
                     if (modes.stream().noneMatch(m -> (m & bit) == 0)) continue;
 
                     /* Compute the distance, and retain the best. */
-                    assert edge.start == vertex;
-                    V other = edge.finish;
+                    assert portMap.apply(edge.start) == vertex;
+                    V other = portMap.apply(edge.finish);
                     Path<V> newPath = Path.append(getDistance(other, goal),
                                                   edge.cost, vertex, best);
                     if (newPath != null) best = newPath;
@@ -571,24 +576,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             void invalidateNeighbours(V vertex, V goal) {
-                for (Edge<V> edge : inwards.get(vertex)) {
-                    assert edge.finish == vertex;
-                    V other = edge.start;
+                for (Edge<P> edge : inwards.get(vertex)) {
+                    assert portMap.apply(edge.finish) == vertex;
+                    V other = portMap.apply(edge.start);
                     invalidateDistance(other, goal);
                     invalidateEdgeGoal(edge, goal);
                 }
-                for (Edge<V> edge : outwards.get(vertex)) {
-                    assert edge.start == vertex;
-                    V other = edge.finish;
+                for (Edge<P> edge : outwards.get(vertex)) {
+                    assert portMap.apply(edge.start) == vertex;
+                    V other = portMap.apply(edge.finish);
                     invalidateDistance(other, goal);
                     invalidateEdgeGoal(edge, goal);
                 }
             }
 
-            boolean updateEdge(Edge<V> edge, V goal) {
+            boolean updateEdge(Edge<P> edge, V goal) {
                 boolean changed = false;
-                Path<V> startPath = getDistance(edge.start, goal);
-                Path<V> finishPath = getDistance(edge.finish, goal);
+                Path<V> startPath =
+                    getDistance(portMap.apply(edge.start), goal);
+                Path<V> finishPath =
+                    getDistance(portMap.apply(edge.finish), goal);
                 if (startPath == null || finishPath == null) {
                     final int gn = goalIndex.getAsInt(goal);
                     BitSet modes = edgeCaps.get(edge);
@@ -642,8 +649,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                                           edge, goal, unsuitability,
                                           startDistance, finishDistance,
                                           edge.cost);
-                    invalidateDistance(edge.start, goal);
-                    invalidateDistance(edge.finish, goal);
+                    invalidateDistance(portMap.apply(edge.start), goal);
+                    invalidateDistance(portMap.apply(edge.finish), goal);
                 }
 
                 return changed;
@@ -663,7 +670,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     }
 
                     /* Look for edge modes to eliminate. */
-                    for (Pair<Edge<V>, V> pair : remainingIn(invalidEdges)) {
+                    for (Pair<Edge<P>, V> pair : remainingIn(invalidEdges)) {
                         updateEdge(pair.item1, pair.item2);
                     }
                 }
@@ -682,7 +689,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Get a deep immutable copy of the edges that finish at
              * each vertex.
              */
-            Map<V, Collection<Edge<V>>> getInwardEdges() {
+            Map<V, Collection<Edge<P>>> getInwardEdges() {
                 /* TODO: Collectors.toMap and Set.copyOf should suffice,
                  * but they cause perturbations that make fault
                  * diagnosis difficult. */
@@ -696,7 +703,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Get a deep immutable copy of the edges that start at each
              * vertex.
              */
-            Map<V, Collection<Edge<V>>> getOutwardEdges() {
+            Map<V, Collection<Edge<P>>> getOutwardEdges() {
                 /* TODO: Collectors.toMap and Set.copyOf should suffice,
                  * but they cause perturbations that make fault
                  * diagnosis difficult. */
@@ -721,8 +728,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * {@link #deriveVertexes()} must be called before this
              * method.
              */
-            Index<Edge<V>> getEdgeOrder() {
-                Collection<Edge<V>> reachOrder = new LinkedHashSet<>();
+            Index<Edge<P>> getEdgeOrder() {
+                Collection<Edge<P>> reachOrder = new LinkedHashSet<>();
                 Collection<V> reachables = new HashSet<>();
                 Collection<V> newReachables = new LinkedHashSet<>();
                 newReachables.addAll(goalIndex);
@@ -735,15 +742,15 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
                     /* Find all neighbours of the vertex. */
                     Collection<V> cands = new HashSet<>();
-                    Collection<? extends Edge<V>> inEdges = inwards.get(vertex);
+                    Collection<? extends Edge<P>> inEdges = inwards.get(vertex);
                     assert inEdges != null;
-                    cands.addAll(inEdges.stream().map(e -> e.start)
+                    cands.addAll(inEdges.stream().map(e -> e.start).map(portMap)
                         .collect(Collectors.toSet()));
-                    Collection<? extends Edge<V>> outEdges =
+                    Collection<? extends Edge<P>> outEdges =
                         outwards.get(vertex);
                     assert outEdges != null;
                     cands.addAll(outEdges.stream().map(e -> e.finish)
-                        .collect(Collectors.toSet()));
+                        .map(portMap).collect(Collectors.toSet()));
 
                     /* Ensure the edges are accounted for. */
                     reachOrder.addAll(outEdges);
@@ -761,7 +768,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* Extract the order in which edges were added. Reverse
                  * it, so that the ones nearest the edges are going to
                  * change the least, and get validated first. */
-                List<Edge<V>> edgeOrder = new ArrayList<>(reachOrder);
+                List<Edge<P>> edgeOrder = new ArrayList<>(reachOrder);
                 Collections.reverse(edgeOrder);
 
                 return Index.copyOf(edgeOrder);
@@ -774,11 +781,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         routing.route();
 
         routing.deriveVertexes();
-        final Map<Edge<V>, BitSet> edgeCaps = routing.getEdgeModes();
+        final Map<Edge<P>, BitSet> edgeCaps = routing.getEdgeModes();
         System.err.printf("caps: %s%n", edgeCaps);
 
-        final Map<V, Collection<Edge<V>>> inwards = routing.getInwardEdges();
-        final Map<V, Collection<Edge<V>>> outwards = routing.getOutwardEdges();
+        final Map<V, Collection<Edge<P>>> inwards = routing.getInwardEdges();
+        final Map<V, Collection<Edge<P>>> outwards = routing.getOutwardEdges();
         final Index<V> vertexOrder = routing.getVertexOrder();
 
         /* The goal order should be a subsequence of the vertex
@@ -788,8 +795,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         /* Ensure that every goal has an edge. */
         for (V v : goalOrder) {
-            Collection<Edge<V>> ins = inwards.get(v);
-            Collection<Edge<V>> outs = outwards.get(v);
+            Collection<Edge<P>> ins = inwards.get(v);
+            Collection<Edge<P>> outs = outwards.get(v);
             assert ins != null;
             assert outs != null;
             if (ins.isEmpty() && outs.isEmpty()) return Collections.emptyList();
@@ -799,7 +806,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * Index 0 will be the least significant digit. Edges that are
          * most reachable will correspond to the most significant
          * digits. */
-        final Index<Edge<V>> edgeIndex = routing.getEdgeOrder();
+        final Index<Edge<P>> edgeIndex = routing.getEdgeOrder();
         assert edgeIndex.size() <= edgeCaps.size();
 
         /* Create a mapping from mode index to mode pattern for each
@@ -911,7 +918,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 List<String> parts =
                     IntStream.range(0, edges.length).mapToObj(i -> {
                         int en = edges[i];
-                        Edge<V> e = edgeIndex.get(en);
+                        Edge<P> e = edgeIndex.get(en);
                         return String.format(" %s.%s", e,
                                              invs.get(i) ? "to" : "from");
                     }).collect(Collectors.toList());
@@ -997,7 +1004,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 return "complete union of"
                     + IntStream.range(0, edges.length).mapToObj(i -> {
                         int en = edges[i];
-                        Edge<V> e = edgeIndex.get(en);
+                        Edge<P> e = edgeIndex.get(en);
                         return String.format(" %s.%s", e,
                                              invs.get(i) ? "to" : "from");
                     }).collect(Collectors.joining());
@@ -1091,8 +1098,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             /* Get the vertex's inward edges' indices, and the two's
              * complements of its outward egdes' indices. Sort the edges
              * by index. */
-            Collection<Edge<V>> outs = outwards.get(vertex);
-            Collection<Edge<V>> ins = inwards.get(vertex);
+            Collection<Edge<P>> outs = outwards.get(vertex);
+            Collection<Edge<P>> ins = inwards.get(vertex);
             assert outs.size() + ins.size() > 0;
             List<Integer> ecs =
                 IntStream
@@ -1180,7 +1187,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         IntUnaryOperator bases = i -> modeMap[i].length + 1;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length <= edgeCaps.size();
-        Function<IntUnaryOperator, Map<Edge<V>, BandwidthPair>> translator =
+        Function<IntUnaryOperator, Map<Edge<P>, BandwidthPair>> translator =
             digits -> IntStream.range(0, edgeIndex.size())
                 .filter(en -> digits.applyAsInt(en) != 0).boxed()
                 .collect(Collectors.toMap(edgeIndex::get, en -> bwreq

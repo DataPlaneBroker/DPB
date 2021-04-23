@@ -39,11 +39,16 @@ package uk.ac.lancs.dpb.paths;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import uk.ac.lancs.dpb.bw.BandwidthFunction;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 
 /**
- * Plots trees over a graph connecting specific vertices.
+ * Plots trees over a graph connecting specific vertices. Graph edges
+ * actually connect <dfn>ports</dfn>, with each port belonging to a
+ * vertex, and each vertex having potentially many ports. This allows
+ * the user to distinguish how several edges connect to the same vertex
+ * in both the input and output of the tree plotting.
  *
  * @author simpsons
  */
@@ -62,8 +67,38 @@ public interface TreePlotter {
      * @param bwreq the bandwidth requirements, indexed by goal
      * 
      * @return a means to iterate over the solutions
+     * 
+     * @default This implementation invokes
+     * {@link #plot(List, BandwidthFunction, Function, Collection)},
+     * using {@link Function#identity()} as the port map.
      */
-    <V> Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
+    default <V>
+        Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
         plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
-             Collection<? extends Edge<V>> edges);
+             Collection<? extends Edge<V>> edges) {
+        return plot(goalOrder, bwreq, Function.identity(), edges);
+    }
+
+    /**
+     * Find subsets of edges that form trees connecting specific ports.
+     * 
+     * @param <P> the port type
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param goalOrder the set of vertices to be connected
+     * 
+     * @param portMap a mapping from port to vertex
+     * 
+     * @param edges the edges of the graph from which to form trees,
+     * including their capacities and cumulative costs
+     * 
+     * @param bwreq the bandwidth requirements, indexed by goal
+     * 
+     * @return a means to iterate over the solutions
+     */
+    <P, V> Iterable<? extends Map<? extends Edge<P>, ? extends BandwidthPair>>
+        plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
+             Function<? super P, ? extends V> portMap,
+             Collection<? extends Edge<P>> edges);
 }

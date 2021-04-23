@@ -39,24 +39,24 @@ package uk.ac.lancs.dpb.paths;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 
 /**
- * Connects two vertices. This actually represents a pair of directed
- * edges in opposite directions, and each has a distinct capacity.
- * However, they both have the same over-all cost.
+ * Connects two ports. This actually represents a pair of directed edges
+ * in opposite directions, and each has a distinct capacity. However,
+ * they both have the same over-all cost.
  * 
- * @param <V> the vertex type
+ * @param <P> the port type
  *
  * @author simpsons
  */
-public final class Edge<V> {
+public final class Edge<P> {
     /**
-     * The start vertex
+     * The start port
      */
-    public final V start;
+    public final P start;
 
     /**
-     * The finish vertex
+     * The finish port
      */
-    public final V finish;
+    public final P finish;
 
     /**
      * The cumulative cost metric
@@ -66,21 +66,21 @@ public final class Edge<V> {
     final BandwidthPair metrics;
 
     /**
-     * Create a connection between two vertices. The edge has a
-     * direction, defined by having a start vertex and a finish vertex.
-     * Forward metrics express the capacity of the edge for traffic from
-     * start to finish, and reverse metrics for the opposite direction.
+     * Create a connection between two ports. The edge has a direction,
+     * defined by having a start port and a finish port. Forward metrics
+     * express the capacity of the edge for traffic from start to
+     * finish, and reverse metrics for the opposite direction.
      * 
-     * @param start the starting vertex for forward travel
+     * @param start the starting port for forward travel
      * 
-     * @param finish the finishing vertex for forward travel
+     * @param finish the finishing port for forward travel
      * 
      * @param cost the cumulative cost metric for this edge
      * 
      * @param metrics the edge capacity, with ingress being from start
      * to finish
      */
-    public Edge(V start, V finish, BandwidthPair metrics, double cost) {
+    public Edge(P start, P finish, BandwidthPair metrics, double cost) {
         this.start = start;
         this.finish = finish;
         this.metrics = metrics;
@@ -90,7 +90,7 @@ public final class Edge<V> {
     /**
      * Get a string representation of this edge.
      * 
-     * @return the string representations of the vertices, joined by a
+     * @return the string representations of the ports, joined by a
      * hyphen-minus
      */
     @Override
