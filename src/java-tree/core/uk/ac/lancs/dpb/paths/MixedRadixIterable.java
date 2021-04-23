@@ -394,21 +394,78 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
-        if (false) {
+        if (true) {
+            /* Convert the arguments to radices. */
             int[] bases =
                 Arrays.stream(args).mapToInt(Integer::parseInt).toArray();
-            Iterable<String> iterable = MixedRadixIterable
+
+            /* Iterator over all possibilities unconstrained. */
+            Iterable<List<Integer>> unlimitedIterable = MixedRadixIterable
                 .to(digits -> IntStream.range(0, bases.length).map(digits)
-                    .mapToObj(Integer::toString)
-                    .collect(Collectors.joining(", ")))
+                    .boxed().collect(Collectors.toList()))
                 .over(bases.length, i -> bases[i])
-                .constrainedBy((i, digits) -> {
-                    if (i == bases.length - 1) return true;
-                    return digits.applyAsInt(i) != digits.applyAsInt(i + 1);
-                }).build();
-            for (String s : iterable) {
-                System.out.println(s);
+                .constrainedBy(MixedRadixValidator.unconstrained()).build();
+            Collection<List<Integer>> allValues = new HashSet<>();
+            for (var item : unlimitedIterable) {
+                boolean changed = allValues.add(item);
+                /* There will be no duplicates. */
+                assert changed;
             }
+
+            /* With no constraints, check that the count is the product
+             * of the bases. */
+            final int allCountExp =
+                IntStream.of(bases).reduce((a, b) -> a * b).orElseGet(() -> 0);
+            System.out.printf("Exp: %d; got: %d%n", allCountExp,
+                              allValues.size());
+            assert allValues.size() == allCountExp;
+
+            /* Get all combinations that meet the constraint that no two
+             * adjacent digits shall be the same. */
+            MixedRadixValidator constraint = (i, digits) -> {
+                if (i == bases.length - 1) return true;
+                return digits.applyAsInt(i) != digits.applyAsInt(i + 1);
+            };
+            Iterable<List<Integer>> iterable = MixedRadixIterable
+                .to(digits -> IntStream.range(0, bases.length).map(digits)
+                    .boxed().collect(Collectors.toList()))
+                .over(bases.length, i -> bases[i]).constrainedBy(constraint)
+                .build();
+            Collection<List<Integer>> fits = new HashSet<>();
+            for (var item : iterable) {
+                System.out.printf("Fit: %s%n", item);
+                boolean changed = fits.add(item);
+                /* There will be no duplicates. */
+                assert changed;
+            }
+
+            /* All of these item.s meet the constraint. */
+            for (var item : fits) {
+                assert item.size() == bases.length;
+                for (int i = 0; i < bases.length; i++)
+                    assert constraint.test(i, item::get);
+            }
+
+            /* Identify rejected items. */
+            assert allValues.containsAll(fits);
+            allValues.removeAll(fits);
+            System.out.printf("unfit: %s%n", allValues);
+
+            /* All rejected items fail the constraint in at least one
+             * position. */
+            for (var item : allValues) {
+                assert item.size() == bases.length;
+                boolean okay = true;
+                for (int i = 0; i < bases.length; i++) {
+                    if (!constraint.test(i, item::get)) {
+                        okay = false;
+                        break;
+                    }
+                }
+                assert !okay;
+            }
+
+            System.exit(0);
         }
 
         Random rng = new Random(1);

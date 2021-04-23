@@ -57,6 +57,15 @@ public interface MixedRadixValidator {
     boolean test(int min, IntUnaryOperator digits);
 
     /**
+     * Get a validator that imposes no constraints.
+     * 
+     * @return a validator that always yields {@code true}
+     */
+    static MixedRadixValidator unconstrained() {
+        return (min, digits) -> true;
+    }
+
+    /**
      * Get a validator that is the logical negation of this validator.
      * 
      * @return a validator that is the logical negation of this
