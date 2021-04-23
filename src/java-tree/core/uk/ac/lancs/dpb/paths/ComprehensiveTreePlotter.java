@@ -213,6 +213,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         boolean check(IntUnaryOperator digits);
 
         void verify(int baseEdge);
+
+        IntStream edges();
+
+        boolean isOwn(int en);
     }
 
     private static <V> String setString(BitSet pat, Index<V> goalIndex) {
@@ -498,6 +502,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         class OneExternalPerGoal implements Constraint {
             final int[] edges;
 
+            @Override
+            public boolean isOwn(int en) {
+                return IntStream.of(edges).anyMatch(i -> i == en);
+            }
+
             final BitSet[][] accept;
 
             /**
@@ -620,9 +629,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* There were no conflicts. */
                 return true;
             }
+
+            @Override
+            public IntStream edges() {
+                return IntStream.range(0, edges.length)
+                    .map(i -> edges[edges.length - i - 1]);
+            }
         }
 
         abstract class CompleteExternalUnionBase implements Constraint {
+            @Override
+            public IntStream edges() {
+                return IntStream.range(0, edges.length)
+                    .map(i -> edges[edges.length - i - 1]);
+            }
+
+            @Override
+            public boolean isOwn(int en) {
+                return IntStream.of(edges).anyMatch(i -> i == en);
+            }
+
             final boolean disusedOkay;
 
             final int[] edges;
