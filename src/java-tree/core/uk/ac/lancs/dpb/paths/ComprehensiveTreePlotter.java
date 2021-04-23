@@ -837,13 +837,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         {
             /* Display all edge modes. */
-            List<Edge<V>> eo = new ArrayList<>(edgeIndex);
-            Collections.sort(eo, ComprehensiveTreePlotter::compare);
-            for (Edge<V> e : eo) {
+            for (var entry : edgeIndex.decode().entrySet()) {
+                var e = entry.getValue();
+                int i = entry.getKey();
                 List<BitSet> modes = edgeCaps.get(e).stream()
                     .mapToObj(ComprehensiveTreePlotter::of)
                     .collect(Collectors.toList());
-                System.err.printf("%s: %s%n", e, modes);
+                System.err.printf("%2d %15s: %s%n", i, e, modes);
             }
 
             /* Display all constraints. */
