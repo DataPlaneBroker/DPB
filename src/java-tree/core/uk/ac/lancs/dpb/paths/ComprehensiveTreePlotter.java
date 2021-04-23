@@ -835,12 +835,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         IntUnaryOperator bases = i -> modeMap[i].length + 1;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length == edgeCaps.size();
-        Function<IntUnaryOperator,
-                 Map<Edge<V>, BandwidthPair>> translator = digits -> IntStream
-                     .range(0, edgeIndex.size())
-                     .filter(en -> digits.applyAsInt(en) != 0).boxed()
-                     .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
-                         .getPair(of(modeMap[en][digits.applyAsInt(en)][0]))));
+        Function<IntUnaryOperator, Map<Edge<V>, BandwidthPair>> translator =
+            digits -> IntStream.range(0, edgeIndex.size())
+                .filter(en -> digits.applyAsInt(en) != 0).boxed()
+                .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
+                    .getPair(of(modeMap[en][digits.applyAsInt(en) - 1][0]))));
         MixedRadixValidator validator = (en, digits) -> {
             for (Constraint c : constraints[en])
                 if (!c.check(digits)) return false;
