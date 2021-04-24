@@ -61,6 +61,8 @@ import uk.ac.lancs.dpb.bw.BandwidthFunction;
 import uk.ac.lancs.dpb.bw.BandwidthPair;
 import uk.ac.lancs.dpb.bw.BandwidthRange;
 import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
+import uk.ac.lancs.dpb.bw.MatrixBandwidthFunction;
+import uk.ac.lancs.dpb.bw.PairBandwidthFunction;
 
 /**
  * Enumerates over all possible trees that meet the bandwidth
@@ -1555,14 +1557,30 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         final Map<Edge<Vertex>, BandwidthPair> tree;
         if (true) {
             TreePlotter plotter = new ComprehensiveTreePlotter();
-            BandwidthFunction bwreq =
-                new FlatBandwidthFunction(goals.size(), BandwidthRange.at(3.0));
-            // new PairBandwidthFunction(IntStream.range(0,
-            // goals.size())
-            // .mapToObj(i ->
-            // BandwidthPair.of(BandwidthRange.at(0.1),
-            // BandwidthRange.at(0.2)))
-            // .collect(Collectors.toList()));
+            final BandwidthFunction bwreq;
+            if (true) {
+                bwreq =
+                    new PairBandwidthFunction(IntStream.range(0, goals.size())
+                        .mapToObj(i -> BandwidthPair.of(BandwidthRange.at(4.0),
+                                                        BandwidthRange.at(2.5)))
+                        .collect(Collectors.toList()));
+            } else if (true) {
+                bwreq =
+                    MatrixBandwidthFunction
+                        .forTree(goals.size(), 0,
+                                 BandwidthPair.of(BandwidthRange.at(1.4),
+                                                  BandwidthRange.at(0.5)),
+                                 null);
+            } else {
+                bwreq = new FlatBandwidthFunction(goals.size(),
+                                                  BandwidthRange.at(3.0));
+            }
+
+            for (int m = 1; m < (1 << bwreq.degree()) - 1; m++) {
+                BitSet bs = of(m);
+                BandwidthPair bw = bwreq.getPair(bs);
+                System.out.printf("%2d %12s %s%n", m, bs, bw);
+            }
             Map<? extends Edge<Vertex>, ? extends BandwidthPair> best = null;
             double bestScore = Double.MAX_VALUE;
             assert bwreq.degree() == goals.size();
