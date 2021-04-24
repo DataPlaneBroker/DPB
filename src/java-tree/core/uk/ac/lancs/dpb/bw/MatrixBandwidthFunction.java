@@ -65,6 +65,47 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
     }
 
     /**
+     * Define a tree-like demand
+     * 
+     * @param degree the degree of the resultant function
+     * 
+     * @param root the root goal
+     * 
+     * @param rootLeafDemand the bandwidth from root to each leaf
+     * (ingress) and back (egress)
+     * 
+     * @param interLeafDemand the bandwidth between each leaf; or
+     * {@code null} if not required
+     * 
+     * @return a matrix bandwidth function matching the specified
+     * demands
+     * 
+     * @throws IllegalArgumentException if the root goal is negative or
+     * not less than the degree
+     */
+    public static MatrixBandwidthFunction
+        forTree(int degree, int root, BandwidthPair rootLeafDemand,
+                BandwidthRange interLeafDemand) {
+        if (root >= degree || root < 0)
+            throw new IllegalArgumentException("bad goal: " + root);
+        Builder builder = start().degree(degree);
+        for (int i = 0; i < degree; i++) {
+            if (i == root) continue;
+            builder = builder.add(root, i, rootLeafDemand.ingress)
+                .add(i, root, rootLeafDemand.egress);
+            if (interLeafDemand != null) {
+                for (int j = 0; j < degree; j++) {
+                    if (j == i) continue;
+                    if (j == root) continue;
+                    builder = builder.add(i, j, interLeafDemand)
+                        .add(j, i, interLeafDemand);
+                }
+            }
+        }
+        return builder.build();
+    }
+
+    /**
      * Constructs a matrix bandwidth function in stages.
      */
     public static final class Builder {
