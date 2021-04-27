@@ -34,28 +34,8 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.paths;
-
-import java.util.function.IntUnaryOperator;
-
 /**
- *
- * @author simpsons
+ * Supports creation of graphs for the purposes of testing and
+ * evaluating algorithms.
  */
-class NegatedMixedRadixValidator implements MixedRadixValidator {
-    private final MixedRadixValidator base;
-
-    public NegatedMixedRadixValidator(MixedRadixValidator base) {
-        this.base = base;
-    }
-
-    @Override
-    public boolean test(int min, IntUnaryOperator digits) {
-        return !base.test(min, digits);
-    }
-
-    @Override
-    public MixedRadixValidator negate() {
-        return base;
-    }
-}
+package uk.ac.lancs.dpb.graph.eval;

@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.paths;
+package uk.ac.lancs.dpb.tree;
 
 import java.util.Arrays;
 import java.util.Collection;

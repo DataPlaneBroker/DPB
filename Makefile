@@ -95,8 +95,9 @@ DOC_PKGS += uk.ac.lancs.config
 DOC_PKGS += uk.ac.lancs.agent
 DOC_PKGS += uk.ac.lancs.dpb
 DOC_PKGS += uk.ac.lancs.dpb.mgmt
-DOC_PKGS += uk.ac.lancs.dpb.bw
-DOC_PKGS += uk.ac.lancs.dpb.paths
+DOC_PKGS += uk.ac.lancs.dpb.graph
+DOC_PKGS += uk.ac.lancs.dpb.graph.eval
+DOC_PKGS += uk.ac.lancs.dpb.tree
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)

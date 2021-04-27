@@ -34,14 +34,14 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.util.BitSet;
 import java.util.List;
 import javax.script.ScriptException;
 
 /**
- * Determines the bandwidth requirements of any edge in a tree, given
+ * Determines the demands on the capacity of any edge in a tree, given
  * the endpoints reachable from one end of that edge. Each endpoint is a
  * distinct leaf of the tree. Given a direction of traffic along the
  * edge, the endpoints able to supply that traffic from the
@@ -71,7 +71,7 @@ import javax.script.ScriptException;
  * {@link #get(java.util.BitSet)} method.
  * 
  * <p>
- * An implementation is required to have a self-contained JavaScript
+ * An implementation is required to have a self-contained Python
  * representation, so that it can be transmitted and executed remotely.
  * The representation must be an object declaration with at least two
  * fields, similar to this form:
@@ -137,7 +137,7 @@ import javax.script.ScriptException;
  * 
  * @author simpsons
  */
-public interface BandwidthFunction {
+public interface DemandFunction {
     /**
      * Get the bandwidth requirement for the forward direction of an
      * edge.
@@ -155,7 +155,7 @@ public interface BandwidthFunction {
      * contains members outside the range defined by {@link #degree()},
      * it contains all such members, or it is empty
      */
-    BandwidthRange get(BitSet from);
+    Capacity get(BitSet from);
 
     /**
      * Get the bandwidth requirements of both directions of an edge.
@@ -174,13 +174,13 @@ public interface BandwidthFunction {
      * contains members outside the range defined by {@link #degree()},
      * it contains all such members, or it is empty
      */
-    default BandwidthPair getPair(BitSet from) {
-        BandwidthRange fwd = get(from);
+    default BidiCapacity getPair(BitSet from) {
+        Capacity fwd = get(from);
         BitSet to = new BitSet();
         to.set(0, degree());
         to.xor(from);
-        BandwidthRange rev = get(to);
-        return BandwidthPair.of(fwd, rev);
+        Capacity rev = get(to);
+        return BidiCapacity.of(fwd, rev);
     }
 
     /**
@@ -253,8 +253,8 @@ public interface BandwidthFunction {
      * the original's representation, and then to apply
      * {@link #tabulate()} and return the result.
      */
-    default BandwidthFunction reduce(List<? extends BitSet> groups) {
-        return new ReducedBandwidthFunction(this, groups).tabulate();
+    default DemandFunction reduce(List<? extends BitSet> groups) {
+        return new ReducedDemandFunction(this, groups).tabulate();
     }
 
     /**
@@ -269,8 +269,8 @@ public interface BandwidthFunction {
      * @return an identical function, possibly with a simpler
      * implementation
      */
-    default BandwidthFunction tabulate() {
-        return TableBandwidthFunction.tabulate(this);
+    default DemandFunction tabulate() {
+        return TableDemandFunction.tabulate(this);
     }
 
     /**
@@ -286,8 +286,8 @@ public interface BandwidthFunction {
      * 
      * @constructor
      */
-    public static BandwidthFunction fromScript(String text)
+    public static DemandFunction fromScript(String text)
         throws ScriptException {
-        return new ScriptBandwidthFunction(text).tabulate();
+        return new ScriptDemandFunction(text).tabulate();
     }
 }

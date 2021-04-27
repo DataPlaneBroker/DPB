@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.math.BigInteger;
 import java.util.BitSet;
@@ -51,15 +51,15 @@ import org.python.core.PyList;
 /**
  * Expresses bandwidth requirements specified by the body of a Python
  * class definition. The definition must have a
- * {@value BandwidthFunction#DEGREE_FIELD_NAME} field specifying the
- * function's degree, and a {@value BandwidthFunction#GET_FUNCTION_NAME}
+ * {@value DemandFunction#DEGREE_FIELD_NAME} field specifying the
+ * function's degree, and a {@value DemandFunction#GET_FUNCTION_NAME}
  * class method taking the enclosing class and a single integer argument
  * representing the <cite>from</cite> set as a bit set, and returning a
  * 2-array of the minimum and maximum rates.
  *
  * @author simpsons
  */
-final class ScriptBandwidthFunction implements BandwidthFunction {
+final class ScriptDemandFunction implements DemandFunction {
     private final ScriptEngine engine;
 
     private final String text;
@@ -73,7 +73,7 @@ final class ScriptBandwidthFunction implements BandwidthFunction {
      * 
      * @throws ScriptException if there is an error parsing the script
      */
-    public ScriptBandwidthFunction(String text) throws ScriptException {
+    public ScriptDemandFunction(String text) throws ScriptException {
         this.text = text;
         ScriptEngineManager manager = new ScriptEngineManager();
         engine = manager.getEngineByName("jython");
@@ -93,14 +93,14 @@ final class ScriptBandwidthFunction implements BandwidthFunction {
     }
 
     @Override
-    public BandwidthRange get(BitSet from) {
+    public Capacity get(BitSet from) {
         String cmd = "Foo." + GET_FUNCTION_NAME + "("
             + toBigInteger(from.get(0, degree())) + ")";
         try {
             PyList r = (PyList) engine.eval(cmd);
             double min = ((Number) r.get(0)).doubleValue();
             double max = ((Number) r.get(1)).doubleValue();
-            return BandwidthRange.between(min, max);
+            return Capacity.between(min, max);
         } catch (ScriptException ex) {
             throw new IllegalArgumentException(cmd, ex);
         } catch (NullPointerException | ArrayIndexOutOfBoundsException |

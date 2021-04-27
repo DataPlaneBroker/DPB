@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -48,8 +48,8 @@ import java.util.stream.Collectors;
  *
  * @author simpsons
  */
-final class TableBandwidthFunction implements BandwidthFunction {
-    private final BandwidthRange[] table;
+final class TableDemandFunction implements DemandFunction {
+    private final Capacity[] table;
 
     private final int degree;
 
@@ -77,12 +77,12 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * @throws IllegalArgumentException if the list's size is not two
      * less than a power of two
      */
-    public TableBandwidthFunction(List<? extends BandwidthRange> data) {
+    public TableDemandFunction(List<? extends Capacity> data) {
         int degree = log2(data.size() + 2);
         if ((1 << degree) - 2 != data.size())
             throw new IllegalArgumentException("sequence length " + data.size()
                 + " not 2 less than a power of 2");
-        this.table = data.toArray(new BandwidthRange[data.size()]);
+        this.table = data.toArray(new Capacity[data.size()]);
         this.degree = degree;
     }
 
@@ -105,7 +105,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * @throws IllegalArgumentException if the specified length is not
      * two less than a power of two
      */
-    public TableBandwidthFunction(BandwidthRange[] arr, int off, int len) {
+    public TableDemandFunction(Capacity[] arr, int off, int len) {
         int degree = log2(len + 2);
         if ((1 << degree) - 2 != len)
             throw new IllegalArgumentException("sequence length " + len
@@ -127,7 +127,7 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * @throws IllegalArgumentException if the array length is not two
      * less than a power of two
      */
-    public TableBandwidthFunction(BandwidthRange[] arr) {
+    public TableDemandFunction(Capacity[] arr) {
         this(arr, 0, arr.length);
     }
 
@@ -138,9 +138,9 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * 
      * @param other the other function
      */
-    private TableBandwidthFunction(BandwidthFunction other) {
+    private TableDemandFunction(DemandFunction other) {
         final int size = (1 << other.degree()) - 2;
-        this.table = new BandwidthRange[size];
+        this.table = new Capacity[size];
         long[] buf = new long[1];
         for (int i = 0; i < this.table.length; i++) {
             buf[0] = i + 1;
@@ -160,15 +160,15 @@ final class TableBandwidthFunction implements BandwidthFunction {
      * 
      * @return either the original function, or one based on a table
      */
-    public static BandwidthFunction tabulate(BandwidthFunction other) {
+    public static DemandFunction tabulate(DemandFunction other) {
         if (other.degree() > 8) return other;
-        return new TableBandwidthFunction(other);
+        return new TableDemandFunction(other);
     }
 
     @Override
-    public BandwidthRange get(BitSet from) {
+    public Capacity get(BitSet from) {
         try {
-            BigInteger value = ScriptBandwidthFunction.toBigInteger(from);
+            BigInteger value = ScriptDemandFunction.toBigInteger(from);
             int index = value.subtract(BigInteger.ONE).intValueExact();
             return table[index];
         } catch (ArrayIndexOutOfBoundsException | ArithmeticException ex) {

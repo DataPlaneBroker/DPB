@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.math.BigInteger;
 import java.util.BitSet;
@@ -50,8 +50,8 @@ import java.util.stream.Stream;
  * 
  * @author simpsons
  */
-final class ReducedBandwidthFunction implements BandwidthFunction {
-    private final BandwidthFunction base;
+final class ReducedDemandFunction implements DemandFunction {
+    private final DemandFunction base;
 
     private final List<BitSet> groups;
 
@@ -70,7 +70,7 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
      * @throws IllegalArgumentException if a proposed group contains
      * more bits than indicated by the degree
      */
-    public ReducedBandwidthFunction(BandwidthFunction base,
+    public ReducedDemandFunction(DemandFunction base,
                                     Collection<? extends BitSet> groups) {
         this.base = base;
 
@@ -122,7 +122,7 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
      * is then the result of this function.
      */
     @Override
-    public BandwidthRange get(BitSet from) {
+    public Capacity get(BitSet from) {
         try {
             BitSet key = from.stream().mapToObj(i -> groups.get(i))
                 .reduce(this::orBase).get();
@@ -138,8 +138,8 @@ final class ReducedBandwidthFunction implements BandwidthFunction {
     public String asScript() {
         return DEGREE_FIELD_NAME + " = " + degree() + "                 \n"
             + "class Base:                                              \n"
-            + ScriptBandwidthFunction.indent(base.asScript()) + "groups = ["
-            + groups.stream().map(ScriptBandwidthFunction::toBigInteger)
+            + ScriptDemandFunction.indent(base.asScript()) + "groups = ["
+            + groups.stream().map(ScriptDemandFunction::toBigInteger)
                 .map(BigInteger::toString).collect(Collectors.joining(", "))
             + "]                                                        \n"
             + "@classmethod                                             \n"

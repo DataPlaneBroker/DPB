@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 /**
  * Specifies a bandwidth requirement as a guaranteed minimum rate and a
@@ -42,7 +42,7 @@ package uk.ac.lancs.dpb.bw;
  * 
  * @author simpsons
  */
-public final class BandwidthRange {
+public final class Capacity {
     private final double min, max;
 
     /**
@@ -85,7 +85,7 @@ public final class BandwidthRange {
         return max - min;
     }
 
-    private BandwidthRange(double min, double max) {
+    private Capacity(double min, double max) {
         if (min < 0) throw new IllegalArgumentException("-ve min: " + min);
         assert max >= min;
         this.min = min;
@@ -104,11 +104,11 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange between(double min, double max) {
+    public static Capacity between(double min, double max) {
         if (max < min)
-            return new BandwidthRange(max, min);
+            return new Capacity(max, min);
         else
-            return new BandwidthRange(min, max);
+            return new Capacity(min, max);
     }
 
     /**
@@ -121,8 +121,8 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange at(double fixed) {
-        return new BandwidthRange(fixed, fixed);
+    public static Capacity at(double fixed) {
+        return new Capacity(fixed, fixed);
     }
 
     /**
@@ -135,8 +135,8 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange from(double min) {
-        return new BandwidthRange(min, Double.POSITIVE_INFINITY);
+    public static Capacity from(double min) {
+        return new Capacity(min, Double.POSITIVE_INFINITY);
     }
 
     /**
@@ -150,22 +150,22 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange base(double guarantee, double excess) {
+    public static Capacity base(double guarantee, double excess) {
         if (excess < 0.0)
             throw new IllegalArgumentException("-ve excess: " + excess);
-        return new BandwidthRange(guarantee, guarantee + excess);
+        return new Capacity(guarantee, guarantee + excess);
     }
 
     /**
      * Create a range which is this range plus another.
      * 
-     * @see #add(BandwidthRange,BandwidthRange)
+     * @see #add(Capacity,Capacity)
      * 
      * @param other the other range
      * 
      * @return the sum range
      */
-    public BandwidthRange add(BandwidthRange other) {
+    public Capacity add(Capacity other) {
         return add(this, other);
     }
 
@@ -185,10 +185,30 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange min(BandwidthRange a, BandwidthRange b) {
+    public static Capacity min(Capacity a, Capacity b) {
         final double min = Math.min(a.min, b.min);
         final double max = Math.min(a.max, b.max);
-        return new BandwidthRange(min, max);
+        return new Capacity(min, max);
+    }
+
+    /**
+     * Express a range which is the most demanding of two requirements.
+     * The resultant minimum rate is the maximum of the two arguments'
+     * minimum rates. The resultant maximum rate is the maximum of the
+     * two maximum rates.
+     * 
+     * @param a one of the requirements
+     * 
+     * @param b the other requirement
+     * 
+     * @return the minimum requirement
+     * 
+     * @constructor
+     */
+    public static Capacity max(Capacity a, Capacity b) {
+        final double min = Math.max(a.min, b.min);
+        final double max = Math.max(a.max, b.max);
+        return new Capacity(min, max);
     }
 
     /**
@@ -206,11 +226,11 @@ public final class BandwidthRange {
      * 
      * @constructor
      */
-    public static BandwidthRange add(BandwidthRange a, BandwidthRange b) {
+    public static Capacity add(Capacity a, Capacity b) {
         if (a == null) return b;
         if (b == null) return a;
         final double min = a.min + b.min;
         final double max = a.max + b.max;
-        return new BandwidthRange(min, max);
+        return new Capacity(min, max);
     }
 }

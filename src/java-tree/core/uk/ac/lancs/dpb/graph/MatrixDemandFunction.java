@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.util.BitSet;
 import java.util.HashMap;
@@ -48,7 +48,7 @@ import java.util.stream.IntStream;
  * 
  * @author simpsons
  */
-public final class MatrixBandwidthFunction implements BandwidthFunction {
+public final class MatrixDemandFunction implements DemandFunction {
     private static int index(int degree, int from, int to) {
         return from * (degree - 1) + to - (to > from ? 1 : 0);
     }
@@ -83,9 +83,9 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * @throws IllegalArgumentException if the root goal is negative or
      * not less than the degree
      */
-    public static MatrixBandwidthFunction
-        forTree(int degree, int root, BandwidthPair rootLeafDemand,
-                BandwidthRange interLeafDemand) {
+    public static MatrixDemandFunction forTree(int degree, int root,
+                                               BidiCapacity rootLeafDemand,
+                                               Capacity interLeafDemand) {
         if (root >= degree || root < 0)
             throw new IllegalArgumentException("bad goal: " + root);
         Builder builder = start().degree(degree);
@@ -111,8 +111,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
     public static final class Builder {
         int biggestIndex = 0;
 
-        final Map<Integer, Map<Integer, BandwidthRange>> values =
-            new HashMap<>();
+        final Map<Integer, Map<Integer, Capacity>> values = new HashMap<>();
 
         Builder() {}
 
@@ -129,7 +128,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
          * 
          * @return this object
          */
-        public Builder add(int from, int to, BandwidthRange value) {
+        public Builder add(int from, int to, Capacity value) {
             if (from < 0)
                 throw new IllegalArgumentException("-ve from: " + from);
             if (to < 0) throw new IllegalArgumentException("-ve to: " + to);
@@ -142,7 +141,7 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
 
         /**
          * Ensure a minimum degree. If any entries previously or yet to
-         * be added by {@link #add(int, int, BandwidthRange)} refer to
+         * be added by {@link #add(int, int, Capacity) } refer to
          * endpoints outside the range &#91;0, <var>n</var>&#41;, this
          * call will have no effect.
          * 
@@ -162,34 +161,33 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
          * 
          * @constructor
          */
-        public MatrixBandwidthFunction build() {
+        public MatrixDemandFunction build() {
             final int degree = biggestIndex + 1;
             final int size = biggestIndex * degree;
-            BandwidthRange[] array = new BandwidthRange[size];
-            for (Map.Entry<Integer,
-                           Map<Integer, BandwidthRange>> fromEntries : values
-                               .entrySet()) {
+            Capacity[] array = new Capacity[size];
+            for (Map.Entry<Integer, Map<Integer, Capacity>> fromEntries : values
+                .entrySet()) {
                 int from = fromEntries.getKey();
-                Map<Integer, BandwidthRange> inner = fromEntries.getValue();
-                for (Map.Entry<Integer, BandwidthRange> toEntries : inner
+                Map<Integer, Capacity> inner = fromEntries.getValue();
+                for (Map.Entry<Integer, Capacity> toEntries : inner
                     .entrySet()) {
                     int to = toEntries.getKey();
-                    BandwidthRange value = toEntries.getValue();
+                    Capacity value = toEntries.getValue();
                     array[index(degree, from, to)] = value;
                 }
             }
-            return new MatrixBandwidthFunction(degree, array);
+            return new MatrixDemandFunction(degree, array);
         }
     }
 
-    private MatrixBandwidthFunction(int degree, BandwidthRange[] array) {
+    private MatrixDemandFunction(int degree, Capacity[] array) {
         this.degree = degree;
         this.array = array;
     }
 
     private final int degree;
 
-    private final BandwidthRange[] array;
+    private final Capacity[] array;
 
     /**
      * {@inheritDoc}
@@ -203,14 +201,14 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * tuples are collected, and their sum is returned.
      */
     @Override
-    public BandwidthRange get(BitSet fromSet) {
-        BandwidthRange sum = BandwidthRange.at(0.0);
+    public Capacity get(BitSet fromSet) {
+        Capacity sum = Capacity.at(0.0);
         for (int from = 0; from < degree; from++) {
             if (!fromSet.get(from)) continue;
             for (int to = 0; to < degree; to++) {
                 if (to == from) continue;
                 if (fromSet.get(to)) continue;
-                sum = BandwidthRange.add(sum, array[index(degree, from, to)]);
+                sum = Capacity.add(sum, array[index(degree, from, to)]);
             }
         }
         return sum;
@@ -223,27 +221,27 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * in a single loop.
      */
     @Override
-    public BandwidthPair getPair(BitSet fromSet) {
-        BandwidthRange fwdSum = BandwidthRange.at(0.0),
-            revSum = BandwidthRange.at(0.0);
+    public BidiCapacity getPair(BitSet fromSet) {
+        Capacity fwdSum = Capacity.at(0.0);
+        Capacity revSum = Capacity.at(0.0);
         for (int from = 0; from < degree; from++) {
             if (fromSet.get(from)) {
                 for (int to = 0; to < degree; to++) {
                     if (to == from) continue;
                     if (fromSet.get(to)) continue;
-                    fwdSum = BandwidthRange.add(fwdSum,
-                                                array[index(degree, from, to)]);
+                    fwdSum =
+                        Capacity.add(fwdSum, array[index(degree, from, to)]);
                 }
             } else {
                 for (int to = 0; to < degree; to++) {
                     if (to == from) continue;
                     if (!fromSet.get(to)) continue;
-                    revSum = BandwidthRange.add(revSum,
-                                                array[index(degree, from, to)]);
+                    revSum =
+                        Capacity.add(revSum, array[index(degree, from, to)]);
                 }
             }
         }
-        BandwidthPair result = BandwidthPair.of(fwdSum, revSum);
+        BidiCapacity result = BidiCapacity.of(fwdSum, revSum);
         return result;
     }
 
@@ -295,11 +293,10 @@ public final class MatrixBandwidthFunction implements BandwidthFunction {
      * @undocumented
      */
     public static void main(String[] args) {
-        BandwidthFunction bw = MatrixBandwidthFunction.start().degree(4)
-            .add(0, 1, BandwidthRange.between(1, 2))
-            .add(0, 2, BandwidthRange.between(1, 2))
-            .add(0, 3, BandwidthRange.between(1, 2)).build();
+        DemandFunction bw = MatrixDemandFunction.start().degree(4)
+            .add(0, 1, Capacity.between(1, 2)).add(0, 2, Capacity.between(1, 2))
+            .add(0, 3, Capacity.between(1, 2)).build();
         System.out.printf("Func:%n%s",
-                          ScriptBandwidthFunction.indent(bw.asScript()));
+                          ScriptDemandFunction.indent(bw.asScript()));
     }
 }

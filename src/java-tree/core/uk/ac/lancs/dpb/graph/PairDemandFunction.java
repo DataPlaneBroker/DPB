@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +49,8 @@ import java.util.stream.Collectors;
  * 
  * @author simpsons
  */
-public final class PairBandwidthFunction implements BandwidthFunction {
-    private final BandwidthPair[] pairs;
+public final class PairDemandFunction implements DemandFunction {
+    private final BidiCapacity[] pairs;
 
     /**
      * Create a bandwidth function from an array of pairs. The number of
@@ -58,7 +58,7 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * 
      * @param pairs the pairs for each endpoint
      */
-    public PairBandwidthFunction(BandwidthPair... pairs) {
+    public PairDemandFunction(BidiCapacity... pairs) {
         this.pairs = Arrays.copyOf(pairs, pairs.length);
     }
 
@@ -68,8 +68,8 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * 
      * @param pairs the pairs for each endpoint
      */
-    public PairBandwidthFunction(List<? extends BandwidthPair> pairs) {
-        this.pairs = pairs.toArray(new BandwidthPair[pairs.size()]);
+    public PairDemandFunction(List<? extends BidiCapacity> pairs) {
+        this.pairs = pairs.toArray(new BidiCapacity[pairs.size()]);
     }
 
     /**
@@ -81,19 +81,19 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * chosen as the result.
      */
     @Override
-    public BandwidthRange get(BitSet from) {
+    public Capacity get(BitSet from) {
         /* [0] is generated bandwidth on 'from' side; [1] is accepted
          * bandwidth on 'to' side. The result will be the minimum of
          * these. */
-        final BandwidthRange[] sum = new BandwidthRange[2];
-        Arrays.fill(sum, BandwidthRange.at(0.0));
+        final Capacity[] sum = new Capacity[2];
+        Arrays.fill(sum, Capacity.at(0.0));
         for (int i = 0; i < pairs.length; i++) {
             final boolean isSender = from.get(i);
-            sum[isSender ? 0 : 1] = BandwidthRange
+            sum[isSender ? 0 : 1] = Capacity
                 .add(sum[isSender ? 0 : 1],
                      isSender ? pairs[i].ingress : pairs[i].egress);
         }
-        return BandwidthRange.min(sum[0], sum[1]);
+        return Capacity.min(sum[0], sum[1]);
     }
 
     /**
@@ -103,27 +103,27 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * requirements in the same loop.
      */
     @Override
-    public BandwidthPair getPair(BitSet from) {
+    public BidiCapacity getPair(BitSet from) {
         /* [0] is the forward ingress/generated sum; [1] is the forward
          * egress/accepted sum. The forward result will be the minimum
          * of these. */
         /* [2] is the reverse ingress/generated sum; [3] is the reverse
          * egress/accepted sum. The reverse result will be the minimum
          * of these. */
-        final BandwidthRange[] sum = new BandwidthRange[4];
-        Arrays.fill(sum, BandwidthRange.at(0.0));
+        final Capacity[] sum = new Capacity[4];
+        Arrays.fill(sum, Capacity.at(0.0));
 
         for (int i = 0; i < pairs.length; i++) {
             final boolean isSender = from.get(i);
             final int fwd = isSender ? 0 : 1;
             final int rev = isSender ? 3 : 2;
-            sum[fwd] = BandwidthRange
+            sum[fwd] = Capacity
                 .add(sum[fwd], isSender ? pairs[i].ingress : pairs[i].egress);
-            sum[rev] = BandwidthRange
+            sum[rev] = Capacity
                 .add(sum[rev], isSender ? pairs[i].egress : pairs[i].ingress);
         }
-        return BandwidthPair.of(BandwidthRange.min(sum[0], sum[1]),
-                                BandwidthRange.min(sum[2], sum[3]));
+        return BidiCapacity.of(Capacity.min(sum[0], sum[1]),
+                                Capacity.min(sum[2], sum[3]));
     }
 
     @Override
@@ -163,16 +163,16 @@ public final class PairBandwidthFunction implements BandwidthFunction {
      * @undocumented
      */
     public static void main(String[] args) {
-        List<BandwidthPair> pairs = new ArrayList<>();
-        pairs.add(BandwidthPair.of(BandwidthRange.at(4.0),
-                                   BandwidthRange.at(1.0)));
-        pairs.add(BandwidthPair.of(BandwidthRange.at(2.0),
-                                   BandwidthRange.at(2.0)));
-        pairs.add(BandwidthPair.of(BandwidthRange.at(3.0),
-                                   BandwidthRange.at(5.0)));
-        pairs.add(BandwidthPair.of(BandwidthRange.at(5.0),
-                                   BandwidthRange.at(2.0)));
-        BandwidthFunction func = new PairBandwidthFunction(pairs);
+        List<BidiCapacity> pairs = new ArrayList<>();
+        pairs.add(BidiCapacity.of(Capacity.at(4.0),
+                                   Capacity.at(1.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(2.0),
+                                   Capacity.at(2.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(3.0),
+                                   Capacity.at(5.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(5.0),
+                                   Capacity.at(2.0)));
+        DemandFunction func = new PairDemandFunction(pairs);
 
         BitSet fwd = new BitSet();
         fwd.set(0);
@@ -184,6 +184,6 @@ public final class PairBandwidthFunction implements BandwidthFunction {
         System.out.printf("%s <- %s%n", fwd, func.get(rev));
         System.out.printf("%s = %s%n", fwd, func.getPair(fwd));
         System.out.printf("Func:%n%s",
-                          ScriptBandwidthFunction.indent(func.asScript()));
+                          ScriptDemandFunction.indent(func.asScript()));
     }
 }

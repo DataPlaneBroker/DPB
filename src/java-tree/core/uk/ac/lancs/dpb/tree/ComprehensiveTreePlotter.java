@@ -34,8 +34,9 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.paths;
+package uk.ac.lancs.dpb.tree;
 
+import uk.ac.lancs.dpb.graph.Edge;
 import java.io.File;
 import java.io.PrintWriter;
 import java.math.BigInteger;
@@ -57,12 +58,12 @@ import java.util.function.IntUnaryOperator;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import uk.ac.lancs.dpb.bw.BandwidthFunction;
-import uk.ac.lancs.dpb.bw.BandwidthPair;
-import uk.ac.lancs.dpb.bw.BandwidthRange;
-import uk.ac.lancs.dpb.bw.FlatBandwidthFunction;
-import uk.ac.lancs.dpb.bw.MatrixBandwidthFunction;
-import uk.ac.lancs.dpb.bw.PairBandwidthFunction;
+import uk.ac.lancs.dpb.graph.BidiCapacity;
+import uk.ac.lancs.dpb.graph.Capacity;
+import uk.ac.lancs.dpb.graph.FlatDemandFunction;
+import uk.ac.lancs.dpb.graph.MatrixDemandFunction;
+import uk.ac.lancs.dpb.graph.PairDemandFunction;
+import uk.ac.lancs.dpb.graph.DemandFunction;
 
 /**
  * Enumerates over all possible trees that meet the bandwidth
@@ -319,8 +320,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
     @Override
     public <P, V>
-        Iterable<? extends Map<? extends Edge<P>, ? extends BandwidthPair>>
-        plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
+        Iterable<? extends Map<? extends Edge<P>, ? extends BidiCapacity>>
+        plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
              Collection<? extends Edge<P>> edges) {
         /* Assign each goal an integer. */
@@ -351,17 +352,17 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* Work out the bandwidth in the forward (ingress)
                      * and reverse (egrees) directions of the edge. */
                     BitSet fwd = of(mode);
-                    BandwidthPair req = bwreq.getPair(fwd);
+                    BidiCapacity req = bwreq.getPair(fwd);
 
                     for (var edge : edges) {
                         /* Skip this mode if the ingress demand exceeds
                          * the edge's forward capacity. */
-                        if (req.ingress.min() > edge.metrics.ingress.min())
+                        if (req.ingress.min() > edge.capacity.ingress.min())
                             continue;
 
                         /* Skip this mode if the egress demand exceeds
                          * the edge's reverse capacity. */
-                        if (req.egress.min() > edge.metrics.egress.min())
+                        if (req.egress.min() > edge.capacity.egress.min())
                             continue;
 
                         /* If the edge has a goal as its start, its from
@@ -1189,7 +1190,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         IntUnaryOperator bases = i -> modeMap[i].length + 1;
         assert modeMap.length == edgeIndex.size();
         assert modeMap.length <= edgeCaps.size();
-        Function<IntUnaryOperator, Map<Edge<P>, BandwidthPair>> translator =
+        Function<IntUnaryOperator, Map<Edge<P>, BidiCapacity>> translator =
             digits -> IntStream.range(0, edgeIndex.size())
                 .filter(en -> digits.applyAsInt(en) != 0).boxed()
                 .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
@@ -1323,35 +1324,35 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     }
 
     private static double
-        minSum(Map<? extends Edge<Vertex>, ? extends BandwidthPair> cand) {
+        minSum(Map<? extends Edge<Vertex>, ? extends BidiCapacity> cand) {
         return cand.entrySet().parallelStream().mapToDouble(entry -> {
             Edge<Vertex> key = entry.getKey();
-            BandwidthPair val = entry.getValue();
+            BidiCapacity val = entry.getValue();
             return key.cost * (val.ingress.min() + val.egress.min());
         }).sum();
     }
 
     private static double postScaledMinSum(Map<? extends Edge<Vertex>,
-                                               ? extends BandwidthPair> cand) {
+                                               ? extends BidiCapacity> cand) {
         return cand.entrySet().parallelStream().mapToDouble(entry -> {
             Edge<Vertex> key = entry.getKey();
-            BandwidthPair val = entry.getValue();
+            BidiCapacity val = entry.getValue();
             double edgeScore = val.ingress.min() + val.egress.min();
-            edgeScore /= val.egress.max() / key.metrics.egress.max();
-            edgeScore /= val.ingress.max() / key.metrics.ingress.max();
+            edgeScore /= val.egress.max() / key.capacity.egress.max();
+            edgeScore /= val.ingress.max() / key.capacity.ingress.max();
             return key.cost * edgeScore;
         }).sum();
     }
 
     private static double preScaledMinSum(Map<? extends Edge<Vertex>,
-                                              ? extends BandwidthPair> cand) {
+                                              ? extends BidiCapacity> cand) {
         return cand.entrySet().parallelStream().mapToDouble(entry -> {
             Edge<Vertex> key = entry.getKey();
-            BandwidthPair val = entry.getValue();
+            BidiCapacity val = entry.getValue();
             double edgeScore = val.ingress.min() * val.ingress.max()
-                / key.metrics.ingress.max();
+                / key.capacity.ingress.max();
             edgeScore +=
-                val.egress.min() * val.egress.max() / key.metrics.egress.max();
+                val.egress.min() * val.egress.max() / key.capacity.egress.max();
             return key.cost * edgeScore;
         }).sum();
     }
@@ -1405,9 +1406,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 for (int j = i + 1; j < vertexes.size(); j++) {
                     Vertex v1 = vertexes.get(j);
                     double cost = distance(v0, v1);
-                    BandwidthPair cap = BandwidthPair
-                        .of(BandwidthRange.at(2.0 + rng.nextDouble() * 8.0),
-                            BandwidthRange.at(2.0 + rng.nextDouble() * 8.0));
+                    BidiCapacity cap = BidiCapacity
+                        .of(Capacity.at(2.0 + rng.nextDouble() * 8.0),
+                            Capacity.at(2.0 + rng.nextDouble() * 8.0));
                     Edge<Vertex> e = new Edge<>(v0, v1, cap, cost);
                     edges.add(e);
                 }
@@ -1547,48 +1548,48 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         {
             double best = 0.0;
             for (var e : edges) {
-                best = Math.max(best, e.metrics.ingress.min());
-                best = Math.max(best, e.metrics.egress.min());
+                best = Math.max(best, e.capacity.ingress.min());
+                best = Math.max(best, e.capacity.egress.min());
             }
             maxCap = best;
         }
 
         /* Choose a tree. */
-        final Map<Edge<Vertex>, BandwidthPair> tree;
+        final Map<Edge<Vertex>, BidiCapacity> tree;
         if (true) {
             TreePlotter plotter = new ComprehensiveTreePlotter();
-            final BandwidthFunction bwreq;
+            final DemandFunction bwreq;
             if (true) {
                 bwreq =
-                    new PairBandwidthFunction(IntStream.range(0, goals.size())
-                        .mapToObj(i -> BandwidthPair.of(BandwidthRange.at(4.0),
-                                                        BandwidthRange.at(2.5)))
+                    new PairDemandFunction(IntStream.range(0, goals.size())
+                        .mapToObj(i -> BidiCapacity.of(Capacity.at(4.0),
+                                                        Capacity.at(2.5)))
                         .collect(Collectors.toList()));
             } else if (true) {
                 bwreq =
-                    MatrixBandwidthFunction
+                    MatrixDemandFunction
                         .forTree(goals.size(), 0,
-                                 BandwidthPair.of(BandwidthRange.at(1.4),
-                                                  BandwidthRange.at(0.5)),
+                                 BidiCapacity.of(Capacity.at(1.4),
+                                                  Capacity.at(0.5)),
                                  null);
             } else {
-                bwreq = new FlatBandwidthFunction(goals.size(),
-                                                  BandwidthRange.at(3.0));
+                bwreq = new FlatDemandFunction(goals.size(),
+                                                  Capacity.at(3.0));
             }
 
             for (int m = 1; m < (1 << bwreq.degree()) - 1; m++) {
                 BitSet bs = of(m);
-                BandwidthPair bw = bwreq.getPair(bs);
+                BidiCapacity bw = bwreq.getPair(bs);
                 System.out.printf("%2d %12s %s%n", m, bs, bw);
             }
-            Map<? extends Edge<Vertex>, ? extends BandwidthPair> best = null;
+            Map<? extends Edge<Vertex>, ? extends BidiCapacity> best = null;
             double bestScore = Double.MAX_VALUE;
             assert bwreq.degree() == goals.size();
             for (var cand : plotter.plot(goals, bwreq, edges)) {
                 double score = 0.0;
                 for (var entry : cand.entrySet()) {
                     Edge<Vertex> key = entry.getKey();
-                    BandwidthPair val = entry.getValue();
+                    BidiCapacity val = entry.getValue();
                     score += key.cost * (val.ingress.min() + val.egress.min());
                 }
                 if (best == null || score < bestScore) {
@@ -1654,9 +1655,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 final double dx = e.finish.x - e.start.x;
                 final double dy = e.finish.y - e.start.y;
                 final double startFrac =
-                    e.metrics.ingress.min() / maxCap * vertexRadius;
+                    e.capacity.ingress.min() / maxCap * vertexRadius;
                 final double endFrac =
-                    e.metrics.egress.min() / maxCap * vertexRadius;
+                    e.capacity.egress.min() / maxCap * vertexRadius;
                 out.printf("<path d='M%g %g L%g %g L%g %g L%g %g z' />%n",
                            e.start.x - startFrac * dy / len + 0.5,
                            e.start.y + startFrac * dx / len + 0.5,
@@ -1673,7 +1674,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             out.printf("<g fill='black' stroke='none'>%n");
             for (var entry : tree.entrySet()) {
                 Edge<Vertex> e = entry.getKey();
-                BandwidthPair bw = entry.getValue();
+                BidiCapacity bw = entry.getValue();
                 final double len = length(e);
                 final double dx = e.finish.x - e.start.x;
                 final double dy = e.finish.y - e.start.y;

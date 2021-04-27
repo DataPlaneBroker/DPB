@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 /**
  * Specifies ingress and egress bandwidth requirements at an endpoint,
@@ -44,18 +44,18 @@ package uk.ac.lancs.dpb.bw;
  *
  * @author simpsons
  */
-public final class BandwidthPair {
+public final class BidiCapacity {
     /**
      * The ingress bandwidth
      */
-    public final BandwidthRange ingress;
+    public final Capacity ingress;
 
     /**
      * The egress bandwidth
      */
-    public final BandwidthRange egress;
+    public final Capacity egress;
 
-    private BandwidthPair(BandwidthRange ingress, BandwidthRange egress) {
+    private BidiCapacity(Capacity ingress, Capacity egress) {
         this.ingress = ingress;
         this.egress = egress;
     }
@@ -81,8 +81,8 @@ public final class BandwidthPair {
      * 
      * @constructor
      */
-    public static BandwidthPair of(BandwidthRange value) {
-        return new BandwidthPair(value, value);
+    public static BidiCapacity of(Capacity value) {
+        return new BidiCapacity(value, value);
     }
 
     /**
@@ -96,9 +96,9 @@ public final class BandwidthPair {
      * 
      * @constructor
      */
-    public static BandwidthPair of(BandwidthRange ingress,
-                                   BandwidthRange egress) {
-        return new BandwidthPair(ingress, egress);
+    public static BidiCapacity of(Capacity ingress,
+                                   Capacity egress) {
+        return new BidiCapacity(ingress, egress);
     }
 
     /**
@@ -108,7 +108,7 @@ public final class BandwidthPair {
      * 
      * @constructor
      */
-    public BandwidthPair invert() {
-        return new BandwidthPair(egress, ingress);
+    public BidiCapacity invert() {
+        return new BidiCapacity(egress, ingress);
     }
 }

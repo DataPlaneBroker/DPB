@@ -35,62 +35,57 @@
  */
 
 /**
- * Specifies ways to express bandwidth requirements of endpoints, from
- * which the requirements of any edge of a tree connecting those
- * endpoints can be computed.
+ * Defines graphs of vertices, ports, edges, edge capacities, demands
+ * and costs. These in turn model physical networks, their capabilities,
+ * and demands place upon them.
  * 
  * <p>
- * A single bandwidth requirement is expressed as a
- * {@link BandwidthRange}. It includes a minimum guaranteed bandwidth
- * (which may be as low as zero), and a maximum permitted bandwidth
- * (which may be infinite).
+ * A unidirectional capacity (such as available bandwidth in one
+ * direction along an edge) is expressed as a {@link Capacity}. It
+ * includes a minimum guaranteed capacity (which may be as low as zero),
+ * and a maximum permitted capacity (which may be infinite).
  * 
  * <p>
- * An aggregate network consists of a graph of edges with inferior
- * networks (some of which might also be aggregates) at the vertices,
- * and the available capacities of the inferiors and the connecting
- * edges are known to the aggregate. A user of the aggregate requests
- * that a tree be formed from the graph edges such that it connects a
- * set of at least two endpoints, and that sufficient bandwidth should
- * be allocated on each edge so that the endpoints experience a certain
- * minimum capacity. Regardless of the algorithm used by the aggregate
- * to select a suitable tree, the algorithm needs to know what the
- * demands on an individual edge are, given that a non-empty subset of
- * endpoints will be reachable in one direction, and a non-empty
- * complement of endpoints will be reachable in the other. The interface
- * {@link BandwidthFunction} abstracts that computation, allowing the
- * user to determine it without knowledge of the algorithm. The
- * constraints imposed on implementations allow it:
+ * A bidirectional capacity is expressed as a {@link BidiCapacity}, and
+ * can model both an edge and the I/O of a port.
+ * 
+ * <p>
+ * An {@link Edge} is a connection of two ports, each of which belongs
+ * to a vertex. Although the edge is bidirectional, it has an
+ * orientation with respect to its ports. An edge has an
+ * ambi-directional cost (which could model, say, latency), and a
+ * bidirectional capacity (which could model bandwidth in each
+ * direction).
+ * 
+ * <p>
+ * A {@link DemandFunction} describes the demand placed on an edge's
+ * capacity, assuming that it contributes in a certain way to a tree
+ * connecting a subset of vertices identified as goals. As part of a
+ * tree, and without traversing the edge, a subset of goals will be
+ * reachable from its start vertex, while the complement of the goals
+ * will be reachable from its finish. A demand function has two
+ * properties relating to its utility in hierarchical network models.
+ * First, it can be expressed as a self-contained script, and so be
+ * transmitted for remote execution. Second, it can be reduced, i.e.,
+ * its goals can be aggregated.
+ * 
+ * <p>
+ * The following implementations of {@link DemandFunction} are available
+ * to the user:
  * 
  * <ul>
  * 
- * <li>to be transmitted as a self-contained script, so that the user
- * who defines it and the network that uses it can be separate; and
- * 
- * <li>to be reduced, so that an aggregate that delegates connection
- * establishment to an inferior network can derive a new function to
- * submit to the inferior using endpoints that are meaningful to the
- * inferior.
- * 
- * </ul>
- * 
- * <p>
- * The following implementations of {@link BandwidthFunction} are
- * available to the user:
- * 
- * <ul>
- * 
- * <li>{@link FlatBandwidthFunction} &mdash; All edges have the same
+ * <li>{@link FlatDemandFunction} &mdash; All edges have the same
  * bandwidth range. This is likely to create bottlenecks when trees are
  * attenuated over a graph.
  * 
- * <li>{@link PairBandwidthFunction} &mdash; Each endpoint is assigned
+ * <li>{@link PairDemandFunction} &mdash; Each endpoint is assigned
  * upstream and downstream requirements, and edge bandwidth requirement
  * is derived as the minimum of the sum of the upstream ingress
  * bandwidths and the sum of the downstream egress bandwidths. This is
  * the original form of DPB bandwidth expression.
  * 
- * <li>{@link MatrixBandwidthFunction} &mdash; A matrix enumerates
+ * <li>{@link MatrixDemandFunction} &mdash; A matrix enumerates
  * bandwidth requirements between any pair of endpoints. An edge's
  * requirements is then the sum of all cells that are in the
  * <cite>from</cite> set but not the <cite>to</cite> set, and vice
@@ -102,4 +97,4 @@
  * <p>
  * A user can, of course, define their own.
  */
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;

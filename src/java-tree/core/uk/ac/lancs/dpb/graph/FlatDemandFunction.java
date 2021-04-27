@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.bw;
+package uk.ac.lancs.dpb.graph;
 
 import java.util.BitSet;
 import java.util.List;
@@ -45,10 +45,10 @@ import java.util.List;
  * 
  * @author simpsons
  */
-public final class FlatBandwidthFunction implements BandwidthFunction {
+public final class FlatDemandFunction implements DemandFunction {
     private final int degree;
 
-    private final BandwidthRange rate;
+    private final Capacity rate;
 
     /**
      * Create a flat bandwidth function.
@@ -57,7 +57,7 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * 
      * @param rate the rate common to all edges
      */
-    public FlatBandwidthFunction(int degree, BandwidthRange rate) {
+    public FlatDemandFunction(int degree, Capacity rate) {
         this.degree = degree;
         this.rate = rate;
     }
@@ -69,7 +69,7 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * and ignores the <cite>from</cite> set.
      */
     @Override
-    public BandwidthRange get(BitSet from) {
+    public Capacity get(BitSet from) {
         return rate;
     }
 
@@ -80,8 +80,8 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * reverse rate set to the configured rate.
      */
     @Override
-    public BandwidthPair getPair(BitSet from) {
-        return BandwidthPair.of(rate);
+    public BidiCapacity getPair(BitSet from) {
+        return BidiCapacity.of(rate);
     }
 
     @Override
@@ -108,17 +108,17 @@ public final class FlatBandwidthFunction implements BandwidthFunction {
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
-        BandwidthFunction bw =
-            new FlatBandwidthFunction(3, BandwidthRange.between(2, 7));
+        DemandFunction bw =
+            new FlatDemandFunction(3, Capacity.between(2, 7));
         System.out.printf("Func:%n%s",
-                          ScriptBandwidthFunction.indent(bw.asScript()));
+                          ScriptDemandFunction.indent(bw.asScript()));
 
-        BandwidthFunction sbw = BandwidthFunction.fromScript(bw.asScript());
+        DemandFunction sbw = DemandFunction.fromScript(bw.asScript());
         System.out.printf("Func:%n%s",
-                          ScriptBandwidthFunction.indent(sbw.asScript()));
+                          ScriptDemandFunction.indent(sbw.asScript()));
 
-        BandwidthFunction rbw = bw.reduce(List.of(of(1, 2), of(0)));
+        DemandFunction rbw = bw.reduce(List.of(of(1, 2), of(0)));
         System.out.printf("Func:%n%s",
-                          ScriptBandwidthFunction.indent(rbw.asScript()));
+                          ScriptDemandFunction.indent(rbw.asScript()));
     }
 }

@@ -34,14 +34,15 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.paths;
+package uk.ac.lancs.dpb.tree;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import uk.ac.lancs.dpb.bw.BandwidthFunction;
-import uk.ac.lancs.dpb.bw.BandwidthPair;
+import uk.ac.lancs.dpb.graph.BidiCapacity;
+import uk.ac.lancs.dpb.graph.DemandFunction;
+import uk.ac.lancs.dpb.graph.Edge;
 
 /**
  * Plots trees over a graph connecting specific vertices. Graph edges
@@ -69,12 +70,12 @@ public interface TreePlotter {
      * @return a means to iterate over the solutions
      * 
      * @default This implementation invokes
-     * {@link #plot(List, BandwidthFunction, Function, Collection)},
-     * using {@link Function#identity()} as the port map.
+     * {@link #plot(List, DemandFunction, Function, Collection)}, using
+     * {@link Function#identity()} as the port map.
      */
     default <V>
-        Iterable<? extends Map<? extends Edge<V>, ? extends BandwidthPair>>
-        plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
+        Iterable<? extends Map<? extends Edge<V>, ? extends BidiCapacity>>
+        plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Collection<? extends Edge<V>> edges) {
         return plot(goalOrder, bwreq, Function.identity(), edges);
     }
@@ -97,8 +98,8 @@ public interface TreePlotter {
      * 
      * @return a means to iterate over the solutions
      */
-    <P, V> Iterable<? extends Map<? extends Edge<P>, ? extends BandwidthPair>>
-        plot(List<? extends V> goalOrder, BandwidthFunction bwreq,
+    <P, V> Iterable<? extends Map<? extends Edge<P>, ? extends BidiCapacity>>
+        plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
              Collection<? extends Edge<P>> edges);
 }

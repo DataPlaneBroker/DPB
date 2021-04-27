@@ -34,67 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.paths;
-
-import uk.ac.lancs.dpb.bw.BandwidthPair;
-
 /**
- * Connects two ports. This actually represents a pair of directed edges
- * in opposite directions, and each has a distinct capacity. However,
- * they both have the same over-all cost.
- * 
- * @param <P> the port type
- *
- * @author simpsons
+ * Defines classes for plotting trees across graphs.
  */
-public final class Edge<P> {
-    /**
-     * The start port
-     */
-    public final P start;
-
-    /**
-     * The finish port
-     */
-    public final P finish;
-
-    /**
-     * The cumulative cost metric
-     */
-    public final double cost;
-
-    final BandwidthPair metrics;
-
-    /**
-     * Create a connection between two ports. The edge has a direction,
-     * defined by having a start port and a finish port. Forward metrics
-     * express the capacity of the edge for traffic from start to
-     * finish, and reverse metrics for the opposite direction.
-     * 
-     * @param start the starting port for forward travel
-     * 
-     * @param finish the finishing port for forward travel
-     * 
-     * @param cost the cumulative cost metric for this edge
-     * 
-     * @param metrics the edge capacity, with ingress being from start
-     * to finish
-     */
-    public Edge(P start, P finish, BandwidthPair metrics, double cost) {
-        this.start = start;
-        this.finish = finish;
-        this.metrics = metrics;
-        this.cost = cost;
-    }
-
-    /**
-     * Get a string representation of this edge.
-     * 
-     * @return the string representations of the ports, joined by a
-     * hyphen-minus
-     */
-    @Override
-    public String toString() {
-        return start + "-" + finish;
-    }
-}
+package uk.ac.lancs.dpb.tree;
