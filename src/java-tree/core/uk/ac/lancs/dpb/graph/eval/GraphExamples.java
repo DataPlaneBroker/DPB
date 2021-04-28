@@ -87,7 +87,6 @@ public final class GraphExamples {
         return true;
     }
 
-
     /**
      * Create a flat graph. This is created by choosing a set of
      * vertices out of a rectangular area, creating edges between every
@@ -95,7 +94,7 @@ public final class GraphExamples {
      * edges cross, the longer is eliminated. When three edges form a
      * triangle, the longest is removed if the sum of the lengths of the
      * other two edges is more than a certain fraction (the
-     * <defn>stretch</defn>) of the longest edge's length, or if another
+     * <dfn>stretch</dfn>) of the longest edge's length, or if another
      * vertex lies within the circumcircle of the triangle.
      * 
      * @param rng a random number generator
