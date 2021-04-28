@@ -39,8 +39,11 @@ package uk.ac.lancs.dpb.graph.eval;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Capacity;
 import uk.ac.lancs.dpb.graph.Edge;
@@ -53,6 +56,37 @@ import uk.ac.lancs.dpb.graph.Edge;
  */
 public final class GraphExamples {
     private GraphExamples() {}
+
+    /**
+     * Test whether there are no other vertices in the circumcircle of a
+     * triangle.
+     * 
+     * @param corners the three corners forming a triangle
+     * 
+     * @param vertexes the set of all vertices to search
+     * 
+     * @return {@code true} if none of the listed vertices are in the
+     * circumcircle of the triangle; {@code false} if a vertex is found
+     * within the circumcircle
+     */
+    private static boolean
+        emptyCircumcircle(List<? extends Vertex> corners,
+                          Collection<? extends Vertex> vertexes) {
+        final Circle circum =
+            Circle.circumcircle(corners.get(0), corners.get(1), corners.get(2));
+        for (Vertex v : vertexes) {
+            /* Exclude vertices that form this triangle. */
+            if (corners.contains(v)) continue;
+
+            /* Exclude vertices that are not in the circumcircle. */
+            if (!circum.contains(v)) continue;
+
+            /* The triangle is not empty. */
+            return false;
+        }
+        return true;
+    }
+
 
     /**
      * Create a flat graph. This is created by choosing a set of
@@ -77,6 +111,10 @@ public final class GraphExamples {
      * @param stretch a factor to eliminate extremely flat triangles.
      * 0.8 is a decent value.
      * 
+     * @param capSupply a supply of capacities for generated edges,
+     * based on the cost (length) of the edge and the degree of its
+     * defining vertices
+     * 
      * @return a random graph with the specified characteristics
      * 
      * @throws IllegalArgumentException if the width or height is
@@ -86,7 +124,8 @@ public final class GraphExamples {
     public static Challenge
         createFlatChallenge(final Random rng, final int width, final int height,
                             final int population, final int goalCount,
-                            final double stretch) {
+                            final double stretch,
+                            final CapacitySupply capSupply) {
         if (width < 0)
             throw new IllegalArgumentException("-ve width: " + width);
         if (height < 0)
@@ -97,6 +136,7 @@ public final class GraphExamples {
         if (goalCount > population)
             throw new IllegalArgumentException("more goals than vertices: "
                 + goalCount + " > " + population);
+
         /* Create vertices dotted around a grid. Choose some of them as
          * goals too. */
         List<Vertex> vertexes = new ArrayList<>();
@@ -124,14 +164,12 @@ public final class GraphExamples {
 
         List<Edge<Vertex>> edges = new ArrayList<>();
         /* Create edges between every pair of vertices. */
+        final BidiCapacity cap = BidiCapacity.of(Capacity.at(0.0));
         for (int i = 0; i < vertexes.size() - 1; i++) {
             Vertex v0 = vertexes.get(i);
             for (int j = i + 1; j < vertexes.size(); j++) {
                 Vertex v1 = vertexes.get(j);
                 double cost = Vertex.distance(v0, v1);
-                BidiCapacity cap =
-                    BidiCapacity.of(Capacity.at(2.0 + rng.nextDouble() * 8.0),
-                                    Capacity.at(2.0 + rng.nextDouble() * 8.0));
                 Edge<Vertex> e = new Edge<>(v0, v1, cap, cost);
                 edges.add(e);
             }
@@ -189,57 +227,50 @@ public final class GraphExamples {
 
                     /* Very flat triangles will have the longest edge
                      * being only slightly shorter than the sum of the
-                     * others. Remove the longest edge in these
-                     * cases. */
-                    if (s2 > stretch * (s1 + s0) || s1 > stretch * (s2 + s0) ||
-                        s0 > stretch * (s2 + s1)) {
-                        /* This triangle is very squished. Remove the
-                         * longest edge. */
-                        if (s2 > s1 && s2 > s0) {
-                            edges.remove(i2--);
-                            continue;
-                        }
+                     * others. Also look for other vertices within the
+                     * circumcircle of the triangle. If the triangle is
+                     * too flat, or the circumcircle is not empty, the
+                     * longest edge should be remove. */
+                    if (s2 <= stretch * (s1 + s0) &&
+                        s1 <= stretch * (s2 + s0) &&
+                        s0 <= stretch * (s2 + s1) &&
+                        emptyCircumcircle(corners, vertexes)) continue;
+                    /* This triangle is very squished, or its
+                     * circumcircle contains another vertex. Remove the
+                     * longest edge. */
 
-                        if (s1 > s2 && s1 > s0) {
-                            edges.remove(i1--);
-                            continue outer1;
-                        }
-
-                        edges.remove(i0--);
-                        continue outer0;
+                    if (s2 > s1 && s2 > s0) {
+                        edges.remove(i2--);
+                        continue;
                     }
 
-                    /* See if there's a vertex within the
-                     * circumcircle. */
-                    final Circle circum =
-                        Circle.circumcircle(corners.get(0), corners.get(1),
-                                            corners.get(2));
-                    for (Vertex v : vertexes) {
-                        /* Exclude vertices that form this triangle. */
-                        if (corners.contains(v)) continue;
-
-                        /* Exclude vertices that are not in the
-                         * circumcircle. */
-                        if (!circum.contains(v)) continue;
-
-                        /* Remove the longest edge. */
-                        if (s2 > s1 && s2 > s0) {
-                            edges.remove(i2--);
-                            continue outer2;
-                        }
-
-                        if (s1 > s2 && s1 > s0) {
-                            edges.remove(i1--);
-                            continue outer1;
-                        }
-
-                        edges.remove(i0--);
-                        continue outer0;
+                    if (s1 > s2 && s1 > s0) {
+                        edges.remove(i1--);
+                        continue outer1;
                     }
+
+                    edges.remove(i0--);
+                    continue outer0;
                 }
             }
         }
 
-        return new Challenge(width, height, goals, edges);
+        /* Determine the degree of each vertex. */
+        Map<Vertex, Integer> degrees = new IdentityHashMap<>();
+        for (var edge : edges) {
+            degrees.merge(edge.start, 1, (v0, v1) -> v0 + v1);
+            degrees.merge(edge.finish, 1, (v0, v1) -> v0 + v1);
+        }
+
+        /* Recreate the remaining edges, but with capacities computed
+         * from their costs and their vertex degrees. */
+        Collection<Edge<Vertex>> cappedEdges =
+            edges.stream()
+                .map(e -> new Edge<>(e.start, e.finish, capSupply
+                    .getCapacity(e.cost, degrees.get(e.start),
+                                 degrees.get(e.finish)), e.cost))
+                .collect(Collectors.toSet());
+
+        return new Challenge(width, height, goals, cappedEdges);
     }
 }
