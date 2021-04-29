@@ -105,8 +105,6 @@ public final class GraphExamples {
      * 
      * @param population the number of vertices to place in the graph
      * 
-     * @param goalCount the number of vertices to select as goals
-     * 
      * @param stretch a factor to eliminate extremely flat triangles.
      * 0.8 is a decent value.
      * 
@@ -120,10 +118,9 @@ public final class GraphExamples {
      * negative; if the population exceeds the area; if there are more
      * goals than vertices
      */
-    public static Challenge
+    public static Graph
         createFlatChallenge(final Random rng, final int width, final int height,
-                            final int population, final int goalCount,
-                            final double stretch,
+                            final int population, final double stretch,
                             final CapacitySupply capSupply) {
         if (width < 0)
             throw new IllegalArgumentException("-ve width: " + width);
@@ -132,28 +129,17 @@ public final class GraphExamples {
         if (population > width * height)
             throw new IllegalArgumentException("overcrowded: " + population
                 + " > " + width + "\u00d7" + height);
-        if (goalCount > population)
-            throw new IllegalArgumentException("more goals than vertices: "
-                + goalCount + " > " + population);
 
         /* Create vertices dotted around a grid. Choose some of them as
          * goals too. */
         List<Vertex> vertexes = new ArrayList<>();
-        List<Vertex> goals = new ArrayList<>();
         int req = population, rem = width * height;
-        int greq = goalCount;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++, rem--) {
                 if (rng.nextInt(rem) < req) {
                     /* Create a new vertex. */
                     Vertex v = Vertex.at(x, y);
                     vertexes.add(v);
-
-                    /* Decide whether to make this a goal. */
-                    if (rng.nextInt(req) < greq) {
-                        goals.add(v);
-                        greq--;
-                    }
 
                     /* Reduce the odds of making subsequent vertices. */
                     req--;
@@ -270,6 +256,6 @@ public final class GraphExamples {
                                  degrees.get(e.finish)), e.cost))
                 .collect(Collectors.toSet());
 
-        return new Challenge(width, height, goals, cappedEdges);
+        return new Graph(width, height, cappedEdges);
     }
 }

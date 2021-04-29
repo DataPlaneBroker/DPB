@@ -40,7 +40,6 @@ import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
@@ -52,7 +51,7 @@ import uk.ac.lancs.dpb.graph.Edge;
  * 
  * @author simpsons
  */
-public final class Challenge {
+public final class Graph {
     /**
      * The width of the graph in vertex co-ordinates
      */
@@ -62,11 +61,6 @@ public final class Challenge {
      * The height of the graph in vertex co-ordinates
      */
     public final int height;
-
-    /**
-     * An immutable set of goals
-     */
-    public final Collection<Vertex> goals;
 
     /**
      * An immutable set of edges and their capacities
@@ -84,23 +78,21 @@ public final class Challenge {
     public final Capacity maxCapacity;
 
     /**
-     * Create a challenge. The inputs will be copied, and the order of
-     * the goals will be preserved.
+     * Create a challenge. The inputs will be copied, and a vertex set
+     * will be derived.
      * 
      * @param goals a set of goals
      * 
      * @param edges a set of edges and their capacities
      */
-    public Challenge(int width, int height, Collection<? extends Vertex> goals,
-                     Collection<? extends Edge<Vertex>> edges) {
+    public Graph(int width, int height,
+                 Collection<? extends Edge<Vertex>> edges) {
         this.width = width;
         this.height = height;
-        this.goals = List.copyOf(goals);
         this.edges = Set.copyOf(edges);
 
         Collection<Vertex> vertexes =
             Collections.newSetFromMap(new IdentityHashMap<>());
-        vertexes.addAll(goals);
         Capacity max = Capacity.at(0.0);
         for (var edge : this.edges) {
             vertexes.add(edge.start);
@@ -127,7 +119,7 @@ public final class Challenge {
      * for example.
      */
     public void
-        drawSVG(PrintWriter out,
+        drawSVG(PrintWriter out, final Collection<? extends Vertex> goals,
                 final Map<? extends Edge<Vertex>, ? extends BidiCapacity> tree,
                 final double vertexRadius, final double goalScale) {
         final double maxCap = maxCapacity.min();
