@@ -58,27 +58,27 @@ public class GraphMorpher {
     /**
      * The repulsive gravitational constant
      */
-    final double push = 0.3;
+    private final double push = 0.3;
 
     /**
      * The maximum allowed speed of any vertex
      */
-    final double maxSpeed = 0.01;
+    private final double maxSpeed = 0.01;
 
     /**
      * The strength of air resistance to damp motion
      */
-    final double airResistance = 0.9;
+    private final double airResistance = 0.9;
 
     /**
      * The maximum simulation step
      */
-    final double maxDelta = 0.1;
+    private final double maxDelta = 0.1;
 
     /**
      * Re-centre all vertices on the centre of mass.
      */
-    void recenter() {
+    private void recenter() {
         double x = 0.0;
         double y = 0.0;
         double mass = 0.0;
@@ -97,7 +97,7 @@ public class GraphMorpher {
      *
      * @return the variance of rotation of all vertices
      */
-    double computeRotationVariance() {
+    private double computeRotationVariance() {
         double sum = 0.0;
         double sqsum = 0.0;
         for (var v : vertexes) {
@@ -117,22 +117,51 @@ public class GraphMorpher {
      */
     private int nextId;
 
-    class MovingVertex extends Vertex {
+    /**
+     * A movable vertex with a record of velocity and
+     * force/acceleration.
+     */
+    private class Mote extends Vertex {
+        /**
+         * The X position
+         */
         double x;
 
+        /**
+         * The Y position
+         */
         double y;
 
+        /**
+         * The X velocity
+         */
         double vx;
 
+        /**
+         * The Y velocity
+         */
         double vy;
 
+        /**
+         * The X force or acceleration
+         */
         double fx;
 
+        /**
+         * The Y force or acceleration
+         */
         double fy;
 
+        /**
+         * The mass
+         */
         double mass = 1.0;
 
-        MovingVertex() {
+        /**
+         * Create a mote. Each new mote is placed along a spiral around
+         * the origin as its initial position.
+         */
+        Mote() {
             /* Arrange each vertex in a spiral. */
             int id = nextId++;
             double pid = 0.3 * Math.pow(id, 1.2);
@@ -150,6 +179,13 @@ public class GraphMorpher {
             return y;
         }
 
+        /**
+         * Adjust the velocity by the acceleration, then the position by
+         * the velocity, over a short time period.
+         * {@link #convertForceToAcceleration()} should be called first.
+         * 
+         * @param delta the time period
+         */
         void step(double delta) {
             vx += fx * delta;
             vy += fy * delta;
@@ -157,35 +193,74 @@ public class GraphMorpher {
             y += vy * delta;
         }
 
+        /**
+         * Get the angular velocity of the mote around the origin.
+         * 
+         * @return the angular velocity, possibly in radians per second
+         */
         double getRotation() {
             final double r2 = x * x + y * y;
             return (vy * x - vx * y) / r2;
         }
 
+        /**
+         * Set the force back to zero. This should be called before
+         * summing the forces with {@link #addForce(double, double)}.
+         */
         void resetForce() {
             fx = fy = 0.0;
         }
 
+        /**
+         * Adjust the force by a vector.
+         * 
+         * @param dfx the change in the X dimension
+         * 
+         * @param dfy the change in the Y dimension
+         */
         void addForce(double dfx, double dfy) {
             fx += dfx;
             fy += dfy;
         }
 
+        /**
+         * Translate the mote by a vector.
+         * 
+         * @param dx the change in the X dimension
+         * 
+         * @param dy the change in the Y dimension
+         */
         void move(double dx, double dy) {
             x += dx;
             y += dy;
         }
 
+        /**
+         * Scale the mote's position about the origin.
+         * 
+         * @param factor the scale factor in both dimensions
+         */
         void scale(double factor) {
             x *= factor;
             y *= factor;
         }
 
+        /**
+         * Divide the force sum by the mote's mass. This should be
+         * called before {@link #step(double)} and after several calls
+         * to {@link #addForce(double, double)}.
+         */
         void convertForceToAcceleration() {
             fx /= mass;
             fy /= mass;
         }
 
+        /**
+         * Get the largest delta that this mote can cope with without
+         * losing significant accuracy.
+         * 
+         * @return the largest permitted delta
+         */
         double getDelta() {
             final double acc = Math.hypot(fx, fy);
             final double accDelta = maxSpeed / acc;
@@ -201,17 +276,17 @@ public class GraphMorpher {
      * threshold given by targetFraction. The remaining arrays are
      * derived from the first two, and act as working state or
      * precomputed values during the simulation. */
-    final long[] steadyLimit = { 1000, 10000, 100000 };
+    private final long[] steadyLimit = { 1000, 10000, 100000 };
 
-    final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
+    private final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
 
-    final double[] lowTarget = new double[steadyLimit.length];
+    private final double[] lowTarget = new double[steadyLimit.length];
 
-    final double[] highTarget = new double[steadyLimit.length];
+    private final double[] highTarget = new double[steadyLimit.length];
 
-    final long[] steady = new long[steadyLimit.length];
+    private final long[] steady = new long[steadyLimit.length];
 
-    void trackRotation() {
+    private void trackRotation() {
         final double signal = computeRotationVariance();
         for (int i = 0; i < steady.length; i++) {
             if (signal > highTarget[i] || signal < lowTarget[i]) {
@@ -222,9 +297,9 @@ public class GraphMorpher {
         }
     }
 
-    private final Collection<Edge<MovingVertex>> edges;
+    private final Collection<Edge<Mote>> edges;
 
-    private final List<MovingVertex> vertexes;
+    private final List<Mote> vertexes;
 
     private final TopologyDisplay<Vertex> display;
 
@@ -242,20 +317,18 @@ public class GraphMorpher {
         /* Create a moving vertex for every implied input vertex. Create
          * a new edge for every supplied edge, based on the new
          * vertices. */
-        Collection<Edge<MovingVertex>> newEdges = new HashSet<>();
-        Map<Vertex, MovingVertex> movers = new IdentityHashMap<>();
+        Collection<Edge<Mote>> newEdges = new HashSet<>();
+        Map<Vertex, Mote> movers = new IdentityHashMap<>();
         for (var e : edges) {
-            MovingVertex smv =
-                movers.computeIfAbsent(e.start, k -> new MovingVertex());
-            MovingVertex fmv =
-                movers.computeIfAbsent(e.finish, k -> new MovingVertex());
+            Mote smv = movers.computeIfAbsent(e.start, k -> new Mote());
+            Mote fmv = movers.computeIfAbsent(e.finish, k -> new Mote());
             newEdges.add(new Edge<>(smv, fmv));
         }
         this.edges = Set.copyOf(newEdges);
         this.vertexes = List.copyOf(movers.values());
 
         /* Determine the degree of each vertex. */
-        Map<MovingVertex, Integer> degrees = new IdentityHashMap<>();
+        Map<Mote, Integer> degrees = new IdentityHashMap<>();
         for (var edge : this.edges) {
             degrees.merge(edge.start, 1, (v0, v1) -> v0 + v1);
             degrees.merge(edge.finish, 1, (v0, v1) -> v0 + v1);
@@ -284,15 +357,32 @@ public class GraphMorpher {
             entry.getKey().mass = 1.0 + entry.getValue();
     }
 
-    final Map<MovingVertex, Integer> degrees;
+    private final Map<Mote, Integer> degrees;
 
-    long cycle = 0L;
+    /**
+     * Keeps track of the number of calls to {@link #advance()}. This is
+     * used to detect stability in the rotation variance, to recommend
+     * ending the simulation.
+     */
+    private long cycle = 0L;
 
-    final double optLength = 0.3;
+    /**
+     * Edges with this length are in equilibrium with respect to the
+     * elastic force.
+     */
+    private final double optLength = 0.3;
 
-    final double spring = 0.1;
+    /**
+     * The elastic force strength per unit of length difference from the
+     * optimum
+     */
+    private final double spring = 0.1;
 
-    double elapsed = 0.0;
+    /**
+     * The elapsed simulation time, incremented by the chosen delta on
+     * each cycle
+     */
+    private double elapsed = 0.0;
 
     /**
      * Advance the morphing by one step.
@@ -307,10 +397,10 @@ public class GraphMorpher {
 
         /* Reset forces on all vertices so we can compute forces given
          * current positions and edges. */
-        vertexes.forEach(MovingVertex::resetForce);
+        vertexes.forEach(Mote::resetForce);
 
         /* Apply an elastic force to each edge. */
-        for (Edge<MovingVertex> entry : edges) {
+        for (Edge<Mote> entry : edges) {
             final var a = entry.start;
             final var b = entry.finish;
             final double dx = b.x - a.x;
@@ -356,13 +446,12 @@ public class GraphMorpher {
         });
 
         /* Convert the forces to accelerations. */
-        vertexes.parallelStream()
-            .forEach(MovingVertex::convertForceToAcceleration);
+        vertexes.parallelStream().forEach(Mote::convertForceToAcceleration);
 
         /* Find the largest time jump we can afford. */
         assert !vertexes.isEmpty();
         final double bestDelta = Math.min(maxDelta, vertexes.parallelStream()
-            .mapToDouble(MovingVertex::getDelta).min().getAsDouble());
+            .mapToDouble(Mote::getDelta).min().getAsDouble());
         final double delta =
             (elapsed + bestDelta > elapsed) ? bestDelta : 0.0001;
         // System.err.printf("Cycle: %d: delta: %g%n", cycle, delta);

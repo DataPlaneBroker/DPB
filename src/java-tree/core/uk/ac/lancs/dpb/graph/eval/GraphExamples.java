@@ -319,6 +319,7 @@ public final class GraphExamples {
                                     int connectivity, int depth,
                                     CapacitySupply caps,
                                     TopologyDisplay<Vertex> display) {
+        /* Create a scale-free topology. */
         Collection<Edge<Vertex>> edges = new HashSet<>();
         List<Vertex> vertexes = new ArrayList<>(vertexCount);
         for (int i = 0; i < vertexCount; i++) {
@@ -329,9 +330,14 @@ public final class GraphExamples {
             }
             vertexes.add(nv);
         }
+
+        /* Allow the graph to unwind based on elastic, gravitational and
+         * frictional forces. */
         GraphMorpher morpher = new GraphMorpher(edges, display);
         for (;;)
             if (!morpher.advance()) break;
+
+        /* Create a frozen graph from the final state. */
         return morpher.freeze((int) (Math.sqrt(vertexCount) * 2.0), caps);
     }
 
