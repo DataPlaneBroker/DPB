@@ -37,14 +37,17 @@
 package uk.ac.lancs.dpb.graph.eval;
 
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Capacity;
-import uk.ac.lancs.dpb.graph.Edge;
+import uk.ac.lancs.dpb.graph.QualifiedEdge;
 
 /**
  * Holds a graph suitable for testing.
@@ -65,7 +68,7 @@ public final class Graph {
     /**
      * An immutable set of edges and their capacities
      */
-    public final Collection<Edge<Vertex>> edges;
+    public final Collection<QualifiedEdge<Vertex>> edges;
 
     /**
      * An immutable set of vertices derived from the edges and goals
@@ -86,7 +89,7 @@ public final class Graph {
      * @param edges a set of edges and their capacities
      */
     public Graph(int width, int height,
-                 Collection<? extends Edge<Vertex>> edges) {
+                 Collection<? extends QualifiedEdge<Vertex>> edges) {
         this.width = width;
         this.height = height;
         this.edges = Set.copyOf(edges);
@@ -105,9 +108,34 @@ public final class Graph {
     }
 
     /**
+     * Choose goals randomly from the set of vertices. The number chosen
+     * may be less than requested if there are insufficient vertices.
+     * 
+     * @param amount the maximum number of goals to choose
+     * 
+     * @param rng a random-number generator
+     * 
+     * @return the goals in chosen order
+     */
+    public List<Vertex> chooseGoals(int amount, Random rng) {
+        List<Vertex> options = new ArrayList<>(vertexes);
+        List<Vertex> result = new ArrayList<>(amount);
+        while (amount > 0 && !result.isEmpty()) {
+            int choice = rng.nextInt(options.size());
+            Vertex item = options.remove(choice);
+            result.add(item);
+            amount--;
+        }
+        return List.copyOf(result);
+    }
+
+    /**
      * Display the graph and a solution as an SVG.
      * 
      * @param out the destination for the SVG
+     * 
+     * @param goals the subset of vertices that should be highlighted as
+     * goals; or {@code null} if not required
      * 
      * @param tree the selected edges of the solution and the demand
      * imposed on them; or {@code null} if not required
@@ -118,10 +146,11 @@ public final class Graph {
      * minus 1. Set to 0.1 to make goals 10% bigger than other vertices,
      * for example.
      */
-    public void
-        drawSVG(PrintWriter out, final Collection<? extends Vertex> goals,
-                final Map<? extends Edge<Vertex>, ? extends BidiCapacity> tree,
-                final double vertexRadius, final double goalScale) {
+    public void drawSVG(PrintWriter out,
+                        final Collection<? extends Vertex> goals,
+                        final Map<? extends QualifiedEdge<Vertex>,
+                                  ? extends BidiCapacity> tree,
+                        final double vertexRadius, final double goalScale) {
         final double maxCap = maxCapacity.min();
         final double goalRadius = vertexRadius * (1.0 + goalScale);
 
@@ -157,16 +186,18 @@ public final class Graph {
                        width + 0.0, height + 0.0);
 
         /* Highlight the goals. */
-        out.printf("<g fill='red' stroke='none'>%n");
-        for (Vertex g : goals) {
-            out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x() + 0.5,
-                       g.y() + 0.5, goalRadius);
+        if (goals != null && !goals.isEmpty()) {
+            out.printf("<g fill='red' stroke='none'>%n");
+            for (Vertex g : goals) {
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x() + 0.5,
+                           g.y() + 0.5, goalRadius);
+            }
+            out.println("</g>");
         }
-        out.println("</g>");
 
         /* Draw out the edge capacities. */
         out.printf("<g fill='#ccc' stroke='none'>%n");
-        for (Edge<Vertex> e : edges) {
+        for (QualifiedEdge<Vertex> e : edges) {
             final double len = Vertex.length(e);
             final double dx = e.finish.x() - e.start.x();
             final double dy = e.finish.y() - e.start.y();
@@ -190,7 +221,7 @@ public final class Graph {
             /* Draw out the tree. */
             out.printf("<g fill='black' stroke='none'>%n");
             for (var entry : tree.entrySet()) {
-                Edge<Vertex> e = entry.getKey();
+                QualifiedEdge<Vertex> e = entry.getKey();
                 BidiCapacity bw = entry.getValue();
                 final double len = Vertex.length(e);
                 final double dx = e.finish.x() - e.start.x();

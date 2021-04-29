@@ -37,43 +37,44 @@
 package uk.ac.lancs.dpb.graph;
 
 /**
- * Connects two ports. This actually represents a pair of directed edges
- * in opposite directions.
+ * Connects two ports with cost and capacity. This actually represents a
+ * pair of directed edges in opposite directions, and each has a
+ * distinct capacity. However, they both have the same over-all cost.
  * 
+ * @param <P> the port type
+ *
  * @author simpsons
  */
-public class Edge<P> {
+public final class QualifiedEdge<P> extends Edge<P> {
     /**
-     * The start port
+     * The cumulative cost metric
      */
-    public final P start;
+    public final double cost;
 
     /**
-     * The finish port
+     * The bidirectional capacity
      */
-    public final P finish;
+    public final BidiCapacity capacity;
 
     /**
-     * Create a connection between two ports.
+     * Create a connection between two ports. The edge has a direction,
+     * defined by having a start port and a finish port. Forward metrics
+     * express the capacity of the edge for traffic from start to
+     * finish, and reverse metrics for the opposite direction.
      * 
      * @param start the starting port for forward travel
      * 
      * @param finish the finishing port for forward travel
+     * 
+     * @param cost the cumulative cost metric for this edge
+     * 
+     * @param capacity the edge capacity, with ingress being from start
+     * to finish
      */
-    public Edge(P start, P finish) {
-        this.start = start;
-        this.finish = finish;
+    public QualifiedEdge(P start, P finish, BidiCapacity capacity,
+                         double cost) {
+        super(start, finish);
+        this.capacity = capacity;
+        this.cost = cost;
     }
-
-    /**
-     * Get a string representation of this edge.
-     *
-     * @return the string representations of the ports, joined by a
-     * hyphen-minus
-     */
-    @Override
-    public String toString() {
-        return start + "-" + finish;
-    }
-
 }

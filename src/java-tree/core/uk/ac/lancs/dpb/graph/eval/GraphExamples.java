@@ -36,17 +36,26 @@
 
 package uk.ac.lancs.dpb.graph.eval;
 
+import java.awt.Dimension;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
+import java.io.File;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Capacity;
 import uk.ac.lancs.dpb.graph.Edge;
+import uk.ac.lancs.dpb.graph.QualifiedEdge;
 
 /**
  * Contains utilities for creating graphs with properties suitable for
@@ -147,7 +156,7 @@ public final class GraphExamples {
             }
         }
 
-        List<Edge<Vertex>> edges = new ArrayList<>();
+        List<QualifiedEdge<Vertex>> edges = new ArrayList<>();
         /* Create edges between every pair of vertices. */
         final BidiCapacity cap = BidiCapacity.of(Capacity.at(0.0));
         for (int i = 0; i < vertexes.size() - 1; i++) {
@@ -155,17 +164,18 @@ public final class GraphExamples {
             for (int j = i + 1; j < vertexes.size(); j++) {
                 Vertex v1 = vertexes.get(j);
                 double cost = Vertex.distance(v0, v1);
-                Edge<Vertex> e = new Edge<>(v0, v1, cap, cost);
+                QualifiedEdge<Vertex> e =
+                    new QualifiedEdge<>(v0, v1, cap, cost);
                 edges.add(e);
             }
         }
 
         /* Prune longer edges that cross others. */
         outer: for (int i = 0; i < edges.size() - 1; i++) {
-            Edge<Vertex> e0 = edges.get(i);
+            QualifiedEdge<Vertex> e0 = edges.get(i);
             double s0 = Vertex.length(e0);
             for (int j = i + 1; j < edges.size(); j++) {
-                Edge<Vertex> e1 = edges.get(j);
+                QualifiedEdge<Vertex> e1 = edges.get(j);
                 if (!Vertex.cross(e0, e1)) continue;
                 double s1 = Vertex.length(e1);
                 if (s1 >= s0) {
@@ -179,15 +189,15 @@ public final class GraphExamples {
 
         /* Find edges that form a triangle. */
         outer0: for (int i0 = 0; i0 < edges.size() - 2; i0++) {
-            final Edge<Vertex> e0 = edges.get(i0);
+            final QualifiedEdge<Vertex> e0 = edges.get(i0);
             final double s0 = Vertex.length(e0);
             outer1: for (int i1 = i0 + 1; i1 < edges.size() - 1; i1++) {
-                final Edge<Vertex> e1 = edges.get(i1);
+                final QualifiedEdge<Vertex> e1 = edges.get(i1);
                 if (!Vertex.abut(e0, e1)) continue;
 
                 final double s1 = Vertex.length(e1);
                 outer2: for (int i2 = i1 + 1; i2 < edges.size(); i2++) {
-                    final Edge<Vertex> e2 = edges.get(i2);
+                    final QualifiedEdge<Vertex> e2 = edges.get(i2);
                     if (!Vertex.abut(e2, e1)) continue;
                     if (!Vertex.abut(e2, e0)) continue;
 
@@ -249,13 +259,110 @@ public final class GraphExamples {
 
         /* Recreate the remaining edges, but with capacities computed
          * from their costs and their vertex degrees. */
-        Collection<Edge<Vertex>> cappedEdges =
-            edges.stream()
-                .map(e -> new Edge<>(e.start, e.finish, capSupply
-                    .getCapacity(e.cost, degrees.get(e.start),
-                                 degrees.get(e.finish)), e.cost))
-                .collect(Collectors.toSet());
+        Collection<QualifiedEdge<Vertex>> cappedEdges = edges.stream()
+            .map(e -> new QualifiedEdge<>(e.start, e.finish, capSupply
+                .getCapacity(e.cost, degrees.get(e.start),
+                             degrees.get(e.finish)), e.cost))
+            .collect(Collectors.toSet());
 
         return new Graph(width, height, cappedEdges);
+    }
+
+    /**
+     * Select a random set of elements from a list.
+     * 
+     * @param <E> the element type
+     * 
+     * @param rng a random number generator
+     * 
+     * @param amount the maximum number of elements to select
+     * 
+     * @param from the element source
+     * 
+     * @return the selected elements
+     */
+    private static <E> Collection<E> select(Random rng, int amount,
+                                            List<? extends E> from) {
+        Collection<E> result =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+        if (!from.isEmpty()) for (int i = 0; i < amount; i++)
+            result.add(from.get(rng
+                .nextInt(rng.nextInt(rng.nextInt(from.size()) + 1) + 1)));
+        return result;
+    }
+
+    /**
+     * Create an elastically positioned scale-free graph.
+     * 
+     * @param rng a random number generator for choosing
+     * 
+     * @param vertexCount the number of vertices to create
+     * 
+     * @param connectivity the maximum number of edges to form from each
+     * new vertex
+     * 
+     * @param caps capacities to be applied to each resultant edge
+     * 
+     * @param display a display to be notified of each simulation
+     * advance
+     * 
+     * @return the requested graph
+     */
+    public static Graph
+        createElasticScaleFreeGraph(Random rng, int vertexCount,
+                                    int connectivity, CapacitySupply caps,
+                                    TopologyDisplay<Vertex> display) {
+        Collection<Edge<Vertex>> edges = new HashSet<>();
+        List<Vertex> vertexes = new ArrayList<>(vertexCount);
+        for (int i = 0; i < vertexCount; i++) {
+            Vertex nv = Vertex.at(i, 0.0);
+            for (Vertex av : select(rng, connectivity, vertexes)) {
+                Edge<Vertex> e = new Edge<>(nv, av);
+                edges.add(e);
+            }
+            vertexes.add(nv);
+        }
+        GraphMorpher morpher = new GraphMorpher(edges, display);
+        for (;;)
+            if (!morpher.advance()) break;
+        return morpher.freeze((int) (Math.sqrt(vertexCount) * 2.0), caps);
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) throws Exception {
+        /* Create a model that can be displayed and updated. */
+        SwingTopologyModelDisplay topoModel = new SwingTopologyModelDisplay();
+
+        /* Create a Swing window that displays the model. */
+        SwingUtilities.invokeLater(() -> {
+            GraphicsDevice device = GraphicsEnvironment
+                .getLocalGraphicsEnvironment().getScreenDevices()[0];
+            JFrame frame = new JFrame();
+            frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+            frame.setUndecorated(true);
+            device.setFullScreenWindow(frame);
+            TopologyPanel panel = new TopologyPanel(topoModel);
+            topoModel.setComponent(panel);
+            frame.setContentPane(panel);
+            panel.setPreferredSize(new Dimension(800, 800));
+            frame.validate();
+            frame.pack();
+            frame.setVisible(true);
+        });
+
+        Graph g = GraphExamples
+            .createElasticScaleFreeGraph(new Random(1), 10, 2,
+                                         (cost, startDegree,
+                                          finishDegree) -> BidiCapacity
+                                              .of(Capacity.at(1.0)),
+                                         topoModel);
+        try (PrintWriter out =
+            new PrintWriter(new File("scratch/scale-free-graph.svg"))) {
+            System.err.printf("Writing...%n");
+            g.drawSVG(out, null, null, 0.2, 0.3);
+        }
+        System.exit(0);
     }
 }

@@ -34,46 +34,25 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.graph;
+package uk.ac.lancs.dpb.graph.eval;
+
+import java.util.Collection;
+import uk.ac.lancs.dpb.graph.Edge;
 
 /**
- * Connects two ports. This actually represents a pair of directed edges
- * in opposite directions.
+ * Logs the current state of a topology.
+ * 
+ * @param <V> the vertex type
  * 
  * @author simpsons
  */
-public class Edge<P> {
+public interface TopologyDisplay<V> {
     /**
-     * The start port
-     */
-    public final P start;
-
-    /**
-     * The finish port
-     */
-    public final P finish;
-
-    /**
-     * Create a connection between two ports.
+     * Set the data to be displayed.
      * 
-     * @param start the starting port for forward travel
+     * @param speed the current speed factor
      * 
-     * @param finish the finishing port for forward travel
+     * @param edges a set of edges
      */
-    public Edge(P start, P finish) {
-        this.start = start;
-        this.finish = finish;
-    }
-
-    /**
-     * Get a string representation of this edge.
-     *
-     * @return the string representations of the ports, joined by a
-     * hyphen-minus
-     */
-    @Override
-    public String toString() {
-        return start + "-" + finish;
-    }
-
+    void setData(double speed, Collection<? extends Edge<? extends V>> edges);
 }

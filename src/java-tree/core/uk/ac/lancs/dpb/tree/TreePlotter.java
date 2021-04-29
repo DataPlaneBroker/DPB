@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.function.Function;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.DemandFunction;
-import uk.ac.lancs.dpb.graph.Edge;
+import uk.ac.lancs.dpb.graph.QualifiedEdge;
 
 /**
  * Plots trees over a graph connecting specific vertices. Graph edges
@@ -74,9 +74,10 @@ public interface TreePlotter {
      * {@link Function#identity()} as the port map.
      */
     default <V>
-        Iterable<? extends Map<? extends Edge<V>, ? extends BidiCapacity>>
+        Iterable<? extends Map<? extends QualifiedEdge<V>,
+                               ? extends BidiCapacity>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
-             Collection<? extends Edge<V>> edges) {
+             Collection<? extends QualifiedEdge<V>> edges) {
         return plot(goalOrder, bwreq, Function.identity(), edges);
     }
 
@@ -98,8 +99,10 @@ public interface TreePlotter {
      * 
      * @return a means to iterate over the solutions
      */
-    <P, V> Iterable<? extends Map<? extends Edge<P>, ? extends BidiCapacity>>
+    <P, V>
+        Iterable<? extends Map<? extends QualifiedEdge<P>,
+                               ? extends BidiCapacity>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
-             Collection<? extends Edge<P>> edges);
+             Collection<? extends QualifiedEdge<P>> edges);
 }

@@ -34,46 +34,37 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.graph;
+package uk.ac.lancs.dpb.graph.eval;
+
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
+import java.util.Collection;
+import java.util.List;
 
 /**
- * Connects two ports. This actually represents a pair of directed edges
- * in opposite directions.
+ * Models a topology.
  * 
  * @author simpsons
  */
-public class Edge<P> {
+public interface TopologyModel {
     /**
-     * The start port
-     */
-    public final P start;
-
-    /**
-     * The finish port
-     */
-    public final P finish;
-
-    /**
-     * Create a connection between two ports.
+     * Get the bounding rectangle of all points.
      * 
-     * @param start the starting port for forward travel
-     * 
-     * @param finish the finishing port for forward travel
+     * @return a rectangle that encompasses all points
      */
-    public Edge(P start, P finish) {
-        this.start = start;
-        this.finish = finish;
-    }
+    Rectangle2D.Double getBounds();
 
     /**
-     * Get a string representation of this edge.
-     *
-     * @return the string representations of the ports, joined by a
-     * hyphen-minus
+     * Get all the edges as lists of two points.
+     * 
+     * @return all the edges to be drawn
      */
-    @Override
-    public String toString() {
-        return start + "-" + finish;
-    }
+    Collection<? extends List<? extends Point2D.Double>> getEdges();
 
+    /**
+     * Get the speed factor of the simulation.
+     * 
+     * @return the speed factor
+     */
+    double speed();
 }

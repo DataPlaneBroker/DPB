@@ -36,7 +36,7 @@
 
 package uk.ac.lancs.dpb.graph.eval;
 
-import uk.ac.lancs.dpb.graph.Edge;
+import uk.ac.lancs.dpb.graph.QualifiedEdge;
 
 /**
  * Models a vertex in two-dimensional space.
@@ -144,7 +144,7 @@ public abstract class Vertex {
      */
     @Override
     public String toString() {
-        return String.format("(%.0f,%.0f)", x(), y());
+        return String.format("(%g,%g)", x(), y());
     }
 
     /**
@@ -192,7 +192,7 @@ public abstract class Vertex {
      * 
      * @return the edge's length
      */
-    public static double length(Edge<Vertex> edge) {
+    public static double length(QualifiedEdge<Vertex> edge) {
         return distance(edge.start, edge.finish);
     }
 
@@ -206,7 +206,8 @@ public abstract class Vertex {
      * 
      * @return {@code true} if the edges abut
      */
-    public static boolean abut(Edge<Vertex> e0, Edge<Vertex> e1) {
+    public static boolean abut(QualifiedEdge<Vertex> e0,
+                               QualifiedEdge<Vertex> e1) {
         if (e0 == e1) return false;
         if (e0.start == e1.start) return true;
         if (e0.start == e1.finish) return true;
@@ -225,7 +226,8 @@ public abstract class Vertex {
      * @return {@code true} if the edges cross, as defined by
      * {@link #edgesCross(Vertex, Vertex, Vertex, Vertex)}
      */
-    public static boolean cross(Edge<Vertex> e1, Edge<Vertex> e2) {
+    public static boolean cross(QualifiedEdge<Vertex> e1,
+                                QualifiedEdge<Vertex> e2) {
         return edgesCross(e1.start, e1.finish, e2.start, e2.finish);
     }
 
