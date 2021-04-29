@@ -43,6 +43,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Edge;
@@ -260,6 +261,22 @@ public class GraphMorpher {
             degrees.merge(edge.finish, 1, (v0, v1) -> v0 + v1);
         }
         this.degrees = Collections.unmodifiableMap(degrees);
+
+        if (false) {
+            Map<Integer, Integer> counts = new TreeMap<>();
+            for (var entry : degrees.entrySet()) {
+                int key = entry.getValue();
+                counts.merge(key, 1, (a, b) -> a + b);
+            }
+            System.err.printf("Population distribution: %s%n", counts);
+            System.err.printf("Population distribution: %s%n", counts.entrySet()
+                .stream()
+                .collect(Collectors
+                    .toMap(Map.Entry::getKey,
+                           e -> -Math
+                               .log(e.getValue() / (double) this.degrees.size())
+                               / Math.log(e.getKey()))));
+        }
 
         /* Give each vertex a mass one more than its degree. */
         assert this.degrees.size() == movers.size();
