@@ -281,13 +281,15 @@ public final class GraphExamples {
      * 
      * @return the selected elements
      */
-    private static <E> Collection<E> select(Random rng, int amount,
+    private static <E> Collection<E> select(Random rng, int amount, int depth,
                                             List<? extends E> from) {
         Collection<E> result =
             Collections.newSetFromMap(new IdentityHashMap<>());
-        if (!from.isEmpty()) for (int i = 0; i < amount; i++)
-            result.add(from.get(rng
-                .nextInt(rng.nextInt(rng.nextInt(from.size()) + 1) + 1)));
+        int p = rng.nextInt(amount) + 1;
+        for (int j = 0; j < depth; j++)
+            p = rng.nextInt(p) + 1;
+        if (!from.isEmpty()) for (int i = 0; i < p; i++)
+            result.add(from.get(rng.nextInt(from.size())));
         return result;
     }
 
@@ -301,6 +303,10 @@ public final class GraphExamples {
      * @param connectivity the maximum number of edges to form from each
      * new vertex
      * 
+     * @param depth the number of times the random number generator is
+     * applied to one plus its previous result to determine the number
+     * of vertices to attach to
+     * 
      * @param caps capacities to be applied to each resultant edge
      * 
      * @param display a display to be notified of each simulation
@@ -310,13 +316,14 @@ public final class GraphExamples {
      */
     public static Graph
         createElasticScaleFreeGraph(Random rng, int vertexCount,
-                                    int connectivity, CapacitySupply caps,
+                                    int connectivity, int depth,
+                                    CapacitySupply caps,
                                     TopologyDisplay<Vertex> display) {
         Collection<Edge<Vertex>> edges = new HashSet<>();
         List<Vertex> vertexes = new ArrayList<>(vertexCount);
         for (int i = 0; i < vertexCount; i++) {
             Vertex nv = Vertex.at(i, 0.0);
-            for (Vertex av : select(rng, connectivity, vertexes)) {
+            for (Vertex av : select(rng, connectivity, depth, vertexes)) {
                 Edge<Vertex> e = new Edge<>(nv, av);
                 edges.add(e);
             }
@@ -353,7 +360,7 @@ public final class GraphExamples {
         });
 
         Graph g = GraphExamples
-            .createElasticScaleFreeGraph(new Random(1), 10, 2,
+            .createElasticScaleFreeGraph(new Random(1), 100, 2, 3,
                                          (cost, startDegree,
                                           finishDegree) -> BidiCapacity
                                               .of(Capacity.at(1.0)),
