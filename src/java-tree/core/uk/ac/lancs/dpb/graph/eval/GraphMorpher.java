@@ -134,8 +134,9 @@ public class GraphMorpher {
         MovingVertex() {
             /* Arrange each vertex in a spiral. */
             int id = nextId++;
-            this.x = 0.3 * id * Math.cos(id);
-            this.y = 0.3 * id * Math.sin(id);
+            double pid = 0.3 * Math.pow(id, 1.2);
+            this.x = pid * Math.cos(id);
+            this.y = pid * Math.sin(id);
         }
 
         @Override
