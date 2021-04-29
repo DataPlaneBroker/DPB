@@ -363,7 +363,8 @@ public final class GraphExamples {
             .createElasticScaleFreeGraph(new Random(1), 100, 2, 3,
                                          (cost, startDegree,
                                           finishDegree) -> BidiCapacity
-                                              .of(Capacity.at(1.0)),
+                                              .of(Capacity.at(startDegree),
+                                                  Capacity.at(finishDegree)),
                                          topoModel);
         try (PrintWriter out =
             new PrintWriter(new File("scratch/scale-free-graph.svg"))) {
