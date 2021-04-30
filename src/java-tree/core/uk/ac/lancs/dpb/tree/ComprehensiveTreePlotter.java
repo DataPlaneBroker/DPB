@@ -1661,6 +1661,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* Choose a tree. */
         final Map<QualifiedEdge<Vertex>, BidiCapacity> tree;
         if (true) {
+            final long startTime = System.currentTimeMillis();
             TreePlotter plotter =
                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter
                     .biasThreshold(0.99));
@@ -1703,6 +1704,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                                           .collect(Collectors.joining(", ")));
                 }
             }
+            final long stopTime = System.currentTimeMillis();
+            System.out.printf("Elapsed time: %g s%n",
+                              (stopTime - startTime) / 1000.0);
             tree = best == null ? Collections.emptyMap() : Map.copyOf(best);
         } else {
             tree = Collections.emptyMap();
