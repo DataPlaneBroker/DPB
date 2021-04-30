@@ -85,7 +85,54 @@ import uk.ac.lancs.dpb.graph.QualifiedEdge;
  * @author simpsons
  */
 public class ComprehensiveTreePlotter implements TreePlotter {
-    private static final double biasThreshold = 0.99;
+    /**
+     * Determines whether a {@link ComprehensiveTreePlotter} should
+     * eliminate biased edges.
+     */
+    public interface Assessor {
+        /**
+         * Determine what bias to use to eliminate edge modes.
+         * 
+         * @param currentThreshold the current threshold
+         * 
+         * @param radixes the radices that would be used if elimination
+         * stopped now
+         * 
+         * @return the new threshold in [0, 1] and less than the current
+         * threshold to continue with another round of elimination; or
+         * negative or at least the current threshold to stop
+         */
+        double getBiasThreshold(double currentThreshold, int[] radixes);
+    }
+
+    /**
+     * Indicates that no edge modes are to be removed for bias.
+     */
+    public static final Assessor ALL_EDGE_MODES =
+        (currentThreshold, radixes) -> -1.0;
+
+    /**
+     * Get an assessor that uses specifies a static threshold. Only one
+     * round of elimination will take place, and at this threshold.
+     * 
+     * @param threshold the fixed bias threshold
+     * 
+     * @return the requested assessor
+     */
+    public static Assessor biasThreshold(double threshold) {
+        return (currentThreshold, radixes) -> threshold;
+    }
+
+    private final Assessor assessor;
+
+    /**
+     * Create a comprehensive tree plotter.
+     * 
+     * @param assessor an agent deciding whether to remove biased edges
+     */
+    public ComprehensiveTreePlotter(Assessor assessor) {
+        this.assessor = assessor;
+    }
 
     private static class Path<V> {
         final double distance;
@@ -340,6 +387,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         final int modeCount = (1 << goalIndex.size()) - 1;
 
         class Routing {
+            private double biasThreshold = 1.1;
+
             private final Map<QualifiedEdge<P>, BitSet> edgeCaps =
                 new LinkedHashMap<>();
 
@@ -661,6 +710,42 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 return changed;
             }
 
+            /**
+             * Consult the assessor on what bias threshold to use next.
+             * {@link #biasThreshold} will be updated if the new value
+             * is non-negative and less than the current value, and
+             * {@code true} will be returned, indicating that a further
+             * round of mode elimination should proceed. Otherwise,
+             * {@code false} is returned.
+             * 
+             * @return whether to proceed with another round of mode
+             * elimination
+             */
+            boolean adequateReduction() {
+                /* Get the proposed over-unity radices to offer to the
+                 * user. */
+                int[] rdx =
+                    edgeCaps.values().stream().mapToInt(BitSet::cardinality)
+                        .filter(i -> i > 0).map(i -> i + 1).toArray();
+                double newThreshold =
+                    assessor.getBiasThreshold(biasThreshold, rdx);
+                if (newThreshold < 0.0 || newThreshold >= biasThreshold ||
+                    newThreshold > 1.0) return false;
+                biasThreshold = newThreshold;
+                return true;
+            }
+
+            /**
+             * Eliminate biased edge modes. Routing tables of the goals
+             * are first populated with zero-distance paths to
+             * themselves. Tables of all vertices are then updated until
+             * they converge. Each remaining edge mode's bias is then
+             * computed, and those above a threshold are eliminated,
+             * invalidating the routing tables. Routing update and mode
+             * elimination repeats. A round of routing update and mode
+             * elimination proceeds only if there are invalid routes or
+             * the threshold is reduced.
+             */
             void route() {
                 System.err.printf("Routing...%n");
                 /* Record each goal as zero distance from itself, and
@@ -668,16 +753,24 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 for (V goal : goalIndex)
                     setDistance(goal, goal, Path.root(goal));
 
-                while (!invalidGoals.isEmpty()) {
-                    /* Get the routing tables up-to-date. */
-                    for (Pair<V, V> pair : remainingIn(invalidGoals)) {
-                        updateDistance(pair.item1, pair.item2);
-                    }
+                /* Keep telling the user how big the problem is, and
+                 * asking whether a lower threshold should be used. Stop
+                 * when they say 'no'. */
+                while (adequateReduction()) {
+                    /* Keep updating routes and eliminating edge modes
+                     * as long as there are invalid entries in the
+                     * routing tables. */
+                    while (!invalidGoals.isEmpty()) {
+                        /* Get the routing tables up-to-date. */
+                        for (Pair<V, V> pair : remainingIn(invalidGoals)) {
+                            updateDistance(pair.item1, pair.item2);
+                        }
 
-                    /* Look for edge modes to eliminate. */
-                    for (Pair<QualifiedEdge<P>,
-                              V> pair : remainingIn(invalidEdges)) {
-                        updateEdge(pair.item1, pair.item2);
+                        /* Look for edge modes to eliminate. */
+                        for (Pair<QualifiedEdge<P>,
+                                  V> pair : remainingIn(invalidEdges)) {
+                            updateEdge(pair.item1, pair.item2);
+                        }
                     }
                 }
 
@@ -1568,7 +1661,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* Choose a tree. */
         final Map<QualifiedEdge<Vertex>, BidiCapacity> tree;
         if (true) {
-            TreePlotter plotter = new ComprehensiveTreePlotter();
+            TreePlotter plotter =
+                new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                    .biasThreshold(0.99));
             final DemandFunction bwreq;
             if (true) {
                 bwreq = new PairDemandFunction(IntStream.range(0, goals.size())
