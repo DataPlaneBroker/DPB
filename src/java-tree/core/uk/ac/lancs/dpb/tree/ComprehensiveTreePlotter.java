@@ -747,7 +747,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * the threshold is reduced.
              */
             void route() {
-                System.err.printf("Routing...%n");
+                if (false) System.err.printf("Routing...%n");
                 /* Record each goal as zero distance from itself, and
                  * invalidate its neighbours. */
                 for (V goal : goalIndex)
@@ -781,7 +781,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     var item = iter.next();
                     if (item.getValue().isEmpty()) iter.remove();
                 }
-                System.err.printf("Routing complete%n");
+                if (false) System.err.printf("Routing complete%n");
             }
 
             /**
@@ -882,7 +882,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         routing.deriveVertexes();
         final Map<QualifiedEdge<P>, BitSet> edgeCaps = routing.getEdgeModes();
-        System.err.printf("caps: %s%n", edgeCaps);
+        if (false) System.err.printf("caps: %s%n", edgeCaps);
 
         final Map<V, Collection<QualifiedEdge<P>>> inwards =
             routing.getInwardEdges();
