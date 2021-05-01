@@ -120,12 +120,14 @@ public final class Graph {
     public List<Vertex> chooseGoals(int amount, Random rng) {
         List<Vertex> options = new ArrayList<>(vertexes);
         List<Vertex> result = new ArrayList<>(amount);
-        while (amount > 0 && !result.isEmpty()) {
-            int choice = rng.nextInt(options.size());
-            Vertex item = options.remove(choice);
+        int remaining = amount;
+        while (remaining > 0 && !options.isEmpty()) {
+            int pos = rng.nextInt(options.size());
+            Vertex item = options.remove(pos);
             result.add(item);
-            amount--;
+            remaining--;
         }
+        assert result.size() == Math.min(amount, vertexes.size());
         return List.copyOf(result);
     }
 
