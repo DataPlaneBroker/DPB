@@ -36,6 +36,8 @@
 
 package uk.ac.lancs.dpb.graph;
 
+import java.util.stream.Stream;
+
 /**
  * Connects two ports. This actually represents a pair of directed edges
  * in opposite directions.
@@ -63,6 +65,15 @@ public class Edge<P> {
     public Edge(P start, P finish) {
         this.start = start;
         this.finish = finish;
+    }
+
+    /**
+     * Get a stream of the two ports.
+     * 
+     * @return a stream of the two ports
+     */
+    public final Stream<P> stream() {
+        return Stream.of(start, finish);
     }
 
     /**
