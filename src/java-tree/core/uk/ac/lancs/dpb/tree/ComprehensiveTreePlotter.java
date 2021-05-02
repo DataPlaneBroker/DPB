@@ -372,6 +372,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
              Collection<? extends QualifiedEdge<P>> edges) {
+        /* If there are fewer than two goals, the solution is simple. No
+         * edges are used. */
+        if (goalOrder.size() < 2)
+            return Collections.singleton(Collections.emptyMap());
+
         /* Assign each goal an integer. */
         final Index<V> goalIndex = Index.copyOf(goalOrder);
 
