@@ -475,6 +475,19 @@ public class GraphMorpher {
         return true;
     }
 
+    private static <E> Collection<E> newIdentityHashSet() {
+        return Collections.newSetFromMap(new IdentityHashMap<>());
+    }
+
+    private static <E> Collection<E>
+        sumIdentityHashSets(Collection<? extends E> a,
+                            Collection<? extends E> b) {
+        Collection<E> result = newIdentityHashSet();
+        result.addAll(a);
+        result.addAll(b);
+        return result;
+    }
+
     /**
      * Get a frozen copy of the graph. It will be scaled to an ideal
      * size if too small, and its top left will be aligned to the
@@ -513,8 +526,17 @@ public class GraphMorpher {
         /* Scale everything to an ideal size. */
         vertexes.parallelStream().forEach(v -> v.scale(scale));
 
+        /* Create a fixed vertex for each moving one. */
+        Collection<Mote> motes = edges.stream().flatMap(Edge::stream)
+            .collect(GraphMorpher::newIdentityHashSet, Collection::add,
+                     GraphMorpher::sumIdentityHashSets);
+        Map<Mote, Vertex> fixed = new IdentityHashMap<>();
+        for (Mote m : motes)
+            fixed.put(m, Vertex.at(m.x, m.y));
+
         /* Convert the edges so their costs match their lengths, and
-         * have capacities based on their degrees. */
+         * have capacities based on their degrees. Build the edges out
+         * of the fixed versions of their vertices. */
         Collection<QualifiedEdge<Vertex>> newEdges = edges.stream().map(e -> {
             var a = e.start;
             var b = e.finish;
@@ -522,8 +544,8 @@ public class GraphMorpher {
             int ad = degrees.get(a);
             int bd = degrees.get(b);
             BidiCapacity cap = caps.getCapacity(cost, ad, bd);
-            Vertex fa = Vertex.at(a.x, a.y);
-            Vertex fb = Vertex.at(b.x, b.y);
+            Vertex fa = fixed.get(a);
+            Vertex fb = fixed.get(b);
             return new QualifiedEdge<>(fa, fb, cap, cost);
         }).collect(Collectors.toSet());
 
