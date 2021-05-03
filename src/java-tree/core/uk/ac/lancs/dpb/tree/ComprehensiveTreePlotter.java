@@ -1241,7 +1241,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             constraints[i] = checkers.getOrDefault(i, Collections.emptySet())
                 .toArray(n -> new Constraint[n]);
 
-        {
+        if (false) {
             /* Display all edge modes. */
             for (var entry : edgeIndex.decode().entrySet()) {
                 var e = entry.getValue();
@@ -1675,10 +1675,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (best == null || score < bestScore) {
                     best = cand;
                     bestScore = score;
-                    System.err.printf("acc %g: %s%n", bestScore,
-                                      best.entrySet().stream()
-                                          .map(e -> e.getKey().toString())
-                                          .collect(Collectors.joining(", ")));
+                    if (false) System.err
+                        .printf("acc %g: %s%n", bestScore,
+                                best.entrySet().stream()
+                                    .map(e -> e.getKey().toString())
+                                    .collect(Collectors.joining(", ")));
                 }
             }
             tree = best == null ? Collections.emptyMap() : Map.copyOf(best);
