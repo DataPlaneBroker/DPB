@@ -213,8 +213,20 @@ public class Performance {
                                         graph.drawSVG(out, goals, best, 0.2,
                                                       0.3);
                                     }
+                                    System.err.printf("%d vertices; graph %d;"
+                                        + " %d goals;" + " goalset %d;" + " %s"
+                                        + " took %g s to find" + " best %g%n",
+                                                      vertexCount, graphIter,
+                                                      goalCount, chalIter, name,
+                                                      duration, bestScore);
                                 } else {
                                     svg.delete();
+                                    System.err.printf("%d vertices; graph %d;"
+                                        + " %d goals;" + " goalset %d;" + " %s"
+                                        + " took %g s to find"
+                                        + " no solution%n", vertexCount,
+                                                      graphIter, goalCount,
+                                                      chalIter, name, duration);
                                 }
                             }
                         }
