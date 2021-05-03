@@ -39,7 +39,11 @@ package uk.ac.lancs.dpb.tree;
 import java.util.AbstractList;
 import java.util.AbstractMap;
 import java.util.AbstractSet;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -50,24 +54,48 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
- * Assigns a zero-based integer to each distinct element of a
- * collection.
+ * Holds a list of distinct objects with a zero-based index.
  * 
  * @author simpsons
  */
-class Index<E> extends AbstractList<E> {
+class Sequence<E> extends AbstractList<E> {
     private final E[] array;
 
     private final Map<E, Integer> map;
 
-    private Index(E[] array, Map<E, Integer> map) {
+    private Sequence(E[] array, Map<E, Integer> map) {
         this.array = array;
         this.map = map;
     }
 
     /**
-     * Create an index. The iteration order of the collection will
-     * determine the index of each element.
+     * Create a sequence. The iteration order of the collection will
+     * determine the index of each element. Duplicates (according to
+     * {@link Object#equals(Object)} and {@link Object#hashCode()} will
+     * be removed.
+     * 
+     * @param <E> the element type
+     * 
+     * @param input the collection to create a sequence of
+     * 
+     * @return a sequence of the provided elements
+     */
+    public static <E> Sequence<E> copyOf(Collection<? extends E> input) {
+        List<E> order = List.copyOf(new LinkedHashSet<>(input));
+        Map<E, Integer> map = IntStream.range(0, order.size()).boxed()
+            .collect(Collectors.toMap(order::get, i -> i));
+        @SuppressWarnings("unchecked")
+        E[] array = (E[]) new Object[order.size()];
+        order.toArray(array);
+        return new Sequence<>(array, map);
+    }
+
+    /**
+     * Create a sequence using identity. The iteration order of the
+     * collection will determine the index of each element. Duplicate
+     * references to the same elements will be removed. No element's
+     * {@link Object#equals(Object)} method will be invoked by this
+     * collection.
      * 
      * @param <E> the element type
      * 
@@ -75,14 +103,15 @@ class Index<E> extends AbstractList<E> {
      * 
      * @return an index of the provided elements
      */
-    public static <E> Index<E> copyOf(Collection<? extends E> input) {
-        List<E> order = List.copyOf(new LinkedHashSet<>(input));
-        Map<E, Integer> map = IntStream.range(0, order.size()).boxed()
-            .collect(Collectors.toMap(order::get, i -> i));
+    public static <E> Sequence<E>
+        identityCopyOf(Collection<? extends E> input) {
+        List<E> order = new ArrayList<>(input.size());
+        Map<E, Integer> map = new IdentityHashMap<>();
+        for (E e : input)
+            if (map.putIfAbsent(e, order.size()) == null) order.add(e);
         @SuppressWarnings("unchecked")
-        E[] array = (E[]) new Object[order.size()];
-        order.toArray(array);
-        return new Index<>(array, map);
+        E[] array = order.toArray(n -> (E[]) new Object[n]);
+        return new Sequence<>(array, Collections.unmodifiableMap(map));
     }
 
     /**
@@ -147,18 +176,48 @@ class Index<E> extends AbstractList<E> {
         }
     };
 
+    /**
+     * Get a map view of indices to elements. The iteration order will
+     * be by increasing index.
+     * 
+     * @return an immutable map view of indices to elements
+     */
     public Map<Integer, E> decode() {
         return indexToElem;
     }
 
+    /**
+     * Get a map view of elements to indices. The iteration order will
+     * be by increasing index.
+     * 
+     * @return an immutable map view of elements to indices
+     */
     public Map<E, Integer> encode() {
         return elemToIndex;
     }
 
+    /**
+     * Test whether an element is part of the sequence.
+     * 
+     * @param elem the element to test
+     * 
+     * @return {@code true} if the element is part of the sequence;
+     * {@code false} otherwise
+     */
     public boolean containsElement(E elem) {
         return map.containsKey(elem);
     }
 
+    /**
+     * Test whether an index is part of the sequence. Only indices in
+     * the range {@code 0} (inclusive) to {@link #size()} (exclusive)
+     * are in the sequence.
+     * 
+     * @param index the index to test
+     * 
+     * @return {@code true} if the index is part of the index;
+     * {@code false} otherwise
+     */
     public boolean containsIndex(int index) {
         return index >= 0 && index < array.length;
     }
@@ -260,25 +319,10 @@ class Index<E> extends AbstractList<E> {
 
                     @Override
                     public Map.Entry<E, Integer> next() {
-                        if (i < array.length)
-                            return new Map.Entry<E, Integer>() {
-                                int p = i++;
-
-                                @Override
-                                public E getKey() {
-                                    return array[p];
-                                }
-
-                                @Override
-                                public Integer getValue() {
-                                    return p;
-                                }
-
-                                @Override
-                                public Integer setValue(Integer value) {
-                                    throw new UnsupportedOperationException("unsupported");
-                                }
-                            };
+                        if (i < array.length) {
+                            final int p = i++;
+                            return Map.entry(array[p], p);
+                        }
                         throw new NoSuchElementException();
                     }
                 };
@@ -304,25 +348,10 @@ class Index<E> extends AbstractList<E> {
 
                     @Override
                     public Map.Entry<Integer, E> next() {
-                        if (i < array.length)
-                            return new Map.Entry<Integer, E>() {
-                                int p = i++;
-
-                                @Override
-                                public Integer getKey() {
-                                    return p;
-                                }
-
-                                @Override
-                                public E getValue() {
-                                    return array[p];
-                                }
-
-                                @Override
-                                public E setValue(E value) {
-                                    throw new UnsupportedOperationException("unsupported");
-                                }
-                            };
+                        if (i < array.length) {
+                            final int p = i++;
+                            return Map.entry(p, array[p]);
+                        }
                         throw new NoSuchElementException();
                     }
                 };
@@ -339,7 +368,8 @@ class Index<E> extends AbstractList<E> {
      * 
      * @param index the position in the index
      * 
-     * @return the indexed element; or {@code null} if an invalid index
+     * @return the indexed element; or {@code null} if the index is not
+     * part of the sequence (negative or not less than the size)
      */
     @Override
     public E get(int index) {
@@ -347,8 +377,28 @@ class Index<E> extends AbstractList<E> {
         return null;
     }
 
+    /**
+     * Get the number of elements in this sequence.
+     * 
+     * @return the size of this sequence
+     */
     @Override
     public int size() {
         return array.length;
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) throws Exception {
+        String stong = new String("stong");
+        String stong2 = new String("stong");
+        Sequence<String> eqidx =
+            Sequence.copyOf(Arrays.asList("hello", stong, "big", "stong"));
+        System.out.printf("equals: %s%n", eqidx);
+        assert stong != stong2;
+        Sequence<String> ididx = Sequence
+            .identityCopyOf(Arrays.asList("hello", stong, "big", stong2));
+        System.out.printf("identity: %s%n", ididx);
     }
 }

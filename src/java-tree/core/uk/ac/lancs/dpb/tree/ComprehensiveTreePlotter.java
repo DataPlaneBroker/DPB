@@ -360,7 +360,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         boolean isOwn(int en);
     }
 
-    private static <V> String setString(BitSet pat, Index<V> goalIndex) {
+    private static <V> String setString(BitSet pat, Sequence<V> goalIndex) {
         return "{" + pat.stream().mapToObj(goalIndex::get).map(Object::toString)
             .collect(Collectors.joining("+")) + "}";
     }
@@ -378,7 +378,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             return Collections.singleton(Collections.emptyMap());
 
         /* Assign each goal an integer. */
-        final Index<V> goalIndex = Index.copyOf(goalOrder);
+        final Sequence<V> goalSequence = Sequence.identityCopyOf(goalOrder);
 
         /* Compute the number of modes each edge can be used in. Each
          * mode is a bit pattern where the position of each bit
@@ -389,7 +389,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * mode is similarly useless; however, we co-opt it to indicate
          * an edge that isn't used. This number is always 1 less than a
          * power of 2. */
-        final int modeCount = (1 << goalIndex.size()) - 1;
+        final int modeCount = (1 << goalSequence.size()) - 1;
 
         class Routing {
             private double biasThreshold = 1.1;
@@ -424,10 +424,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         /* If the edge has a goal as its start, its from
                          * set must include that goal. */
                         {
-                            int goal =
-                                goalIndex.getAsInt(portMap.apply(edge.start));
+                            int goal = goalSequence
+                                .getAsInt(portMap.apply(edge.start));
                             if (goal >= 0) {
-                                assert goal < goalIndex.size();
+                                assert goal < goalSequence.size();
                                 if (!fwd.get(goal)) continue;
                             }
                         }
@@ -435,10 +435,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         /* If the edge has a goal as its finish, its to
                          * set must include that goal. */
                         {
-                            int goal =
-                                goalIndex.getAsInt(portMap.apply(edge.finish));
+                            int goal = goalSequence
+                                .getAsInt(portMap.apply(edge.finish));
                             if (goal >= 0) {
-                                assert goal < goalIndex.size();
+                                assert goal < goalSequence.size();
                                 if (fwd.get(goal)) continue;
                             }
                         }
@@ -568,7 +568,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 /* We never compute the distance to ourselves. */
                 if (vertex == goal) return;
 
-                final int gn = goalIndex.getAsInt(goal);
+                final int gn = goalSequence.getAsInt(goal);
                 final int bit = 1 << gn;
                 Path<V> best = null;
 
@@ -656,7 +656,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 Path<V> finishPath =
                     getDistance(portMap.apply(edge.finish), goal);
                 if (startPath == null || finishPath == null) {
-                    final int gn = goalIndex.getAsInt(goal);
+                    final int gn = goalSequence.getAsInt(goal);
                     BitSet modes = edgeCaps.get(edge);
                     modes.clear();
                     if (false) System.err
@@ -671,7 +671,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* The finish is significantly more distant from the
                      * goal than the start is. Remove modes from this
                      * edge where the 'from' set includes the goal. */
-                    final int gn = goalIndex.getAsInt(goal);
+                    final int gn = goalSequence.getAsInt(goal);
                     final int bit = 1 << gn;
                     BitSet modes = edgeCaps.get(edge);
                     for (int mode = modes.nextSetBit(0); mode >= 0;
@@ -688,7 +688,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     /* The start is significantly more distant from the
                      * goal than the finish is. Remove modes from this
                      * edge where the 'from' set excludes the goal. */
-                    final int gn = goalIndex.getAsInt(goal);
+                    final int gn = goalSequence.getAsInt(goal);
                     final int bit = 1 << gn;
                     BitSet modes = edgeCaps.get(edge);
                     for (int mode = modes.nextSetBit(0); mode >= 0;
@@ -755,7 +755,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (false) System.err.printf("Routing...%n");
                 /* Record each goal as zero distance from itself, and
                  * invalidate its neighbours. */
-                for (V goal : goalIndex)
+                for (V goal : goalSequence)
                     setDistance(goal, goal, Path.root(goal));
 
                 /* Keep telling the user how big the problem is, and
@@ -819,12 +819,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
 
             /**
-             * Get an almost arbitrary index of vertices. The only
+             * Get an almost arbitrary sequence of vertices. The only
              * guaranteed ordering is that the initial vertices are also
              * the goals, in the originally specified order.
              */
-            Index<V> getVertexOrder() {
-                return Index.copyOf(vertexes);
+            Sequence<V> getVertexOrder() {
+                return Sequence.identityCopyOf(vertexes);
             }
 
             /**
@@ -832,7 +832,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * {@link #deriveVertexes()} must be called before this
              * method.
              */
-            Index<QualifiedEdge<P>> getEdgeOrder() {
+            Sequence<QualifiedEdge<P>> getEdgeOrder() {
                 Collection<QualifiedEdge<P>> reachOrder = new LinkedHashSet<>();
                 Collection<V> reachables = new HashSet<>();
                 Collection<V> newReachables = new LinkedHashSet<>();
@@ -876,7 +876,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 List<QualifiedEdge<P>> edgeOrder = new ArrayList<>(reachOrder);
                 Collections.reverse(edgeOrder);
 
-                return Index.copyOf(edgeOrder);
+                return Sequence.copyOf(edgeOrder);
             }
         }
 
@@ -893,11 +893,11 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             routing.getInwardEdges();
         final Map<V, Collection<QualifiedEdge<P>>> outwards =
             routing.getOutwardEdges();
-        final Index<V> vertexOrder = routing.getVertexOrder();
+        final Sequence<V> vertexOrder = routing.getVertexOrder();
 
         /* The goal order should be a subsequence of the vertex
          * order. */
-        for (var entry : goalIndex.decode().entrySet())
+        for (var entry : goalSequence.decode().entrySet())
             assert vertexOrder.get(entry.getKey()) == entry.getValue();
 
         /* Ensure that every goal has an edge. */
@@ -912,8 +912,10 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         /* Assign each edge's mode to a digit in a multi-base number.
          * Index 0 will be the least significant digit. Edges that are
          * most reachable will correspond to the most significant
-         * digits. */
-        final Index<QualifiedEdge<P>> edgeIndex = routing.getEdgeOrder();
+         * digits. This call returns null if it detects a detached
+         * goal. */
+        final Sequence<QualifiedEdge<P>> edgeIndex = routing.getEdgeOrder();
+        if (edgeIndex == null) return Collections.emptyList();
         assert edgeIndex.size() <= edgeCaps.size();
 
         /* Create a mapping from mode index to mode pattern for each
@@ -1189,7 +1191,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             @Override
             public String toString() {
                 return String.format("except goal %d%s %s", goal,
-                                     goalIndex.get(goal), super.toString());
+                                     goalSequence.get(goal), super.toString());
             }
 
             @Override
@@ -1238,7 +1240,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 }
             }
 
-            final int goalNumber = goalIndex.getAsInt(vertex);
+            final int goalNumber = goalSequence.getAsInt(vertex);
             if (goalNumber >= 0) {
                 assert goalOrder.get(goalNumber) == vertex;
 
