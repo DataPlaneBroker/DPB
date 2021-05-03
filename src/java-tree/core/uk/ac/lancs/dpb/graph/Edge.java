@@ -42,6 +42,9 @@ import java.util.stream.Stream;
  * Connects two ports. This actually represents a pair of directed edges
  * in opposite directions.
  * 
+ * <p>
+ * No edge equals another edge that is not the same object.
+ * 
  * @author simpsons
  */
 public class Edge<P> {
@@ -87,4 +90,30 @@ public class Edge<P> {
         return start + "-" + finish;
     }
 
+    /**
+     * Get the hash code for this object. This uses the identity hash
+     * code.
+     * 
+     * @see System#identityHashCode(Object)
+     * 
+     * @return the hash code for this object
+     */
+    @Override
+    public final int hashCode() {
+        return System.identityHashCode(this);
+    }
+
+    /**
+     * Test whether another object equals this edge. No two edges are
+     * equal unless they are the same object.
+     * 
+     * @param obj the other object
+     * 
+     * @return {@code true} if the other object is this object;
+     * {@code false} otherwise
+     */
+    @Override
+    public final boolean equals(Object obj) {
+        return this == obj;
+    }
 }
