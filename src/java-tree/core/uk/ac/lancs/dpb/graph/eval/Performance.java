@@ -167,7 +167,7 @@ public class Performance {
                                         if (best == null || score < bestScore) {
                                             best = cand;
                                             bestScore = score;
-                                            System.err
+                                            if (false) System.err
                                                 .printf("acc %g: %s%n",
                                                         bestScore,
                                                         best.entrySet().stream()
