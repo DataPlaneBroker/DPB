@@ -218,6 +218,32 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     }
 
     /**
+     * Create a deep immutable copy of a map, using identity of keys.
+     * 
+     * @param <K> the key type
+     * 
+     * @param <V> the value type
+     * 
+     * @param input the map to copy
+     * 
+     * @param op a means to create immutable values
+     * 
+     * @return an unmodifiable map with the same contents as the input
+     * map, but with each value passed through the operator
+     */
+    private static <K, V> Map<K, V> deepIdentityCopy(Map<K, V> input,
+                                                     UnaryOperator<V> op) {
+        Map<K, V> output = new IdentityHashMap<>(input);
+        for (var entry : output.entrySet())
+            entry.setValue(op.apply(entry.getValue()));
+        return Collections.unmodifiableMap(output);
+    }
+
+    private static <E> Collection<E> newIdentityHashSet() {
+        return Collections.newSetFromMap(new IdentityHashMap<>());
+    }
+
+    /**
      * Convert a bit set to a big integer.
      * 
      * @param bs the bit set
@@ -456,7 +482,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Holds all reachable vertices, in order of reachability.
              * {@link #reachEdges()} must be called to populate this.
              */
-            private final Collection<V> vertexes = new LinkedHashSet<>();
+            private final Collection<V> vertexes =
+                LinkedIdentityHashMap.asSet();
 
             /**
              * Identify all vertices, and how to walk from a vertex to
@@ -765,13 +792,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * each vertex.
              */
             Map<V, Collection<QualifiedEdge<P>>> getInwardEdges() {
-                /* TODO: Collectors.toMap and Set.copyOf should suffice,
-                 * but they cause perturbations that make fault
-                 * diagnosis difficult. */
-                return deepCopy(inwards, Collections::unmodifiableCollection);
-                // return inwards.entrySet().stream().collect(Collectors
-                // .toMap(Map.Entry::getKey, e ->
-                // Set.copyOf(e.getValue())));
+                return deepIdentityCopy(inwards,
+                                        Collections::unmodifiableCollection);
             }
 
             /**
@@ -779,14 +801,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * vertex.
              */
             Map<V, Collection<QualifiedEdge<P>>> getOutwardEdges() {
-                /* TODO: Collectors.toMap and Set.copyOf should suffice,
-                 * but they cause perturbations that make fault
-                 * diagnosis difficult. */
-                return deepCopy(outwards, Collections::unmodifiableCollection);
-                // return
-                // outwards.entrySet().stream().collect(Collectors
-                // .toMap(Map.Entry::getKey, e ->
-                // Set.copyOf(e.getValue())));
+                return deepIdentityCopy(outwards,
+                                        Collections::unmodifiableCollection);
             }
 
             /**
@@ -805,9 +821,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              */
             Sequence<QualifiedEdge<P>> getEdgeOrder() {
                 Collection<QualifiedEdge<P>> reachOrder = new LinkedHashSet<>();
-                Collection<V> reachables = new HashSet<>();
-                Collection<V> newReachables = new LinkedHashSet<>();
-                newReachables.addAll(goalIndex);
+                Collection<V> reachables = newIdentityHashSet();
+                Collection<V> newReachables =
+                    LinkedIdentityHashMap.asSet(goalSequence);
                 while (!newReachables.isEmpty()) {
                     /* Pick a vertex that we haven't handled yet, and
                      * mark it as handled. */
@@ -816,12 +832,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     reachables.add(vertex);
 
                     /* Find all neighbours of the vertex. */
-                    Collection<V> cands = new HashSet<>();
                     Collection<? extends QualifiedEdge<P>> inEdges =
                         inwards.get(vertex);
-                    assert inEdges != null;
-                    cands.addAll(inEdges.stream().map(e -> e.start).map(portMap)
-                        .collect(Collectors.toSet()));
                     Collection<? extends QualifiedEdge<P>> outEdges =
                         outwards.get(vertex);
                     if (inEdges == null || outEdges == null) {
