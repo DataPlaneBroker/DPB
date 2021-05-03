@@ -824,9 +824,59 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                         .collect(Collectors.toSet()));
                     Collection<? extends QualifiedEdge<P>> outEdges =
                         outwards.get(vertex);
+                    if (inEdges == null || outEdges == null) {
+                        /* A goal has been completely detached by
+                         * elimination of its edges. */
+                        if (false) {
+                            System.err.printf("vertex %s is detached%n",
+                                              vertex);
+                            System.err.printf("in vertices: %s%n",
+                                              inwards.keySet());
+                            inwards.keySet().stream()
+                                .filter(e -> e.toString()
+                                    .equals(vertex.toString()))
+                                .filter(e -> e != vertex)
+                                .forEach(e -> System.err
+                                    .printf("unmatched: %s(%d)(%d)  %s(%d)(%d)%n",
+                                            e, e.hashCode(),
+                                            System.identityHashCode(e), vertex,
+                                            vertex.hashCode(),
+                                            System.identityHashCode(vertex)));
+                            System.err.printf("out vertices: %s%n",
+                                              outwards.keySet());
+                            outwards.keySet().stream()
+                                .filter(e -> e.toString()
+                                    .equals(vertex.toString()))
+                                .filter(e -> e != vertex)
+                                .forEach(e -> System.err
+                                    .printf("unmatched: %s(%d)(%d)  %s(%d)(%d)%n",
+                                            e, e.hashCode(),
+                                            System.identityHashCode(e), vertex,
+                                            vertex.hashCode(),
+                                            System.identityHashCode(vertex)));
+                            assert !inwards.keySet().contains(vertex);
+                        }
+                        assert goalSequence.contains(vertex);
+
+                        /* Both in and out edges must be null because
+                         * deriveVertexes() always ensures that any
+                         * referenced vertex has an entry in both
+                         * 'inwards' and 'outwards'. */
+                        assert inEdges == outEdges;
+
+                        /* Indicate that we can't fulfil this
+                         * request. */
+                        return null;
+                    }
+
+                    /* Identify the neighbour vertices of this one. */
+                    Collection<V> cands = newIdentityHashSet();
+                    assert inEdges != null;
+                    for (var e : inEdges)
+                        cands.add(portMap.apply(e.start));
                     assert outEdges != null;
-                    cands.addAll(outEdges.stream().map(e -> e.finish)
-                        .map(portMap).collect(Collectors.toSet()));
+                    for (var e : outEdges)
+                        cands.add(portMap.apply(e.finish));
 
                     /* Ensure the edges are accounted for. */
                     reachOrder.addAll(outEdges);
