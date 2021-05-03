@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.dpb.graph.eval;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -45,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Edge;
 import uk.ac.lancs.dpb.graph.QualifiedEdge;
@@ -157,13 +159,15 @@ public class GraphMorpher {
          */
         double mass = 1.0;
 
+        final int id;
+
         /**
          * Create a mote. Each new mote is placed along a spiral around
          * the origin as its initial position.
          */
         Mote() {
             /* Arrange each vertex in a spiral. */
-            int id = nextId++;
+            this.id = nextId++;
             double pid = 0.3 * Math.pow(id, 1.2);
             this.x = pid * Math.cos(id);
             this.y = pid * Math.sin(id);
@@ -319,13 +323,28 @@ public class GraphMorpher {
          * vertices. */
         Collection<Edge<Mote>> newEdges = new HashSet<>();
         Map<Vertex, Mote> movers = new IdentityHashMap<>();
+        List<Mote> newMotes = new ArrayList<>();
         for (var e : edges) {
-            Mote smv = movers.computeIfAbsent(e.start, k -> new Mote());
-            Mote fmv = movers.computeIfAbsent(e.finish, k -> new Mote());
+            Mote smv = movers.computeIfAbsent(e.start, k -> {
+                Mote m = new Mote();
+                newMotes.add(m);
+                return m;
+            });
+            Mote fmv = movers.computeIfAbsent(e.finish, k -> {
+                Mote m = new Mote();
+                newMotes.add(m);
+                return m;
+            });
             newEdges.add(new Edge<>(smv, fmv));
         }
         this.edges = Set.copyOf(newEdges);
-        this.vertexes = List.copyOf(movers.values());
+        this.vertexes = List.copyOf(newMotes);
+        assert this.vertexes.containsAll(movers.values());
+        assert movers.values().containsAll(this.vertexes);
+        IntStream.range(0, this.vertexes.size()).forEach(i -> {
+            Mote m = this.vertexes.get(i);
+            assert m.id == i;
+        });
 
         /* Determine the degree of each vertex. */
         Map<Mote, Integer> degrees = new IdentityHashMap<>();
@@ -355,7 +374,12 @@ public class GraphMorpher {
         assert this.degrees.size() == movers.size();
         for (var entry : this.degrees.entrySet())
             entry.getKey().mass = 1.0 + entry.getValue();
+
+        this.forceSums =
+            new double[this.vertexes.size() * this.vertexes.size() * 2];
     }
+
+    private final double[] forceSums;
 
     private final Map<Mote, Integer> degrees;
 
@@ -384,6 +408,36 @@ public class GraphMorpher {
      */
     private double elapsed = 0.0;
 
+    private interface ForceConsumer {
+        void accept(double dx, double dy);
+    }
+
+    private void repel(Mote a, Mote b, ForceConsumer aConsumer,
+                       ForceConsumer bConsumer) {
+        final double dx = b.x - a.x;
+        final double dy = b.y - a.y;
+        final double r2 = dx * dx + dy * dy;
+        final double r3 = Math.pow(r2, 1.5);
+        final double bfx = push * dx / r3;
+        final double bfy = push * dy / r3;
+        final double bmass = -b.mass;
+        final double amass = a.mass;
+        aConsumer.accept(bmass * bfx, bmass * bfy);
+        bConsumer.accept(amass * bfx, amass * bfy);
+    }
+
+    void elastic(Mote a, Mote b, ForceConsumer consumer) {
+        final double dx = b.x - a.x;
+        final double dy = b.y - a.y;
+        final double dist = Math.hypot(dx, dy);
+        final double sinth = dy / dist;
+        final double costh = dx / dist;
+        final double force = (dist - optLength) * spring;
+        final double bfx = force * costh;
+        final double bfy = force * sinth;
+        consumer.accept(bfx, bfy);
+    }
+
     /**
      * Advance the morphing by one step.
      * 
@@ -391,62 +445,103 @@ public class GraphMorpher {
      * otherwise
      */
     public boolean advance() {
+        final boolean parallel = false;
+
         if (vertexes.isEmpty()) return false;
 
         // System.err.printf("%nVertices: %s%n", vertexes);
 
-        /* Reset forces on all vertices so we can compute forces given
-         * current positions and edges. */
-        vertexes.forEach(Mote::resetForce);
-
-        /* Apply an elastic force to each edge. */
-        for (Edge<Mote> entry : edges) {
-            final var a = entry.start;
-            final var b = entry.finish;
-            final double dx = b.x - a.x;
-            final double dy = b.y - a.y;
-            final double dist = Math.hypot(dx, dy);
-            final double sinth = dy / dist;
-            final double costh = dx / dist;
-            final double force = (dist - optLength) * spring;
-            final double bfx = force * costh;
-            final double bfy = force * sinth;
-            a.addForce(bfx, bfy);
-            b.addForce(-bfx, -bfy);
-            // System.err.printf("Elastic %s by (%g,%g) (%g)%n", entry,
-            // bfx, bfy,
-            // dist);
-        }
-
-        /* Make all vertices repel each other. */
         final int arrlen = vertexes.size();
-        for (int i = 0; i < arrlen - 1; i++) {
-            for (int j = i + 1; j < arrlen; j++) {
+
+        if (parallel) {
+            /* Reset forces on all vertices so we can compute forces
+             * given current positions and edges. */
+            IntStream.range(0, forceSums.length).forEach(n -> forceSums[n] = 0);
+
+            /* Apply an elastic force to each edge. */
+            edges.parallelStream().forEach((entry) -> {
+                final var a = entry.start;
+                final var b = entry.finish;
+                elastic(a, b, (dx, dy) -> {
+                    final int aoff = (a.id * arrlen + b.id) * 2;
+                    forceSums[aoff] += dx;
+                    forceSums[aoff + 1] += dy;
+                    final int boff = (b.id * arrlen + a.id) * 2;
+                    forceSums[boff] -= dx;
+                    forceSums[boff + 1] -= dy;
+                });
+            });
+
+            /* Make all vertices repel each other. */
+            IntStream.range(0, arrlen * (arrlen - 1)).parallel().forEach(n -> {
+                final int j = n / (arrlen - 1);
+                final int nm = n % (arrlen - 1);
+                final int i = nm + (nm >= j ? 1 : 0);
                 final var a = vertexes.get(i);
                 final var b = vertexes.get(j);
-                final double dx = b.x - a.x;
-                final double dy = b.y - a.y;
-                final double r2 = dx * dx + dy * dy;
-                final double r3 = Math.pow(r2, 1.5);
-                final double bfx = push * dx / r3;
-                final double bfy = push * dy / r3;
-                final double bmass = -b.mass;
-                final double amass = a.mass;
-                a.addForce(bmass * bfx, bmass * bfy);
-                b.addForce(amass * bfx, amass * bfy);
-                // System.err.printf("Repel %s=%s by (%g,%g)%n", a, b,
-                // bfx, bfy);
+                repel(a, b, (dx, dy) -> {
+                    final int aoff = (a.id * arrlen + b.id) * 2;
+                    forceSums[aoff] += dx;
+                    forceSums[aoff + 1] += dy;
+                }, (dx, dy) -> {
+                    final int boff = (b.id * arrlen + a.id) * 2;
+                    forceSums[boff] += dx;
+                    forceSums[boff + 1] += dy;
+                });
+            });
+
+            /* Compute air resistance. */
+            vertexes.parallelStream().forEach(v -> {
+                final double sp = -Math.hypot(v.vx, v.vy);
+                final int off = v.id * (arrlen + 1) * 2;
+                forceSums[off] += v.vx * sp * airResistance;
+                forceSums[off + 1] += v.vy * sp * airResistance;
+            });
+
+            /* Convert the forces to accelerations. */
+            IntStream.range(0, arrlen).parallel().forEach(i -> {
+                Mote m = vertexes.get(i);
+                m.fx = IntStream.range(0, arrlen).parallel()
+                    .mapToDouble(j -> forceSums[(i * arrlen + j) * 2]).sum()
+                    / m.mass;
+                m.fy = IntStream.range(0, arrlen).parallel()
+                    .mapToDouble(j -> forceSums[(i * arrlen + j) * 2 + 1]).sum()
+                    / m.mass;
+            });
+        } else {
+            /* Reset forces on all vertices so we can compute forces
+             * given current positions and edges. */
+            vertexes.parallelStream().forEach(Mote::resetForce);
+
+            /* Apply an elastic force to each edge. */
+            for (Edge<Mote> entry : edges) {
+                final var a = entry.start;
+                final var b = entry.finish;
+                elastic(a, b, (dx, dy) -> {
+                    a.addForce(dx, dy);
+                    b.addForce(-dx, -dy);
+                });
             }
+
+            /* Make all vertices repel each other. */
+            for (int i = 0; i < arrlen - 1; i++) {
+                for (int j = i + 1; j < arrlen; j++) {
+                    final var a = vertexes.get(i);
+                    final var b = vertexes.get(j);
+                    repel(a, b, a::addForce, b::addForce);
+                }
+            }
+
+            /* Compute air resistance. */
+            vertexes.parallelStream().forEach(v -> {
+                final double sp = -Math.hypot(v.vx, v.vy);
+                v.addForce(v.vx * sp * airResistance,
+                           v.vy * sp * airResistance);
+            });
+
+            /* Convert the forces to accelerations. */
+            vertexes.parallelStream().forEach(Mote::convertForceToAcceleration);
         }
-
-        /* Compute air resistance. */
-        vertexes.parallelStream().forEach(v -> {
-            final double sp = -Math.hypot(v.vx, v.vy);
-            v.addForce(v.vx * sp * airResistance, v.vy * sp * airResistance);
-        });
-
-        /* Convert the forces to accelerations. */
-        vertexes.parallelStream().forEach(Mote::convertForceToAcceleration);
 
         /* Find the largest time jump we can afford. */
         assert !vertexes.isEmpty();
