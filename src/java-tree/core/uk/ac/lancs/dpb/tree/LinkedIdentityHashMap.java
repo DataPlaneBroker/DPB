@@ -65,13 +65,6 @@ class LinkedIdentityHashMap<K, V> extends AbstractMap<K, V> {
         Container(K key) {
             this.key = key;
         }
-
-        @Override
-        public boolean equals(Object obj) {
-            /* This method should never be called, as this class is used
-             * as the key of an identity map. */
-            throw new AssertionError("unreachable");
-        }
     }
 
     /**
