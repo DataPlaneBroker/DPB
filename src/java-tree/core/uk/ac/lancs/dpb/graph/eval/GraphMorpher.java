@@ -408,36 +408,6 @@ public class GraphMorpher {
      */
     private double elapsed = 0.0;
 
-    private interface ForceConsumer {
-        void accept(double dx, double dy);
-    }
-
-    private void repel(Mote a, Mote b, ForceConsumer aConsumer,
-                       ForceConsumer bConsumer) {
-        final double dx = b.x - a.x;
-        final double dy = b.y - a.y;
-        final double r2 = dx * dx + dy * dy;
-        final double r3 = Math.pow(r2, 1.5);
-        final double bfx = push * dx / r3;
-        final double bfy = push * dy / r3;
-        final double bmass = -b.mass;
-        final double amass = a.mass;
-        aConsumer.accept(bmass * bfx, bmass * bfy);
-        bConsumer.accept(amass * bfx, amass * bfy);
-    }
-
-    void elastic(Mote a, Mote b, ForceConsumer consumer) {
-        final double dx = b.x - a.x;
-        final double dy = b.y - a.y;
-        final double dist = Math.hypot(dx, dy);
-        final double sinth = dy / dist;
-        final double costh = dx / dist;
-        final double force = (dist - optLength) * spring;
-        final double bfx = force * costh;
-        final double bfy = force * sinth;
-        consumer.accept(bfx, bfy);
-    }
-
     /**
      * Advance the morphing by one step.
      * 
@@ -462,14 +432,22 @@ public class GraphMorpher {
             edges.parallelStream().forEach((entry) -> {
                 final var a = entry.start;
                 final var b = entry.finish;
-                elastic(a, b, (dx, dy) -> {
-                    final int aoff = (a.id * arrlen + b.id) * 2;
-                    forceSums[aoff] += dx;
-                    forceSums[aoff + 1] += dy;
-                    final int boff = (b.id * arrlen + a.id) * 2;
-                    forceSums[boff] -= dx;
-                    forceSums[boff + 1] -= dy;
-                });
+
+                final double dx = b.x - a.x;
+                final double dy = b.y - a.y;
+                final double dist = Math.hypot(dx, dy);
+                final double sinth = dy / dist;
+                final double costh = dx / dist;
+                final double force = (dist - optLength) * spring;
+                final double bfx = force * costh;
+                final double bfy = force * sinth;
+
+                final int aoff = (a.id * arrlen + b.id) * 2;
+                forceSums[aoff] += bfx;
+                forceSums[aoff + 1] += bfy;
+                final int boff = (b.id * arrlen + a.id) * 2;
+                forceSums[boff] -= bfx;
+                forceSums[boff + 1] -= bfy;
             });
 
             /* Make all vertices repel each other. */
@@ -479,15 +457,22 @@ public class GraphMorpher {
                 final int i = nm + (nm >= j ? 1 : 0);
                 final var a = vertexes.get(i);
                 final var b = vertexes.get(j);
-                repel(a, b, (dx, dy) -> {
-                    final int aoff = (a.id * arrlen + b.id) * 2;
-                    forceSums[aoff] += dx;
-                    forceSums[aoff + 1] += dy;
-                }, (dx, dy) -> {
-                    final int boff = (b.id * arrlen + a.id) * 2;
-                    forceSums[boff] += dx;
-                    forceSums[boff + 1] += dy;
-                });
+
+                final double dx = b.x - a.x;
+                final double dy = b.y - a.y;
+                final double r2 = dx * dx + dy * dy;
+                final double r3 = Math.pow(r2, 1.5);
+                final double bfx = push * dx / r3;
+                final double bfy = push * dy / r3;
+                final double bmass = -b.mass;
+                final double amass = a.mass;
+
+                final int aoff = (a.id * arrlen + b.id) * 2;
+                forceSums[aoff] += bmass * bfx;
+                forceSums[aoff + 1] += bmass * bfy;
+                final int boff = (b.id * arrlen + a.id) * 2;
+                forceSums[boff] += amass * bfx;
+                forceSums[boff + 1] += amass * bfy;
             });
 
             /* Compute air resistance. */
@@ -517,10 +502,18 @@ public class GraphMorpher {
             for (Edge<Mote> entry : edges) {
                 final var a = entry.start;
                 final var b = entry.finish;
-                elastic(a, b, (dx, dy) -> {
-                    a.addForce(dx, dy);
-                    b.addForce(-dx, -dy);
-                });
+
+                final double dx = b.x - a.x;
+                final double dy = b.y - a.y;
+                final double dist = Math.hypot(dx, dy);
+                final double sinth = dy / dist;
+                final double costh = dx / dist;
+                final double force = (dist - optLength) * spring;
+                final double bfx = force * costh;
+                final double bfy = force * sinth;
+
+                a.addForce(bfx, bfy);
+                b.addForce(-bfx, -bfy);
             }
 
             /* Make all vertices repel each other. */
@@ -528,7 +521,18 @@ public class GraphMorpher {
                 for (int j = i + 1; j < arrlen; j++) {
                     final var a = vertexes.get(i);
                     final var b = vertexes.get(j);
-                    repel(a, b, a::addForce, b::addForce);
+
+                    final double dx = b.x - a.x;
+                    final double dy = b.y - a.y;
+                    final double r2 = dx * dx + dy * dy;
+                    final double r3 = Math.pow(r2, 1.5);
+                    final double bfx = push * dx / r3;
+                    final double bfy = push * dy / r3;
+                    final double bmass = -b.mass;
+                    final double amass = a.mass;
+
+                    a.addForce(bmass * bfx, bmass * bfy);
+                    b.addForce(amass * bfx, amass * bfy);
                 }
             }
 
