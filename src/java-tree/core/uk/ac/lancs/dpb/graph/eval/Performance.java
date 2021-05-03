@@ -183,7 +183,7 @@ public class Performance {
                                      * again. */
                                     final long stop =
                                         System.currentTimeMillis();
-                                    if (stop - start < 1000) continue;
+                                    if (stop - start < 2000) continue;
 
                                     /* Record the average duration, and
                                      * stop. */
