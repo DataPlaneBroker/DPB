@@ -80,6 +80,15 @@ public class Performance {
             .put("exhaustive",
                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES));
 
+        algos.put("99999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+            .biasThreshold(0.99999)));
+
+        algos.put("9999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+            .biasThreshold(0.9999)));
+
+        algos.put("999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+            .biasThreshold(0.999)));
+
         algos.put("99", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
             .biasThreshold(0.99)));
 
