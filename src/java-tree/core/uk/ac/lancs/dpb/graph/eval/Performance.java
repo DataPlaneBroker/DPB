@@ -194,6 +194,10 @@ public class Performance {
                                                      k -> new TreeMap<>())
                                     .put(chalIter, duration);
 
+                                File svg = new File(String
+                                    .format("scratch/solution-%d-%d-%d-%d-%s.svg",
+                                            vertexCount, graphIter, goalCount,
+                                            chalIter, name));
                                 if (best != null) {
                                     fit.computeIfAbsent(name,
                                                         k -> new TreeMap<>())
@@ -205,14 +209,12 @@ public class Performance {
                                                          k -> new TreeMap<>())
                                         .put(chalIter, bestScore);
                                     try (PrintWriter out =
-                                        new PrintWriter(new File(String
-                                            .format("scratch/solution-%d-%d-%d-%d-%s.svg",
-                                                    vertexCount, graphIter,
-                                                    goalCount, chalIter,
-                                                    name)))) {
+                                        new PrintWriter(svg)) {
                                         graph.drawSVG(out, goals, best, 0.2,
                                                       0.3);
                                     }
+                                } else {
+                                    svg.delete();
                                 }
                             }
                         }
