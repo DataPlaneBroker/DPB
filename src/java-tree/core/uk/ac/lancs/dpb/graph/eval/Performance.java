@@ -138,34 +138,49 @@ public class Performance {
                                 TreePlotter algo = namedAlgo.getValue();
 
                                 System.err.printf("Algo: %s%n", name);
-                                final long start = System.currentTimeMillis();
+                                final double duration;
                                 double bestScore = Double.POSITIVE_INFINITY;
                                 Map<? extends QualifiedEdge<Vertex>,
                                     ? extends BidiCapacity> best = null;
-                                for (var cand : algo.plot(goals, demand,
-                                                          graph.edges)) {
-                                    double score = 0.0;
-                                    for (var entry : cand.entrySet()) {
-                                        QualifiedEdge<Vertex> key =
-                                            entry.getKey();
-                                        BidiCapacity val = entry.getValue();
-                                        score += key.cost * (val.ingress.min()
-                                            + val.egress.min());
+                                final long start = System.currentTimeMillis();
+                                for (int cycles = 1;; cycles++) {
+                                    for (var cand : algo.plot(goals, demand,
+                                                              graph.edges)) {
+                                        double score = 0.0;
+                                        for (var entry : cand.entrySet()) {
+                                            QualifiedEdge<Vertex> key =
+                                                entry.getKey();
+                                            BidiCapacity val = entry.getValue();
+                                            score +=
+                                                key.cost * (val.ingress.min()
+                                                    + val.egress.min());
+                                        }
+                                        if (best == null || score < bestScore) {
+                                            best = cand;
+                                            bestScore = score;
+                                            System.err
+                                                .printf("acc %g: %s%n",
+                                                        bestScore,
+                                                        best.entrySet().stream()
+                                                            .map(e -> e.getKey()
+                                                                .toString())
+                                                            .collect(Collectors
+                                                                .joining(", ")));
+                                        }
                                     }
-                                    if (best == null || score < bestScore) {
-                                        best = cand;
-                                        bestScore = score;
-                                        System.err
-                                            .printf("acc %g: %s%n", bestScore,
-                                                    best.entrySet().stream()
-                                                        .map(e -> e.getKey()
-                                                            .toString())
-                                                        .collect(Collectors
-                                                            .joining(", ")));
-                                    }
+
+                                    /* Compute the duration. If it's not
+                                     * yet added up to a second, tryin
+                                     * again. */
+                                    final long stop =
+                                        System.currentTimeMillis();
+                                    if (stop - start < 1000) continue;
+
+                                    /* Record the average duration, and
+                                     * stop. */
+                                    duration = (stop - start) / 1000.0 / cycles;
+                                    break;
                                 }
-                                final long stop = System.currentTimeMillis();
-                                final double duration = (stop - start) / 1000.0;
 
                                 /* algo, vertexCount, graphIter,
                                  * goalCount, chalter */
