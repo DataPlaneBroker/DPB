@@ -104,7 +104,7 @@ public final class Graph {
             max = Capacity.max(max, edge.capacity.egress);
         }
         this.maxCapacity = max;
-        this.vertexes = Set.copyOf(vertexes);
+        this.vertexes = Collections.unmodifiableCollection(vertexes);
     }
 
     /**
