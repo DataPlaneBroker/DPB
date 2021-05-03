@@ -180,35 +180,6 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         }
     }
 
-    private static class Pair<V1, V2> {
-        public final V1 item1;
-
-        public final V2 item2;
-
-        public Pair(V1 item1, V2 item2) {
-            this.item1 = item1;
-            this.item2 = item2;
-        }
-
-        @Override
-        public int hashCode() {
-            int hash = 7;
-            hash = 37 * hash + System.identityHashCode(item1);
-            hash = 37 * hash + System.identityHashCode(item2);
-            return hash;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null) return false;
-            if (getClass() != obj.getClass()) return false;
-            final Pair<?, ?> other = (Pair<?, ?>) obj;
-            if (this.item1 != other.item1) return false;
-            return this.item2 == other.item2;
-        }
-    }
-
     private static <E> Iterable<E> remainingIn(Collection<? extends E> coll) {
         return () -> new Iterator<E>() {
             @Override
@@ -535,13 +506,14 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * Keeps track of which goals in which vertices' routing
              * tables we need to update.
              */
-            final Collection<Pair<V, V>> invalidGoals = new LinkedHashSet<>();
+            final Collection<IdentityPair<V, V>> invalidGoals =
+                new LinkedHashSet<>();
 
             /**
              * Keeps track of goals across edges that might be out of
              * date.
              */
-            final Collection<Pair<QualifiedEdge<P>, V>> invalidEdges =
+            final Collection<IdentityPair<QualifiedEdge<P>, V>> invalidEdges =
                 new LinkedHashSet<>();
 
             /**
@@ -551,7 +523,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * @return {@code true} if a change was made
              */
             boolean invalidateDistance(V vertex, V goal) {
-                return invalidGoals.add(new Pair<>(vertex, goal));
+                return invalidGoals.add(new IdentityPair<>(vertex, goal));
             }
 
             /**
@@ -561,7 +533,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
              * @return {@code true} if a change was made
              */
             boolean invalidateEdgeGoal(QualifiedEdge<P> edge, V goal) {
-                return invalidEdges.add(new Pair<>(edge, goal));
+                return invalidEdges.add(new IdentityPair<>(edge, goal));
             }
 
             void updateDistance(V vertex, V goal) {
@@ -767,13 +739,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                      * routing tables. */
                     while (!invalidGoals.isEmpty()) {
                         /* Get the routing tables up-to-date. */
-                        for (Pair<V, V> pair : remainingIn(invalidGoals)) {
+                        for (var pair : remainingIn(invalidGoals)) {
                             updateDistance(pair.item1, pair.item2);
                         }
 
                         /* Look for edge modes to eliminate. */
-                        for (Pair<QualifiedEdge<P>,
-                                  V> pair : remainingIn(invalidEdges)) {
+                        for (var pair : remainingIn(invalidEdges)) {
                             updateEdge(pair.item1, pair.item2);
                         }
                     }
