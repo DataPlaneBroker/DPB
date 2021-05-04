@@ -105,7 +105,7 @@ public class Performance {
         /* The first algorithm must be exhaustive, as it gives us ground
          * truth. */
         algos
-            .put("exhaustive",
+            .put("exh",
                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES));
 
         algos.put("99999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
