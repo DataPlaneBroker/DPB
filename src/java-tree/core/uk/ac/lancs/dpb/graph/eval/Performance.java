@@ -58,7 +58,28 @@ import uk.ac.lancs.dpb.tree.TreePlotter;
  * @author simpsons
  */
 public class Performance {
+    private static class MySupply implements CapacitySupply {
+        private final double factor;
+
+        public MySupply(double factor) {
+            this.factor = factor;
+        }
+
+        @Override
+        public BidiCapacity getCapacity(double cost, int startDegree,
+                                        int finishDegree, int maxDegree,
+                                        double maxCost) {
+            double msd =
+                Math.pow(startDegree / (double) maxDegree, factor) * maxDegree;
+            double mfd =
+                Math.pow(finishDegree / (double) maxDegree, factor) * maxDegree;
+            return BidiCapacity.of(Capacity.at(msd + mfd));
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        CapacitySupply supply = new MySupply(1.0 / 3.0);
+
         /* This is the number of vertices in each generated graph. */
         final int[] vertexCounts =
             IntStream.rangeClosed(1, 1).map(i -> i * 50).toArray();
@@ -129,12 +150,7 @@ public class Performance {
                 System.out.printf("%nVertices: %d; run %d%n", vertexCount,
                                   graphIter);
                 Graph graph = GraphExamples
-                    .createElasticScaleFreeGraph(rng, vertexCount, 3, 3,
-                                                 (cost, startDegree,
-                                                  finishDegree) -> BidiCapacity
-                                                      .of(Capacity
-                                                          .at(startDegree
-                                                              + finishDegree)),
+                    .createElasticScaleFreeGraph(rng, vertexCount, 3, 3, supply,
                                                  null);
                 try (PrintWriter out = new PrintWriter(new File(String
                     .format("scratch/graph-%d-%d.svg", vertexCount,
@@ -162,8 +178,8 @@ public class Performance {
                         DemandFunction demand = new PairDemandFunction(IntStream
                             .range(0, goals.size())
                             .mapToObj(i -> BidiCapacity
-                                .of(Capacity.at(1.0),
-                                    Capacity.at(1.0 / (goalCount - 1))))
+                                .of(Capacity.at(6.0 / (goalCount - 1)),
+                                    Capacity.at(6.0)))
                             .collect(Collectors.toList()));
 
                         /* Measure the performance and accuracy of each

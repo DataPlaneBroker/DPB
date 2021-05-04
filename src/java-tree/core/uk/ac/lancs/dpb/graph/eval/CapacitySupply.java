@@ -54,10 +54,15 @@ public interface CapacitySupply {
      * @param startDegree the degree of the start vertex of the edge
      *
      * @param finishDegree the degree of the finish vertex of the edge
+     * 
+     * @param maxDegree the maximum degree of any vertex in the graph
+     * 
+     * @param maxCost the maximum cost of any edge in the graph
      *
      * @return a capacity to be assigned to the edge
      */
-    BidiCapacity getCapacity(double cost, int startDegree, int finishDegree);
+    BidiCapacity getCapacity(double cost, int startDegree, int finishDegree,
+                             int maxDegree, double maxCost);
 
     /**
      * Define capacities based solely in random ranges.
@@ -79,8 +84,9 @@ public interface CapacitySupply {
     static CapacitySupply ranged(Random rng, double minGuaranteed,
                                  double guaranteedRange, double minExcess,
                                  double excessRange) {
-        return (cost, startDegree, finishDegree) -> BidiCapacity
-            .of(Capacity.base(minGuaranteed, guaranteedRange),
-                Capacity.base(minExcess, excessRange));
+        return (cost, startDegree, finishDegree, maxDegree,
+                maxCost) -> BidiCapacity
+                    .of(Capacity.base(minGuaranteed, guaranteedRange),
+                        Capacity.base(minExcess, excessRange));
     }
 }

@@ -633,16 +633,29 @@ public class GraphMorpher {
         for (Mote m : motes)
             fixed.put(m, Vertex.at(m.x, m.y));
 
+        /* Compute the cost of every edge as its length. */
+        final Map<Edge<Mote>, Double> costs = edges.stream().collect(Collectors
+            .toMap(e -> e, e -> Vertex.distance(e.start, e.finish)));
+
+        /* Find the maximum cost of any edge. */
+        final double maxCost = costs.values().stream()
+            .mapToDouble(Number::doubleValue).max().getAsDouble();
+
+        /* Find the maximum degree of any vertex. */
+        final int maxDegree = degrees.values().stream()
+            .mapToInt(Number::intValue).max().getAsInt();
+
         /* Convert the edges so their costs match their lengths, and
          * have capacities based on their degrees. Build the edges out
          * of the fixed versions of their vertices. */
         Collection<QualifiedEdge<Vertex>> newEdges = edges.stream().map(e -> {
             var a = e.start;
             var b = e.finish;
-            double cost = Vertex.distance(a, b);
+            double cost = costs.get(e);
             int ad = degrees.get(a);
             int bd = degrees.get(b);
-            BidiCapacity cap = caps.getCapacity(cost, ad, bd);
+            BidiCapacity cap =
+                caps.getCapacity(cost, ad, bd, maxDegree, maxCost);
             Vertex fa = fixed.get(a);
             Vertex fb = fixed.get(b);
             return new QualifiedEdge<>(fa, fb, cap, cost);

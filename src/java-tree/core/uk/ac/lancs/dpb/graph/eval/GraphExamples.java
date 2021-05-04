@@ -257,12 +257,18 @@ public final class GraphExamples {
             degrees.merge(edge.finish, 1, (v0, v1) -> v0 + v1);
         }
 
+        final int maxDegree = degrees.values().stream()
+            .mapToInt(Number::intValue).max().getAsInt();
+        final double maxCost =
+            edges.stream().mapToDouble(e -> e.cost).max().getAsDouble();
+
         /* Recreate the remaining edges, but with capacities computed
          * from their costs and their vertex degrees. */
         Collection<QualifiedEdge<Vertex>> cappedEdges = edges.stream()
             .map(e -> new QualifiedEdge<>(e.start, e.finish, capSupply
                 .getCapacity(e.cost, degrees.get(e.start),
-                             degrees.get(e.finish)), e.cost))
+                             degrees.get(e.finish), maxDegree, maxCost),
+                                          e.cost))
             .collect(Collectors.toSet());
 
         return new Graph(width, height, cappedEdges);
@@ -367,8 +373,8 @@ public final class GraphExamples {
 
         Graph g = GraphExamples
             .createElasticScaleFreeGraph(new Random(1), 100, 2, 3,
-                                         (cost, startDegree,
-                                          finishDegree) -> BidiCapacity
+                                         (cost, startDegree, finishDegree,
+                                          maxDegree, maxCost) -> BidiCapacity
                                               .of(Capacity.at(startDegree),
                                                   Capacity.at(finishDegree)),
                                          topoModel);
