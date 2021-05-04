@@ -187,16 +187,6 @@ public final class Graph {
                 + " x='%g' y='%g' width='%g' height='%g'/>%n", 0.0, 0.0,
                        width + 0.0, height + 0.0);
 
-        /* Highlight the goals. */
-        if (goals != null && !goals.isEmpty()) {
-            out.printf("<g fill='red' stroke='none'>%n");
-            for (Vertex g : goals) {
-                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x() + 0.5,
-                           g.y() + 0.5, goalRadius);
-            }
-            out.println("</g>");
-        }
-
         /* Draw out the edge capacities. */
         out.printf("<g fill='#ccc' stroke='none'>%n");
         for (QualifiedEdge<Vertex> e : edges) {
@@ -218,6 +208,16 @@ public final class Graph {
                        e.start.y() - startFrac * dx / len + 0.5);
         }
         out.println("</g>");
+
+        /* Highlight the goals. */
+        if (goals != null && !goals.isEmpty()) {
+            out.printf("<g fill='red' stroke='none'>%n");
+            for (Vertex g : goals) {
+                out.printf("<circle cx='%g' cy='%g' r='%g' />%n", g.x() + 0.5,
+                           g.y() + 0.5, goalRadius);
+            }
+            out.println("</g>");
+        }
 
         if (tree != null && !tree.isEmpty()) {
             /* Draw out the tree. */

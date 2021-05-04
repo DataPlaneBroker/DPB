@@ -139,7 +139,7 @@ public class Performance {
                 try (PrintWriter out = new PrintWriter(new File(String
                     .format("scratch/graph-%d-%d.svg", vertexCount,
                             graphIter)))) {
-                    graph.drawSVG(out, null, null, 0.3, 0.4);
+                    graph.drawSVG(out, null, null, 0.3, 0.9);
                 }
 
                 /* Vary the number of goals. */
@@ -154,7 +154,7 @@ public class Performance {
                             .format("scratch/challenge-%d-%d-%d-%d.svg",
                                     vertexCount, graphIter, goalCount,
                                     chalIter)))) {
-                            graph.drawSVG(out, goals, null, 0.3, 0.4);
+                            graph.drawSVG(out, goals, null, 0.3, 0.9);
                         }
 
                         /* Allow each goal to send the same amount, and
@@ -222,7 +222,7 @@ public class Performance {
                                 measurement =
                                     new Measurement(duration, bestScore);
                                 try (PrintWriter out = new PrintWriter(svg)) {
-                                    graph.drawSVG(out, goals, best, 0.3, 0.4);
+                                    graph.drawSVG(out, goals, best, 0.3, 0.9);
                                 }
                                 System.err.printf("%d vertices; graph %d;"
                                     + " %d goals;" + " goalset %d;" + " %s"
