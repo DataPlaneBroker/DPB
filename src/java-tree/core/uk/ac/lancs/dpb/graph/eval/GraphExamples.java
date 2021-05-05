@@ -458,8 +458,11 @@ public final class GraphExamples {
             .createElasticScaleFreeGraph(rng, vertexCount, connectivity, depth,
                                          (cost, startDegree, finishDegree,
                                           maxDegree, maxCost) -> BidiCapacity
-                                              .of(Capacity.at(startDegree),
-                                                  Capacity.at(finishDegree)),
+                                              .of(Capacity.at(Math
+                                                  .pow((startDegree
+                                                      + finishDegree)
+                                                      / (maxDegree * 2.0), 0.2)
+                                                  * (maxDegree * 2.0))),
                                          topoModel);
         try (PrintWriter out =
             new PrintWriter(outputFile, StandardCharsets.UTF_8)) {
