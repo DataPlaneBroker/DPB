@@ -41,6 +41,7 @@ import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.io.File;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -349,10 +350,90 @@ public final class GraphExamples {
         return morpher.freeze((int) (Math.sqrt(vertexCount) * 2.0), caps);
     }
 
+    static final int DEFAULT_SEED = 1;
+
+    static final int DEFAULT_VERTEX_COUNT = 100;
+
+    static final int DEFAULT_CONNECTIVITY = 2;
+
+    static final int DEFAULT_DEPTH = 3;
+
+    static final String DEFAULT_FILE_NAME = "scratch/scale-free-graph.svg";
+
     /**
-     * @undocumented
+     * Run a demonstration of graph morphing. A full-screen window will
+     * be created to show how the vertices and edges are morphed into a
+     * final shape. When the graph appears to be stable, the window is
+     * closed, and the graph's final state is recorded in an SVG.
+     * 
+     * @param args demonstration parameters. These include:
+     * 
+     * <dl>
+     * 
+     * <dt><kbd>-s <var>s</var></kbd> ({@value #DEFAULT_SEED})</dt>
+     * 
+     * <dd>The seed for the graph shall be <var>s</var>.</dd>
+     * 
+     * <dt><kbd>-o <var>f</var></kbd> ({@value #DEFAULT_FILE_NAME})</dt>
+     * 
+     * <dd>When complete, the graph shall be expressed as an SVG in the
+     * specified file <var>f</var>.</dd>
+     * 
+     * <dt><kbd>-n <var>n</var></kbd>
+     * ({@value #DEFAULT_VERTEX_COUNT})</dt>
+     * 
+     * <dd>The graph shall have <var>n</var> vertices.</dd>
+     * 
+     * <dt><kbd>-c <var>c</var></kbd>
+     * ({@value #DEFAULT_CONNECTIVITY})</dt>
+     * 
+     * <dd>The graph shall have connectivity <var>c</var>. This means
+     * that each new vertex added shall connect to no more than
+     * <var>c</var> existing vertices. Set to <kbd>1</kbd> to guarantee
+     * a tree.</dd>
+     * 
+     * <dt><kbd>-d <var>d</var></kbd> ({@value #DEFAULT_DEPTH})</dt>
+     * 
+     * <dd>The connectivity shall have depth <var>d</var>. An attempt is
+     * made to connect each new vertex to
+     * <var>c</var><sub><var>d</var></sub> other vertices.
+     * <var>c</var><sub>0</sub> is <var>c</var>, and
+     * <var>c</var><sub><var>i</var>+1</sub> is a random integer
+     * uniformly distributed in [1,<var>c</var><sub><var>i</var></sub>].
+     * Higher <var>d</var> makes the graph more tree-like, without
+     * actually guaranteeing a tree.</dd>
+     * 
+     * </dl>
      */
     public static void main(String[] args) throws Exception {
+        Random rng = new Random(DEFAULT_SEED);
+        int vertexCount = DEFAULT_VERTEX_COUNT;
+        int connectivity = DEFAULT_CONNECTIVITY;
+        int depth = DEFAULT_DEPTH;
+        File outputFile = new File(DEFAULT_FILE_NAME);
+        for (int i = 0; i < args.length; i++) {
+            switch (args[i]) {
+            case "-n":
+                vertexCount = Integer.parseInt(args[++i]);
+                break;
+
+            case "-c":
+                connectivity = Integer.parseInt(args[++i]);
+                break;
+
+            case "-d":
+                depth = Integer.parseInt(args[++i]);
+                break;
+
+            case "-s":
+                rng = new Random(Integer.parseInt(args[++i]));
+                break;
+
+            case "-o":
+                outputFile = new File(args[++i]);
+                break;
+            }
+        }
         /* Create a model that can be displayed and updated. */
         SwingTopologyModelDisplay topoModel = new SwingTopologyModelDisplay();
 
@@ -374,15 +455,14 @@ public final class GraphExamples {
         });
 
         Graph g = GraphExamples
-            .createElasticScaleFreeGraph(new Random(1), 100, 2, 3,
+            .createElasticScaleFreeGraph(rng, vertexCount, connectivity, depth,
                                          (cost, startDegree, finishDegree,
                                           maxDegree, maxCost) -> BidiCapacity
                                               .of(Capacity.at(startDegree),
                                                   Capacity.at(finishDegree)),
                                          topoModel);
         try (PrintWriter out =
-            new PrintWriter(new File("scratch/scale-free-graph.svg"))) {
-            System.err.printf("Writing...%n");
+            new PrintWriter(outputFile, StandardCharsets.UTF_8)) {
             g.drawSVG(out, null, null, 0.2, 0.3);
         }
         System.exit(0);
