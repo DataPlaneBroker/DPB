@@ -327,14 +327,16 @@ public final class GraphExamples {
                                     TopologyDisplay<Vertex> display) {
         /* Create a scale-free topology. */
         Collection<Edge<Vertex>> edges = new HashSet<>();
-        List<Vertex> vertexes = new ArrayList<>(vertexCount);
-        for (int i = 0; i < vertexCount; i++) {
+        List<Vertex> vertexes = new ArrayList<>();
+        vertexes.add(Vertex.at(0.0, 0.0));
+        for (int i = 1; i < vertexCount; i++) {
             Vertex nv = Vertex.at(i, 0.0);
             for (Vertex av : select(rng, connectivity, depth, vertexes)) {
                 Edge<Vertex> e = new Edge<>(nv, av);
                 edges.add(e);
+                vertexes.add(nv);
+                vertexes.add(av);
             }
-            vertexes.add(nv);
         }
 
         /* Allow the graph to unwind based on elastic, gravitational and
