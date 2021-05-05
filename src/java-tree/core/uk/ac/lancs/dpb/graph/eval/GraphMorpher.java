@@ -70,7 +70,7 @@ public class GraphMorpher {
     /**
      * The strength of air resistance to damp motion
      */
-    private final double airResistance = 0.9;
+    private final double airResistance = 0.999999;
 
     /**
      * The maximum simulation step
@@ -124,6 +124,58 @@ public class GraphMorpher {
      * force/acceleration.
      */
     private class Mote extends Vertex {
+        void chooseLocation(Collection<? extends Vertex> others) {
+            Vertex[] oa = others.toArray(new Vertex[others.size()]);
+            switch (others.size()) {
+            case 0:
+                /* Place an original vertex at the origin. */
+                double pid = 0.3 * Math.pow(id, 0.01);
+                this.x = pid * Math.cos(Math.log(id + 1));
+                this.y = pid * Math.sin(Math.log(id + 1));
+                break;
+
+            case 1:
+                /* Place a second vertex randomly around the first. */
+                double r = 1.0;
+                double theta = id * 0.3;
+                this.x = oa[0].x() + r * Math.cos(theta);
+                this.y = oa[0].y() + r * Math.sin(theta);
+                break;
+
+            case 2:
+                /* Make a third vertex form an isosceles triangle. */
+                double dx = oa[1].x() - oa[0].x();
+                double dy = oa[1].y() - oa[0].y();
+                this.x = oa[0].x() + dx / 2 - dy / 2;
+                this.y = oa[0].x() + dy / 2;
+                break;
+
+            default:
+                /* Get the mean position of the centres of the
+                 * circumcircles of all triangles formed by every group
+                 * of three neighbours. */
+                double px = 0.0;
+                double py = 0.0;
+                for (int i = 0; i < oa.length - 2; i++) {
+                    for (int j = i + 1; j < oa.length - 1; j++) {
+                        for (int k = j + 1; k < oa.length; k++) {
+                            Circle cc =
+                                Circle.circumcircle(oa[i], oa[j], oa[k]);
+                            px += cc.center().x();
+                            py += cc.center().y();
+                        }
+                    }
+                }
+                final long factor =
+                    oa.length * (oa.length - 1) * (oa.length - 2) / 6;
+                px /= factor;
+                py /= factor;
+                this.x = px;
+                this.y = py;
+                break;
+            }
+        }
+
         /**
          * The X position
          */
@@ -341,18 +393,48 @@ public class GraphMorpher {
         this.vertexes = List.copyOf(newMotes);
         assert this.vertexes.containsAll(movers.values());
         assert movers.values().containsAll(this.vertexes);
+
+        /* Make sure every mote knows its position in the list. */
         IntStream.range(0, this.vertexes.size()).forEach(i -> {
             Mote m = this.vertexes.get(i);
             assert m.id == i;
         });
 
+        /* Identify neighbours of each mote. */
+        Map<Mote, Collection<Mote>> neighbors = new IdentityHashMap<>();
+        for (var edge : this.edges) {
+            Mote start = edge.start;
+            Mote finish = edge.finish;
+            neighbors.computeIfAbsent(start, k -> newIdentityHashSet())
+                .add(finish);
+            neighbors.computeIfAbsent(finish, k -> newIdentityHashSet())
+                .add(start);
+        }
+
+        /* Choose a position for each vertex based on the subset of
+         * neighbour vertices before it. */
+        for (int i = 0; i < this.vertexes.size(); i++) {
+            Mote us = this.vertexes.get(i);
+
+            /* Identify all previously positioned vertices. */
+            Collection<Mote> before = new ArrayList<>(vertexes.subList(0, i));
+
+            /* Remove non-neighbours. */
+            before
+                .retainAll(neighbors.getOrDefault(us, Collections.emptySet()));
+
+            /* Move the mote to a good position. */
+            us.chooseLocation(before);
+        }
+
         /* Determine the degree of each vertex. */
         Map<Mote, Integer> degrees = new IdentityHashMap<>();
-        for (var edge : this.edges) {
-            degrees.merge(edge.start, 1, (v0, v1) -> v0 + v1);
-            degrees.merge(edge.finish, 1, (v0, v1) -> v0 + v1);
-        }
+        neighbors.forEach((k, v) -> degrees.put(k, v.size()));
         this.degrees = Collections.unmodifiableMap(degrees);
+        this.degrees.forEach((k, v) -> {
+            assert neighbors.getOrDefault(k, Collections.emptySet()).size()
+                == v;
+        });
 
         if (false) {
             Map<Integer, Integer> counts = new TreeMap<>();
