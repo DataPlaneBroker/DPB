@@ -77,6 +77,8 @@ public class GraphMorpher {
      */
     private final double maxDelta = 0.1;
 
+    private final double rotationDamp = 1.0;
+
     /**
      * Re-centre all vertices on the centre of mass.
      */
@@ -94,22 +96,43 @@ public class GraphMorpher {
         vertexes.parallelStream().forEach(v -> v.move(xsh, ysh));
     }
 
+    private double angVelVar;
+
+    private double fleeVar;
+
     /**
      * Compute the variance of the rotation of all vertices.
      *
      * @return the variance of rotation of all vertices
      */
-    private double computeRotationVariance() {
+    private void computeRotationVariance() {
+        vertexes.parallelStream().forEach(Mote::updateRotation);
+
+        double fleeSum = 0.0, fleeSqSum = 0.0;
+
         double sum = 0.0;
         double sqsum = 0.0;
         for (var v : vertexes) {
-            final double rot = v.getRotation();
+            final double rot = v.avy;
             sum += rot;
             sqsum += rot * rot;
+
+            final double flee = v.avx;
+            fleeSum += flee;
+            fleeSqSum += flee * flee;
         }
-        sum /= vertexes.size();
-        sqsum /= vertexes.size();
-        return sqsum - sum * sum;
+        final int n = vertexes.size();
+        sum /= n;
+        sqsum /= n;
+
+        fleeSum /= n;
+        fleeSqSum /= n;
+
+        angVelVar = sqsum - sum * sum;
+        this.fleeVar = fleeSqSum - fleeSum * fleeSum;
+
+        final double factor = rotationDamp * sum;
+        vertexes.parallelStream().forEach(m -> m.killRotation(factor));
     }
 
     /**
@@ -124,6 +147,18 @@ public class GraphMorpher {
      * force/acceleration.
      */
     private class Mote extends Vertex {
+        /**
+         * Put this mote at its unqiue distance from the origin.
+         */
+        void spread() {
+            final double dist = Math.hypot(x, y);
+            final double sinth = y / dist;
+            final double costh = x / dist;
+            double pid = 0.3 * Math.pow(id, 0.01);
+            x = pid * costh;
+            y = pid * sinth;
+        }
+
         void chooseLocation(Collection<? extends Vertex> others) {
             Vertex[] oa = others.toArray(new Vertex[others.size()]);
             switch (others.size()) {
@@ -172,6 +207,7 @@ public class GraphMorpher {
                 py /= factor;
                 this.x = px;
                 this.y = py;
+                spread();
                 break;
             }
         }
@@ -250,13 +286,35 @@ public class GraphMorpher {
         }
 
         /**
+         * Angular velocity
+         */
+        double avy;
+
+        /**
+         * Velocity perpendicular to origin in proportion to distance
+         * from it
+         */
+        double avx;
+
+        /**
+         * Square of distance from origin
+         */
+        double r2;
+
+        /**
          * Get the angular velocity of the mote around the origin.
          * 
          * @return the angular velocity, possibly in radians per second
          */
-        double getRotation() {
-            final double r2 = x * x + y * y;
-            return (vy * x - vx * y) / r2;
+        void updateRotation() {
+            r2 = x * x + y * y;
+            avy = (vy * x - vx * y) / r2;
+            avx = (vx * x + vy * y) / r2;
+        }
+
+        void killRotation(double factor) {
+            vx += y * factor * factor * factor;
+            vy -= x * factor * factor * factor;
         }
 
         /**
@@ -343,7 +401,13 @@ public class GraphMorpher {
     private final long[] steady = new long[steadyLimit.length];
 
     private void trackRotation() {
-        final double signal = computeRotationVariance();
+        computeRotationVariance();
+        final double signal = angVelVar * fleeVar;
+        if (false) System.err.printf("av=%g dps; avv=%g fv=%g prod=%g%n",
+                                     Math.sqrt(angVelVar) / Math.PI * 180.0,
+                                     angVelVar, fleeVar, angVelVar * fleeVar);
+
+        /* Keep a history of rotation variance. */
         for (int i = 0; i < steady.length; i++) {
             if (signal > highTarget[i] || signal < lowTarget[i]) {
                 lowTarget[i] = signal * (1.0 - targetFraction[i]);
