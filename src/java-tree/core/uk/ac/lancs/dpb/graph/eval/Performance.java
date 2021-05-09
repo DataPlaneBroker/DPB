@@ -38,6 +38,7 @@ package uk.ac.lancs.dpb.graph.eval;
 
 import java.io.File;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -276,20 +277,23 @@ public class Performance {
             }
         }
         System.out.printf("Measurements:%n%s%n", measurements);
-        for (var e1 : measurements.entrySet()) {
-            final String algo = e1.getKey();
-            for (var e2 : e1.getValue().entrySet()) {
-                final int gridSize = e2.getKey();
-                for (var e3 : e2.getValue().entrySet()) {
-                    final int gridInstance = e3.getKey();
-                    for (var e4 : e3.getValue().entrySet()) {
-                        final int goalCount = e4.getKey();
-                        for (var e5 : e4.getValue().entrySet()) {
-                            final int goalSet = e5.getKey();
-                            final Measurement m = e5.getValue();
-                            System.out.printf("%s,%d,%d,%d,%d,%s%n", algo,
-                                              gridSize, gridInstance, goalCount,
-                                              goalSet, m);
+        File data = new File("scratch/results.csv");
+        try (PrintWriter out = new PrintWriter(data, StandardCharsets.UTF_8)) {
+            for (var e1 : measurements.entrySet()) {
+                final String algo = e1.getKey();
+                for (var e2 : e1.getValue().entrySet()) {
+                    final int gridSize = e2.getKey();
+                    for (var e3 : e2.getValue().entrySet()) {
+                        final int gridInstance = e3.getKey();
+                        for (var e4 : e3.getValue().entrySet()) {
+                            final int goalCount = e4.getKey();
+                            for (var e5 : e4.getValue().entrySet()) {
+                                final int goalSet = e5.getKey();
+                                final Measurement m = e5.getValue();
+                                System.out.printf("%s,%d,%d,%d,%d,%s%n", algo,
+                                                  gridSize, gridInstance,
+                                                  goalCount, goalSet, m);
+                            }
                         }
                     }
                 }
