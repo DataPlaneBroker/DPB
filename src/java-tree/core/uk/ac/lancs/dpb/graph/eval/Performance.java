@@ -196,6 +196,7 @@ public class Performance {
                             Map<? extends QualifiedEdge<Vertex>,
                                 ? extends BidiCapacity> best = null;
                             final long start = System.currentTimeMillis();
+                            final long terminate = start + 20 * 1000;
                             for (int cycles = 1;; cycles++) {
                                 for (var cand : algo.plot(goals, demand,
                                                           graph.edges)) {
@@ -217,6 +218,11 @@ public class Performance {
                                                             .toString())
                                                         .collect(Collectors
                                                             .joining(", ")));
+                                    }
+                                    if (System.currentTimeMillis()
+                                        > terminate) {
+                                        System.err.printf("  terminated%n");
+                                        break;
                                     }
                                 }
 
