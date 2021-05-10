@@ -240,6 +240,13 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         return Collections.unmodifiableMap(output);
     }
 
+    /**
+     * Create a set from an identity hash map.
+     * 
+     * @param <E> the element type
+     * 
+     * @return the initially empty identity set
+     */
     private static <E> Collection<E> newIdentityHashSet() {
         return Collections.newSetFromMap(new IdentityHashMap<>());
     }

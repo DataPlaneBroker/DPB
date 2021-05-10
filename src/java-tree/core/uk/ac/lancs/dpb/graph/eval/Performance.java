@@ -55,7 +55,14 @@ import uk.ac.lancs.dpb.tree.ComprehensiveTreePlotter;
 import uk.ac.lancs.dpb.tree.TreePlotter;
 
 /**
- *
+ * Carries out several runs of tree-plotting algorithms on graphs and
+ * goal sets of various sizes. Several algorithms and configurations
+ * thereof are instantiated and named. Graphs of various sizes are
+ * created, random goal sets are chosen from them, and each algorithm is
+ * timed to complete, reporting the best of its solutions. Graphs,
+ * challenges and solutions are written out as SVGs. A CSV of the
+ * results is also written.
+ * 
  * @author simpsons
  */
 public class Performance {
@@ -78,13 +85,82 @@ public class Performance {
         }
     }
 
+    /**
+     * Run a performance evaluation of several algorithms. This involves
+     * a nest of several loops:
+     * 
+     * <ul>
+     * 
+     * <li>The outer loop determines graph size in the number of
+     * vertices <var>v</var>.
+     * 
+     * <li>Several graphs of each size are created. Each is written as
+     * <samp>scratch/graph-<var>v</var>-<var>n</var>.svg</samp>, with
+     * <var>n</var> as the graph instance for the given size.
+     * 
+     * <li>The goal set size <var>g</var> varies for each graph.
+     * 
+     * <li>Several goal sets are created for each goal set size and
+     * graph. This defines a challenge, saved as
+     * <samp>scratch/challenge-<var>v</var>-<var>n</var>-<var>g</var>-<var>m</var>.svg</samp>,
+     * with <var>m</var> as the goal set number for the given graph and
+     * goal set size.
+     * 
+     * <li>Several algorithms are applied to each challenge.
+     * 
+     * </ul>
+     * 
+     * <p>
+     * Each time an algorithm yields a solution, its score is computed.
+     * The lowest score is retained, and ultimately reported. Best
+     * scores can be used to compare algorithms applied to the same
+     * challenge. The best solutions are written to
+     * <samp>scratch/solution-<var>v</var>-<var>n</var>-<var>g</var>-<var>m</var>-<var>algo</var>.svg</samp>,
+     * with <var>algo</var> as the algorithm label.
+     * 
+     * <p>
+     * Each run of an algorithm is timed. Due to the wildly varying
+     * possibilities, if an algorithm takes less than a certain amount
+     * (say, one second), it is re-run on the same challenge until the
+     * cumulative time exceeds that minimum time, and an average is
+     * taken. Additionally, an algorithm is terminated abruptly if it
+     * takes several seconds, so it might not have found the best
+     * solution.
+     * 
+     * <p>
+     * The results are written to <samp>scratch/results.csv</samp>. Each
+     * row gives the (mean) time of an algorithm to complete a challenge
+     * and its best score. The columns are:
+     * 
+     * <ol>
+     * 
+     * <li>algorithm label
+     * 
+     * <li>grid size (number of vertices)
+     * 
+     * <li>grid instance
+     * 
+     * <li>goal set size
+     * 
+     * <li>goal set instance
+     * 
+     * <li>(mean) time
+     * 
+     * <li>best score (might be <samp>Infinity</samp>)
+     * 
+     * </ol>
+     * 
+     * @param args ignored
+     * 
+     * @throws Exception if something goes wrong
+     */
     public static void main(String[] args) throws Exception {
         /* Stop an algorithm after this amount of time, whether it has
          * completed or not. */
         final int expirySeconds = 20;
 
         /* Keep running an algorithm on the same challenge until it has
-         * taken this amount of time cummulatively. */
+         * taken this amount of time cumulatively. */
         final long minMilliseconds = 1000;
 
         CapacitySupply supply = new MySupply(1.0 / 3.0);
