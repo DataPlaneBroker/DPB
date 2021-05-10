@@ -57,6 +57,7 @@ import java.util.function.IntUnaryOperator;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.Capacity;
 import uk.ac.lancs.dpb.graph.DemandFunction;
@@ -516,6 +517,41 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     outwards.computeIfAbsent(v, k -> new HashSet<>());
                     inwards.computeIfAbsent(v, k -> new HashSet<>());
                 }
+
+                /* Clear out leaves. */
+                Collection<V> cands = LinkedIdentityHashMap.asSet(vertexes);
+                for (V v : remainingIn(cands)) {
+                    /* Don't remove goal leaves. */
+                    if (goalSequence.contains(v)) continue;
+
+                    var ins = inwards.get(v);
+                    var outs = outwards.get(v);
+                    Collection<QualifiedEdge<P>> es = Stream
+                        .concat(ins.stream(), outs.stream()).collect(Collectors
+                            .toCollection(ComprehensiveTreePlotter::newIdentityHashSet));
+                    if (es.size() >= 2) continue;
+                    vertexes.remove(v);
+                    if (es.isEmpty()) continue;
+                    QualifiedEdge<P> e = es.iterator().next();
+                    edgeCaps.get(e).clear();
+                    V start = portMap.apply(e.start);
+                    V finish = portMap.apply(e.finish);
+                    if (start == v) {
+                        /* Remove the outward edge from v and the inward
+                         * edge from the finish. */
+                        outs.remove(e);
+                        inwards.get(finish).remove(e);
+                        cands.add(finish);
+                    } else {
+                        assert finish == v;
+                        /* Remove the inward edge from v and the outward
+                         * edge from the start. */
+                        ins.remove(e);
+                        outwards.get(start).remove(e);
+                        cands.add(start);
+                    }
+                }
+                assert vertexes.containsAll(goalSequence);
             }
 
             /**
