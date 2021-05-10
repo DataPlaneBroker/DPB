@@ -132,23 +132,24 @@ public class Performance {
 
         Map<String, TreePlotter> algos = new LinkedHashMap<>();
 
-        /* The first algorithm must be exhaustive, as it gives us ground
-         * truth. */
         algos
             .put("exh",
                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES));
 
-        algos.put("99999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-            .biasThreshold(0.99999)));
+        algos.put("um1", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+            .biasThreshold(1.0)));
 
-        algos.put("9999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-            .biasThreshold(0.9999)));
+        algos.put("um1em9",
+                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                      .biasThreshold(0.999999999)));
 
-        algos.put("999", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-            .biasThreshold(0.999)));
+        algos.put("um1em6",
+                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                      .biasThreshold(0.999999)));
 
-        algos.put("99", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-            .biasThreshold(0.99)));
+        algos.put("um1em3",
+                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                      .biasThreshold(0.999)));
 
         /* Vary the graph dimensions. Do this in the outermost loop
          * because some of these are quite costly. */
