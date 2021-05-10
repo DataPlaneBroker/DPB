@@ -148,7 +148,7 @@ public class Performance {
             /* Generate several graphs of this size. */
             for (final int graphIter : IntStream.range(0, graphRuns)
                 .toArray()) {
-                System.out.printf("%nVertices: %d; run %d%n", vertexCount,
+                System.err.printf("%nVertices: %d; run %d...", vertexCount,
                                   graphIter);
                 Graph graph = GraphExamples
                     .createElasticScaleFreeGraph(rng, vertexCount, 3, 3, supply,
@@ -158,6 +158,7 @@ public class Performance {
                             graphIter)))) {
                     graph.drawSVG(out, null, null, 0.3, 0.9);
                 }
+                System.err.printf(" complete%n");
 
                 /* Vary the number of goals. */
                 for (final int goalCount : goalSetSizes) {
