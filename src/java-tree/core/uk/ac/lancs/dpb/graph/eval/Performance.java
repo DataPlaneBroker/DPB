@@ -91,7 +91,7 @@ public class Performance {
 
         /* This is the number of vertices in each generated graph. */
         final int[] vertexCounts =
-            IntStream.rangeClosed(1, 1).map(i -> i * 50).toArray();
+            IntStream.rangeClosed(1, 4).map(i -> i * 20).toArray();
 
         /* This is the number of times we use one graph with all
          * variations of other parameters. */
