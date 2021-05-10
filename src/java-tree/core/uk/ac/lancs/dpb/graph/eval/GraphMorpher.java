@@ -256,7 +256,7 @@ public class GraphMorpher {
         Mote() {
             /* Arrange each vertex in a spiral. */
             this.id = nextId++;
-            double pid = 0.3 * Math.pow(id, 1.2);
+            double pid = 0.3 * id;
             this.x = pid * Math.cos(id);
             this.y = pid * Math.sin(id);
         }
@@ -475,21 +475,23 @@ public class GraphMorpher {
                 .add(start);
         }
 
-        /* Choose a position for each vertex based on the subset of
-         * neighbour vertices before it. */
-        for (int i = 0; i < this.vertexes.size(); i++) {
-            Mote us = this.vertexes.get(i);
+        if (false)
+            /* Choose a position for each vertex based on the subset of
+             * neighbour vertices before it. */
+            for (int i = 0; i < this.vertexes.size(); i++) {
+                Mote us = this.vertexes.get(i);
 
-            /* Identify all previously positioned vertices. */
-            Collection<Mote> before = new ArrayList<>(vertexes.subList(0, i));
+                /* Identify all previously positioned vertices. */
+                Collection<Mote> before =
+                    new ArrayList<>(vertexes.subList(0, i));
 
-            /* Remove non-neighbours. */
-            before
-                .retainAll(neighbors.getOrDefault(us, Collections.emptySet()));
+                /* Remove non-neighbours. */
+                before.retainAll(neighbors
+                    .getOrDefault(us, Collections.emptySet()));
 
-            /* Move the mote to a good position. */
-            us.chooseLocation(before);
-        }
+                /* Move the mote to a good position. */
+                us.chooseLocation(before);
+            }
 
         /* Determine the degree of each vertex. */
         Map<Mote, Integer> degrees = new IdentityHashMap<>();
