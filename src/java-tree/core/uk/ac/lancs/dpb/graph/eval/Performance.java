@@ -297,9 +297,9 @@ public class Performance {
                             for (var e5 : e4.getValue().entrySet()) {
                                 final int goalSet = e5.getKey();
                                 final Measurement m = e5.getValue();
-                                System.out.printf("%s,%d,%d,%d,%d,%s%n", algo,
-                                                  gridSize, gridInstance,
-                                                  goalCount, goalSet, m);
+                                out.printf("%s,%d,%d,%d,%d,%s%n", algo,
+                                           gridSize, gridInstance, goalCount,
+                                           goalSet, m);
                             }
                         }
                     }
