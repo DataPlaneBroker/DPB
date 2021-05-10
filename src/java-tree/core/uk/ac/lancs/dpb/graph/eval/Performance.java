@@ -79,6 +79,14 @@ public class Performance {
     }
 
     public static void main(String[] args) throws Exception {
+        /* Stop an algorithm after this amount of time, whether it has
+         * completed or not. */
+        final int expirySeconds = 20;
+
+        /* Keep running an algorithm on the same challenge until it has
+         * taken this amount of time cummulatively. */
+        final long minMilliseconds = 1000;
+
         CapacitySupply supply = new MySupply(1.0 / 3.0);
 
         /* This is the number of vertices in each generated graph. */
@@ -196,7 +204,7 @@ public class Performance {
                             Map<? extends QualifiedEdge<Vertex>,
                                 ? extends BidiCapacity> best = null;
                             final long start = System.currentTimeMillis();
-                            final long terminate = start + 20 * 1000;
+                            final long terminate = start + expirySeconds * 1000;
                             for (int cycles = 1;; cycles++) {
                                 for (var cand : algo.plot(goals, demand,
                                                           graph.edges)) {
@@ -229,7 +237,7 @@ public class Performance {
                                 /* Compute the duration. If it's not yet
                                  * added up to a second, tryin again. */
                                 final long stop = System.currentTimeMillis();
-                                if (stop - start < 2000) continue;
+                                if (stop - start < minMilliseconds) continue;
 
                                 /* Record the average duration, and
                                  * stop. */
