@@ -108,6 +108,16 @@ public final class Graph {
     }
 
     /**
+     * Determine whether any vertices have invalid NaN co-ordinates.
+     * 
+     * @return {@code true} if there are any vertices with NaN
+     * co-ordinates; {@code false} otherwise
+     */
+    public boolean isNan() {
+        return vertexes.stream().filter(Vertex::isNan).findAny().isPresent();
+    }
+
+    /**
      * Choose goals randomly from the set of vertices. The number chosen
      * may be less than requested if there are insufficient vertices.
      * 

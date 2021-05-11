@@ -100,6 +100,17 @@ public abstract class Vertex {
     }
 
     /**
+     * Determine whether any co-ordinate is not a number.
+     * {@link Double#isNaN()} is used to test the co-ordinates.
+     * 
+     * @return {@code true} if any co-ordinate is not a number;
+     * {@code false} otherwise
+     */
+    public final boolean isNan() {
+        return Double.isNaN(x()) || Double.isNaN(y());
+    }
+
+    /**
      * Determine whether two straight line segments cross. Note that if
      * the two lines share a vertex, this method returns {@code false}.
      * 

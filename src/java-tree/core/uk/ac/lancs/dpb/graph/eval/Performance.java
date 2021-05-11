@@ -236,9 +236,16 @@ public class Performance {
                 .toArray()) {
                 System.err.printf("%nVertices: %d; run %d...", vertexCount,
                                   graphIter);
-                Graph graph = GraphExamples
-                    .createElasticScaleFreeGraph(rng, vertexCount, 3, 3, supply,
-                                                 null);
+                final Graph graph;
+                for (;;) {
+                    Graph cand = GraphExamples
+                        .createElasticScaleFreeGraph(rng, vertexCount, 3, 3,
+                                                     supply, null);
+                    /* Skip over faulty graphs. */
+                    if (cand.isNan()) continue;
+                    graph = cand;
+                    break;
+                }
                 try (PrintWriter out = new PrintWriter(new File(String
                     .format("scratch/graph-%d-%d.svg", vertexCount,
                             graphIter)))) {
