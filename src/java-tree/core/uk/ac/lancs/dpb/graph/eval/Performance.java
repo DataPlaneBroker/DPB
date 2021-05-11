@@ -167,7 +167,7 @@ public class Performance {
 
         /* This is the number of vertices in each generated graph. */
         final int[] vertexCounts =
-            IntStream.rangeClosed(1, 4).map(i -> i * 20).toArray();
+            IntStream.rangeClosed(0, 2).map(i -> i * 30 + 20).toArray();
 
         /* This is the number of times we use one graph with all
          * variations of other parameters. */
@@ -175,7 +175,8 @@ public class Performance {
 
         /* This is the number of goals we select to create a challenge
          * from a graph. */
-        final int[] goalSetSizes = IntStream.rangeClosed(3, 5).toArray();
+        final int[] goalSetSizes =
+            IntStream.rangeClosed(1, 4).map(i -> i * 2 + 1).toArray();
 
         /* This is the number of times we use goal sets of the same
          * size. */
@@ -215,17 +216,17 @@ public class Performance {
         algos.put("um1", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
             .biasThreshold(1.0)));
 
+        algos.put("um1em15",
+                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                      .biasThreshold(0.999999999999999)));
+
+        algos.put("um1em12",
+                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                      .biasThreshold(0.999999999999)));
+
         algos.put("um1em9",
                   new ComprehensiveTreePlotter(ComprehensiveTreePlotter
                       .biasThreshold(0.999999999)));
-
-        algos.put("um1em6",
-                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-                      .biasThreshold(0.999999)));
-
-        algos.put("um1em3",
-                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-                      .biasThreshold(0.999)));
 
         /* Vary the graph dimensions. Do this in the outermost loop
          * because some of these are quite costly. */
