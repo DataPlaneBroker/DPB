@@ -42,6 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -214,22 +215,25 @@ public class Performance {
 
         algos
             .put("exh",
-                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES));
+                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES,
+                                              expirySeconds * 1000));
 
-        algos.put("um1", new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-            .biasThreshold(1.0)));
+        algos.put("um1", new ComprehensiveTreePlotter(
+                                                      ComprehensiveTreePlotter
+                                                          .biasThreshold(1.0),
+                                                      expirySeconds * 1000));
 
         algos.put("um1em15",
                   new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-                      .biasThreshold(0.999999999999999)));
+                      .biasThreshold(0.999999999999999), expirySeconds * 1000));
 
         algos.put("um1em12",
                   new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-                      .biasThreshold(0.999999999999)));
+                      .biasThreshold(0.999999999999), expirySeconds * 1000));
 
         algos.put("um1em9",
                   new ComprehensiveTreePlotter(ComprehensiveTreePlotter
-                      .biasThreshold(0.999999999)));
+                      .biasThreshold(0.999999999), expirySeconds * 1000));
 
         /* Vary the graph dimensions. Do this in the outermost loop
          * because some of these are quite costly. */
@@ -295,32 +299,39 @@ public class Performance {
                             final long terminate = start + expirySeconds * 1000;
                             final int samples;
                             for (int cycles = 1;; cycles++) {
-                                for (var cand : algo.plot(goals, demand,
-                                                          graph.edges)) {
-                                    double score = 0.0;
-                                    for (var entry : cand.entrySet()) {
-                                        QualifiedEdge<Vertex> key =
-                                            entry.getKey();
-                                        BidiCapacity val = entry.getValue();
-                                        score += key.cost * (val.ingress.min()
-                                            + val.egress.min());
+                                try {
+                                    for (var cand : algo.plot(goals, demand,
+                                                              graph.edges)) {
+                                        double score = 0.0;
+                                        for (var entry : cand.entrySet()) {
+                                            QualifiedEdge<Vertex> key =
+                                                entry.getKey();
+                                            BidiCapacity val = entry.getValue();
+                                            score +=
+                                                key.cost * (val.ingress.min()
+                                                    + val.egress.min());
+                                        }
+                                        if (best == null || score < bestScore) {
+                                            best = cand;
+                                            bestScore = score;
+                                            if (false) System.err
+                                                .printf("acc %g: %s%n",
+                                                        bestScore,
+                                                        best.entrySet().stream()
+                                                            .map(e -> e.getKey()
+                                                                .toString())
+                                                            .collect(Collectors
+                                                                .joining(", ")));
+                                        }
+                                        if (System.currentTimeMillis()
+                                            > terminate) {
+                                            System.err.printf("  terminated%n");
+                                            break;
+                                        }
                                     }
-                                    if (best == null || score < bestScore) {
-                                        best = cand;
-                                        bestScore = score;
-                                        if (false) System.err
-                                            .printf("acc %g: %s%n", bestScore,
-                                                    best.entrySet().stream()
-                                                        .map(e -> e.getKey()
-                                                            .toString())
-                                                        .collect(Collectors
-                                                            .joining(", ")));
-                                    }
-                                    if (System.currentTimeMillis()
-                                        > terminate) {
-                                        System.err.printf("  terminated%n");
-                                        break;
-                                    }
+                                } catch (NoSuchElementException ex) {
+                                    System.err
+                                        .printf("  terminated internally%n");
                                 }
 
                                 /* Compute the duration. If it's not yet

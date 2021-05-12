@@ -59,6 +59,8 @@ import java.util.stream.StreamSupport;
  * @author simpsons
  */
 public final class MixedRadixIterable<E> implements Iterable<E> {
+    private final long timeout;
+
     private final int magnitude;
 
     private final IntUnaryOperator radixes;
@@ -89,6 +91,9 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
         };
 
         return new Iterator<E>() {
+            private final long expiry =
+                timeout >= 0 ? System.currentTimeMillis() + timeout : -1;
+
             /**
              * Holds the next state to be tried. Each entry is limited
              * by the value obtained by submitting its index to
@@ -124,6 +129,13 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
                     assert invalidated > 0;
                     invalidated--;
                     while (true) {
+                        /* Stop if we're taking too long. */
+                        if (expiry >= 0 &&
+                            System.currentTimeMillis() >= expiry) {
+                            invalidated = magnitude;
+                            return false;
+                        }
+
                         if (digits[invalidated]
                             == radixes.applyAsInt(invalidated)) {
                             assert invalidated < magnitude;
@@ -187,6 +199,8 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
      * @param <E> the element type of the iterable
      */
     public static final class Builder<E> {
+        long timeout = -1;
+
         int magnitude = 0;
 
         IntUnaryOperator radixes;
@@ -209,9 +223,33 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
          * @constructor
          */
         public MixedRadixIterable<E> build() {
-            return new MixedRadixIterable<>(magnitude, radixes, validator,
-                                            translatorSupplier
+            return new MixedRadixIterable<>(timeout, magnitude, radixes,
+                                            validator, translatorSupplier
                                                 .apply(magnitude));
+        }
+
+        /**
+         * Enable the timeout, after which a generated iterator will
+         * yield no more solutions.
+         * 
+         * @param timeout the timeout in milliseconds from the creation
+         * of the iterator; or {@code negative} to disable
+         * 
+         * @return this object
+         */
+        public Builder<E> timeout(long timeout) {
+            this.timeout = timeout;
+            return this;
+        }
+
+        /**
+         * Disable the timeout.
+         * 
+         * @return this object
+         */
+        public Builder<E> noTimeout() {
+            this.timeout = -1;
+            return this;
         }
 
         /**
@@ -378,7 +416,8 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
             .collect(Collectors.toList()));
     }
 
-    private MixedRadixIterable(int magnitude, IntUnaryOperator radixes,
+    private MixedRadixIterable(long timeout, int magnitude,
+                               IntUnaryOperator radixes,
                                MixedRadixValidator validator,
                                Function<? super IntUnaryOperator,
                                         ? extends E> translator) {
@@ -388,6 +427,7 @@ public final class MixedRadixIterable<E> implements Iterable<E> {
         this.radixes = radixes;
         this.translator = translator;
         this.validator = validator;
+        this.timeout = timeout;
     }
 
     /**

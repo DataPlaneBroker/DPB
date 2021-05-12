@@ -126,13 +126,23 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
     private final Assessor assessor;
 
+    private final long timeout;
+
     /**
      * Create a comprehensive tree plotter.
      * 
      * @param assessor an agent deciding whether to remove biased edges
+     * 
+     * @param timeout the timeout in milliseconds after which to abandon
+     * iteration; negative to disable
      */
-    public ComprehensiveTreePlotter(Assessor assessor) {
+    public ComprehensiveTreePlotter(Assessor assessor, long timeout) {
         this.assessor = assessor;
+        this.timeout = timeout;
+    }
+
+    public ComprehensiveTreePlotter(Assessor assessor) {
+        this(assessor, -1L);
     }
 
     private static class Path<V> {
@@ -1384,8 +1394,8 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 if (!c.check(digits)) return false;
             return true;
         };
-        return MixedRadixIterable.to(translator).over(modeMap.length, bases)
-            .constrainedBy(validator).build();
+        return MixedRadixIterable.to(translator).timeout(timeout)
+            .over(modeMap.length, bases).constrainedBy(validator).build();
     }
 
     private static class Vertex {
