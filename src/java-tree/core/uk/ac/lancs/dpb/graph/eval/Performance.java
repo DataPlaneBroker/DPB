@@ -185,16 +185,19 @@ public class Performance {
         class Measurement {
             final double elapsed;
 
+            final int samples;
+
             final double fit;
 
-            public Measurement(double elapsed, double fit) {
+            public Measurement(double elapsed, int samples, double fit) {
                 this.elapsed = elapsed;
+                this.samples = samples;
                 this.fit = fit;
             }
 
             @Override
             public String toString() {
-                return String.format("%g,%g", elapsed, fit);
+                return String.format("%g,%g,%d", elapsed, fit, samples);
             }
         }
 
@@ -290,6 +293,7 @@ public class Performance {
                                 ? extends BidiCapacity> best = null;
                             final long start = System.currentTimeMillis();
                             final long terminate = start + expirySeconds * 1000;
+                            final int samples;
                             for (int cycles = 1;; cycles++) {
                                 for (var cand : algo.plot(goals, demand,
                                                           graph.edges)) {
@@ -327,6 +331,7 @@ public class Performance {
                                 /* Record the average duration, and
                                  * stop. */
                                 duration = (stop - start) / 1000.0 / cycles;
+                                samples = cycles;
                                 break;
                             }
 
@@ -336,8 +341,8 @@ public class Performance {
                                         chalIter, name));
                             final Measurement measurement;
                             if (best != null) {
-                                measurement =
-                                    new Measurement(duration, bestScore);
+                                measurement = new Measurement(duration, samples,
+                                                              bestScore);
                                 try (PrintWriter out = new PrintWriter(svg)) {
                                     graph.drawSVG(out, goals, best, 0.3, 0.9);
                                 }
@@ -349,7 +354,7 @@ public class Performance {
                                                   duration, bestScore);
                             } else {
                                 measurement =
-                                    new Measurement(duration,
+                                    new Measurement(duration, samples,
                                                     Double.POSITIVE_INFINITY);
                                 svg.delete();
                                 System.err.printf("%d vertices; graph %d;"
