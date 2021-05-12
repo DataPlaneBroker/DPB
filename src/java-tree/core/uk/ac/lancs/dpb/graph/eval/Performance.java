@@ -381,7 +381,7 @@ public class Performance {
                 }
             }
         }
-        System.out.printf("Measurements:%n%s%n", measurements);
+
         File data = new File("scratch/results.csv");
         try (PrintWriter out = new PrintWriter(data, StandardCharsets.UTF_8)) {
             for (var e1 : measurements.entrySet()) {
