@@ -218,10 +218,10 @@ public class Performance {
                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES,
                                               expirySeconds * 1000));
 
-        algos.put("um1", new ComprehensiveTreePlotter(
-                                                      ComprehensiveTreePlotter
-                                                          .biasThreshold(1.0),
-                                                      expirySeconds * 1000));
+        algos.put("u", new ComprehensiveTreePlotter(
+                                                    ComprehensiveTreePlotter
+                                                        .biasThreshold(1.0),
+                                                    expirySeconds * 1000));
 
         algos.put("um1em15",
                   new ComprehensiveTreePlotter(ComprehensiveTreePlotter
