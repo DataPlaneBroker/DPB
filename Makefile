@@ -181,3 +181,37 @@ YEARS=2018,2019
 update-licence:
 	$(FIND) . -name '.svn' -prune -or -type f -print0 | $(XARGS) -0 \
 	$(SED) -i 's/Copyright\s\+[0-9,]\+\sRegents of the University of Lancaster/Copyright $(YEARS), Regents of the University of Lancaster/g'
+
+
+scratch/success-rates.csv: scratch/results.csv src/scripts/success-rates.awk
+	awk -f src/scripts/success-rates.awk \
+	  scratch/results.csv > $@
+
+GRAPHSIZES += 20
+GRAPHSIZES += 50
+GRAPHSIZES += 80
+
+$(GRAPHSIZES:%=scratch/success-rates-%.pdf): \
+	src/scripts/extract.awk scratch/success-rates.csv
+
+scratch/success-rates-%.pdf: src/scripts/success-rates.plot
+	gnuplot -d -e 'GRAPHSIZE=$*' -e 'set term pdf monochrome' \
+	  -e 'set output "scratch/success-rates-$*.pdf"' \
+	  src/scripts/success-rates.plot
+
+scratch/success-rates.pdf: src/scripts/success-rates-3d.plot \
+		scratch/success-rates.csv
+	gnuplot -d -e 'set term pdf' \
+	  -e 'set output "scratch/success-rates.pdf"' \
+	  src/scripts/success-rates-3d.plot
+
+scratch/delays.pdf: src/scripts/delays-3d.plot scratch/success-rates.csv
+	gnuplot -d -e 'set term pdf' \
+	  -e 'set output "scratch/delays.pdf"' \
+	  src/scripts/delays-3d.plot
+
+scratch/delayscores.pdf: src/scripts/delayscores-3d.plot \
+		scratch/success-rates.csv
+	gnuplot -d -e 'set term pdf' \
+	  -e 'set output "scratch/delayscores.pdf"' \
+	  src/scripts/delayscores-3d.plot
