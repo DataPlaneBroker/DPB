@@ -195,13 +195,43 @@ GRAPHSIZES += 20
 GRAPHSIZES += 50
 GRAPHSIZES += 80
 
-$(GRAPHSIZES:%=scratch/success-rates-%.pdf): \
+$(GRAPHSIZES:%=scratch/compare-delays-%.pdf): src/scripts/compare-delays.plot \
+	src/scripts/extract.awk scratch/comparisons.csv
+
+scratch/compare-delays-%.pdf:
+	gnuplot -d -e 'GRAPHSIZE=$*' -e 'set term pdf monochrome' \
+	  -e 'set output "scratch/compare-delays-$*.pdf"' \
+	  src/scripts/compare-delays.plot
+
+$(GRAPHSIZES:%=scratch/compare-scores-%.pdf): src/scripts/compare-scores.plot \
+	src/scripts/extract.awk scratch/comparisons.csv
+
+scratch/compare-scores-%.pdf:
+	gnuplot -d -e 'GRAPHSIZE=$*' -e 'set term pdf monochrome' \
+	  -e 'set output "scratch/compare-scores-$*.pdf"' \
+	  src/scripts/compare-scores.plot
+
+$(GRAPHSIZES:%=scratch/compare-scoredelays-%.pdf): \
+	src/scripts/compare-scoredelays.plot \
+	src/scripts/extract.awk scratch/comparisons.csv
+
+scratch/compare-scoredelays-%.pdf:
+	gnuplot -d -e 'GRAPHSIZE=$*' -e 'set term pdf monochrome' \
+	  -e 'set output "scratch/compare-scoredelays-$*.pdf"' \
+	  src/scripts/compare-scoredelays.plot
+
+
+
+
+$(GRAPHSIZES:%=scratch/success-rates-%.pdf): src/scripts/success-rates.plot \
 	src/scripts/extract.awk scratch/success-rates.csv
 
-scratch/success-rates-%.pdf: src/scripts/success-rates.plot
+scratch/success-rates-%.pdf:
 	gnuplot -d -e 'GRAPHSIZE=$*' -e 'set term pdf monochrome' \
 	  -e 'set output "scratch/success-rates-$*.pdf"' \
 	  src/scripts/success-rates.plot
+
+
 
 scratch/success-rates.pdf: src/scripts/success-rates-3d.plot \
 		scratch/success-rates.csv

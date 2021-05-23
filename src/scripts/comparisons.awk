@@ -31,12 +31,10 @@ END {
 	    for (grinst in GRINST) {
 		for (glinst in GLINST) {
 		    for (algo in ALGO) {
-			printf "%d nodes; %g goals, [%d,%d] %s\n",
-			    grsz, glsz, grinst, glinst, algo > "/dev/stderr";
 			## How much faster is the alternative
 			## algorithm compared to the reference?
-			delay = DELAY[grsz, grinst, glsz, glinst, STDALGO];
-			delay /= DELAY[grsz, grinst, glsz, glinst, algo];
+			delay = DELAY[grsz, grinst, glsz, glinst, algo];
+			delay /= DELAY[grsz, grinst, glsz, glinst, STDALGO];
 
 			DELAYSUM[grsz, glsz, algo] += delay;
 			DELAYSUMSQ[grsz, glsz, algo] += delay * delay;
@@ -47,11 +45,12 @@ END {
 			    if ((grsz, grinst, glsz, glinst, algo) in SCORE) {
 				## Both reference and alternative
 				## algorithm succeeded.
-				printf "%s and %s succeeded\n",
-				    STDALGO, algo > "/dev/stderr";
-				score = \
-				    SCORE[grsz, grinst, glsz, glinst, STDALGO];
+				# printf "%s and %s succeeded\n",
+				#     STDALGO, algo > "/dev/stderr";
+				score = 1;
 				score /= \
+				    SCORE[grsz, grinst, glsz, glinst, STDALGO];
+				score *= \
 				    SCORE[grsz, grinst, glsz, glinst, algo];
 
 				SCORESUM[grsz, glsz, algo] += score;
@@ -64,21 +63,21 @@ END {
 			    } else {
 				## The reference algorithm succeeded
 				## but the alternative did not.
-				printf "%s succeeded where %s failed\n",
-				    STDALGO, algo > "/dev/stderr";
+				# printf "%s succeeded where %s failed\n",
+				#     STDALGO, algo > "/dev/stderr";
 				STDBETTER[grsz, glsz, algo]++;
 			    }
 			} else if ((grsz, grinst, glsz, glinst, algo) in SCORE) {
 			    ## The alternative algorithm succeeded
 			    ## when the reference algorithm did not.
-			    printf "%s failed where %s succeeded\n",
-				STDALGO, algo > "/dev/stderr";
+			    # printf "%s failed where %s succeeded\n",
+			    # 	STDALGO, algo > "/dev/stderr";
 			    ALTBETTER[grsz, glsz, algo]++;
 			} else {
 			    ## Both reference and alternative
 			    ## algorithms failed.
-			    printf "both %s and %s failed\n",
-				STDALGO, algo > "/dev/stderr";
+			    # printf "both %s and %s failed\n",
+			    # 	STDALGO, algo > "/dev/stderr";
 			    BOTHFAILED[grsz, glsz, algo]++;
 			}
 		    }
@@ -112,8 +111,6 @@ END {
     for (algo in ALGO)
 	for (grsz in GRSZ)
 	    for (glsz in GLSZ) {
-		printf "%s %d nodes %d goals\n",
-		    algo, grsz, glsz > "/dev/stderr";
 		printf "%s,%d,%d", algo, grsz, glsz;
 		printf ",%d", DELAYCOUNT[grsz, glsz, algo];
 		printf ",%g", PRODCOUNT[grsz, glsz, algo] /	\
