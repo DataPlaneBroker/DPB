@@ -187,6 +187,10 @@ scratch/success-rates.csv: scratch/results.csv src/scripts/success-rates.awk
 	awk -f src/scripts/success-rates.awk \
 	  scratch/results.csv > $@
 
+scratch/comparisons.csv: scratch/results.csv src/scripts/comparisons.awk
+	awk -f src/scripts/comparisons.awk \
+	  scratch/results.csv > $@
+
 GRAPHSIZES += 20
 GRAPHSIZES += 50
 GRAPHSIZES += 80
