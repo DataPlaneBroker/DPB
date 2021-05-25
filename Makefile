@@ -232,6 +232,16 @@ scratch/success-rates-%.pdf:
 	  src/scripts/success-rates.plot
 
 
+scratch/percents.pdf: src/scripts/percents.plot scratch/comparisons.csv
+	gnuplot -d -e 'set term pdf monochrome' \
+	  -e 'set output "$@"' \
+	  src/scripts/percents.plot
+
+scratch/compare-scoredelaysall.pdf: \
+	src/scripts/compare-scoredelaysall.plot scratch/comparisons.csv
+	gnuplot -d -e 'set term pdf monochrome' \
+	  -e 'set output "$@"' \
+	  src/scripts/compare-scoredelaysall.plot
 
 scratch/success-rates.pdf: src/scripts/success-rates-3d.plot \
 		scratch/success-rates.csv
