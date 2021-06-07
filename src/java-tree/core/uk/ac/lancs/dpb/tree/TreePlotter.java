@@ -36,6 +36,7 @@
 
 package uk.ac.lancs.dpb.tree;
 
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -75,7 +76,7 @@ public interface TreePlotter {
      */
     default <V>
         Iterable<? extends Map<? extends QualifiedEdge<V>,
-                               ? extends Map.Entry<? extends Collection<? extends V>,
+                               ? extends Map.Entry<? extends BitSet,
                                                    ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Collection<? extends QualifiedEdge<V>> edges) {
@@ -102,7 +103,7 @@ public interface TreePlotter {
      */
     <P, V>
         Iterable<? extends Map<? extends QualifiedEdge<P>,
-                               ? extends Map.Entry<? extends Collection<? extends V>,
+                               ? extends Map.Entry<? extends BitSet,
                                                    ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,

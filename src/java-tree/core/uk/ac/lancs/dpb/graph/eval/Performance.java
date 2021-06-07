@@ -39,7 +39,7 @@ package uk.ac.lancs.dpb.graph.eval;
 import java.io.File;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
+import java.util.BitSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -295,7 +295,7 @@ public class Performance {
                             final double duration;
                             double bestScore = Double.POSITIVE_INFINITY;
                             Map<? extends QualifiedEdge<Vertex>,
-                                ? extends Map.Entry<? extends Collection<? extends Vertex>,
+                                ? extends Map.Entry<? extends BitSet,
                                                     ? extends BidiCapacity>> best =
                                                         null;
                             final long start = System.currentTimeMillis();

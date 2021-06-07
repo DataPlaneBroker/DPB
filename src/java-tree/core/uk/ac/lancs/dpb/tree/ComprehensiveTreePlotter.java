@@ -404,7 +404,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     @Override
     public <P, V>
         Iterable<? extends Map<? extends QualifiedEdge<P>,
-                               ? extends Map.Entry<? extends Collection<? extends V>,
+                               ? extends Map.Entry<? extends BitSet,
                                                    ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
@@ -1422,28 +1422,26 @@ public class ComprehensiveTreePlotter implements TreePlotter {
          * source set (as a bit set), and then simultaneously converts
          * that into a Collection of user-defined vertices and into a
          * resource consumption. These are presented as a map entry. */
-        Function<int[],
-                 Map.Entry<Collection<V>, BidiCapacity>> valueMapper = ar -> {
-                     /* The first element is the edge number. */
-                     final int en = ar[0];
+        Function<int[], Map.Entry<BitSet, BidiCapacity>> valueMapper = ar -> {
+            /* The first element is the edge number. */
+            final int en = ar[0];
 
-                     /* The second element is the digit value. */
-                     final int digit = ar[1];
+            /* The second element is the digit value. */
+            final int digit = ar[1];
 
-                     /* Convert the digit into a source set. */
-                     BitSet srcset = of(modeMap[en][digit - 1][0]);
+            /* Convert the digit into a source set. */
+            BitSet srcset = of(modeMap[en][digit - 1][0]);
 
-                     /* Convert the source set into a collection mapped
-                      * to its bandwidth consumption. */
-                     return Map.entry(patternToSet(srcset, goalSequence),
-                                      bwreq.getPair(srcset));
-                 };
+            /* Convert the source set into a collection mapped to its
+             * bandwidth consumption. */
+            return Map.entry(srcset, bwreq.getPair(srcset));
+        };
 
         /* Define how to convert each solution into the format the user
          * wants. */
         Function<IntUnaryOperator,
                  Map<QualifiedEdge<P>,
-                     Map.Entry<Collection<V>, BidiCapacity>>> translator =
+                     Map.Entry<BitSet, BidiCapacity>>> translator =
                          digits -> IntStream.range(0, edgeIndex.size())
                              .mapToObj(pairer(digits))
                              .filter(ComprehensiveTreePlotter::isInUse)
@@ -1853,8 +1851,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
 
         /* Choose a tree. */
         final Map<QualifiedEdge<Vertex>,
-                  Map.Entry<? extends Collection<? extends Vertex>,
-                            ? extends BidiCapacity>> tree;
+                  Map.Entry<? extends BitSet, ? extends BidiCapacity>> tree;
         if (true) {
             TreePlotter plotter =
                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter
@@ -1879,7 +1876,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 System.out.printf("%2d %12s %s%n", m, bs, bw);
             }
             Map<? extends QualifiedEdge<Vertex>,
-                ? extends Map.Entry<? extends Collection<? extends Vertex>,
+                ? extends Map.Entry<? extends BitSet,
                                     ? extends BidiCapacity>> best = null;
             double bestScore = Double.MAX_VALUE;
             assert bwreq.degree() == goals.size();
