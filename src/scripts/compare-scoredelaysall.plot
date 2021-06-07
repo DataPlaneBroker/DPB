@@ -2,7 +2,7 @@ set title 'Relative score-delay products'
 set ylabel 'Score-delay product as fraction of U_{max}>1'
 set xlabel 'Goal-set size'
 set grid
-set key top right
+set key top right font ",8.2"
 #set xrange [0:300]
 set datafile sep ','
 plot "<(awk -f src/scripts/extract.awk -v KEY=u -v KEY2=20 scratch/comparisons.csv)" using 3:16 with linespoints ls 0 pt 3 title "U_{max}=1, V=20", \
