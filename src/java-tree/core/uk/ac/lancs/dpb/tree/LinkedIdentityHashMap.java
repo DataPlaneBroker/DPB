@@ -48,9 +48,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A map which preserves insertion order and matches keys on identity.
- * This combines the behaviours of {@link LinkedHashMap} and
- * {@link IdentityHashMap}.
+ * Maps from keys to values, preserving insertion order and matching
+ * keys on identity. This combines the behaviours of
+ * {@link LinkedHashMap} and {@link IdentityHashMap}.
  * 
  * @param <K> the key type
  * 
@@ -58,7 +58,7 @@ import java.util.Set;
  * 
  * @author simpsons
  */
-class LinkedIdentityHashMap<K, V> extends AbstractMap<K, V> {
+public class LinkedIdentityHashMap<K, V> extends AbstractMap<K, V> {
     private final class Container {
         final K key;
 

@@ -35,7 +35,7 @@
  */
 
 /**
- * Defines an interface and support classes for plotting trees across
- * graphs.
+ * Provides a tree plotter that uses mixed-radix iteration to discover
+ * all solutions.
  */
-package uk.ac.lancs.dpb.tree;
+package uk.ac.lancs.dpb.tree.mixed_radix;

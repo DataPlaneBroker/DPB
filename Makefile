@@ -98,6 +98,7 @@ DOC_PKGS += uk.ac.lancs.dpb.mgmt
 DOC_PKGS += uk.ac.lancs.dpb.graph
 DOC_PKGS += uk.ac.lancs.dpb.graph.eval
 DOC_PKGS += uk.ac.lancs.dpb.tree
+DOC_PKGS += uk.ac.lancs.dpb.tree.mixed_radix
 
 DOC_OVERVIEW=src/java-overview.html
 DOC_CLASSPATH += $(jars:%=$(JARDEPS_OUTDIR)/%.jar)

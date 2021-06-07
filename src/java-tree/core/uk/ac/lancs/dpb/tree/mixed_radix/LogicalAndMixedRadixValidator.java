@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.tree;
+package uk.ac.lancs.dpb.tree.mixed_radix;
 
 import java.util.Arrays;
 import java.util.function.IntUnaryOperator;
@@ -43,24 +43,24 @@ import java.util.function.IntUnaryOperator;
  *
  * @author simpsons
  */
-class LogicalOrMixedRadixValidator implements MixedRadixValidator {
+class LogicalAndMixedRadixValidator implements MixedRadixValidator {
     final MixedRadixValidator[] base;
 
-    public LogicalOrMixedRadixValidator(MixedRadixValidator... base) {
+    public LogicalAndMixedRadixValidator(MixedRadixValidator... base) {
         this.base = base;
     }
 
     @Override
     public boolean test(int min, IntUnaryOperator digits) {
         for (MixedRadixValidator b : base)
-            if (b.test(min, digits)) return true;
-        return false;
+            if (!b.test(min, digits)) return false;
+        return true;
     }
 
     @Override
-    public MixedRadixValidator or(MixedRadixValidator other) {
+    public MixedRadixValidator and(MixedRadixValidator other) {
         MixedRadixValidator[] nb = Arrays.copyOf(base, base.length + 1);
         nb[base.length] = other;
-        return new LogicalOrMixedRadixValidator(nb);
+        return new LogicalAndMixedRadixValidator(nb);
     }
 }

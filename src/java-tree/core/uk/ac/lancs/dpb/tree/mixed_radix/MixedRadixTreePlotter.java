@@ -34,8 +34,11 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.tree;
+package uk.ac.lancs.dpb.tree.mixed_radix;
 
+import uk.ac.lancs.dpb.tree.LinkedIdentityHashMap;
+import uk.ac.lancs.dpb.tree.IdentityPair;
+import uk.ac.lancs.dpb.tree.Sequence;
 import java.io.File;
 import java.io.PrintWriter;
 import java.math.BigInteger;
@@ -66,6 +69,7 @@ import uk.ac.lancs.dpb.graph.FlatDemandFunction;
 import uk.ac.lancs.dpb.graph.MatrixDemandFunction;
 import uk.ac.lancs.dpb.graph.PairDemandFunction;
 import uk.ac.lancs.dpb.graph.QualifiedEdge;
+import uk.ac.lancs.dpb.tree.TreePlotter;
 
 /**
  * Enumerates over all possible trees that meet the bandwidth
@@ -86,9 +90,9 @@ import uk.ac.lancs.dpb.graph.QualifiedEdge;
  *
  * @author simpsons
  */
-public class ComprehensiveTreePlotter implements TreePlotter {
+public class MixedRadixTreePlotter implements TreePlotter {
     /**
-     * Determines whether a {@link ComprehensiveTreePlotter} should
+     * Determines whether a {@link MixedRadixTreePlotter} should
      * eliminate biased edges.
      */
     public interface Assessor {
@@ -137,12 +141,12 @@ public class ComprehensiveTreePlotter implements TreePlotter {
      * @param timeout the timeout in milliseconds after which to abandon
      * iteration; negative to disable
      */
-    public ComprehensiveTreePlotter(Assessor assessor, long timeout) {
+    public MixedRadixTreePlotter(Assessor assessor, long timeout) {
         this.assessor = assessor;
         this.timeout = timeout;
     }
 
-    public ComprehensiveTreePlotter(Assessor assessor) {
+    public MixedRadixTreePlotter(Assessor assessor) {
         this(assessor, -1L);
     }
 
@@ -567,7 +571,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                     var outs = outwards.get(v);
                     Collection<QualifiedEdge<P>> es = Stream
                         .concat(ins.stream(), outs.stream()).collect(Collectors
-                            .toCollection(ComprehensiveTreePlotter::newIdentityHashSet));
+                            .toCollection(MixedRadixTreePlotter::newIdentityHashSet));
                     if (es.size() >= 2) continue;
                     vertexes.remove(v);
                     if (es.isEmpty()) continue;
@@ -1384,7 +1388,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 var e = entry.getValue();
                 int i = entry.getKey();
                 List<BitSet> modes = edgeCaps.get(e).stream()
-                    .mapToObj(ComprehensiveTreePlotter::of)
+                    .mapToObj(MixedRadixTreePlotter::of)
                     .collect(Collectors.toList());
                 System.err.printf("%2d %15s: %s%n", i, e, modes);
             }
@@ -1444,7 +1448,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                      Map.Entry<BitSet, BidiCapacity>>> translator =
                          digits -> IntStream.range(0, edgeIndex.size())
                              .mapToObj(pairer(digits))
-                             .filter(ComprehensiveTreePlotter::isInUse)
+                             .filter(MixedRadixTreePlotter::isInUse)
                              .collect(Collectors.toMap(keyMapper, valueMapper));
 
         /* Specify how to check that all constraints are met for a
@@ -1854,7 +1858,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                   Map.Entry<? extends BitSet, ? extends BidiCapacity>> tree;
         if (true) {
             TreePlotter plotter =
-                new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                new MixedRadixTreePlotter(MixedRadixTreePlotter
                     .biasThreshold(0.99));
             final DemandFunction bwreq;
             if (true) {

@@ -58,7 +58,7 @@ import java.util.stream.IntStream;
  * 
  * @author simpsons
  */
-class Sequence<E> extends AbstractList<E> {
+public class Sequence<E> extends AbstractList<E> {
     private final E[] array;
 
     private final Map<E, Integer> map;

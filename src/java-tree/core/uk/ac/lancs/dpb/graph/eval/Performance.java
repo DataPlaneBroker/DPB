@@ -53,7 +53,7 @@ import uk.ac.lancs.dpb.graph.Capacity;
 import uk.ac.lancs.dpb.graph.DemandFunction;
 import uk.ac.lancs.dpb.graph.PairDemandFunction;
 import uk.ac.lancs.dpb.graph.QualifiedEdge;
-import uk.ac.lancs.dpb.tree.ComprehensiveTreePlotter;
+import uk.ac.lancs.dpb.tree.mixed_radix.MixedRadixTreePlotter;
 import uk.ac.lancs.dpb.tree.TreePlotter;
 
 /**
@@ -216,24 +216,24 @@ public class Performance {
 
         algos
             .put("exh",
-                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter.ALL_EDGE_MODES,
+                 new MixedRadixTreePlotter(MixedRadixTreePlotter.ALL_EDGE_MODES,
                                               expirySeconds * 1000));
 
-        algos.put("u", new ComprehensiveTreePlotter(
-                                                    ComprehensiveTreePlotter
+        algos.put("u", new MixedRadixTreePlotter(
+                                                    MixedRadixTreePlotter
                                                         .biasThreshold(1.0),
                                                     expirySeconds * 1000));
 
         algos.put("um1em15",
-                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                  new MixedRadixTreePlotter(MixedRadixTreePlotter
                       .biasThreshold(0.999999999999999), expirySeconds * 1000));
 
         algos.put("um1em12",
-                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                  new MixedRadixTreePlotter(MixedRadixTreePlotter
                       .biasThreshold(0.999999999999), expirySeconds * 1000));
 
         algos.put("um1em9",
-                  new ComprehensiveTreePlotter(ComprehensiveTreePlotter
+                  new MixedRadixTreePlotter(MixedRadixTreePlotter
                       .biasThreshold(0.999999999), expirySeconds * 1000));
 
         /* Vary the graph dimensions. Do this in the outermost loop

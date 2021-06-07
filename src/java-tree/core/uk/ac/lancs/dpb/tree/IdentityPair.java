@@ -37,20 +37,48 @@
 package uk.ac.lancs.dpb.tree;
 
 /**
- * Holds a pair of items, matching on identity.
+ * Holds an ordered pair of items, matching on identity. The objects'
+ * implementations of {@link Object#hashCode()} and
+ * {@link Object#equals(Object)} are not invoked to provide the
+ * respective methods on this class.
+ * 
+ * @param <V1> the type of the first item
+ * 
+ * @param <V2> the type of the second item
  * 
  * @author simpsons
  */
-class IdentityPair<V1, V2> {
+public final class IdentityPair<V1, V2> {
+    /**
+     * The first item
+     */
     public final V1 item1;
 
+    /**
+     * The second item
+     */
     public final V2 item2;
 
+    /**
+     * Create an ordered pair of items, matching on identity.
+     * 
+     * @param item1 the first item
+     * 
+     * @param item2 the second item
+     */
     public IdentityPair(V1 item1, V2 item2) {
         this.item1 = item1;
         this.item2 = item2;
     }
 
+    /**
+     * Get the hash code for this object.
+     * 
+     * @default This is computed from
+     * {@link System#identityHashCode(Object)} applied to each item.
+     * 
+     * @return the hash code for this object
+     */
     @Override
     public int hashCode() {
         int hash = 7;
@@ -59,6 +87,14 @@ class IdentityPair<V1, V2> {
         return hash;
     }
 
+    /**
+     * Test whether another object equals this object.
+     * 
+     * @param obj the object to test against
+     * 
+     * @return {@code true} if the other object is also a pair of the
+     * same objects; {@code false} otherwise
+     */
     @Override
     public boolean equals(Object obj) {
         if (this == obj) return true;

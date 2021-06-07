@@ -34,7 +34,7 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
-package uk.ac.lancs.dpb.tree;
+package uk.ac.lancs.dpb.tree.mixed_radix;
 
 import java.util.Arrays;
 import java.util.Collection;
