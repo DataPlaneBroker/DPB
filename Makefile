@@ -243,6 +243,12 @@ scratch/compare-scoredelaysall.pdf: \
 	  -e 'set output "$@"' \
 	  src/scripts/compare-scoredelaysall.plot
 
+scratch/compare-scoredelaysbetter.pdf: \
+	src/scripts/compare-scoredelaysbetter.plot scratch/comparisons.csv
+	gnuplot -d -e 'set term pdf monochrome' \
+	  -e 'set output "$@"' \
+	  src/scripts/compare-scoredelaysbetter.plot
+
 scratch/success-rates.pdf: src/scripts/success-rates-3d.plot \
 		scratch/success-rates.csv
 	gnuplot -d -e 'set term pdf' \
