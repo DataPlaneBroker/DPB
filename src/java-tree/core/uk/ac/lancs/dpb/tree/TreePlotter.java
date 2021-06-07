@@ -75,7 +75,8 @@ public interface TreePlotter {
      */
     default <V>
         Iterable<? extends Map<? extends QualifiedEdge<V>,
-                               ? extends BidiCapacity>>
+                               ? extends Map.Entry<? extends Collection<? extends V>,
+                                                   ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Collection<? extends QualifiedEdge<V>> edges) {
         return plot(goalOrder, bwreq, Function.identity(), edges);
@@ -101,7 +102,8 @@ public interface TreePlotter {
      */
     <P, V>
         Iterable<? extends Map<? extends QualifiedEdge<P>,
-                               ? extends BidiCapacity>>
+                               ? extends Map.Entry<? extends Collection<? extends V>,
+                                                   ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
              Collection<? extends QualifiedEdge<P>> edges);

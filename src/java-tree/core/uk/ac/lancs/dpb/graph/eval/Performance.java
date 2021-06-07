@@ -39,6 +39,7 @@ package uk.ac.lancs.dpb.graph.eval;
 import java.io.File;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -294,7 +295,9 @@ public class Performance {
                             final double duration;
                             double bestScore = Double.POSITIVE_INFINITY;
                             Map<? extends QualifiedEdge<Vertex>,
-                                ? extends BidiCapacity> best = null;
+                                ? extends Map.Entry<? extends Collection<? extends Vertex>,
+                                                    ? extends BidiCapacity>> best =
+                                                        null;
                             final long start = System.currentTimeMillis();
                             final long terminate = start + expirySeconds * 1000;
                             final int samples;
@@ -306,7 +309,8 @@ public class Performance {
                                         for (var entry : cand.entrySet()) {
                                             QualifiedEdge<Vertex> key =
                                                 entry.getKey();
-                                            BidiCapacity val = entry.getValue();
+                                            BidiCapacity val =
+                                                entry.getValue().getValue();
                                             score +=
                                                 key.cost * (val.ingress.min()
                                                     + val.egress.min());
@@ -355,7 +359,14 @@ public class Performance {
                                 measurement = new Measurement(duration, samples,
                                                               bestScore);
                                 try (PrintWriter out = new PrintWriter(svg)) {
-                                    graph.drawSVG(out, goals, best, 0.3, 0.9);
+                                    graph
+                                        .drawSVG(out, goals, best.entrySet()
+                                            .stream()
+                                            .collect(Collectors
+                                                .toMap(Map.Entry::getKey,
+                                                       e -> e.getValue()
+                                                           .getValue())),
+                                                 0.3, 0.9);
                                 }
                                 System.err.printf("%d vertices; graph %d;"
                                     + " %d goals;" + " goalset %d;" + " %s"

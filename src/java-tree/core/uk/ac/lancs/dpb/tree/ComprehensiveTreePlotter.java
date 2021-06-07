@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Function;
+import java.util.function.IntFunction;
 import java.util.function.IntUnaryOperator;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
@@ -262,6 +263,20 @@ public class ComprehensiveTreePlotter implements TreePlotter {
     }
 
     /**
+     * Create a set from an identity hash map an an initial membership.
+     * 
+     * @param <E> the element type
+     * 
+     * @return the identity set populated with the initial members
+     */
+    private static <E> Collection<E>
+        newIdentityHashSet(Collection<? extends E> initial) {
+        Collection<E> result = newIdentityHashSet();
+        result.addAll(initial);
+        return result;
+    }
+
+    /**
      * Convert a bit set to a big integer.
      * 
      * @param bs the bit set
@@ -380,10 +395,17 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             .collect(Collectors.joining("+")) + "}";
     }
 
+    private static <V> Collection<V> patternToSet(BitSet pattern,
+                                                  List<? extends V> sequence) {
+        return newIdentityHashSet(pattern.stream().mapToObj(sequence::get)
+            .collect(Collectors.toList()));
+    }
+
     @Override
     public <P, V>
         Iterable<? extends Map<? extends QualifiedEdge<P>,
-                               ? extends BidiCapacity>>
+                               ? extends Map.Entry<? extends Collection<? extends V>,
+                                                   ? extends BidiCapacity>>>
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Function<? super P, ? extends V> portMap,
              Collection<? extends QualifiedEdge<P>> edges) {
@@ -1377,25 +1399,103 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             }
         }
 
-        /* Prepare to iterate over the edge modes while checking
-         * constraints. */
-        IntUnaryOperator bases = i -> modeMap[i].length + 1;
-        assert modeMap.length == edgeIndex.size();
+        /* Prepare to map the results into something the user can
+         * understand, namely, a map from each used edge to its source
+         * set and consumed capacity. We first translate each digit's
+         * index (an integer) into a pair of integers (its index and its
+         * digit value), and filter out those with a digit value of 0
+         * (which also corresponds to a mode of 0, i.e., a disused
+         * edge). */
+
+        /* TODO: Move this closer to where we expect it or depend on
+         * it. */
         assert modeMap.length <= edgeCaps.size();
+
+        /* The key mapping is just a translation from the first member
+         * (the edge index) into the corresponding QualifiedEdge
+         * object. */
+        assert modeMap.length == edgeIndex.size();
+        Function<int[], QualifiedEdge<P>> keyMapper =
+            ar -> edgeIndex.get(ar[0]);
+
+        /* The value mapping first converts the digit value into a
+         * source set (as a bit set), and then simultaneously converts
+         * that into a Collection of user-defined vertices and into a
+         * resource consumption. These are presented as a map entry. */
+        Function<int[],
+                 Map.Entry<Collection<V>, BidiCapacity>> valueMapper = ar -> {
+                     /* The first element is the edge number. */
+                     final int en = ar[0];
+
+                     /* The second element is the digit value. */
+                     final int digit = ar[1];
+
+                     /* Convert the digit into a source set. */
+                     BitSet srcset = of(modeMap[en][digit - 1][0]);
+
+                     /* Convert the source set into a collection mapped
+                      * to its bandwidth consumption. */
+                     return Map.entry(patternToSet(srcset, goalSequence),
+                                      bwreq.getPair(srcset));
+                 };
+
+        /* Define how to convert each solution into the format the user
+         * wants. */
         Function<IntUnaryOperator,
-                 Map<QualifiedEdge<P>, BidiCapacity>> translator =
-                     digits -> IntStream.range(0, edgeIndex.size())
-                         .filter(en -> digits.applyAsInt(en) != 0).boxed()
-                         .collect(Collectors.toMap(edgeIndex::get, en -> bwreq
-                             .getPair(of(modeMap[en][digits.applyAsInt(en)
-                                 - 1][0]))));
+                 Map<QualifiedEdge<P>,
+                     Map.Entry<Collection<V>, BidiCapacity>>> translator =
+                         digits -> IntStream.range(0, edgeIndex.size())
+                             .mapToObj(pairer(digits))
+                             .filter(ComprehensiveTreePlotter::isInUse)
+                             .collect(Collectors.toMap(keyMapper, valueMapper));
+
+        /* Specify how to check that all constraints are met for a
+         * prefix of most significant digits. 'en' is the edge number
+         * (or digit number) of the least significant digit to check.
+         * 'digits' provides the state of all digits. */
         MixedRadixValidator validator = (en, digits) -> {
             for (Constraint c : constraints[en])
                 if (!c.check(digits)) return false;
             return true;
         };
+
+        /* Specify the radices of each digit as the number of in-use
+         * modes supported by the corresponding edge, plus 1 for the
+         * disused mode. */
+        IntUnaryOperator bases = i -> modeMap[i].length + 1;
+
+        /* Prepare to iterate over the edge modes while checking
+         * constraints. */
         return MixedRadixIterable.to(translator).timeout(timeout)
             .over(modeMap.length, bases).constrainedBy(validator).build();
+    }
+
+    /**
+     * Map an integer to a 2-element array of integers, the first being
+     * the original value, and the second computed from it by a unary
+     * operator.
+     * 
+     * @param op the operator to generate the second element
+     * 
+     * @return an array of the input and the result of applying the
+     * operator to the input
+     */
+    private static IntFunction<int[]> pairer(IntUnaryOperator op) {
+        return i -> new int[] { i, op.applyAsInt(i) };
+    }
+
+    /**
+     * Determine whether an edge is in use, given an array of its index
+     * and digit value.
+     * 
+     * @param ar an array of at least 2 elements, with the second
+     * specifying a digit value
+     * 
+     * @return {@code true} if the second element is not zero;
+     * {@code false} otherwise
+     */
+    private static boolean isInUse(int[] ar) {
+        return ar[1] != 0;
     }
 
     private static class Vertex {
@@ -1752,7 +1852,9 @@ public class ComprehensiveTreePlotter implements TreePlotter {
         }
 
         /* Choose a tree. */
-        final Map<QualifiedEdge<Vertex>, BidiCapacity> tree;
+        final Map<QualifiedEdge<Vertex>,
+                  Map.Entry<? extends Collection<? extends Vertex>,
+                            ? extends BidiCapacity>> tree;
         if (true) {
             TreePlotter plotter =
                 new ComprehensiveTreePlotter(ComprehensiveTreePlotter
@@ -1776,15 +1878,16 @@ public class ComprehensiveTreePlotter implements TreePlotter {
                 BidiCapacity bw = bwreq.getPair(bs);
                 System.out.printf("%2d %12s %s%n", m, bs, bw);
             }
-            Map<? extends QualifiedEdge<Vertex>, ? extends BidiCapacity> best =
-                null;
+            Map<? extends QualifiedEdge<Vertex>,
+                ? extends Map.Entry<? extends Collection<? extends Vertex>,
+                                    ? extends BidiCapacity>> best = null;
             double bestScore = Double.MAX_VALUE;
             assert bwreq.degree() == goals.size();
             for (var cand : plotter.plot(goals, bwreq, edges)) {
                 double score = 0.0;
                 for (var entry : cand.entrySet()) {
                     QualifiedEdge<Vertex> key = entry.getKey();
-                    BidiCapacity val = entry.getValue();
+                    BidiCapacity val = entry.getValue().getValue();
                     score += key.cost * (val.ingress.min() + val.egress.min());
                 }
                 if (best == null || score < bestScore) {
@@ -1870,7 +1973,7 @@ public class ComprehensiveTreePlotter implements TreePlotter {
             out.printf("<g fill='black' stroke='none'>%n");
             for (var entry : tree.entrySet()) {
                 QualifiedEdge<Vertex> e = entry.getKey();
-                BidiCapacity bw = entry.getValue();
+                BidiCapacity bw = entry.getValue().getValue();
                 final double len = length(e);
                 final double dx = e.finish.x - e.start.x;
                 final double dy = e.finish.y - e.start.y;
