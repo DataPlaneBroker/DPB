@@ -71,7 +71,7 @@ public final class Graph {
     public final Collection<QualifiedEdge<Vertex>> edges;
 
     /**
-     * An immutable set of vertices derived from the edges and goals
+     * An immutable set of vertices derived from the edges
      */
     public final Collection<Vertex> vertexes;
 
@@ -84,7 +84,9 @@ public final class Graph {
      * Create a challenge. The inputs will be copied, and a vertex set
      * will be derived.
      * 
-     * @param goals a set of goals
+     * @param width the width of the graph
+     * 
+     * @param height the height of the graph
      * 
      * @param edges a set of edges and their capacities
      */

@@ -65,9 +65,12 @@ public final class MatrixDemandFunction implements DemandFunction {
     }
 
     /**
-     * Define a tree-like demand
+     * Define a tree-like demand function. One goal is defined as the
+     * root, and most communication is between the root and each leaf
+     * independently.
      * 
-     * @param degree the degree of the resultant function
+     * @param degree the degree of the resultant function; the number of
+     * leaves plus the root
      * 
      * @param root the root goal
      * 
