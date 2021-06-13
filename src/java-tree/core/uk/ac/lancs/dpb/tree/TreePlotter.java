@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.DemandFunction;
 import uk.ac.lancs.dpb.graph.QualifiedEdge;
@@ -81,6 +82,25 @@ public interface TreePlotter {
         plot(List<? extends V> goalOrder, DemandFunction bwreq,
              Collection<? extends QualifiedEdge<V>> edges) {
         return plot(goalOrder, bwreq, Function.identity(), edges);
+    }
+
+    /**
+     * Reduce edge information to just the consumed capacity. This
+     * method is provided as a convenience where the full information
+     * from a tree plotter is not required.
+     * 
+     * @param <V> the vertex type
+     * 
+     * @param input a description of edge use
+     * 
+     * @return a description of consumed edge capacity
+     */
+    static <V> Map<QualifiedEdge<V>, BidiCapacity>
+        pullCapacities(Map<? extends QualifiedEdge<V>,
+                           ? extends Map.Entry<?,
+                                               ? extends BidiCapacity>> input) {
+        return input.entrySet().stream().collect(Collectors
+            .toMap(Map.Entry::getKey, e -> e.getValue().getValue()));
     }
 
     /**

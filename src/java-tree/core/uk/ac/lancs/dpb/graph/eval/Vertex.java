@@ -67,7 +67,7 @@ public abstract class Vertex {
      * 
      * @return the distance between the two vertices
      */
-    static double distance(Vertex v0, Vertex v1) {
+    public static double distance(Vertex v0, Vertex v1) {
         final double dx = v1.x() - v0.x();
         final double dy = v1.y() - v0.y();
         return Math.hypot(dx, dy);
