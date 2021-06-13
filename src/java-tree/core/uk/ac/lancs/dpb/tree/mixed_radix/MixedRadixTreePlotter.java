@@ -36,9 +36,6 @@
 
 package uk.ac.lancs.dpb.tree.mixed_radix;
 
-import uk.ac.lancs.dpb.tree.LinkedIdentityHashMap;
-import uk.ac.lancs.dpb.tree.IdentityPair;
-import uk.ac.lancs.dpb.tree.Sequence;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -62,6 +59,9 @@ import java.util.stream.Stream;
 import uk.ac.lancs.dpb.graph.BidiCapacity;
 import uk.ac.lancs.dpb.graph.DemandFunction;
 import uk.ac.lancs.dpb.graph.QualifiedEdge;
+import uk.ac.lancs.dpb.tree.IdentityPair;
+import uk.ac.lancs.dpb.tree.LinkedIdentityHashMap;
+import uk.ac.lancs.dpb.tree.Sequence;
 import uk.ac.lancs.dpb.tree.TreePlotter;
 
 /**
@@ -127,7 +127,8 @@ public class MixedRadixTreePlotter implements TreePlotter {
     private final long timeout;
 
     /**
-     * Create a comprehensive tree plotter.
+     * Create a comprehensive tree plotter that terminates after a set
+     * time.
      * 
      * @param assessor an agent deciding whether to remove biased edges
      * 
@@ -139,6 +140,11 @@ public class MixedRadixTreePlotter implements TreePlotter {
         this.timeout = timeout;
     }
 
+    /**
+     * Create a comprehensive tree plotter that runs until completion.
+     * 
+     * @param assessor an agent deciding whether to remove biased edges
+     */
     public MixedRadixTreePlotter(Assessor assessor) {
         this(assessor, -1L);
     }
