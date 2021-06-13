@@ -76,11 +76,6 @@ import uk.ac.lancs.dpb.tree.TreePlotter;
  * results in the edge mode being incremented, and modes of less
  * significant edges being reset.
  * 
- * <p>
- * This class does not use the cost metric of an edge.
- * 
- * @param <V> the vertex type
- *
  * @author simpsons
  */
 public class MixedRadixTreePlotter implements TreePlotter {
