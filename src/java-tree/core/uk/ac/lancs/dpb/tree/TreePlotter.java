@@ -89,14 +89,14 @@ public interface TreePlotter {
      * method is provided as a convenience where the full information
      * from a tree plotter is not required.
      * 
-     * @param <V> the vertex type
+     * @param <P> the port type
      * 
      * @param input a description of edge use
      * 
      * @return a description of consumed edge capacity
      */
-    static <V> Map<QualifiedEdge<V>, BidiCapacity>
-        pullCapacities(Map<? extends QualifiedEdge<V>,
+    static <P> Map<QualifiedEdge<P>, BidiCapacity>
+        pullCapacities(Map<? extends QualifiedEdge<P>,
                            ? extends Map.Entry<?,
                                                ? extends BidiCapacity>> input) {
         return input.entrySet().stream().collect(Collectors
