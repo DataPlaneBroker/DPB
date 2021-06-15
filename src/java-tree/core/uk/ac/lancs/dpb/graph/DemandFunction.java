@@ -42,83 +42,73 @@ import javax.script.ScriptException;
 
 /**
  * Determines the demands on the capacity of any edge in a tree, given
- * the endpoints reachable from one end of that edge. Each endpoint is a
- * distinct leaf of the tree. Given a direction of traffic along the
- * edge, the endpoints able to supply that traffic from the
+ * the endpoints reachable from one end of that edge. Its primary
+ * purpose is to express bandwidth demands on edge capacity, though it
+ * could apply to any similar, cumulative capacity-oriented metric. Each
+ * endpoint is a distinct leaf of the tree. Given a direction of traffic
+ * along the edge, the endpoints able to supply that traffic from the
  * <dfn>from</dfn> set; the remaining endpoints form the <dfn>to</dfn>
  * set. Neither set is permitted to be empty (or there would be no
- * traffic). A bandwidth function computes the bandwidth requirements of
- * the traffic in one direction along an edge, given the
- * <cite>from</cite> set. By providing the complement set as the
- * <cite>from</cite> set, it yields the bandwidth requirements of
- * traffic flowing in the opposite direction.
+ * traffic). A demand function computes the requirements of the traffic
+ * in one direction along an edge, given the <cite>from</cite> set. By
+ * providing the complement set as the <cite>from</cite> set, it yields
+ * the requirements of traffic flowing in the opposite direction.
  * 
  * <p>
- * A bandwidth function has a <dfn>degree</dfn>, the number of endpoints
- * to be connected. Endpoints are numbered from 0 to
+ * A demand function has a <dfn>degree</dfn>, the number of endpoints to
+ * be connected (i.e., the goals). Endpoints are numbered from 0 to
  * <var>n</var>&minus;1, where <var>n</var> is the degree.
  * 
  * <p>
- * For example, when four endpoints are to be connected (so the degree
- * is 4), and endpoints 0 and 1 are expected to be reachable from one
- * end <var>A</var> of a candidate edge, and 2 and 3 from the other end
- * <var>B</var>, a function representing the requirements for bandwidth
- * between these endpoints may be supplied with a <cite>from</cite> set
- * of { 0, 1 }, and will yield the bandwidth requirement from
- * <var>A</var> to <var>B</var>. When supplied with a <cite>from</cite>
- * set of { 2, 3 }, it will yield the requirement from <var>B</var> to
- * <var>A</var>. This is the purpose of the
- * {@link #get(java.util.BitSet)} method.
+ * For example, when four goals are to be connected (so the degree is
+ * 4), and goals 0 and 1 are expected to be reachable from one end
+ * <var>A</var> of a candidate edge, and 2 and 3 from the other end
+ * <var>B</var>, a function representing the capacity requirements
+ * between these goals may be supplied with a <cite>from</cite> set of {
+ * 0, 1 }, and will yield the requirement from <var>A</var> to
+ * <var>B</var>. When supplied with a <cite>from</cite> set of { 2, 3 },
+ * it will yield the requirement from <var>B</var> to <var>A</var>. This
+ * is the purpose of the {@link #get(java.util.BitSet)} method.
  * 
  * <p>
  * An implementation is required to have a self-contained Python
  * representation, so that it can be transmitted and executed remotely.
- * The representation must be an object declaration with at least two
- * fields, similar to this form:
- * 
- * <pre>
- * {
- *   degree : <var>degree</var>,
-   get : function(value) {
-     <var>algorithm</var>
- *   },
- * }
- * </pre>
- * 
- * The value passed to the function is an integer whose bit pattern in
- * the first <var>n</var> bits identifies the <cite>from</cite> set.
+ * {@link #asScript()} yields this representation, and
+ * {@link #fromScript(String)} creates a demand function object from
+ * such a script.
  * 
  * <p>
- * A bandwidth function is <dfn>reducible</dfn>. That is, its endpoints
- * can be arbitrarily partitioned into
- * <var>n</var>&prime;&lt;<var>n</var> groups, yielding a new function
- * of degree <var>n</var>&prime;. Each of the reduced function's
- * endpoints corresponds to a distinct group. A reduced function can be
- * implemented by converting a supplied <cite>from</cite> set in its own
- * domain into the domain of the original function, and invoking the
- * original function with the converted <cite>from</cite> set. A reduced
+ * A demand function is <dfn>reducible</dfn>. That is, its goals can be
+ * arbitrarily partitioned into <var>n</var>&prime;&lt;<var>n</var>
+ * groups, yielding a new function of degree <var>n</var>&prime;. Each
+ * of the reduced function's goals corresponds to a distinct group of
+ * the original function's goals. A reduced function can be implemented
+ * by converting a supplied <cite>from</cite> set in its own domain into
+ * the domain of the original function, and invoking the original
+ * function with the converted <cite>from</cite> set. A reduced
  * function's Python representation can be formed by embedding the
  * original function's representation, and similarly transforming its
  * argument into the original domain before invoking the embedded
- * representation. This is why a bandwidth function must have a
+ * representation. This is why a demand function must have a
  * <em>self-contained</em> Python representation. The
  * {@link #reduce(List)} method yields a reduced function.
  * 
  * <p>
  * Reduction is vital in a hierarchy of network control. For example, a
- * superior network might be asked to connect 10 endpoints using a given
- * bandwidth function. It has identified a suitable tree whose vertices
- * are inferiors. One of those inferiors, being only a single vertex in
- * the tree, is required to connect (say) only three of its endpoints.
- * Inferior endpoint 0 will reach superior endpoints 2, 4 and 5;
- * inferior 1 will reach superiors 1, 6, 7 and 8; and inferior 2 will
- * reach the remainder, superiors 0, 3 and 9. The superior network can
- * provide the sequence of sets &#10216; { 2, 4, 5 }, { 1, 6, 7, 8 }, {
- * 0, 3, 9 } &#10217; to {@link #reduce(List)} to yield a reduced
- * function to submit to the inferior. When asked to specify the
- * bandwidth requirement from the <cite>from</cite> set { 0, 1 }, the
- * new function will yield the same result as the original function with
- * the <cite>from</cite> set { 2, 4, 5 } &cup; { 1, 6, 7, 8 }.
+ * superior network might be asked to connect 10 goals using a given
+ * demand function. In the process of finding potential solutions, it
+ * has identified a suitable tree whose vertices are inferiors. One of
+ * those inferiors, being only a single vertex in the tree, is required
+ * to connect (say) only three of its goals. Inferior goal 0 will reach
+ * superior goals 2, 4 and 5; inferior 1 will reach superiors 1, 6, 7
+ * and 8; and inferior 2 will reach the remainder, superiors 0, 3 and 9.
+ * The superior network can provide the sequence of sets &#10216; { 2,
+ * 4, 5 }, { 1, 6, 7, 8 }, { 0, 3, 9 } &#10217; to {@link #reduce(List)}
+ * to yield a reduced function to submit to the inferior. When asked to
+ * specify the capacity requirement from the <cite>from</cite> set { 0,
+ * 1 }, the new function will yield the same result as the original
+ * function with the <cite>from</cite> set { 2, 4, 5 } &cup; { 1, 6, 7,
+ * 8 }.
  * 
  * <p>
  * Since any given function has a fixed number of valid inputs
@@ -131,9 +121,9 @@ import javax.script.ScriptException;
  * a considerable memory overhead, but a reduced function will
  * necessarily have a smaller degree than its origin. The method
  * {@link #tabulate()} is provided to check whether such an
- * implementation is possible and recommended, yielding either the new
- * implementation or its tabulated implementation accordingly. This is
- * applied to the {@link #reduce(java.util.List)} result by default.
+ * implementation is possible and recommended, yielding either the
+ * original implementation or its tabulated implementation accordingly.
+ * This is applied to the {@link #reduce(List)} result by default.
  * 
  * @author simpsons
  */
@@ -184,32 +174,12 @@ public interface DemandFunction {
     }
 
     /**
-     * Get a Python representation of the function. The string must be
-     * the body of a Python class definition with no indentation. A
-     * field called {@value #DEGREE_FIELD_NAME} must give the function
-     * degree. A class method called {@value #GET_FUNCTION_NAME} takes a
-     * class reference and an integer to be interpreted as the set of
-     * upstream endpoints, and return an array of two numbers, the
-     * minimum and maximum upstream bandwidth of the edge. For example:
-     * 
-     * <pre>
-     * degree = 6
-     * 
-     * &#64;classmethod
-     * def get(cls, bs):
-     *     <var>...</var>
-     * </pre>
-     * 
-     * <p>
-     * The rest of the definition may be used to hold other static data
-     * required to implement {@value #GET_FUNCTION_NAME}.
-     * 
-     * <p>
-     * The script will be invoked by indenting all lines, prefixing with
-     * a <code>class Foo:</code> line (or similar), and executing
-     * <code>Foo.get(bs)</code>.
+     * Get a Python representation of the function. See
+     * {@link #fromScript(String)} for the required format.
      * 
      * @return the Python representation
+     * 
+     * @see #fromScript(String)
      */
     String asScript();
 
@@ -274,8 +244,30 @@ public interface DemandFunction {
     }
 
     /**
-     * Create a bandwidth function from Python. See {@link #asScript()}
-     * for the required format.
+     * Create a demand function from Python. The string must be the body
+     * of a Python class definition with no indentation. A field called
+     * {@value #DEGREE_FIELD_NAME} must give the function degree. A
+     * class method called {@value #GET_FUNCTION_NAME} takes a class
+     * reference and an integer to be interpreted as the set of upstream
+     * endpoints, and returns an array of two numbers, the minimum and
+     * maximum upstream demand on the edge. For example:
+     * 
+     * <pre>
+     * degree = 6
+     * 
+     * &#64;classmethod
+     * def get(cls, bs):
+     *     <var>...</var>
+     * </pre>
+     * 
+     * <p>
+     * The rest of the definition may be used to hold other static data
+     * required to implement {@value #GET_FUNCTION_NAME}.
+     * 
+     * <p>
+     * The script will be invoked by indenting all lines, prefixing with
+     * a <code>class Foo:</code> line (or similar), and executing
+     * <code>Foo.get(bs)</code>.
      * 
      * @param text the Python source code
      * 
@@ -285,6 +277,8 @@ public interface DemandFunction {
      * @throws ScriptException if there is a problem parsing the script
      * 
      * @constructor
+     * 
+     * @see #asScript()
      */
     public static DemandFunction fromScript(String text)
         throws ScriptException {

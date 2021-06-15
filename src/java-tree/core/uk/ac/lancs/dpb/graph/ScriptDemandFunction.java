@@ -38,14 +38,14 @@ package uk.ac.lancs.dpb.graph;
 
 import java.math.BigInteger;
 import java.util.BitSet;
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.script.ScriptContext;
+import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import javax.script.SimpleScriptContext;
 import org.python.core.PyList;
 
 /**
@@ -66,6 +66,12 @@ final class ScriptDemandFunction implements DemandFunction {
 
     private final int degree;
 
+    private interface Fooer {
+        List<Number> get(BigInteger mode);
+    }
+
+    private final Fooer fooer;
+
     /**
      * Express bandwidth requirements specified by a JavaScript object.
      * 
@@ -78,10 +84,12 @@ final class ScriptDemandFunction implements DemandFunction {
         ScriptEngineManager manager = new ScriptEngineManager();
         engine = manager.getEngineByName("jython");
         assert engine != null : "no python script engine";
-        ScriptContext ctxt = new SimpleScriptContext();
-        engine.setContext(ctxt);
+        // ScriptContext ctxt = new SimpleScriptContext();
+        // engine.setContext(ctxt);
         engine.eval("class Foo:\n" + indent(text));
         degree = (Integer) engine.eval("Foo." + DEGREE_FIELD_NAME);
+        Object foo = engine.get("Foo");
+        this.fooer = ((Invocable) engine).getInterface(foo, Fooer.class);
     }
 
     static final Pattern LINESEP = Pattern.compile("\n");
@@ -94,6 +102,15 @@ final class ScriptDemandFunction implements DemandFunction {
 
     @Override
     public Capacity get(BitSet from) {
+        if (true) {
+            List<Number> result =
+                fooer.get(toBigInteger(from.get(0, degree())));
+            double min = result.get(0).doubleValue();
+            double max = result.get(1).doubleValue();
+            return Capacity.between(min, max);
+        }
+
+        /* TODO: Dead code */
         String cmd = "Foo." + GET_FUNCTION_NAME + "("
             + toBigInteger(from.get(0, degree())) + ")";
         try {
@@ -129,6 +146,7 @@ final class ScriptDemandFunction implements DemandFunction {
     }
 
     static BigInteger toBigInteger(BitSet set) {
+        if (set.isEmpty()) return BigInteger.ZERO;
         byte[] bs = set.toByteArray();
         reverse(bs);
         if (bs.length > 0 && bs[0] < 0) {
@@ -138,5 +156,20 @@ final class ScriptDemandFunction implements DemandFunction {
             System.arraycopy(bs, 0, tmp, 1, bs.length);
         }
         return new BigInteger(bs);
+    }
+
+    /**
+     * @undocumented
+     */
+    public static void main(String[] args) throws Exception {
+        StringBuilder script = new StringBuilder();
+        script.append("degree = 6\n");
+        script.append("@classmethod\n");
+        script.append("def get(cls, mode):\n");
+        script.append("    print mode\n");
+        script.append("    return [ 1.2, 3.4 ]\n");
+        DemandFunction demand = new ScriptDemandFunction(script.toString());
+        Capacity cap = demand.get(new BitSet());
+        System.out.printf("Capacity = %s%n", cap);
     }
 }
