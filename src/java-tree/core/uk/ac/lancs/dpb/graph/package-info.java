@@ -96,5 +96,12 @@
  * 
  * <p>
  * A user can, of course, define their own.
+ * 
+ * <p>
+ * A {@link NetworkModel} allows the cost of a projected sub-service on
+ * an inferior network to be computed or estimated. Like a
+ * {@link DemandFunction}, it must also have a Python representation so
+ * that it can be transmitted to a superior network, which can then use
+ * it in evaluations.
  */
 package uk.ac.lancs.dpb.graph;
