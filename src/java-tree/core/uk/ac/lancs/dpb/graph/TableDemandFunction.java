@@ -185,8 +185,7 @@ final class TableDemandFunction implements DemandFunction {
      */
     @Override
     public String asScript() {
-        return DEGREE_FIELD_NAME + " = " + degree + "                    \n"
-            + "data = [                                                  \n"
+        return "data = [                                                 \n"
             + Arrays.asList(table).stream()
                 .map(e -> "  [" + e.min() + ", " + e.max() + "]")
                 .collect(Collectors.joining(",\n"))

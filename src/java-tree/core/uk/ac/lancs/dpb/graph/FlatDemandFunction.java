@@ -86,9 +86,8 @@ public final class FlatDemandFunction implements DemandFunction {
 
     @Override
     public String asScript() {
-        return DEGREE_FIELD_NAME + " = " + degree + "                 \n"
-            + "@classmethod                                                \n"
-            + "def " + GET_FUNCTION_NAME + "(cls, bits):            \n"
+        return "@classmethod                                               \n"
+            + "def " + GET_FUNCTION_NAME + "(cls, bits):                   \n"
             + "    return [ " + rate.min() + ", " + rate.max() + " ]       \n";
     }
 
@@ -108,12 +107,12 @@ public final class FlatDemandFunction implements DemandFunction {
      * @undocumented
      */
     public static void main(String[] args) throws Exception {
-        DemandFunction bw =
-            new FlatDemandFunction(3, Capacity.between(2, 7));
+        DemandFunction bw = new FlatDemandFunction(3, Capacity.between(2, 7));
         System.out.printf("Func:%n%s",
                           ScriptDemandFunction.indent(bw.asScript()));
 
-        DemandFunction sbw = DemandFunction.fromScript(bw.asScript());
+        DemandFunction sbw =
+            DemandFunction.fromScript(bw.degree(), bw.asScript());
         System.out.printf("Func:%n%s",
                           ScriptDemandFunction.indent(sbw.asScript()));
 

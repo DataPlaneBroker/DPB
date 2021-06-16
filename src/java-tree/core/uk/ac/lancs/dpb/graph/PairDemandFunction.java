@@ -89,9 +89,9 @@ public final class PairDemandFunction implements DemandFunction {
         Arrays.fill(sum, Capacity.at(0.0));
         for (int i = 0; i < pairs.length; i++) {
             final boolean isSender = from.get(i);
-            sum[isSender ? 0 : 1] = Capacity
-                .add(sum[isSender ? 0 : 1],
-                     isSender ? pairs[i].ingress : pairs[i].egress);
+            sum[isSender ? 0 : 1] =
+                Capacity.add(sum[isSender ? 0 : 1],
+                             isSender ? pairs[i].ingress : pairs[i].egress);
         }
         return Capacity.min(sum[0], sum[1]);
     }
@@ -123,7 +123,7 @@ public final class PairDemandFunction implements DemandFunction {
                 .add(sum[rev], isSender ? pairs[i].egress : pairs[i].ingress);
         }
         return BidiCapacity.of(Capacity.min(sum[0], sum[1]),
-                                Capacity.min(sum[2], sum[3]));
+                               Capacity.min(sum[2], sum[3]));
     }
 
     @Override
@@ -133,8 +133,7 @@ public final class PairDemandFunction implements DemandFunction {
 
     @Override
     public String asScript() {
-        return DEGREE_FIELD_NAME + " = " + degree() + "                  \n"
-            + "data = [                                                  \n"
+        return "data = [                                                 \n"
             + Arrays.asList(pairs).stream()
                 .map(r -> "    [ [" + r.ingress.min() + ", " + r.ingress.max()
                     + "],\n" + "      [" + r.egress.min() + ", "
@@ -164,14 +163,10 @@ public final class PairDemandFunction implements DemandFunction {
      */
     public static void main(String[] args) {
         List<BidiCapacity> pairs = new ArrayList<>();
-        pairs.add(BidiCapacity.of(Capacity.at(4.0),
-                                   Capacity.at(1.0)));
-        pairs.add(BidiCapacity.of(Capacity.at(2.0),
-                                   Capacity.at(2.0)));
-        pairs.add(BidiCapacity.of(Capacity.at(3.0),
-                                   Capacity.at(5.0)));
-        pairs.add(BidiCapacity.of(Capacity.at(5.0),
-                                   Capacity.at(2.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(4.0), Capacity.at(1.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(2.0), Capacity.at(2.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(3.0), Capacity.at(5.0)));
+        pairs.add(BidiCapacity.of(Capacity.at(5.0), Capacity.at(2.0)));
         DemandFunction func = new PairDemandFunction(pairs);
 
         BitSet fwd = new BitSet();

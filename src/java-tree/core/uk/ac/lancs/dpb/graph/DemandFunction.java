@@ -175,11 +175,11 @@ public interface DemandFunction {
 
     /**
      * Get a Python representation of the function. See
-     * {@link #fromScript(String)} for the required format.
+     * {@link #fromScript(int, String)} for the required format.
      * 
      * @return the Python representation
      * 
-     * @see #fromScript(String)
+     * @see #fromScript(int, String)
      */
     String asScript();
 
@@ -188,12 +188,6 @@ public interface DemandFunction {
      * {@link #asScript()}
      */
     String GET_FUNCTION_NAME = "get";
-
-    /**
-     * The name of the field embedded in the output of
-     * {@link #asScript()} giving the function's degree
-     */
-    String DEGREE_FIELD_NAME = "degree";
 
     /**
      * Get the function's degree. The argument to {@link #get(BitSet)}
@@ -245,16 +239,13 @@ public interface DemandFunction {
 
     /**
      * Create a demand function from Python. The string must be the body
-     * of a Python class definition with no indentation. A field called
-     * {@value #DEGREE_FIELD_NAME} must give the function degree. A
-     * class method called {@value #GET_FUNCTION_NAME} takes a class
-     * reference and an integer to be interpreted as the set of upstream
-     * endpoints, and returns an array of two numbers, the minimum and
-     * maximum upstream demand on the edge. For example:
+     * of a Python class definition with no indentation. A class method
+     * called {@value #GET_FUNCTION_NAME} takes a class reference and an
+     * integer to be interpreted as the set of upstream endpoints, and
+     * returns an array of two numbers, the minimum and maximum upstream
+     * demand on the edge. For example:
      * 
      * <pre>
-     * degree = 6
-     * 
      * &#64;classmethod
      * def get(cls, bs):
      *     <var>...</var>
@@ -269,6 +260,15 @@ public interface DemandFunction {
      * a <code>class Foo:</code> line (or similar), and executing
      * <code>Foo.get(bs)</code>.
      * 
+     * <p>
+     * Note that the degree is not embedded in the code, and must be
+     * transmitted by other means. For example, when a client pushes a
+     * service description into a network, the description includes both
+     * the demand function script and a list of endpoints, implying the
+     * number of goals (i.e., the degree).
+     * 
+     * @param degree the function's degree
+     * 
      * @param text the Python source code
      * 
      * @return a function that yields the same results as the supplied
@@ -280,8 +280,8 @@ public interface DemandFunction {
      * 
      * @see #asScript()
      */
-    public static DemandFunction fromScript(String text)
+    public static DemandFunction fromScript(int degree, String text)
         throws ScriptException {
-        return new ScriptDemandFunction(text).tabulate();
+        return new ScriptDemandFunction(degree, text).tabulate();
     }
 }

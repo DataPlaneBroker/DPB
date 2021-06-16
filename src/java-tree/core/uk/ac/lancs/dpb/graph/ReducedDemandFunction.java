@@ -71,7 +71,7 @@ final class ReducedDemandFunction implements DemandFunction {
      * more bits than indicated by the degree
      */
     public ReducedDemandFunction(DemandFunction base,
-                                    Collection<? extends BitSet> groups) {
+                                 Collection<? extends BitSet> groups) {
         this.base = base;
 
         /* Make sure that every bit is accounted for no more than
@@ -136,8 +136,7 @@ final class ReducedDemandFunction implements DemandFunction {
 
     @Override
     public String asScript() {
-        return DEGREE_FIELD_NAME + " = " + degree() + "                 \n"
-            + "class Base:                                              \n"
+        return "class Base:                                             \n"
             + ScriptDemandFunction.indent(base.asScript()) + "groups = ["
             + groups.stream().map(ScriptDemandFunction::toBigInteger)
                 .map(BigInteger::toString).collect(Collectors.joining(", "))

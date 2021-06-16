@@ -79,7 +79,9 @@ final class ScriptDemandFunction implements DemandFunction {
      * 
      * @throws ScriptException if there is an error parsing the script
      */
-    public ScriptDemandFunction(String text) throws ScriptException {
+    public ScriptDemandFunction(int degree, String text)
+        throws ScriptException {
+        this.degree = degree;
         this.text = text;
         ScriptEngineManager manager = new ScriptEngineManager();
         engine = manager.getEngineByName("jython");
@@ -87,7 +89,6 @@ final class ScriptDemandFunction implements DemandFunction {
         // ScriptContext ctxt = new SimpleScriptContext();
         // engine.setContext(ctxt);
         engine.eval("class Foo:\n" + indent(text));
-        degree = (Integer) engine.eval("Foo." + DEGREE_FIELD_NAME);
         Object foo = engine.get("Foo");
         this.fooer = ((Invocable) engine).getInterface(foo, Fooer.class);
     }
@@ -168,7 +169,7 @@ final class ScriptDemandFunction implements DemandFunction {
         script.append("def get(cls, mode):\n");
         script.append("    print mode\n");
         script.append("    return [ 1.2, 3.4 ]\n");
-        DemandFunction demand = new ScriptDemandFunction(script.toString());
+        DemandFunction demand = new ScriptDemandFunction(6, script.toString());
         Capacity cap = demand.get(new BitSet());
         System.out.printf("Capacity = %s%n", cap);
     }

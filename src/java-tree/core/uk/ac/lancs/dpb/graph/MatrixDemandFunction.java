@@ -250,8 +250,7 @@ public final class MatrixDemandFunction implements DemandFunction {
 
     @Override
     public String asScript() {
-        return DEGREE_FIELD_NAME + " = " + degree() + "                    \n"
-            + "data = [                                                    \n"
+        return "data = [                                                   \n"
             + IntStream.range(0, array.length)
                 .mapToObj(i -> array[i] == null ? "    None" :
                     "    [ " + array[i].min() + ", " + array[i].max() + " ]")
