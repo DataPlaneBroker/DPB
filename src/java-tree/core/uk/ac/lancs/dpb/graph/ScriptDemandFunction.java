@@ -46,7 +46,6 @@ import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
-import org.python.core.PyList;
 
 /**
  * Expresses bandwidth requirements specified by the body of a Python
@@ -103,29 +102,10 @@ final class ScriptDemandFunction implements DemandFunction {
 
     @Override
     public Capacity get(BitSet from) {
-        if (true) {
-            List<Number> result =
-                fooer.get(toBigInteger(from.get(0, degree())));
-            double min = result.get(0).doubleValue();
-            double max = result.get(1).doubleValue();
-            return Capacity.between(min, max);
-        }
-
-        /* TODO: Dead code */
-        String cmd = "Foo." + GET_FUNCTION_NAME + "("
-            + toBigInteger(from.get(0, degree())) + ")";
-        try {
-            PyList r = (PyList) engine.eval(cmd);
-            double min = ((Number) r.get(0)).doubleValue();
-            double max = ((Number) r.get(1)).doubleValue();
-            return Capacity.between(min, max);
-        } catch (ScriptException ex) {
-            throw new IllegalArgumentException(cmd, ex);
-        } catch (NullPointerException | ArrayIndexOutOfBoundsException |
-                 ClassCastException ex) {
-            throw new IllegalArgumentException("invalid 'from' set " + from,
-                                               ex);
-        }
+        List<Number> result = fooer.get(toBigInteger(from.get(0, degree())));
+        double min = result.get(0).doubleValue();
+        double max = result.get(1).doubleValue();
+        return Capacity.between(min, max);
     }
 
     @Override

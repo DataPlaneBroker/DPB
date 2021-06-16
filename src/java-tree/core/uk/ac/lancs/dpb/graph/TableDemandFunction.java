@@ -151,6 +151,21 @@ final class TableDemandFunction implements DemandFunction {
     }
 
     /**
+     * {@inheritDoc}
+     * 
+     * @default In this implementation, this function is returned
+     * unchanged if the mapping is identity, or a new function is
+     * generated based on a re-arranged table.
+     */
+    @Override
+    public TableDemandFunction map(List<? extends Number> mapping) {
+        int[] alt = DemandFunction.validateMapping(degree(), mapping);
+        if (alt == null) return this;
+        MappedDemandFunction tmp = new MappedDemandFunction(this, alt);
+        return new TableDemandFunction(tmp);
+    }
+
+    /**
      * Try to simplify a complex function by reducing it to a table.
      * 
      * @default If the degree is too high, the original function will be
@@ -163,6 +178,17 @@ final class TableDemandFunction implements DemandFunction {
     public static DemandFunction tabulate(DemandFunction other) {
         if (other.degree() > 8) return other;
         return new TableDemandFunction(other);
+    }
+
+    /**
+     * {@inheritDoc}
+     * 
+     * @default This implementation always returns this function
+     * unchanged.
+     */
+    @Override
+    public DemandFunction tabulate() {
+        return this;
     }
 
     @Override

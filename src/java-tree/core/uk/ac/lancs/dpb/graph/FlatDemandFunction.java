@@ -120,4 +120,17 @@ public final class FlatDemandFunction implements DemandFunction {
         System.out.printf("Func:%n%s",
                           ScriptDemandFunction.indent(rbw.asScript()));
     }
+
+    /**
+     * {@inheritDoc}
+     * 
+     * @return this function
+     */
+    @Override
+    public FlatDemandFunction map(List<? extends Number> mapping) {
+        if (mapping.size() != degree())
+            throw new IllegalArgumentException("mapping size " + mapping.size()
+                + " mismatch with degree " + degree());
+        return this;
+    }
 }

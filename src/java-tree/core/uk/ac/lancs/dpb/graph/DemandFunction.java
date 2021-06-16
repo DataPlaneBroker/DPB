@@ -38,6 +38,8 @@ package uk.ac.lancs.dpb.graph;
 
 import java.util.BitSet;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import javax.script.ScriptException;
 
 /**
@@ -283,5 +285,73 @@ public interface DemandFunction {
     public static DemandFunction fromScript(int degree, String text)
         throws ScriptException {
         return new ScriptDemandFunction(degree, text).tabulate();
+    }
+
+    /**
+     * Provide an equivalent function with a different goal mapping.
+     * Each index of the mapping is a goal number in the result; the
+     * value in corresponding the sequence element is the number
+     * submitted to the original function.
+     * 
+     * @default If the mapping is identity, this implementation returns
+     * this function. Otherwise, it creates a new function wrapped
+     * around the original. Implementations may return the same
+     * function, use a reconfiguration of the same implementation, or
+     * use any other appropriate strategy.
+     * 
+     * @param mapping the mapping, whose size must match this function's
+     * degree <var>n</var>, and must contain each goal number in
+     * [0,&nbsp;<var>n</var>) exactly once
+     * 
+     * @return the mapped function
+     * 
+     * @throws IllegalArgumentException if the mapping is invalid
+     */
+    default DemandFunction map(List<? extends Number> mapping) {
+        int[] alt = validateMapping(degree(), mapping);
+        if (alt == null) return this;
+        return new MappedDemandFunction(this, alt);
+    }
+
+    /**
+     * Validate a mapping.
+     * 
+     * @param degree the expected number of elements
+     * 
+     * @param mapping the mapping
+     * 
+     * @return an array representation of the mapping if not identity;
+     * {@code null} if identity
+     * 
+     * @throws IllegalArgumentException if the mapping has the wrong
+     * number of elements; or if its element values don't constitute the
+     * set [0,&nbsp;<var>n</var>] where <var>n</var> is the degree
+     */
+    public static int[] validateMapping(int degree,
+                                        List<? extends Number> mapping) {
+        /* The size of the mapping and the function's degree must
+         * match. */
+        if (mapping.size() != degree)
+            throw new IllegalArgumentException("degree " + degree
+                + " mismatch with mapping size " + mapping.size());
+
+        /* Normalize the mapping to ints. */
+        int[] result = mapping.stream().mapToInt(Number::intValue).toArray();
+
+        /* Check that every destination goal is valid (in [0,n)). */
+        int[] invalid =
+            IntStream.of(result).filter(i -> i < 0 || i >= degree).toArray();
+        if (invalid.length > 0) throw new IllegalArgumentException("bad index: "
+            + IntStream.of(invalid).mapToObj(Integer::toString)
+                .collect(Collectors.joining(",")));
+
+        /* Check that every goal is a destination. */
+        if (IntStream.of(result).distinct().count() != degree)
+            throw new IllegalArgumentException("incomplete mapping for degree "
+                + degree + ": " + mapping);
+
+        if (IntStream.range(0, result.length).anyMatch(i -> i != result[i]))
+            return result;
+        return null;
     }
 }
