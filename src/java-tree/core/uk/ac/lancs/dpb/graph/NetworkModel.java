@@ -81,11 +81,11 @@ public interface NetworkModel {
 
     /**
      * Get a Python representation of the function. See
-     * {@link #fromScript(String)} for its specification.
+     * {@link #fromScript(int, String)} for its specification.
      * 
      * @return the Python representation of the function
      * 
-     * @see #fromScript(String)
+     * @see #fromScript(int, String)
      */
     String asScript();
 

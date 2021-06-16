@@ -69,18 +69,20 @@ import java.util.stream.Collectors;
  * inferior's port set.)
  * 
  * <p>
- * The three goal sets can used to reduce the demand function (see
- * {@link DemandFunction#reduce(List)}, and the domain set can be passed
- * with the reduced function to the model to yield the cost of
- * traversing that vertex in the candidate solution. (The goal sets and
- * the ports must be provided as sequences with the same length and
- * order.)
+ * The three goal sets &lt; &#123; 3 &#125;, &#123; 1, 2 &#125;, &#123;
+ * 0 &#125; &gt; can used to reduce the demand function (see
+ * {@link DemandFunction#reduce(List)}, and the domain set &lt; 2, 4, 5
+ * &gt; can be passed with the reduced function to the model to yield
+ * the cost of traversing that vertex in the candidate solution. (The
+ * goal sets and the ports must be provided as sequences with the same
+ * length and order.)
  * 
  * <p>
- * The class helps by caching the result using the reachability map as a
- * key. A
+ * This class helps by caching results using reachability maps as keys,
+ * as model evaluation could be time-consuming, and several solutions
+ * will likely require the same use of a given inferior.
  * {@link ConcurrentHashMap#computeIfAbsent(Object, java.util.function.Function)}
- * is used to allow the cache to be used concurrently.
+ * allows the cache to be used concurrently.
  *
  * @author simpsons
  */
@@ -89,6 +91,15 @@ public final class NetworkModelCache {
 
     private final DemandFunction demand;
 
+    /**
+     * Create a cache.
+     * 
+     * @param base the inferior's network model whose evaluations are to
+     * be cached
+     * 
+     * @param demand the demand function that the superior is using to
+     * find solutions that might traverse the inferior
+     */
     public NetworkModelCache(NetworkModel base, DemandFunction demand) {
         this.base = base;
         this.demand = demand;
@@ -120,14 +131,21 @@ public final class NetworkModelCache {
     }
 
     private double compute(Map<Integer, BitSet> key) {
-        /* Get the entries in a specific order. */
+        /* Get the entries in some arbitrary order. */
         List<Map.Entry<Integer, BitSet>> entries =
             key.entrySet().stream().collect(Collectors.toList());
+
+        /* Extract the ports and groups in the same order. */
         List<Integer> ports = entries.stream().map(Map.Entry::getKey)
             .collect(Collectors.toList());
-        List<BitSet> wang = entries.stream().map(Map.Entry::getValue)
+        List<BitSet> groups = entries.stream().map(Map.Entry::getValue)
             .collect(Collectors.toList());
-        DemandFunction subdemand = demand.reduce(wang);
+
+        /* Reduce the function using the provided groups. */
+        DemandFunction subdemand = demand.reduce(groups);
+
+        /* Pass the reduced function and the corresponding ports for
+         * evaluation. */
         return base.evaluate(ports, subdemand);
     }
 }

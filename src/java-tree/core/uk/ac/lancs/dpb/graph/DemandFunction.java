@@ -76,8 +76,8 @@ import javax.script.ScriptException;
  * An implementation is required to have a self-contained Python
  * representation, so that it can be transmitted and executed remotely.
  * {@link #asScript()} yields this representation, and
- * {@link #fromScript(String)} creates a demand function object from
- * such a script.
+ * {@link #fromScript(int, String)} creates a demand function object
+ * from such a script.
  * 
  * <p>
  * A demand function is <dfn>reducible</dfn>. That is, its goals can be
