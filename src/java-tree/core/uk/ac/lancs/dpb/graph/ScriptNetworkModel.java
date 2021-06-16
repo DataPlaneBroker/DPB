@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -56,6 +55,8 @@ import static uk.ac.lancs.dpb.graph.ScriptDemandFunction.indent;
  * @author simpsons
  */
 final class ScriptNetworkModel implements NetworkModel {
+    private final int degree;
+
     private final ScriptEngine engine;
 
     private final String text;
@@ -63,8 +64,9 @@ final class ScriptNetworkModel implements NetworkModel {
     private final BiFunction<List<Integer>, Function<Integer, List<Double>>,
                              Number> fooer;
 
-    public ScriptNetworkModel(String text) throws ScriptException {
+    public ScriptNetworkModel(int degree, String text) throws ScriptException {
         this.text = text;
+        this.degree = degree;
         ScriptEngineManager manager = new ScriptEngineManager();
         engine = manager.getEngineByName("jython");
         assert engine != null : "no python script engine";
@@ -78,16 +80,15 @@ final class ScriptNetworkModel implements NetworkModel {
     }
 
     @Override
-    public double evaluate(int[] goals, DemandFunction demand) {
+    public double evaluate(List<? extends Number> goals,
+                           DemandFunction demand) {
         Function<Integer, List<Double>> demandWrapper = i -> {
             System.err.printf("asking for %d%n", i);
             Capacity c = demand.get(BitSet.valueOf(new long[] { i }));
             return Arrays.asList(c.min(), c.max());
         };
-        return fooer
-            .apply(IntStream.of(goals).boxed().collect(Collectors.toList()),
-                   demandWrapper)
-            .doubleValue();
+        return fooer.apply(goals.stream().mapToInt(Number::intValue).boxed()
+            .collect(Collectors.toList()), demandWrapper).doubleValue();
     }
 
     @Override
@@ -104,7 +105,7 @@ final class ScriptNetworkModel implements NetworkModel {
         script.append("def apply(cls, goals, demand):\n");
         script.append("    demand.apply(7)\n");
         script.append("    return 123.5\n");
-        NetworkModel model = new ScriptNetworkModel(script.toString());
+        NetworkModel model = new ScriptNetworkModel(12, script.toString());
         DemandFunction demand = new DemandFunction() {
             @Override
             public Capacity get(BitSet from) {
@@ -114,15 +115,20 @@ final class ScriptNetworkModel implements NetworkModel {
 
             @Override
             public String asScript() {
-                throw new UnsupportedOperationException("unimplemented"); // TODO
+                throw new UnsupportedOperationException("unsupported");
             }
 
             @Override
             public int degree() {
-                throw new UnsupportedOperationException("unimplemented"); // TODO
+                throw new UnsupportedOperationException("unsupported");
             }
         };
-        double cost = model.evaluate(new int[] { 4, 1, 2 }, demand);
+        double cost = model.evaluate(Arrays.asList(4, 1, 2), demand);
         System.out.printf("cost = %g%n", cost);
+    }
+
+    @Override
+    public int degree() {
+        return degree;
     }
 }

@@ -36,21 +36,38 @@
 
 package uk.ac.lancs.dpb.graph;
 
+import java.util.List;
 import javax.script.ScriptException;
 
 /**
  * Models the resources available in an inferior network, permitting
- * cost evaluation of proposed sub-services.
+ * cost evaluation of proposed sub-services. Externally, the model
+ * simply consists of a <var>n</var> ports numbered
+ * [0,&nbsp;<var>n</var>). <var>n</var> is the model's
+ * <dfn>degree</dfn>, as given by {@link #degree()}. Passing an ordered
+ * subset of these to {@link #evaluate(List, DemandFunction)}, along
+ * with a {@link DemandFunction} whose degree is the same size as the
+ * set, yields a cost of deploying a service with the specified demand
+ * across those endpoints. An implementation may yield only an
+ * approximation, or it may take its damn time to get something more
+ * accurate.
  *
  * @author simpsons
  */
 public interface NetworkModel {
     /**
+     * Get the function's degree. This is the number of ports.
+     * 
+     * @return the function's degree
+     */
+    int degree();
+
+    /**
      * Evaluate the cost of deploying a service across this model. An
      * estimation may be returned. The number of goals must be the
-     * degree of the demand function. The indices of the {@code goals}
-     * array must correspond to the bit positions of the bit sets
-     * supplied to the demand function.
+     * degree of the demand function. The indices of {@code goals} must
+     * correspond to the bit positions of the bit sets supplied to the
+     * demand function.
      * 
      * @param goals the numbers of the ports to be connected
      * 
@@ -60,7 +77,7 @@ public interface NetworkModel {
      * 
      * @return the cost of the proposed service
      */
-    double evaluate(int[] goals, DemandFunction demand);
+    double evaluate(List<? extends Number> goals, DemandFunction demand);
 
     /**
      * Get a Python representation of the function. See
@@ -92,6 +109,8 @@ public interface NetworkModel {
      *     <var>...</var>
      * </pre>
      * 
+     * @param degree the function's degree
+     * 
      * @param text the Python source code
      * 
      * @return a function that yields the same results as the supplied
@@ -103,7 +122,8 @@ public interface NetworkModel {
      * 
      * @see #asScript()
      */
-    public static NetworkModel fromScript(String text) throws ScriptException {
-        throw new UnsupportedOperationException("unimplemented");
+    public static NetworkModel fromScript(int degree, String text)
+        throws ScriptException {
+        return new ScriptNetworkModel(degree, text);
     }
 }
