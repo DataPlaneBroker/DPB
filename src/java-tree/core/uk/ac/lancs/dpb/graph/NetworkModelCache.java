@@ -71,18 +71,18 @@ import java.util.stream.Collectors;
  * <p>
  * The three goal sets &lt; &#123; 3 &#125;, &#123; 1, 2 &#125;, &#123;
  * 0 &#125; &gt; can used to reduce the demand function (see
- * {@link DemandFunction#reduce(List)}, and the domain set &lt; 2, 4, 5
+ * {@link DemandFunction#reduce(List)}), and the domain set &lt; 2, 4, 5
  * &gt; can be passed with the reduced function to the model to yield
  * the cost of traversing that vertex in the candidate solution. (The
  * goal sets and the ports must be provided as sequences with the same
- * length and order.)
+ * length and corresponding order.)
  * 
  * <p>
  * This class helps by caching results using reachability maps as keys,
  * as model evaluation could be time-consuming, and several solutions
- * will likely require the same use of a given inferior.
+ * will likely require the same use of a given inferior. The use of
  * {@link ConcurrentHashMap#computeIfAbsent(Object, java.util.function.Function)}
- * allows the cache to be used concurrently.
+ * supports thread safety.
  *
  * @author simpsons
  */
