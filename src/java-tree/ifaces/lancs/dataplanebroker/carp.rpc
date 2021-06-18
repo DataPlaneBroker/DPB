@@ -23,6 +23,11 @@ type end-point-id {
   label : label-id;
 };
 
+type capacity-model {
+  terminals : *terminal-id;
+  model-function : string;
+};
+
 type service-specification {
   end-points : *end-point-id;
   bandwidth-function : string;
@@ -63,6 +68,9 @@ type network-service [
   call ignore-observer { observer : service-observer };
 
   call release;
+
+  call get-model
+    => okay { model : capacity-model };
 ];
 
 type network-controller [
@@ -76,6 +84,6 @@ type network-controller [
   call allocate-service
     => okay { service-ref : network-service };
 
-  call get-model { min-bandwidth : network-bandwidth }
-    => okay { edges : network-edge -> edge-metrics };
+  call get-model
+    => okay { model : capacity-model };
 ];

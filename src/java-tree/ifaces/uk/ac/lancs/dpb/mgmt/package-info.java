@@ -34,8 +34,13 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
+/**
+ * Defines classes for managing topologies of network abstractions over
+ * software-defined networks, including the stubs for <a href=
+ * "https://scc-forge.lancaster.ac.uk/open/simpsons/software/pkg-carp">CARP</a>
+ * module <samp>lancs.dataplanebroker.management</samp>.
+ */
 @Deploy("lancs.dataplanebroker.management")
 package uk.ac.lancs.dpb.mgmt;
 
 import uk.ac.lancs.carp.deploy.Deploy;
-

@@ -34,6 +34,13 @@
  *  Author: Steven Simpson <s.simpson@lancaster.ac.uk>
  */
 
+/**
+ * Defines classes for managing multi-point bandwidth-guaranteed
+ * services as slices of a software-defined network, including the stubs
+ * for <a href=
+ * "https://scc-forge.lancaster.ac.uk/open/simpsons/software/pkg-carp">CARP</a>
+ * module <samp>lancs.dataplanebroker</samp>.
+ */
 @Deploy("lancs.dataplanebroker")
 package uk.ac.lancs.dpb;
 
