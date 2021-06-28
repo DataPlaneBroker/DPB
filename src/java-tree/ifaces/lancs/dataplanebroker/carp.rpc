@@ -1,7 +1,17 @@
 type label-id 0..16777215;
 
+/**
+ * Expresses a bandwidth in megabits-per-second.
+ */
 type network-bandwidth .3;
 
+/**
+ * Expresses a bandwidth requirement or capacity.
+ *
+ * @param guarantee the uncommitted capacity or minimum requirement
+ *
+ * @param excess the committed capacity or maximum permit
+ */
 type bandwidth-range {
   guarantee, excess : network-bandwidth;
 };
@@ -10,80 +20,334 @@ type service-id uuid;
 
 type terminal-id string;
 
+/**
+ * Delete me.  I don't seem to be in use.
+ */
 type network-edge {
   term-from, term-to : terminal-id;
 };
 
+/**
+ * Delete me.  I don't seem to be in use.
+ */
 type edge-metrics {
   forward, reverse : bandwidth-range;
 };
 
+/**
+ * Identifies an endpoint uniquely within a given network.
+ *
+ * @param term the name of the terminal within the network
+ *
+ * @param label the label within the terminal
+ */
 type end-point-id {
-  terminal : terminal-id;
+  term : terminal-id;
   label : label-id;
 };
 
+/**
+ * Models the capacity of an inferior network so that decisions about
+ * sub-services that traverse it can be evaluated without further
+ * consulting the inferior.
+ *
+ * @param terms a mapping from terminal numbers to names
+ *
+ * @param model-function a Python implementation of the model
+ */
 type capacity-model {
-  terminals : *terminal-id;
+  terms : *terminal-id;
   model-function : string;
 };
 
+/**
+ * Specifies a service as the bandwidth requirements between a set of
+ * endpoints.
+ *
+ * @param end-points a mapping from endpoint number to endpoint id
+ *
+ * @param bandwidth-function a Python implementation of the model
+ */
 type service-specification {
   end-points : *end-point-id;
   bandwidth-function : string;
 };
 
-type end-point-judgement <in-use invalid-label invalid-terminal>;
+/**
+ * Explains why an endpoint is invalid in a service specification.
+ */
+type end-point-judgement <
+  /**
+   * Indicates that the endpoint is in use by a different service.
+   */
+  in-use
 
-type service-status <meeting met activating active in-jeopardy gone>;
+  /**
+   * Indicates that the endpoint refers to label outside of the
+   * valid range of the terminal.
+   */
+  invalid-label
 
+  /**
+   * Indicates that the endpoint refers to a terminal that the
+   * network does not have.
+   */
+  invalid-terminal>;
+
+/**
+ * Expresses the state of a service with respect to its committed
+ * and provisional specifications.
+ */
+type service-status <
+  /**
+   *
+   */
+  meeting
+
+  /**
+   * The provisional specification has been met, and is ready to be
+   * committed.
+   */
+  met
+
+  /**
+   * Indicates that provisional specification has been committed,
+   * its resources are being activated, and old resources
+   * of the previously committed specification are in the process of
+   * being withdrawn.
+   */
+  activating
+
+  /**
+   * The old resources of any previously committed specification have
+   * been withdrawn, and the new resources have been activated.
+   */
+  active
+
+  /**
+   * The underlay is expected to change, putting the service in jeopardy.
+   * The observer should consider redefining the service.
+   */
+  in-jeopardy
+
+  /**
+   * The service no longer exists. The observer will receive no more events.
+   */
+  gone>;
+
+/**
+ * Receives events on the change of state of a service.
+ */
 type service-observer [
+  /**
+   * The service's state has changed.
+   *
+   * @param status the new state
+   */
   call update-status { status : service-status };
 ];
 
+/**
+ * Supports communication between a set of endpoints.
+ */
 type network-service [
-  call get-id => okay { id : service-id };
+  /**
+   * Identify the service within its network.
+   */
+  call identify
+    /**
+     * Identifies the service.
+     *
+     * @param id the service id
+     */
+    => okay { id : service-id };
 
+  /**
+   * Set the provisional specification.
+   */
   call define { spec : service-specification }
+    /**
+     * Advises that the service specification is valid and has been accepted.
+     */
     => okay
+    /**
+     * Advises that the service specification has invalid endpoints.
+     * 
+     * @param errors a map of invalid endpoints to why they are
+     * considered invalid
+     */
     => bad-definition { errors : end-point-id -> end-point-judgement };
 
+  /**
+   * Commit the provisional specification.  Call {@link #await-stability}
+   * to determine the result.
+   */
   call commit;
 
+  /**
+   * Suspend commit of the provisional specification if it hasn't
+   * started yet.
+   */
+  call hesitate
+    /**
+     * Advises that the commit hasn't started yet.
+     */
+    => okay
+    /**
+     * Advises that the commit has started.
+     */
+    => committed;
+
+  /**
+   * Discard the provisional specification.  Call {@link #await-stability}
+   * to determine the result.
+   */
   call roll-back;
 
+  /**
+   * Get the specification that the service is committed to implementing.
+   * The default is an empty service, i.e., having no endpoints.
+   */
   call get-commitment
+    /**
+     * Provides the definition of the service.
+     *
+     * @param spec the committed specification of the service
+     */
     => okay { spec : service-specification };
 
+  /**
+   * Get the provisional specification that the service is investigating.
+   */
   call get-definition
+    /**
+     * Provides the definition of the service.
+     *
+     * @param spec the provision specification of the service
+     */
     => okay { spec : service-specification };
 
   call await-stability
+    /**
+     * Advises that the provisional specification cannot be accomplished.
+     * 
+     * @param detail the reason for failure
+     */
     => unmet { detail : string }
+    /**
+     * Advises that the provisional specification is allocated,
+     * and ready to be committed.
+     */
     => ready
+    /**
+     * Advises that the provisional specification has been committed.
+     */
     => active;
 
+  /**
+   * Send events on the change of state of this service to an observer.
+   *
+   * @param observer the observer to include in event notification
+   */
   call inform-observer { observer : service-observer };
 
+  /**
+   * Stop sending events on the change of state of this service to an
+   * observer.
+   *
+   * @param observer the observer to exclude from event notification
+   */
   call ignore-observer { observer : service-observer };
 
+  /**
+   * Release all resources of this service and destroy it.
+   */
   call release;
 
+  /**
+   * Get a model of the network's remaining capacity, assuming that this
+   * service's resources are available.
+   */
   call get-model
+    /**
+     * Provides a model of internal capacity of this network,
+     * incorporating that already used by the service.
+     * 
+     * @param model a model of the network's capacity, including that
+     * used by the service
+     */
     => okay { model : capacity-model };
 ];
 
+/**
+ * Manages services on an abstract network.
+ */
 type network-controller [
+  /**
+   * Get the interface of a service with a given id.
+   *
+   * @param id the service id
+   */
   call get-service { id : service-id }
+    /**
+     * Provides the interface to an existing service.
+     *
+     * @param service-ref the service interface
+     */
     => okay { service-ref : network-service }
+    /**
+     * Advises that the identified service does not exist.
+     */
     => none;
 
+  /**
+   * Get a set of ids of all services across this network.
+   */
   call enumerate-services
+    /**
+     * Advises of ids of all services atop this network.
+     *
+     * @param ids the set of ids of all services
+     */
     => okay { ids : &service-id };
 
+  /**
+   * Create an initially empty service.
+   */
   call allocate-service
+    /**
+     * Advises of a newly created service.
+     *
+     * @param service-ref the interface of the new service
+     */
     => okay { service-ref : network-service };
 
+  /**
+   * Get a model of the network's remaining capacity.
+   */
   call get-model
+    /**
+     * Provides a model of internal capacity of this network.
+     * 
+     * @param model a model of the network's capacity
+     */
     => okay { model : capacity-model };
+
+  /**
+   * Get the consumed capacity of a terminal.
+   *
+   * @param term the local name of the terminal
+   */
+  call get-terminal-usage { term : terminal-id }
+    /**
+     * Advises of the consumed capacity.
+     *
+     * @param use the amount of bandwidth that has been committed to
+     * the terminal, and the spare capacity
+     */
+    => okay { use : bandwidth-range }
+    /**
+     * Advises that the name of the requested terminal is unknown.
+     */
+    => unknown;
 ];

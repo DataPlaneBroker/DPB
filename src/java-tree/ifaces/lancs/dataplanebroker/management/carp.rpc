@@ -6,125 +6,529 @@ import lancs.dataplanebroker.bandwidth-range;
 import lancs.dataplanebroker.terminal-id;
 import lancs.dataplanebroker.label-id;
 
-type terminal-direction <ingress egress>;
+/**
+ * Indicates direction of flow through a terminal.
+ */
+type flow-direction <
+  /**
+   * The traffic flows into the network.
+   */
+  ingress
 
+  /**
+   * The traffic flows out of the network.
+   */
+  egress>;
+
+/**
+ * Expresses a change in terminal capacity. Either an offset or an
+ * absolute value should be specified. If both are specified, the
+ * absolute value applies.
+ *
+ * @param offset a relative change to the capacity
+ *
+ * @param value the new capacity
+ */
 type bandwidth-adjustment {
-  amount?, value? : bandwidth-range;
+   offset?, value? : bandwidth-range;
 };
 
+/**
+ * Manages capacity on a terminal.
+ */
 type network-terminal [
-  call identify => okay { name : terminal-id };
+  /**
+   * Identify the terminal within its network.
+   */
+  call identify
+    /**
+     * Identifies the terminal.
+     * 
+     * @param name the local name of the terminal
+     */
+    => okay { name : terminal-id };
 
-  call get-label-range => okay { min, max : label-id };
+  /**
+   * Get the total range of valid labels on this terminal.
+   * 
+   */
+  call get-label-range
+    /**
+     * Stipulates the minimum and maximum valid labels on this terminal.
+     *
+     * @param min the minimum label value
+     *
+     * @param max the maximum label value
+     */
+    => okay { min, max : label-id };
 
+  /**
+   * Get the bandwidth allocation on this terminal.
+   */
   call get-bandwidth
-    => okay { status : terminal-direction -> bandwidth-range };
+    /**
+     * Okay.
+     * 
+     * @param status the bandwidth allocated on this terminal
+     */
+    => okay { status : flow-direction -> bandwidth-range };
 
+  /**
+   * Change the bandwidth allocation on this terminal.
+   *
+   * @param action the amount to change by, or absolute setting
+   */
   call adjust-bandwidth {
-    action : terminal-direction -> bandwidth-adjustment;
+    action : flow-direction -> bandwidth-adjustment;
   };
 ];
 
+/**
+ * Summarizes services currently running on a network.
+ * 
+ * @param allocations an indication of which endpoints are occupied by
+ * which services
+ * 
+ * @param service-specs the committed specifications of each service
+ */
 type network-dump {
   allocations : terminal-id -> label-id -> service-id;
   service-specs : service-id -> service-specification;
 };
 
+/**
+ * Manages an abstract network.
+ */
 type network-manager [
-  call get-controller => okay { controller : network-controller };
+  /**
+   * Get the controller of the network.  This is used to create
+   * and manage services.
+   */
+  call get-controller
+    /**
+     * Provides the service controller interface.
+     *
+     * @param controller the controller interface
+     */
+    => okay { controller : network-controller };
 
+  /**
+   * Get a summary of all services on this network.
+   */
   call dump
+    /**
+     * Provides a summary of all services on this network.
+     *
+     * @param dump the service summary
+     */
     => okay { dump : network-dump };
 
+  /**
+   * Remove a terminal from this network.
+   *
+   * @param name the local terminal name
+   */
   call remove-terminal { name : terminal-id }
+    /**
+     * Advises that the terminal has been removed.
+     */
     => okay
+    /**
+     * Advises that the terminal name is unknown.
+     */
     => unknown
+    /**
+     * Advises that the terminal cannot be removed while it is in use.
+     */
     => in-use;
 
+  /**
+   * Get the management interface for a terminal.
+   *
+   * @param name the local terminal name
+   */
   call get-terminal { name : terminal-id }
+    /**
+     * Provides a terminal's management interface.
+     *
+     * @param terminal the interface
+     */
     => okay { terminal : network-terminal }
+    /**
+     * Advises that no terminal with the given name exists.
+     */
     => unknown;
 ];
 
+/**
+ * Expresses how a switch terminal maps to a port of the
+ * underlying fabric.
+ */
 type terminal-specification string;
 
+/**
+ * Manages an abstract switch.
+ */
 type network-switch [
   inherit network-manager;
 
+  /**
+   * Create a terminal.
+   *
+   * @param name the new terminal's name
+   *
+   * @param spec the implementation-specific terminal mapping
+   */
   call add-terminal {
     name : terminal-id;
     spec : terminal-specification;
-  } => okay
+  }
+    /**
+     * Advises that the terminal was created.
+     */
+    => okay
+    /**
+     * Advises that the terminal was not created because a
+     * terminal with the same name already exists.
+     */
     => name-in-use
+    /**
+     * Advises that the terminal was not created because its
+     * mapping is invalid.
+     *
+     * @param detail a reason for rejecting the specification
+     */
     => invalid-specification { detail : string };
 
+  /**
+   * Get the mappings of selected terminals.
+   *
+   * @param names the local names of terminals whose mappings are sought
+   */
   call get-terminal-map { names : &terminal-id }
-    => okay { specs : terminal-id -> terminal-specification }
-    => unknown;
+    /**
+     * Advises of terminal mappings.
+     *
+     * @param specs a mapping from terminal names to specifications
+     *
+     * @param unknown names of unknown terminals
+     */
+    => okay {
+      specs : terminal-id -> terminal-specification;
+      unknown : &terminal-id;
+    };
 ];
 
+/**
+ * Specifies a trunk between terminals of two distinct networks.
+ * The two terminals only have an ordering because they have distinct
+ * capacities.
+ *
+ * @param from the 'source' terminal
+ *
+ * @param to the 'destination' terminal
+ */
 type trunk-specification {
-  from, to : network-terminal;
+  start, finish : network-terminal;
 };
 
+/**
+ * Indicates the reason attempting to open or close a tunnel failed.
+ */
+type tunnel-failure <
+  /**
+   * Indicates that the label is in use.
+   */
+  in-use
+
+  /**
+   * Indicates that the specified start-finish mapping contradicts
+   * the current mapping.
+   */
+  contradiction
+
+  /**
+   * Indicates that the label is outside the hard limit of the
+   * start terminal.
+   */
+  start-invalid
+
+  /**
+   * Indicates that the label is outside the hard limit of the
+   * finish terminal.
+   */
+  finish-invalid>;
+
+/**
+ * Expresses the cost of traversing a trunk.
+ */
 type trunk-metric .3;
 
+/**
+ * Manages the capacity of a trunk.
+ */
 type network-trunk [
-  call get-inverse => okay { trunk : network-trunk };
+  /**
+   * Get an inverse view of this trunk.
+   */
+  call get-inverse
+    /**
+     * Accept the management interface of the inverse view of this trunk.
+     *
+     * @param trunk the inverse view of this trunk
+     */
+    => okay { trunk : network-trunk };
 
-  call get-terminals => okay { start, end : inferior-terminal-id };
+  /**
+   * 
+   */
+  call get-terminals
+    /**
+     * 
+     */
+    => okay { start, finish : inferior-terminal-id };
 
-  call get-metric => okay { metric : trunk-metric };
+  /**
+   * Get the ambidirectional cost of this trunk.
+   */
+  call get-metric
+    /**
+     * Advises of the cost of this trunk.
+     *
+     * @param metric the ambidirectional cost of this trunk
+     */
+    => okay { metric : trunk-metric };
 
+  /**
+   * Set the ambidirectional cost of this trunk.
+   *
+   * @param the cost of this trunk
+   */
   call set-metric { metric : trunk-metric }
+    /**
+     * Advises that the cost of the trunk has been updated.
+     */
     => okay
-    => invalid-metric;
+    /**
+     * Advises that the provided metric is invalid.
+     *
+     * @param detail an explanation of the invalidity
+     */
+    => invalid-metric { detail : string };
 
+  /**
+   * 
+   */
   call get-bandwidths
+    /**
+     * 
+     */
     => okay { upstream, downstream : bandwidth-range };
 
+  /**
+   * Set or adjust the bandwidth capacities of this trunk.
+   */
   call set-bandwidths { upstream?, downstream? : bandwidth-adjustment }
+    /**
+     * Advises that all the offered adjustments were accepted.
+     */
     => okay
+    /**
+     * Advises of which adjustments were not accepted.
+     */
     => invalid { upstream?, downstream? : bandwidth-range };
 
-  call open-tunnels { start-base, end-base? : label-id; amount? : 0... }
-    => okay;
+  /**
+   * Open a range of labels across this trunk. The start and finish
+   * ends need not use the same set of labels, allowing for more
+   * obscure configurations where the trunk is not a simple link, and
+   * the label is translated somehow in transit.
+   *
+   * @param start-base the first label to be enabled on the 'start'
+   * side of the trunk
+   *
+   * @param finish-base the first label to be enabled on the 'finish'
+   * side of the trunk; defaults to {@arg start-base}
+   *
+   * @param amount the number of labels to enable
+   */
+  call open-tunnels { start-base, finish-base? : label-id; amount? : 0... }
+    /**
+     * Indicates the result of configuring each label. 
+     */
+    => okay
+    /**
+     * Indicates the reason why no tunnels were configured.
+     *
+     * @param judgements a mapping from start label to failure reason 
+     */
+    => failure { judgements : label-id -> tunnel-failure };
 
-  call close-tunnels { start-base, end-base? : label-id; amount? : 0... }
-    => okay;
+  /**
+   * Close a range of labels across this trunk. The start and finish
+   * ends need not use the same set of labels, allowing for more
+   * obscure configurations where the trunk is not a simple link, and
+   * the label is translated somehow in transit.
+   *
+   * @param start-base the first label to be enabled on the 'start'
+   * side of the trunk
+   *
+   * @param finish-base the first label to be enabled on the 'finish'
+   * side of the trunk; defaults to {@arg start-base}
+   *
+   * @param amount the number of labels to enable
+   */
+  call close-tunnels { start-base, finish-base? : label-id; amount? : 0... }
+    /**
+     * Indicates the result of configuring each label. 
+     */
+    => okay
+    /**
+     * Indicates the reason why no tunnels were configured.
+     *
+     * @param judgements a mapping from start label to failure reason 
+     */
+    => failure { judgements : label-id -> tunnel-failure };
 
+  /**
+   * Get the status of tunnels.
+   *
+   * @param at-start an optional set of start labels
+   */
   call get-tunnels { at-start? : &label-id }
+    /**
+     * Advises on which tunnels are available.
+     *
+     * @param map a mapping from start labels to finish labels
+     */
     => okay { map : label-id -> label-id };
 
-  call set-commission { status : boolean } => okay;
+  /**
+   * Set the trunk's general availability for new services. No new
+   * services will be plotted over a decommissioned trunk, and the
+   * aggregator may use the advice to re-plot existing services so that they
+   * avoid the trunk.
+   *
+   * @param status whether the trunk should be placed into commission
+   * ({@true}) or decommissioned ({@false})
+   */
+  call set-commission { status : boolean }
+    /**
+     * Advises that the new commission status has been set.
+     */
+     => okay;
 
-  call get-commission => okay { status : boolean };
+  /**
+   * Get the trunk's general availability for new services.
+   */
+  call get-commission
+    /**
+     * Advises on the trunk's commission status.
+     *
+     * @param status {@true} if the trunk is in commission; {@false}
+     * if it is decommissioned
+     */
+     => okay { status : boolean };
 ];
 
+/**
+ * Identifies a terminal in another (inferior) network.
+ *
+ * @param name the local name of the terminal within its network
+ *
+ * @param ctrl the reference to the controller interface of the
+ * inferior network
+ */
 type inferior-terminal-id {
   name : terminal-id;
   ctrl : network-controller;
 };
 
+type terminal-disposition <internal external>;
+
+/**
+ * Manages an aggregator.
+ */
 type aggregator [
   inherit network-manager;
 
+  /**
+   * Define a new terminal.
+   *
+   * @param name the new terminal's name
+   *
+   * @param inferior the inferior's service control interface and
+   * the name of the inferior's terminal
+   */
   call add-terminal {
     name : terminal-id;
-    inferior : network-terminal;
-  } => okay
+    inferior : inferior-terminal-id;
+  }
+    /**
+     * Advises that the new terminal has been created.
+     */
+    => okay
+    /**
+     * Advises that the terminal could not be created because the
+     * name is already in use.
+     */
     => name-in-use;
 
-  call add-trunk { from, to : inferior-terminal-id }
+  /**
+   * Create a trunk between two terminals of inferior networks.
+   */
+  call add-trunk { start, finish : inferior-terminal-id }
+    /**
+     * Advises that the trunk was successfully created.
+     * 
+     * @param trunk the management interface of the new trunk
+     */
     => okay { trunk : network-trunk }
-    => in-use { conflicts : &inferior-terminal-id };
+    /**
+     * Advises that the proposed trunk involves a terminal already
+     *
+     * @param conflicts a mapping from conflicting terminal to its current use
+     */
+    => in-use { conflicts : inferior-terminal-id -> terminal-disposition };
 
-  call get-trunk { from : inferior-terminal-id }
+  /**
+   * Get the management interface for trunk, given its start terminal.
+   */
+  call get-trunk { start : inferior-terminal-id }
+    /**
+     * Provides the management interface of a trunk.
+     * 
+     * @param trunk the management interface of the requested trunk
+     */
     => okay { trunk : network-trunk }
-    => unknown;
+    /**
+     * Advises that the terminal was not recognized.
+     */
+    => unknown
+    /**
+     * Advises that the terminal is not part of a trunk.
+     */
+    => unconnected;
 
+  /**
+   * Destroy a trunk, identified by either of its terminals.
+   */
   call remove-trunk { either : inferior-terminal-id }
+    /**
+     * Advises that the trunk was destroyed.
+     */
     => okay
+    /**
+     * Advises that the trunk could not be destroyed because services
+     * are using it.
+     */
     => in-use
-    => unknown;
+    /**
+     * Advise that the terminal was not recognized.
+     */
+    => unknown
+    /**
+     * Advises that the terminal is not part of a trunk.
+     */
+    => unconnected;
 ];
