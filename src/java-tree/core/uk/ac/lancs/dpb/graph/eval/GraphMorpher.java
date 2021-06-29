@@ -70,14 +70,14 @@ public class GraphMorpher {
     /**
      * The strength of air resistance to damp motion
      */
-    private final double airResistance = 0.999999;
+    private final double airResistance = 0.999999999;
 
     /**
      * The maximum simulation step
      */
     private final double maxDelta = 0.1;
 
-    private final double rotationDamp = 1.0;
+    private final double rotationDamp = 1.9;
 
     /**
      * Re-centre all vertices on the centre of mass.
@@ -96,9 +96,13 @@ public class GraphMorpher {
         vertexes.parallelStream().forEach(v -> v.move(xsh, ysh));
     }
 
+    private double meanRot;
+
     private double angVelVar;
 
     private double fleeVar;
+
+    private double maxRadius;
 
     /**
      * Compute the variance of the rotation of all vertices.
@@ -108,11 +112,18 @@ public class GraphMorpher {
     private void computeRotationVariance() {
         vertexes.parallelStream().forEach(Mote::updateRotation);
 
+        /* Find the greatest distance of any mote from the origin.
+         * Ignore vertices in the inner 10% (by radius). */
+        maxRadius = Math.sqrt(vertexes.parallelStream().mapToDouble(m -> m.r2)
+            .max().getAsDouble());
+        final double cutOff = Math.pow(maxRadius * 0.1, 2.0);
+
         double fleeSum = 0.0, fleeSqSum = 0.0;
 
         double sum = 0.0;
         double sqsum = 0.0;
         for (var v : vertexes) {
+            if (v.r2 < cutOff) continue;
             final double rot = v.avy;
             sum += rot;
             sqsum += rot * rot;
@@ -128,11 +139,14 @@ public class GraphMorpher {
         fleeSum /= n;
         fleeSqSum /= n;
 
-        angVelVar = sqsum - sum * sum;
+        this.meanRot = sum;
+        this.angVelVar = sqsum - sum * sum;
         this.fleeVar = fleeSqSum - fleeSum * fleeSum;
 
-        final double factor = rotationDamp * sum;
-        vertexes.parallelStream().forEach(m -> m.killRotation(factor));
+        if (true) {
+            final double factor = rotationDamp * sum;
+            vertexes.parallelStream().forEach(m -> m.killRotation(factor));
+        }
     }
 
     /**
@@ -313,8 +327,8 @@ public class GraphMorpher {
         }
 
         void killRotation(double factor) {
-            vx += y * factor * factor * factor;
-            vy -= x * factor * factor * factor;
+            vx += y * factor;
+            vy -= x * factor;
         }
 
         /**
@@ -390,9 +404,10 @@ public class GraphMorpher {
      * threshold given by targetFraction. The remaining arrays are
      * derived from the first two, and act as working state or
      * precomputed values during the simulation. */
-    private final long[] steadyLimit = { 1000, 10000, 100000 };
+    private final long[] steadyLimit = { 1000, 2000, 3000, 4000, 5000, 6000 };
 
-    private final double[] targetFraction = { 0.00001, 0.0001, 0.001 };
+    private final double[] targetFraction =
+        { 0.00001, 0.001, 0.1, 0.5, 0.6, 0.7 };
 
     private final double[] lowTarget = new double[steadyLimit.length];
 
@@ -400,10 +415,18 @@ public class GraphMorpher {
 
     private final long[] steady = new long[steadyLimit.length];
 
+    private final StabilityDetector stabilityDetector =
+        new StabilityDetector(0.9, 4,
+                              StabilityDetector.geometricProgression(1e-6,
+                                                                     0.01),
+                              StabilityDetector.intArithmeticProgression(8000,
+                                                                         4000));
+
     private void trackRotation() {
         computeRotationVariance();
-        final double signal = angVelVar * fleeVar;
-        if (false) System.err.printf("av=%g dps; avv=%g fv=%g prod=%g%n",
+        final double signal = Math.sqrt(angVelVar);
+        // * fleeVar * meanRot;
+        if (false) System.err.printf("av=%.3g dps; avv=%.3g fv=%.3g prod=%.3g",
                                      Math.sqrt(angVelVar) / Math.PI * 180.0,
                                      angVelVar, fleeVar, angVelVar * fleeVar);
 
@@ -414,8 +437,15 @@ public class GraphMorpher {
                 highTarget[i] = signal * (1.0 + targetFraction[i]);
                 steady[i] = cycle;
             }
+            if (false) System.err
+                .printf(", %d%%",
+                        (int) ((cycle - steady[i]) * 100.0 / steadyLimit[i]));
         }
+        if (false) System.err.printf("%n");
+        if (stabilityDetector.recordAndTest(signal)) stable = true;
     }
+
+    private boolean stable;
 
     private final Collection<Edge<Mote>> edges;
 
@@ -716,9 +746,10 @@ public class GraphMorpher {
         trackRotation();
 
         /* Stop when we detect stability. */
-        for (int i = 0; i < steady.length; i++)
+        if (false) for (int i = 0; i < steady.length; i++)
             if (cycle - steady[i] > steadyLimit[i]) return false;
         cycle++;
+        if (stable) return false;
         return true;
     }
 
