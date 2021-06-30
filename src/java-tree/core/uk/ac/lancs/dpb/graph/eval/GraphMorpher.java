@@ -162,7 +162,7 @@ public class GraphMorpher {
      */
     private class Mote extends Vertex {
         /**
-         * Put this mote at its unqiue distance from the origin.
+         * Put this mote at its unique distance from the origin.
          */
         void spread() {
             final double dist = Math.hypot(x, y);
