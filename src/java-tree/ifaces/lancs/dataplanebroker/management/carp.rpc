@@ -224,9 +224,9 @@ type network-switch [
  * The two terminals only have an ordering because they have distinct
  * capacities.
  *
- * @param from the 'source' terminal
+ * @param start the 'source' terminal
  *
- * @param to the 'destination' terminal
+ * @param finish the 'destination' terminal
  */
 type trunk-specification {
   start, finish : network-terminal;
@@ -265,6 +265,19 @@ type tunnel-failure <
 type trunk-metric .3;
 
 /**
+ * Identifies a terminal in another (inferior) network.
+ *
+ * @param name the local name of the terminal within its network
+ *
+ * @param ctrl the reference to the controller interface of the
+ * inferior network
+ */
+type inferior-terminal-id {
+  name : terminal-id;
+  ctrl : network-controller;
+};
+
+/**
  * Manages the capacity of a trunk.
  */
 type network-trunk [
@@ -280,11 +293,15 @@ type network-trunk [
     => okay { trunk : network-trunk };
 
   /**
-   * 
+   * Identify the terminals defining this trunk.
    */
   call get-terminals
     /**
-     * 
+     * Identifies the terminals defining this trunk.
+     *
+     * @param start the start terminal
+     *
+     * @param finish the finish terminal
      */
     => okay { start, finish : inferior-terminal-id };
 
@@ -317,11 +334,13 @@ type network-trunk [
     => invalid-metric { detail : string };
 
   /**
-   * 
+   * Get the bandwidths, something, something.
    */
   call get-bandwidths
     /**
-     * 
+     * Provides the trunk's bandwidth usage or capacity.  Not sure really.
+     * @param upstream the upstream something
+     * @param downstream the downstream something
      */
     => okay { upstream, downstream : bandwidth-range };
 
@@ -335,6 +354,10 @@ type network-trunk [
     => okay
     /**
      * Advises of which adjustments were not accepted.
+     *
+     * @param upstream invalid upstream adjustments
+     *
+     * @param downstream invalid downstream adjustments
      */
     => invalid { upstream?, downstream? : bandwidth-range };
 
@@ -432,19 +455,18 @@ type network-trunk [
 ];
 
 /**
- * Identifies a terminal in another (inferior) network.
- *
- * @param name the local name of the terminal within its network
- *
- * @param ctrl the reference to the controller interface of the
- * inferior network
+ * Expresses how a terminal is used.
  */
-type inferior-terminal-id {
-  name : terminal-id;
-  ctrl : network-controller;
-};
+type terminal-disposition <
+  /**
+   * Expresses that a terminal is used to build a trunk.
+   */
+  internal
 
-type terminal-disposition <internal external>;
+  /**
+   * Expresses that a terminal can be used to express services .
+   */
+  external>;
 
 /**
  * Manages an aggregator.

@@ -22,6 +22,8 @@ type terminal-id string;
 
 /**
  * Delete me.  I don't seem to be in use.
+ * @param term-from the start terminal
+ * @param term-to the finish terminal
  */
 type network-edge {
   term-from, term-to : terminal-id;
@@ -29,6 +31,8 @@ type network-edge {
 
 /**
  * Delete me.  I don't seem to be in use.
+ * @param forward the capacity in the direction from start to finish
+ * @param reverse the capacity in the direction from finish to start
  */
 type edge-metrics {
   forward, reverse : bandwidth-range;
@@ -100,7 +104,8 @@ type end-point-judgement <
  */
 type service-status <
   /**
-   *
+   * Whether the provisional specification can be met is being
+   * determined.
    */
   meeting
 
@@ -140,7 +145,7 @@ type service-status <
  */
 type service-observer [
   /**
-   * The service's state has changed.
+   * Notify that the service's state has changed.
    *
    * @param status the new state
    */
@@ -227,6 +232,10 @@ type network-service [
      */
     => okay { spec : service-specification };
 
+  /**
+   * Wait until the service's state is stable. The call blocks until
+   * this condition is met.
+   */
   call await-stability
     /**
      * Advises that the provisional specification cannot be accomplished.
@@ -287,6 +296,8 @@ type network-controller [
    * Get the interface of a service with a given id.
    *
    * @param id the service id
+   *
+   * @return information about the requested service
    */
   call get-service { id : service-id }
     /**
