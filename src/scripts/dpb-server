@@ -6,7 +6,7 @@ EXTRAS=()
 ORIG_CONFIG="$HOME/.config/dataplane-broker/server.properties"
 CONFIG="$ORIG_CONFIG"
 unset LOG_CONFIG
-unset USMUX
+unset UNIXBIND
 unset ASSERT
 
 while [ $# -gt  0 ] ; do
@@ -39,7 +39,7 @@ while [ $# -gt  0 ] ; do
 	    shift
 	    ;;
 	(-s)
-	    USMUX="$1"
+	    UNIXBIND="$1"
 	    shift
 	    ;;
 	(-f)
@@ -52,7 +52,7 @@ Usage: $0 [options]
        -Ldir	Append dir to jar search path.
        -lname	Search for name.jar in jar search path, and append to
        		classpath.
-       -s addr	Specify the Usmux configuration string.
+       -s addr	Specify the management rendezvous point.
        -f file	Specify the agent configuration file.
        	  	Default: $ORIG_CONFIG
        -ea      Enable Java assertions.
@@ -75,17 +75,16 @@ EOF
     esac
 done
 
-if [ -z "$USMUX" ] ; then
-    printf >&2 '%s: specify -s usmuxconf\n' "$0"
+if [ -z "$UNIXBIND" ] ; then
+    printf >&2 '%s: specify -s bindpath\n' "$0"
     exit 1
 fi
 
 exec jrun "${EXTRAS[@]}" \
-     -lusmux_session -lusmux_server -lusmux_unix -ljavax.json \
+     -ljavax.json \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-server \
      -linitiate-dpb-util -linitiate-dpb-openflow -linitiate-dpb-corsa \
-     -llurest-server-api -llurest-client-api -llurest-service \
      ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
-     -Dprogram.name="$0" -Dusmux.config="$USMUX" \
+     -Dprogram.name="$0" -Dmgmt.bindaddr="$UNIXBIND" \
      -Dnetwork.config.server="$CONFIG" ${ASSERT:+-ea} \
      uk.ac.lancs.networks.apps.server.NetworkServer

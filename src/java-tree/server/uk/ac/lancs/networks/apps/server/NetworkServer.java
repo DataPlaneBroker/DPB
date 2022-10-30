@@ -38,6 +38,12 @@ package uk.ac.lancs.networks.apps.server;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
+import java.net.SocketAddress;
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.ByteChannel;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -55,19 +61,16 @@ import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
-
 import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonReader;
 import javax.json.JsonWriter;
-
 import org.apache.http.ConnectionClosedException;
 import org.apache.http.config.SocketConfig;
 import org.apache.http.impl.bootstrap.HttpServer;
 import org.apache.http.impl.bootstrap.ServerBootstrap;
-
 import uk.ac.lancs.agent.Agent;
 import uk.ac.lancs.agent.AgentCreationException;
 import uk.ac.lancs.agent.AgentFactory;
@@ -90,10 +93,6 @@ import uk.ac.lancs.networks.mgmt.Switch;
 import uk.ac.lancs.networks.rest.FiveGExchangeNetworkControlServer;
 import uk.ac.lancs.networks.rest.RESTNetworkControlServer;
 import uk.ac.lancs.rest.server.RESTDispatcher;
-import uk.ac.lancs.scc.usmux.Session;
-import uk.ac.lancs.scc.usmux.SessionException;
-import uk.ac.lancs.scc.usmux.SessionServer;
-import uk.ac.lancs.scc.usmux.SessionServerFactory;
 
 /**
  * Instantiates network agents from configuration, and serves
@@ -113,10 +112,11 @@ import uk.ac.lancs.scc.usmux.SessionServerFactory;
  */
 public final class NetworkServer {
     private final Map<String, Network> networks = new HashMap<>();
+
     private final Executor executor;
 
-    NetworkServer(Executor executor, SessionServer usmuxServer,
-                  RESTDispatcher restMapping, Configuration config)
+    NetworkServer(Executor executor, RESTDispatcher restMapping,
+                  Configuration config)
         throws AgentCreationException,
             ServiceCreationException {
         this.executor = executor;
@@ -143,16 +143,15 @@ public final class NetworkServer {
             public Collection<String> getKeys(Class<?> type) {
                 if (type == NetworkControl.class) return Collections
                     .unmodifiableCollection(networks.keySet());
-                if (type == Executor.class)
-                    return Collections.singleton(null);
+                if (type == Executor.class) return Collections.singleton(null);
                 return Collections.emptySet();
             }
         });
 
         /* Instantiate all agents. */
         System.out.printf("Creating agents...%n");
-        agent_instantiation:
-        for (Configuration agentConf : config.references("agents")) {
+        agent_instantiation: for (Configuration agentConf : config
+            .references("agents")) {
             String name = agentConf.get("name");
             if (name == null)
                 throw new IllegalArgumentException("agent config ["
@@ -176,8 +175,7 @@ public final class NetworkServer {
             String agentId = entry.getKey();
             Agent agent = entry.getValue();
             for (String serviceKey : agent.getKeys(Network.class)) {
-                Network network =
-                    agent.findService(Network.class, serviceKey);
+                Network network = agent.findService(Network.class, serviceKey);
                 if (network == null) continue;
                 String networkName = network.getControl().name();
                 networks.put(networkName, network);
@@ -197,8 +195,8 @@ public final class NetworkServer {
         /* Add network controller to the 5GExchange REST API. */
         for (Map.Entry<String, Network> entry : networks.entrySet()) {
             String prefix = "/5gnetwork/" + entry.getKey();
-            new FiveGExchangeNetworkControlServer(entry.getValue()
-                .getControl()).bind(restMapping, prefix);
+            new FiveGExchangeNetworkControlServer(entry.getValue().getControl())
+                .bind(restMapping, prefix);
         }
     }
 
@@ -228,21 +226,23 @@ public final class NetworkServer {
     }
 
     private class Interaction implements Runnable {
-        private final Session sess;
+        private final ByteChannel sess;
+
         private Collection<String> managables = new HashSet<>();
+
         private Collection<String> controllables = new HashSet<>();
 
         JsonNetworkServer server = null;
 
-        public Interaction(Session sess) {
+        public Interaction(ByteChannel sess) {
             this.sess = sess;
         }
 
         @Override
         public void run() {
             List<Runnable> actions = new ArrayList<>();
-            try (Session sess = this.sess) {
-                InputStream in = sess.getInputStream();
+            try (var sess = this.sess) {
+                InputStream in = new ByteChannelInputStream(sess);
 
                 /* Read lines from the local caller (in the local
                  * charset), until 'drop' is given. A command 'manage
@@ -253,8 +253,8 @@ public final class NetworkServer {
                  * :<regex>' sets the authorization pattern for
                  * modifying existing services. */
                 String line;
-                while ((line = readLine(in)) != null
-                    && !(line = line.trim()).equals("drop")) {
+                while ((line = readLine(in)) != null &&
+                    !(line = line.trim()).equals("drop")) {
                     String[] words = line.trim().split("\\s+", 2);
                     if (words.length < 2) continue;
                     switch (words[0]) {
@@ -262,15 +262,17 @@ public final class NetworkServer {
                         NetworkControl.SERVICE_AUTH_TOKEN
                             .set(words[1].substring(1));
                         break;
+
                     case "auth-match":
                         Service.AUTH_TOKEN
                             .set(Pattern.compile(words[1].substring(1)));
                         break;
+
                     case "manage":
                         managables.add(words[1]);
                         // System.err.printf("%s is managable%n",
                         // words[1]);
-                        // Fall through.
+                        /* Fall through. */
                     case "control":
                         controllables.add(words[1]);
                         // System.err.printf("%s is controllable%n",
@@ -291,8 +293,8 @@ public final class NetworkServer {
                  * and respond to them. */
                 do {
                     try (JsonReader jin = new ContinuousJsonReader(in);
-                        JsonWriter jout = new ContinuousJsonWriter(sess
-                            .getOutputStream())) {
+                         JsonWriter jout =
+                             new ContinuousJsonWriter(new ByteChannelOutputStream(sess))) {
                         /* Fail if the selected network is not
                          * accessible. */
                         if (!controllables.contains(networkName)) {
@@ -338,8 +340,7 @@ public final class NetworkServer {
                                     new JsonNetworkServer(network, true);
                             }
                         } else {
-                            this.server =
-                                new JsonNetworkServer(network, false);
+                            this.server = new JsonNetworkServer(network, false);
                         }
                         jout.writeObject(builder.build());
 
@@ -382,8 +383,8 @@ public final class NetworkServer {
                                             + " -> " + rsp);
                                         session.write(rsp);
                                     }
-                                    logger.fine(() -> "Request complete: "
-                                        + rr);
+                                    logger
+                                        .fine(() -> "Request complete: " + rr);
                                 }
                             });
                         } while (true);
@@ -399,8 +400,7 @@ public final class NetworkServer {
                 action.run();
         }
 
-        private Iterable<JsonObject> process(JsonObject req,
-                                             Executor onClose) {
+        private Iterable<JsonObject> process(JsonObject req, Executor onClose) {
             try {
                 if (server != null) return server.interact(req, onClose);
                 return one(Json.createObjectBuilder()
@@ -420,12 +420,13 @@ public final class NetworkServer {
         }
     }
 
-    void interact(Session sess) {
+    void interact(ByteChannel sess) {
         Interaction ixn = new Interaction(sess);
         executor.execute(ixn);
     }
 
     private static final String DEFAULT_HOST_TEXT = "0.0.0.0";
+
     private static final int DEFAULT_PORT = 4753;
 
     /**
@@ -440,10 +441,9 @@ public final class NetworkServer {
      * 
      * <dd>Identifies the program to appear in error messages.
      * 
-     * <dt><samp>usmux.config</samp>
+     * <dt><samp>mgmt.bindaddr</samp>
      * 
-     * <dd>Specifies the Usmux configuration, normally provided by the
-     * Usmux daemon invoking this process.
+     * <dd>Specifies the Unix-domain socket.
      * 
      * <dt><samp>network.config.server</samp>
      * 
@@ -486,15 +486,20 @@ public final class NetworkServer {
      * @param args Arguments are ignored.
      */
     public static void main(String[] args) {
-        String usmuxConf = System.getProperty("usmux.config");
+        Path mgmtAddrTxt = Paths.get(System.getProperty("mgmt.bindaddr"));
         Path dataplaneConf =
             Paths.get(System.getProperty("network.config.server"));
 
+        SocketAddress mgmtAddr = UnixDomainSocketAddress.of(mgmtAddrTxt);
+
         try {
-            /* Create the Usmux session server. We don't start it until
-             * we have all our configured components in place. */
-            SessionServer usmuxServer =
-                SessionServerFactory.makeServer(usmuxConf);
+            /* Create the Unix-domain management socket. Ensure the
+             * rendezvous point is deleted on exit, provided binding is
+             * successful. */
+            ServerSocketChannel mgmtServer =
+                ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+            mgmtServer.bind(mgmtAddr);
+            mgmtAddrTxt.toFile().deleteOnExit();
 
             Executor executor = Executors.newCachedThreadPool();
 
@@ -503,36 +508,35 @@ public final class NetworkServer {
             Configuration config;
             config = configCtxt.get(dataplaneConf.toFile());
             RESTDispatcher restMapping = new RESTDispatcher();
-            NetworkServer us =
-                new NetworkServer(executor, usmuxServer, restMapping, config);
+            NetworkServer us = new NetworkServer(executor, restMapping, config);
 
             /* Create HTTP server. */
             InetAddress host = InetAddress
                 .getByName(config.get("rest.host", DEFAULT_HOST_TEXT));
             int port = config.getInt("rest.port", DEFAULT_PORT);
-            HttpServer webServer = ServerBootstrap.bootstrap()
-                .setLocalAddress(host).setListenerPort(port)
-                .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
-                    .custom().setTcpNoDelay(true).build())
-                .setExceptionLogger((ex) -> {
-                    try {
-                        throw ex;
-                    } catch (ConnectionClosedException e) {
-                        // Ignore.
-                    } catch (Throwable t) {
-                        t.printStackTrace(System.err);
-                    }
-                }).setHandlerMapper(restMapping).create();
+            HttpServer webServer =
+                ServerBootstrap
+                    .bootstrap().setLocalAddress(host).setListenerPort(port)
+                    .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
+                        .custom().setTcpNoDelay(true).build())
+                    .setExceptionLogger((ex) -> {
+                        try {
+                            throw ex;
+                        } catch (ConnectionClosedException e) {
+                            // Ignore.
+                        } catch (Throwable t) {
+                            t.printStackTrace(System.err);
+                        }
+                    }).setHandlerMapper(restMapping).create();
             webServer.start();
 
             /* Start to accept calls. */
-            usmuxServer.start();
-            Session sess;
-            while ((sess = usmuxServer.accept()) != null) {
-                us.interact(sess);
+            while (true) {
+                SocketChannel ch = mgmtServer.accept();
+                us.interact(ch);
             }
-        } catch (SessionException | IOException | AgentCreationException
-            | ServiceCreationException e) {
+        } catch (IOException | AgentCreationException |
+                 ServiceCreationException e) {
             e.printStackTrace();
             System.exit(1);
         }
