@@ -81,7 +81,7 @@ if [ -z "$UNIXBIND" ] ; then
 fi
 
 exec jrun "${EXTRAS[@]}" \
-     -ljavax.json \
+     -ljavax.json -lhttpcore \
      -L"$HERE/share/java" -linitiate-dpb-core -linitiate-dpb-server \
      -linitiate-dpb-util -linitiate-dpb-openflow -linitiate-dpb-corsa \
      ${LOG_CONFIG+-Djava.util.logging.config.file="$LOG_CONFIG"} \
