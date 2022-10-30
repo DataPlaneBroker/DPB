@@ -37,6 +37,7 @@ package uk.ac.lancs.networks.apps.server;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.BindException;
 import java.net.InetAddress;
 import java.net.SocketAddress;
 import java.net.StandardProtocolFamily;
@@ -498,7 +499,12 @@ public final class NetworkServer {
              * successful. */
             ServerSocketChannel mgmtServer =
                 ServerSocketChannel.open(StandardProtocolFamily.UNIX);
-            mgmtServer.bind(mgmtAddr);
+            try {
+                mgmtServer.bind(mgmtAddr);
+            } catch (BindException ex) {
+                System.err.printf("Can't bind management to %s%n", mgmtAddrTxt);
+                System.exit(1);
+            }
             mgmtAddrTxt.toFile().deleteOnExit();
 
             Executor executor = Executors.newCachedThreadPool();
@@ -514,9 +520,9 @@ public final class NetworkServer {
             InetAddress host = InetAddress
                 .getByName(config.get("rest.host", DEFAULT_HOST_TEXT));
             int port = config.getInt("rest.port", DEFAULT_PORT);
-            HttpServer webServer =
-                ServerBootstrap
-                    .bootstrap().setLocalAddress(host).setListenerPort(port)
+            try {
+                HttpServer webServer = ServerBootstrap.bootstrap()
+                    .setLocalAddress(host).setListenerPort(port)
                     .setServerInfo("DPB/1.0").setSocketConfig(SocketConfig
                         .custom().setTcpNoDelay(true).build())
                     .setExceptionLogger((ex) -> {
@@ -528,7 +534,11 @@ public final class NetworkServer {
                             t.printStackTrace(System.err);
                         }
                     }).setHandlerMapper(restMapping).create();
-            webServer.start();
+                webServer.start();
+            } catch (BindException ex) {
+                System.err.printf("Can't bind REST to %s:%d%n", host, port);
+                System.exit(1);
+            }
 
             /* Start to accept calls. */
             while (true) {
